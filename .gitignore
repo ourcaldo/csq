@@ -1,0 +1,31 @@
+# dependencies
+node_modules/
+
+# next.js build output
+.next/
+out/
+
+# production
+build/
+
+# env files — never commit secrets
+.env
+.env.local
+.env.*.local
+.env.production
+
+# logs
+*.log
+npm-debug.log*
+
+# prisma
+prisma/migrations/migration_lock.toml
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# misc
+*.pem
