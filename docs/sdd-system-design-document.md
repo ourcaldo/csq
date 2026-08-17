@@ -636,6 +636,7 @@ model Message {
   senderUser    User?             @relation("MessageSenderUser", fields: [senderUserId], references: [id])
   body          String
   waMessageId   String?
+  isInternal    Boolean           @default(false)  // true = Private Note, never sent to WhatsApp
   createdAt     DateTime          @default(now())
 
   @@index([tenantId, conversationId, createdAt])
@@ -686,7 +687,7 @@ model ConversationTag {
 - FR-WA-012: Channel.provider (CLOUD_API/BAILEYS) + provider-specific config.
 - FR-CT-001: Contact — tenant-scoped per customer phone.
 - FR-IC-001..004 / FR-AS-001..003 / FR-HD-001..003: Conversation — status, assignment (agent or user), channelId, contactId.
-- FR-MS-001: Message — direction, senderType, senderAgent/senderUser, waMessageId.
+- FR-MS-001/FR-MS-005: Message — direction, senderType, senderAgent/senderUser, waMessageId, isInternal (private note).
 - FR-LB-001: Tag (tenant-scoped) + ConversationTag join.
 
 ### 3.3 Entity Relationship Summary
@@ -1149,6 +1150,17 @@ alongside the AI agent.
   Assigning to a human stands the AI down [SRS FR-AS-003, FR-HD-001].
 - `setStatus(conversationId, status)` — OPEN/PENDING/RESOLVED.
 - `addTag` / `removeTag` — manage `ConversationTag` rows.
+- `sendPrivateNote(conversationId, userId, text)` — persist Message
+  (senderType=HUMAN, senderUserId, isInternal=true); **NOT** sent via the
+  provider. Internal notes are visible to team members only
+  [SRS FR-IC-006, FR-MS-005].
+
+**Quick replies (stretch — SRS FR-QR-001..003):**
+- `QuickReply` model (tenant-scoped: title, body, shortcut) — design defined
+  here, deferred to the stretch milestone (not in the initial migration).
+- `/api/dashboard/templates` CRUD (OWNER); the inbox composer inserts a
+  template via `/<shortcut>`.
+- Built only after the core inbox + AI agent flow is demo-stable.
 
 **Real-time updates (no Redis):**
 - `GET /api/dashboard/inbox/stream` — Server-Sent Events endpoint streaming
@@ -1323,6 +1335,7 @@ dashboard-initiated tool calls).
 | POST | `/api/dashboard/inbox/[id]/assign` | Session (OWNER/STAFF) | FR-AS-001, FR-AS-002 | Assign to AI agent or human user |
 | PUT | `/api/dashboard/inbox/[id]/status` | Session (OWNER/STAFF) | FR-IC-004 | Set conversation status (OPEN/PENDING/RESOLVED) |
 | POST | `/api/dashboard/inbox/[id]/tags` | Session (OWNER/STAFF) | FR-LB-002 | Add/remove tags |
+| POST | `/api/dashboard/inbox/[id]/notes` | Session (OWNER/STAFF) | FR-IC-006, FR-MS-005 | Add private note (internal only, never sent) |
 | GET | `/api/dashboard/inbox/stream` | Session (OWNER/STAFF) | FR-IC-001 | SSE stream of inbox updates (no Redis) |
 | GET | `/api/dashboard/contacts` | Session | FR-CT-001 | List contacts |
 | PUT | `/api/dashboard/contacts/[id]` | Session | FR-CT-002 | Edit contact |

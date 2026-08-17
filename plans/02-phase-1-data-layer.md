@@ -115,7 +115,8 @@ All models live in `prisma/schema.prisma`. Every model includes `tenant_id`.
 - [ ] `Message` — id, tenantId, conversationId (FK → Conversation, cascade),
   direction (enum: `INBOUND`, `OUTBOUND`), senderType (enum: `CUSTOMER`,
   `AGENT`, `HUMAN`), senderAgentId (nullable FK → Agent), senderUserId
-  (nullable FK → User), body, waMessageId (nullable), createdAt.
+  (nullable FK → User), body, waMessageId (nullable), isInternal (Boolean,
+  default false — true = Private Note, never sent via provider), createdAt.
 - [ ] Index on `(tenantId, conversationId, createdAt)`.
 
 **Tag / Label:**

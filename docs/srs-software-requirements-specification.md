@@ -433,6 +433,8 @@ Priority: **M** = Must (MVP), **S** = Should (nice to have), **F** = Future.
 | FR-IC-003 | M | The system SHALL allow a human (OWNER or STAFF) to reply to a conversation through the connected WhatsApp channel. | §15.8 |
 | FR-IC-004 | M | Conversations SHALL have a status: OPEN, PENDING, RESOLVED, editable from the dashboard. | §15.8 |
 | FR-IC-005 | M | The inbox SHALL be accessible to OWNER and STAFF roles. | §15.9 |
+| FR-IC-006 | M | Staff SHALL be able to add Private Notes (internal-only messages) to a conversation; these SHALL never be sent to the customer. | §15.8 |
+| FR-IC-007 | M | The conversation list SHALL support Assigned/Unassigned tab filtering, search, and a channel badge per conversation. | §15.8 |
 
 ### 3.23 Messages (MS)
 
@@ -442,6 +444,7 @@ Priority: **M** = Must (MVP), **S** = Should (nice to have), **F** = Future.
 | FR-MS-002 | M | Outbound messages SHALL be sent via the channel's configured provider (Cloud API or Baileys). | §4.4, §23A |
 | FR-MS-003 | M | Cloud API outbound SHALL enforce the 24-hour customer service window for free-form text; outbound outside the window SHALL use approved templates. | §23A |
 | FR-MS-004 | M | Baileys outbound SHALL have no template/window restriction (full parity). | §23A |
+| FR-MS-005 | M | Private Notes SHALL be persisted as internal messages (isInternal=true) and SHALL NOT be dispatched through the WhatsApp provider. | §15.8 |
 
 ### 3.24 Tags / Labels (LB)
 
@@ -475,6 +478,14 @@ Priority: **M** = Must (MVP), **S** = Should (nice to have), **F** = Future.
 | FR-TS-002 | M | An OWNER SHALL be able to invite a STAFF member by email. | §15.9 |
 | FR-TS-003 | M | STAFF SHALL be restricted to inbox actions (reply, assign, tag, resolve) and SHALL NOT reconfigure agents, capabilities, or business data. | §15.9, §18.1 |
 | FR-TS-004 | M | All staff actions in the inbox SHALL be tenant-scoped and audited. | §18.1 |
+
+### 3.28 Quick Replies / Canned Responses (QR) — Stretch
+
+| ID | Priority | Requirement | PRD Trace |
+|----|----------|-------------|-----------|
+| FR-QR-001 | S | The system SHALL support tenant-scoped canned response templates (title, body, shortcut), manageable by the owner. | §15.8 |
+| FR-QR-002 | S | Staff SHALL be able to insert a canned response in the inbox composer via `/<shortcut>`. | §15.8 |
+| FR-QR-003 | S | Quick replies SHALL be built only after the core inbox + AI agent flow is demo-stable. | §15.8 |
 
 ------------------------------------------------------------------------
 
@@ -810,7 +821,7 @@ Each record that can originate from multiple sources carries:
 | §13 Data Authority | FR-CA-001, FR-CA-002, FR-CA-003, FR-CA-004 |
 | §14 Customer Service Agent | FR-CS-001 through FR-CS-007 |
 | §15 Dashboard | FR-DB-001 through FR-DB-009 |
-| §15.8 Conversations Inbox (CRM) | FR-IC, FR-MS, FR-LB, FR-AS, FR-HD, FR-CT |
+| §15.8 Conversations Inbox (CRM) | FR-IC, FR-MS, FR-LB, FR-AS, FR-HD, FR-CT, FR-QR |
 | §15.9 Team & Staff | FR-TS-001..004, FR-AU-007..009 |
 | §16 Approval System | FR-AP-001 through FR-AP-008 |
 | §17 Agent Tool Architecture | FR-TG-001 through FR-TG-008 |

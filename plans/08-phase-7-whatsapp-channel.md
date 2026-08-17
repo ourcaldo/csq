@@ -104,6 +104,9 @@ built in this phase, in parallel.**
     human stands the AI down (FR-AS-003, FR-HD-001).
   - `setStatus(conversationId, status)` — OPEN/PENDING/RESOLVED.
   - `addTag` / `removeTag` — manage `ConversationTag` rows.
+  - `sendPrivateNote(conversationId, userId, text)` — persist Message
+    (senderType=HUMAN, isInternal=true); NOT sent via the provider
+    (FR-IC-006, FR-MS-005).
 - [ ] Role enforcement: a `requireRole("OWNER")` helper guards config APIs;
   inbox APIs accept OWNER or STAFF (FR-AU-009, FR-IC-005). `getAuthSession()`
   returns `role`.
@@ -118,6 +121,7 @@ built in this phase, in parallel.**
 - [ ] `src/pages/api/dashboard/inbox/[id]/assign.ts` — `POST` assign.
 - [ ] `src/pages/api/dashboard/inbox/[id]/status.ts` — `PUT` set status.
 - [ ] `src/pages/api/dashboard/inbox/[id]/tags.ts` — `POST` add/remove tags.
+- [ ] `src/pages/api/dashboard/inbox/[id]/notes.ts` — `POST` private note.
 - [ ] `src/pages/api/dashboard/inbox/stream.ts` — `GET` SSE stream of inbox
   updates (new messages, conversation changes) for the tenant. **No Redis** —
   in-process event fanout; fallback polling via `?since=`.

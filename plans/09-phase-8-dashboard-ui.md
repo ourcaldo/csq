@@ -155,22 +155,31 @@ inbox chat panel is the most interactive piece.
 
 ### 8.9 Inbox — CRM Chat Panel (`/dashboard/inbox`)
 
-**PRD 15.8**
+**PRD 15.8** — layout reference: `docs/assets/reference-cekatai-inbox.png`
+(Cekat.AI-style: conversation list left, chat panel right, channel badges,
+composer toolbar with Reply / Private Note / Template).
 
 - [ ] `index.tsx` — shared inbox:
-  - Left: conversation list (filter by status OPEN/PENDING/RESOLVED, assignee,
-    tag; search by customer name/phone). Unread/active highlighting.
-  - Right: chat panel — message thread (customer / AI agent / human staff
-    bubbles), reply input, mark status, assign, tag.
+  - Left: conversation list with **Assigned / Unassigned tabs**, filters
+    (status OPEN/PENDING/RESOLVED, assignee, tag), search by customer
+    name/phone, channel badge per conversation, unread highlighting.
+  - Right: chat panel — message thread (customer / AI agent / human staff /
+    private-note bubbles, visually distinct), composer toolbar with **Reply**
+    and **Private Note** actions, mark status, assign, tag.
   - Real-time: subscribe to `/api/dashboard/inbox/stream` (SSE) for new
     messages; fallback to polling.
 - [ ] `[id].tsx` — single conversation view (deep-linkable).
 - [ ] Reply: POST `/api/dashboard/inbox/[id]/messages` (human reply via the
   channel's provider — Cloud API 24h window / Baileys free).
+- [ ] Private Note: POST `/api/dashboard/inbox/[id]/notes` — internal-only,
+  never sent to the customer (FR-IC-006, FR-MS-005).
 - [ ] Assign: picker for AI agent or human staff (OWNER/STAFF).
 - [ ] Tags: add/remove via `/api/dashboard/inbox/[id]/tags`.
 - [ ] Status: set OPEN/PENDING/RESOLVED.
 - [ ] Accessible to OWNER and STAFF (FR-IC-005).
+- [ ] **Stretch — Quick replies (FR-QR-001..003):** composer inserts a canned
+  response via `/<shortcut>`; templates CRUD at `/api/dashboard/templates`
+  (OWNER). Build only after the core inbox + AI flow is demo-stable.
 
 ### 8.10 Contacts (`/dashboard/contacts`)
 

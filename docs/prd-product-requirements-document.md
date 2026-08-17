@@ -810,12 +810,23 @@ handle customer conversations alongside the AI agent.
 -   **Human/AI handoff:** a conversation can flow AI → human → AI. When a
     human is assigned, the AI agent stands down for that conversation
     until reassigned back.
+-   **Private notes (MVP):** staff can add internal notes to a
+    conversation — visible to team members only, never sent to the
+    customer (like Cekat.AI's Private Note feature).
+-   **Quick replies / canned responses (stretch):** tenant-scoped
+    templates (title, body, `/shortcut`) insertable from the composer.
+    Built only after the core inbox is stable.
 -   **Contacts:** a tenant-scoped contact record per customer phone
     (name, notes), linked to conversations, orders, and tags.
 -   **Works with both WhatsApp connection methods** (Cloud API and
     Baileys). Human replies respect the connection's constraints (Cloud
     API: 24-hour window + templates for outbound; Baileys: free reply
     anytime).
+
+**Layout reference:** conversation list on the left (Assigned/Unassigned
+tabs, channel badges, search, filters) + chat panel on the right with a
+composer toolbar (Reply, Private Note, Template). See
+`docs/assets/reference-cekatai-inbox.png` (Cekat.AI-style layout).
 
 ## 15.9 Team & Staff Management
 
