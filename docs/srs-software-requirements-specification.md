@@ -156,7 +156,7 @@ API routes. There is no separate backend service.
 | C-004 | PostgreSQL + Prisma + pgvector. No separate vector DB. |
 | C-005 | No Redis, no external task queue. `node-cron` in-process for sync. |
 | C-006 | OpenClaw is the required agent runtime (HackFest mandate). |
-| C-007 | WhatsApp Cloud API is the default channel. Baileys is fallback-only. |
+| C-007 | WhatsApp is pluggable: Cloud API (official) and Baileys (bring-your-own-number) are both supported; owner chooses at onboarding. Baileys carries ToS/ban risk. |
 | C-008 | Auth.js credentials provider (email/password) for MVP. No OAuth. |
 | C-009 | Total RAM budget: 4GB across all containers. |
 | C-010 | Build window: one month (September). |
@@ -209,7 +209,9 @@ Priority: **M** = Must (MVP), **S** = Should (nice to have), **F** = Future.
 | FR-AU-004 | M | The session token SHALL carry `userId` and `tenantId`. API routes SHALL extract these server-side via `getAuthSession()`. | §23B.6, §18.1 |
 | FR-AU-005 | M | The system SHALL provide a registration page that creates both a User and a Tenant in one transaction. | §19 |
 | FR-AU-006 | M | The system SHALL NOT infer owner/admin status from conversation content. Identity is bound through verified platform configuration only. | §18.1 |
-| FR-AU-007 | F | The system MAY support role-based access (admin vs staff) in a future release. | §28 |
+| FR-AU-007 | M | The system SHALL support two roles per tenant: OWNER (full configuration control) and STAFF (inbox handling only). | §15.9, §18.1 |
+| FR-AU-008 | M | The system SHALL allow an OWNER to invite staff by email; staff authenticate via the same Auth.js email/password flow and are tenant-scoped. | §15.9 |
+| FR-AU-009 | M | The system SHALL enforce role-based page protection: configuration pages (agents, data, capabilities, settings) require OWNER; the inbox is open to OWNER and STAFF. | §15.9, §18.1 |
 
 ### 3.3 Agent Management (AG)
 
@@ -343,7 +345,9 @@ Priority: **M** = Must (MVP), **S** = Should (nice to have), **F** = Future.
 | FR-WA-008 | M | The system SHALL mark incoming messages as read after processing. | Plans §7.1 |
 | FR-WA-009 | M | Only text messages SHALL be processed for the MVP. Media (images, audio, documents) is out of scope. | §20, Plans §7.3 |
 | FR-WA-010 | M | The system SHALL support WhatsApp channel configuration (connect/disconnect/test) from the dashboard. | §15, Plans §7.7 |
-| FR-WA-011 | F | Baileys SHALL be available as a fallback ONLY if Cloud API setup becomes a blocker. It is NOT the default. | §23A |
+| FR-WA-011 | M | The system SHALL support Baileys as a first-class "bring your own number" WhatsApp connection (QR/pair-code login), alongside Cloud API. Baileys operates outside WhatsApp ToS and carries ban risk; the UI SHALL warn the owner before enabling it. | §23A |
+| FR-WA-012 | M | The system SHALL let the owner choose the WhatsApp connection method (Cloud API or Baileys) at channel onboarding, storing the choice as `Channel.provider`. | §4.4, §23A |
+| FR-WA-013 | M | Both connection methods SHALL feed the same shared inbox, OpenClaw agent, and Tool Gateway through a common provider interface. | §4.4, §17 |
 
 ### 3.15 Approval System (AP)
 
@@ -411,6 +415,66 @@ Priority: **M** = Must (MVP), **S** = Should (nice to have), **F** = Future.
 | FR-MK-002 | S | The system SHALL provide a features page, how-it-works page, and getting-started page. | §20A |
 | FR-MK-003 | M | Marketing pages SHALL NOT import from dashboard components, and vice versa. Clean route separation. | §20A, §23B.6 |
 | FR-MK-004 | M | Marketing pages are the LOWEST priority and SHALL be built only after all MVP functionality is complete. | §20A |
+
+### 3.21 Contacts (CT)
+
+| ID | Priority | Requirement | PRD Trace |
+|----|----------|-------------|-----------|
+| FR-CT-001 | M | The system SHALL maintain a tenant-scoped Contact record per customer phone (name, notes, phone). | §15.8 |
+| FR-CT-002 | M | Contacts SHALL be auto-created from incoming WhatsApp messages and editable from the dashboard. | §15.8 |
+| FR-CT-003 | M | A Contact SHALL link to its conversations, orders, and tags. | §15.8 |
+
+### 3.22 Inbox & Conversations (IC)
+
+| ID | Priority | Requirement | PRD Trace |
+|----|----------|-------------|-----------|
+| FR-IC-001 | M | The system SHALL provide a shared inbox view listing conversations, filterable by status, assignee, and tag. | §15.8 |
+| FR-IC-002 | M | The system SHALL display full message history per conversation (customer, AI agent, and human staff messages). | §15.8 |
+| FR-IC-003 | M | The system SHALL allow a human (OWNER or STAFF) to reply to a conversation through the connected WhatsApp channel. | §15.8 |
+| FR-IC-004 | M | Conversations SHALL have a status: OPEN, PENDING, RESOLVED, editable from the dashboard. | §15.8 |
+| FR-IC-005 | M | The inbox SHALL be accessible to OWNER and STAFF roles. | §15.9 |
+
+### 3.23 Messages (MS)
+
+| ID | Priority | Requirement | PRD Trace |
+|----|----------|-------------|-----------|
+| FR-MS-001 | M | The system SHALL persist every inbound and outbound WhatsApp message (body, direction, sender type, sender ID, timestamp, WhatsApp message ID). | §15.8 |
+| FR-MS-002 | M | Outbound messages SHALL be sent via the channel's configured provider (Cloud API or Baileys). | §4.4, §23A |
+| FR-MS-003 | M | Cloud API outbound SHALL enforce the 24-hour customer service window for free-form text; outbound outside the window SHALL use approved templates. | §23A |
+| FR-MS-004 | M | Baileys outbound SHALL have no template/window restriction (full parity). | §23A |
+
+### 3.24 Tags / Labels (LB)
+
+| ID | Priority | Requirement | PRD Trace |
+|----|----------|-------------|-----------|
+| FR-LB-001 | M | The system SHALL support tenant-scoped tags (name, color) applicable to conversations. | §15.8 |
+| FR-LB-002 | M | The owner/staff SHALL be able to add and remove tags on a conversation from the inbox. | §15.8 |
+| FR-LB-003 | M | The inbox SHALL support filtering conversations by tag. | §15.8 |
+
+### 3.25 Assignment (AS)
+
+| ID | Priority | Requirement | PRD Trace |
+|----|----------|-------------|-----------|
+| FR-AS-001 | M | Each conversation SHALL have an assignee that is either an AI Agent or a human User (OWNER/STAFF). | §15.8 |
+| FR-AS-002 | M | The owner/staff SHALL be able to assign and reassign a conversation; each change SHALL be recorded in the audit log. | §15.8, §15.7 |
+| FR-AS-003 | M | When a conversation is assigned to a human, the AI agent SHALL NOT autonomously respond on that conversation until reassigned back to the AI. | §15.8 |
+
+### 3.26 Human/AI Handoff (HD)
+
+| ID | Priority | Requirement | PRD Trace |
+|----|----------|-------------|-----------|
+| FR-HD-001 | M | The system SHALL support handoff AI → human: a human takes over a conversation and the AI stands down. | §15.8 |
+| FR-HD-002 | M | The system SHALL support handoff human → AI: reassigning a conversation back to the AI agent resumes autonomous responding. | §15.8 |
+| FR-HD-003 | M | On AI escalation (PRD §14), the system SHALL allow routing the conversation to a human assignee. | §14, §15.8 |
+
+### 3.27 Team & Staff (TS)
+
+| ID | Priority | Requirement | PRD Trace |
+|----|----------|-------------|-----------|
+| FR-TS-001 | M | A tenant SHALL support multiple human Users with roles OWNER and STAFF. | §15.9 |
+| FR-TS-002 | M | An OWNER SHALL be able to invite a STAFF member by email. | §15.9 |
+| FR-TS-003 | M | STAFF SHALL be restricted to inbox actions (reply, assign, tag, resolve) and SHALL NOT reconfigure agents, capabilities, or business data. | §15.9, §18.1 |
+| FR-TS-004 | M | All staff actions in the inbox SHALL be tenant-scoped and audited. | §18.1 |
 
 ------------------------------------------------------------------------
 
@@ -628,6 +692,58 @@ Priority: **M** = Must (MVP), **S** = Should (nice to have), **F** = Future.
 | **Postcondition** | Customer receives policy answer; conversation logged |
 | **Requirements** | FR-CS-004, FR-KN-005, FR-KN-006 |
 
+### UC-09: Human Reply via Inbox [PRD §15.8]
+
+| Field | Value |
+|-------|-------|
+| **Actor** | Owner or Staff |
+| **Precondition** | Conversation exists; channel connected (Cloud API or Baileys) |
+| **Main flow** | 1. Staff opens the inbox, selects a conversation. 2. Reads message history. 3. Types a reply. 4. System sends the reply via the channel's provider and stores it as an outbound Message. |
+| **Alternative flow** | Cloud API and outside the 24h window → system requires/uses an approved template (or blocks free-form). |
+| **Postcondition** | Message sent to customer; Message record persisted; conversation updated. |
+| **Requirements** | FR-IC-002, FR-IC-003, FR-MS-001..004 |
+
+### UC-10: Assign Conversation [PRD §15.8]
+
+| Field | Value |
+|-------|-------|
+| **Actor** | Owner or Staff |
+| **Precondition** | Conversation exists |
+| **Main flow** | 1. Staff selects a conversation. 2. Assigns it to a human staff member or to the AI agent. 3. System updates assignee and logs the change. 4. If assigned to a human, the AI stands down for that conversation. |
+| **Postcondition** | Assignee updated; audit log entry written; AI behavior adjusted. |
+| **Requirements** | FR-AS-001..003, FR-HD-001 |
+
+### UC-11: Tag for Follow-Up [PRD §15.8]
+
+| Field | Value |
+|-------|-------|
+| **Actor** | Owner or Staff |
+| **Precondition** | Conversation exists; tags defined |
+| **Main flow** | 1. Staff selects a conversation. 2. Adds the "needs follow-up" tag. 3. Later filters the inbox by that tag to find pending work. |
+| **Postcondition** | Tag applied; conversation findable by tag filter. |
+| **Requirements** | FR-LB-001..003 |
+
+### UC-12: Human Takeover from AI [PRD §15.8, §14]
+
+| Field | Value |
+|-------|-------|
+| **Actor** | Owner or Staff |
+| **Precondition** | AI agent is handling a conversation; staff decides to intervene |
+| **Main flow** | 1. Staff opens the conversation. 2. Reassigns from AI to themselves. 3. AI stands down. 4. Staff replies manually. 5. (Later) staff reassigns back to AI; autonomous responding resumes. |
+| **Postcondition** | Human/AI handoff completed; audit trail intact. |
+| **Requirements** | FR-HD-001..003, FR-AS-003 |
+
+### UC-13: Onboarding — Choose WhatsApp Connection [PRD §4.4, §23A]
+
+| Field | Value |
+|-------|-------|
+| **Actor** | UMKM Owner |
+| **Precondition** | Tenant created; dashboard accessible |
+| **Main flow** | 1. Owner opens channel settings, clicks Connect WhatsApp. 2. Chooses "Official (Cloud API)" or "Link my number (Baileys)". 3a. Cloud API: enters Meta credentials / uses test number. 3b. Baileys: scans QR with their phone. 4. System stores `Channel.provider` + config and activates the channel. |
+| **Alternative flow** | Baileys chosen → system shows a ToS/ban-risk warning the owner must acknowledge. |
+| **Postcondition** | Channel connected via the chosen provider; inbox and AI agent active. |
+| **Requirements** | FR-WA-011, FR-WA-012, FR-WA-013 |
+
 ------------------------------------------------------------------------
 
 ## 7. Data Requirements
@@ -682,6 +798,7 @@ Each record that can originate from multiple sources carries:
 | §1 Product Summary | FR-TN-001, FR-TN-002, FR-AG-002 |
 | §3 Product Vision | FR-TN-001, FR-AG-001, FR-DIE-001, FR-DIG-001, FR-CP-001, FR-WA-001 |
 | §4 Core Concept (layers) | FR-TG-001, FR-WA-001, FR-DB-001 |
+| §4.4 Customer Channel (pluggable) | FR-WA-001..013 |
 | §5 Multi-Business Architecture | FR-TN-002, FR-TN-003, FR-TN-004, FR-AG-006, FR-AG-007 |
 | §6 Agent Model | FR-AG-001, FR-AG-002, FR-AG-003 |
 | §7 Business Context | FR-BDP-001, FR-BDI-001, FR-KN-001, FR-ME-001, FR-CA-001 |
@@ -693,6 +810,8 @@ Each record that can originate from multiple sources carries:
 | §13 Data Authority | FR-CA-001, FR-CA-002, FR-CA-003, FR-CA-004 |
 | §14 Customer Service Agent | FR-CS-001 through FR-CS-007 |
 | §15 Dashboard | FR-DB-001 through FR-DB-009 |
+| §15.8 Conversations Inbox (CRM) | FR-IC, FR-MS, FR-LB, FR-AS, FR-HD, FR-CT |
+| §15.9 Team & Staff | FR-TS-001..004, FR-AU-007..009 |
 | §16 Approval System | FR-AP-001 through FR-AP-008 |
 | §17 Agent Tool Architecture | FR-TG-001 through FR-TG-008 |
 | §18 Security | NFR-SE-001 through NFR-SE-011, FR-AU-006 |
@@ -702,7 +821,7 @@ Each record that can originate from multiple sources carries:
 | §21 Demo | UC-01 through UC-03 |
 | §22 Success Metrics | NFR-US-001, FR-AL-004, FR-AL-005 |
 | §22A Self-Hosted Deployment | NFR-PO-001, NFR-PO-002, NFR-RA-001 |
-| §23A Technology Stack | C-001 through C-012, NFR-MA-001 through NFR-MA-005 |
+| §23A Technology Stack | C-001 through C-012, NFR-MA-001 through NFR-MA-005, FR-WA-011..013 |
 | §23B Project Structure | NFR-MA-003, NFR-MA-004, NFR-MA-005 |
 | §24-29 (Vision/Differentiation) | (Product positioning — not functional requirements) |
 
@@ -720,7 +839,10 @@ Each record that can originate from multiple sources carries:
 | FR-DIG-001 to FR-DIG-008 | SDD §4.2 (Sheets service + scheduler) |
 | FR-CP-001 to FR-CP-008 | SDD §4.4 (Permission system) |
 | FR-TG-001 to FR-TG-008 | SDD §4.4 (Tool Gateway: registry, executor, audit) |
-| FR-WA-001 to FR-WA-011 | SDD §4.5 (WhatsApp service + webhook) |
+| FR-WA-001 to FR-WA-013 | SDD §4.8 (WhatsApp provider interface + Cloud API + Baileys) |
+| FR-IC-001..005, FR-MS-001..004, FR-LB-001..003, FR-AS-001..003, FR-HD-001..003 | SDD §4.9 (Inbox & CRM layer), §3 (Message/Contact/Tag models) |
+| FR-CT-001..003 | SDD §4.9 (Contacts), §3 (Contact model) |
+| FR-TS-001..004, FR-AU-007..009 | SDD §4.1 (Auth + roles), §3 (User.role) |
 | FR-AP-001 to FR-AP-008 | SDD §6.4 (Approval workflow flow) |
 | FR-AL-001 to FR-AL-005 | SDD §4.4 (Audit logger), §3 (AuditLog model) |
 | FR-DB-001 to FR-DB-009 | SDD §4.6 (Dashboard API layer) |

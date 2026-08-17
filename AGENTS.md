@@ -176,8 +176,12 @@ Write the **least code that fully solves the task**. Boring beats clever.
 - Agent runtime: **OpenClaw** (HackFest requirement). Integration method (HTTP webhook vs
   SDK process) NOT yet validated — verify against OpenClaw docs before finalizing backend
   layout.
-- Channel: WhatsApp **Cloud API** (Meta, free test number) by default. Baileys is
-  fallback-only (ToS risk) — do not make it the default.
+- Channel: WhatsApp is **pluggable** — Cloud API (official, ToS-safe, free test
+  number, 24h reply window + templates for outbound) and Baileys
+  (bring-your-own-number via QR, full parity, ToS/ban risk, opt-in with a UI
+  warning). Owner chooses at onboarding; both built in the MVP. The dashboard
+  includes a CRM/inbox (shared inbox, assignment, tags, human/AI handoff) for
+  owner + staff (OWNER/STAFF roles).
 - Deployment: Docker Compose on Ubuntu VPS — **4 vCPU / 4GB RAM / 20GB SSD**. Keep
   process count minimal; `node-cron` in-process for Sheets sync.
 

@@ -16,7 +16,7 @@ Do not act without having read the relevant project context first. This is non-n
 
 ## What We Are Building
 
-Self-hosted, multi-tenant AI agent platform for Indonesian UMKM. HackFest MVP = one Customer Service Agent on WhatsApp that reads the business's own messy data (manual entries, Excel/CSV, Google Sheets) and performs controlled writes under per-tool permissions.
+Self-hosted, multi-tenant AI agent platform for Indonesian UMKM. HackFest MVP = one Customer Service Agent on WhatsApp that reads the business's own messy data (manual entries, Excel/CSV, Google Sheets) and performs controlled writes under per-tool permissions. The dashboard also includes a CRM-style shared inbox (chat panel, assignment, tags, human/AI handoff) where owner + staff handle conversations alongside the AI; WhatsApp connects via a pluggable provider (Cloud API official, or Baileys bring-your-own-number).
 
 Core loop: **Understand → Retrieve → Reason → Check Permission → Act → Verify → Record.**
 Core principle: **Read by default. Write by permission. Act by policy.**
@@ -46,7 +46,7 @@ Customer Channel (WhatsApp Cloud API)
 - PostgreSQL + Prisma + **pgvector** on the *same* Postgres instance (no separate vector DB, no Redis/queue).
 - Data ingestion: `exceljs`/`xlsx` (Excel/CSV), `googleapis` (Google Sheets OAuth).
 - Agent runtime: **OpenClaw** (HackFest requirement). Integration method (HTTP webhook vs SDK process) and 4GB-RAM footprint are **unresolved** — validate against OpenClaw docs before finalizing backend layout.
-- Channel: WhatsApp **Cloud API** default; Baileys is fallback-only (ToS risk), never the default.
+- Channel: WhatsApp is **pluggable** — Cloud API (official, ToS-safe, 24h reply window + templates for outbound) and Baileys (bring-your-own-number via QR, full parity, ToS/ban risk, opt-in with a UI warning). Owner chooses at onboarding; both built in the MVP. Multi-staff (OWNER/STAFF roles) and a CRM inbox are in scope.
 - Deploy: Docker Compose on Ubuntu VPS — 4 vCPU / 4GB RAM / 20GB SSD. `node-cron` in-process for Sheets sync. Nginx + Certbot for TLS (required by the WhatsApp webhook).
 
 ### Target repository layout (PRD 23B.1 — created in Phase 0)

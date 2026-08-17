@@ -151,6 +151,7 @@ The Next.js app serves:
 | OpenClaw integration method unknown | Could require separate SDK process, changing the process layout | Validate against OpenClaw docs in Phase 6. If HTTP-based, our API routes ARE the tool endpoints. If SDK-based, run as separate Docker container. |
 | OpenClaw RAM footprint | Could exceed 4GB budget alongside Next.js + Postgres | Test early. If >1GB, apply memory limits or optimize. Fallback: implement simplified agent loop with direct LLM API (Plans §6 fallback). |
 | Embedding model/dimension | Vector column size depends on model choice | Schema supports any dimension. Default to 1536 (OpenAI `text-embedding-3-small`). Decided in Phase 1. |
+| Baileys ToS/ban risk | A UMKM's real WhatsApp number could be banned when using the Baileys provider | Opt-in per channel with a UI warning the owner acknowledges; demo on a throwaway test SIM; Cloud API remains the ToS-safe default. See §7.6. |
 
 ### 2.4 Request Flow Summary
 
@@ -263,6 +264,33 @@ enum ApprovalStatus {
   REJECTED
 }
 
+enum UserRole {
+  OWNER
+  STAFF
+}
+
+enum ChannelProvider {
+  CLOUD_API
+  BAILEYS
+}
+
+enum ConversationStatus {
+  OPEN
+  PENDING
+  RESOLVED
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageSenderType {
+  CUSTOMER
+  AGENT
+  HUMAN
+}
+
 // ─── Tenant ────────────────────────────────────────────────
 
 model Tenant {
@@ -284,6 +312,9 @@ model Tenant {
   auditLogs     AuditLog[]
   approvals     Approval[]
   conversations Conversation[]
+  contacts      Contact[]
+  tags          Tag[]
+  messages      Message[]
 }
 
 // ─── User (Auth) ───────────────────────────────────────────
@@ -293,12 +324,15 @@ model User {
   email        String   @unique
   name         String
   passwordHash String
+  role         UserRole @default(OWNER)
   tenantId     String
   tenant       Tenant   @relation(fields: [tenantId], references: [id])
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  resolvedApprovals Approval[] @relation("ApprovalResolvedBy")
+  resolvedApprovals    Approval[]      @relation("ApprovalResolvedBy")
+  assignedConversations Conversation[] @relation("ConversationAssignee")
+  sentMessages         Message[]       @relation("MessageSenderUser")
 }
 
 // ─── Agent ─────────────────────────────────────────────────
@@ -323,7 +357,8 @@ model Agent {
   auditLogs         AuditLog[]
   approvals         Approval[]
   orders            Order[]     @relation("OrderCreatedByAgent")
-  conversations     Conversation[]
+  assignedConversations Conversation[] @relation("ConversationAssignedAgent")
+  sentMessages      Message[]   @relation("MessageSenderAgent")
 
   @@index([tenantId])
 }
@@ -331,16 +366,19 @@ model Agent {
 // ─── Channel ───────────────────────────────────────────────
 
 model Channel {
-  id        String         @id @default(uuid())
+  id        String           @id @default(uuid())
   tenantId  String
-  tenant    Tenant         @relation(fields: [tenantId], references: [id])
+  tenant    Tenant           @relation(fields: [tenantId], references: [id])
   agentId   String?
-  agent     Agent?         @relation(fields: [agentId], references: [id])
-  type      ChannelType    @default(WHATSAPP)
-  config    Json           // phoneNumberId, verifyToken ref, etc.
-  status    ChannelStatus  @default(DISCONNECTED)
-  createdAt DateTime       @default(now())
-  updatedAt DateTime       @updatedAt
+  agent     Agent?           @relation(fields: [agentId], references: [id])
+  type      ChannelType      @default(WHATSAPP)
+  provider  ChannelProvider  @default(CLOUD_API)
+  config    Json             // CLOUD_API: phoneNumberId, verifyToken ref. BAILEYS: sessionId, authStateRef.
+  status    ChannelStatus    @default(DISCONNECTED)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  conversations Conversation[]
 
   @@index([tenantId])
 }
@@ -535,18 +573,100 @@ model Approval {
 // ─── Conversation ──────────────────────────────────────────
 
 model Conversation {
-  id                String   @id @default(uuid())
+  id                String             @id @default(uuid())
   tenantId          String
-  tenant            Tenant   @relation(fields: [tenantId], references: [id])
-  agentId           String
-  agent             Agent    @relation(fields: [agentId], references: [id])
+  tenant            Tenant             @relation(fields: [tenantId], references: [id])
+  channelId         String
+  channel           Channel            @relation(fields: [channelId], references: [id])
   customerPhone     String
+  contactId         String?
+  contact           Contact?           @relation(fields: [contactId], references: [id])
+  // Assignment: either an AI Agent or a human User. When a human is assigned,
+  // assignedAgentId is null and the AI stands down for this conversation.
+  assignedAgentId   String?
+  assignedAgent     Agent?             @relation("ConversationAssignedAgent", fields: [assignedAgentId], references: [id])
+  assigneeUserId    String?
+  assigneeUser      User?              @relation("ConversationAssignee", fields: [assigneeUserId], references: [id])
+  status            ConversationStatus @default(OPEN)
   openclawSessionId String?
-  lastMessageAt     DateTime @default(now())
-  createdAt         DateTime @default(now())
+  lastMessageAt     DateTime           @default(now())
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
 
-  @@unique([tenantId, agentId, customerPhone])
-  @@index([tenantId, agentId])
+  messages          Message[]
+  tags              ConversationTag[]
+
+  @@unique([tenantId, channelId, customerPhone])
+  @@index([tenantId, status])
+  @@index([tenantId, assignedAgentId])
+  @@index([tenantId, assigneeUserId])
+}
+
+// ─── Contact (CRM customer) ────────────────────────────────
+
+model Contact {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  phone     String
+  name      String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  conversations Conversation[]
+
+  @@unique([tenantId, phone])
+  @@index([tenantId])
+}
+
+// ─── Message (chat history) ────────────────────────────────
+
+model Message {
+  id            String            @id @default(uuid())
+  tenantId      String
+  tenant        Tenant            @relation(fields: [tenantId], references: [id])
+  conversationId String
+  conversation  Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  direction     MessageDirection
+  senderType    MessageSenderType
+  senderAgentId String?
+  senderAgent   Agent?            @relation("MessageSenderAgent", fields: [senderAgentId], references: [id])
+  senderUserId  String?
+  senderUser    User?             @relation("MessageSenderUser", fields: [senderUserId], references: [id])
+  body          String
+  waMessageId   String?
+  createdAt     DateTime          @default(now())
+
+  @@index([tenantId, conversationId, createdAt])
+}
+
+// ─── Tag / Label ───────────────────────────────────────────
+
+model Tag {
+  id        String             @id @default(uuid())
+  tenantId  String
+  tenant    Tenant             @relation(fields: [tenantId], references: [id])
+  name      String
+  color     String?
+  createdAt DateTime           @default(now())
+
+  conversations ConversationTag[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+model ConversationTag {
+  id              String       @id @default(uuid())
+  conversationId  String
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  tagId           String
+  tag             Tag          @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  createdAt       DateTime     @default(now())
+
+  @@unique([conversationId, tagId])
+  @@index([tagId])
 }
 ```
 
@@ -562,6 +682,12 @@ model Conversation {
 - FR-CP-003: AgentCapability with tool string, allowed, requiresApproval.
 - FR-AL-001: AuditLog with all required fields.
 - FR-AP-003/004: Approval with proposed before/after, status, resolvedBy.
+- FR-AU-007: User.role (OWNER/STAFF).
+- FR-WA-012: Channel.provider (CLOUD_API/BAILEYS) + provider-specific config.
+- FR-CT-001: Contact — tenant-scoped per customer phone.
+- FR-IC-001..004 / FR-AS-001..003 / FR-HD-001..003: Conversation — status, assignment (agent or user), channelId, contactId.
+- FR-MS-001: Message — direction, senderType, senderAgent/senderUser, waMessageId.
+- FR-LB-001: Tag (tenant-scoped) + ConversationTag join.
 
 ### 3.3 Entity Relationship Summary
 
@@ -940,6 +1066,104 @@ sendMessage(cellId, agentId, message: string, sessionId?: string): Promise<Agent
 - `components/marketing/` MUST NOT import from `components/dashboard/` [SRS FR-MK-003].
 - Built only after all MVP functionality is complete [SRS FR-MK-004].
 
+### 4.8 WhatsApp Channel — Pluggable Providers [SRS FR-WA-001 to FR-WA-013]
+
+**Files:** `src/services/whatsapp/provider.ts`, `src/services/whatsapp-cloud.ts`,
+`src/services/whatsapp-baileys.ts`, `src/services/whatsapp/index.ts`
+
+WhatsApp connection is provider-pluggable. The owner chooses Cloud API or
+Baileys at channel onboarding (UC-13). Both implement one common interface, so
+the inbox (§4.9), the OpenClaw agent, and the Tool Gateway are identical
+regardless of provider.
+
+**Common interface** (`src/services/whatsapp/provider.ts`):
+```ts
+type WhatsAppProvider = {
+  start(channel: Channel): Promise<void>;       // connect/authenticate
+  stop(channelId: string): Promise<void>;       // disconnect
+  sendText(channel: Channel, to: string, text: string): Promise<{ waMessageId: string }>;
+  markAsRead(channel: Channel, messageId: string): Promise<void>;
+  onMessage(handler: (msg: InboundMessage) => Promise<void>): void;  // inbound events
+};
+
+type InboundMessage = {
+  channelId: string; tenantId: string; from: string; body: string;
+  waMessageId: string; receivedAt: Date;
+};
+```
+
+**Cloud API provider** (`src/services/whatsapp-cloud.ts`):
+- Inbound: Meta POSTs to `/api/webhooks/whatsapp` (GET verify + POST events),
+  Zod-validated. The webhook handler calls the shared ingest path.
+- Outbound: `POST https://graph.facebook.com/v18.0/{phoneNumberId}/messages`
+  with `WHATSAPP_TOKEN` bearer. Free-form text only within the 24-hour customer
+  service window; outside the window, outbound must use pre-approved templates
+  [SRS FR-MS-003].
+- Stateless — no persistent connection. Config in `Channel.config`
+  (phoneNumberId, verifyToken).
+
+**Baileys provider** (`src/services/whatsapp-baileys.ts`):
+- Uses `@whiskeysockets/baileys` (pure, no Puppeteer — light on RAM).
+- Runs as a **module-level singleton in the long-lived Next.js process**
+  (Docker Compose `node server.js`), one socket per tenant channel. Auth/session
+  state (keys) persisted in Postgres keyed by channel, so sessions survive
+  restarts [SRS FR-WA-011].
+- Login via QR code or pairing code (like WhatsApp Web). Full parity: read all,
+  reply freely anytime, no templates, no per-message fees [SRS FR-MS-004].
+- Inbound: socket events → shared ingest path (no public webhook needed for
+  inbound — works behind NAT). Dashboard UI still needs HTTPS.
+- **ToS/ban risk:** the UI MUST warn the owner before enabling Baileys; demo on
+  a throwaway test SIM, never a real business number.
+
+**Provider dispatch** (`src/services/whatsapp/index.ts`):
+- `getProvider(channel: Channel): WhatsAppProvider` — returns the Cloud or
+  Baileys impl based on `channel.provider`.
+- `sendText(channel, to, text)` / `markAsRead` route to the active provider.
+- Shared ingest: both providers call `ingestInboundMessage(msg)` which
+  upserts the Contact, finds/creates the Conversation, persists a `Message`
+  (direction=INBOUND, senderType=CUSTOMER), and dispatches to the AI agent
+  (via the chat handler) ONLY if the conversation is assigned to an AI agent
+  (human-assigned conversations do not trigger the AI) [SRS FR-AS-003].
+
+**SRS trace:** FR-WA-001..013, FR-MS-001..004.
+
+### 4.9 Inbox & CRM Layer [SRS FR-IC, FR-MS, FR-LB, FR-AS, FR-HD, FR-CT]
+
+**Files:** `src/lib/inbox.ts`, `src/pages/api/dashboard/inbox/*`,
+`src/pages/api/dashboard/contacts/*`, `src/pages/api/dashboard/tags/*`
+
+The shared inbox / CRM workspace where owners and staff handle conversations
+alongside the AI agent.
+
+**Conversation lifecycle** (`src/lib/inbox.ts`):
+- `ingestInboundMessage(msg)` — shared inbound path (see §4.8): upsert Contact,
+  find/create Conversation (unique on tenantId+channelId+customerPhone), persist
+  inbound Message, update `lastMessageAt`. If `assignedAgentId` is set → dispatch
+  to OpenClaw chat handler; if `assigneeUserId` is set (human) → do NOT dispatch
+  to AI.
+- `sendHumanReply(conversationId, userId, text)` — persist outbound Message
+  (senderType=HUMAN, senderUserId), send via the channel's provider, update
+  `lastMessageAt`.
+- `assignConversation(conversationId, { agentId? | userId? })` — set
+  `assignedAgentId` or `assigneeUserId` (mutually exclusive), log to AuditLog.
+  Assigning to a human stands the AI down [SRS FR-AS-003, FR-HD-001].
+- `setStatus(conversationId, status)` — OPEN/PENDING/RESOLVED.
+- `addTag` / `removeTag` — manage `ConversationTag` rows.
+
+**Real-time updates (no Redis):**
+- `GET /api/dashboard/inbox/stream` — Server-Sent Events endpoint streaming
+  new-message and conversation-update events for the tenant. Fallback: polling
+  (`GET /api/dashboard/inbox?since=`). No Redis/queue (PRD constraint).
+
+**Role enforcement:**
+- Inbox APIs require an authenticated session with role OWNER or STAFF
+  [FR-IC-005, FR-AU-009]. Configuration APIs (agents, capabilities, data,
+  settings) require OWNER — enforced in `getAuthSession()` + a `requireRole`
+  helper.
+
+**SRS trace:** FR-IC-001..005, FR-MS-001..004, FR-LB-001..003, FR-AS-001..003,
+FR-HD-001..003, FR-CT-001..003.
+
 ------------------------------------------------------------------------
 
 ## 5. Interface Design
@@ -1093,6 +1317,17 @@ dashboard-initiated tool calls).
 | POST | `/api/dashboard/approvals/[id]/approve` | Session | FR-AP-005 | Approve action |
 | POST | `/api/dashboard/approvals/[id]/reject` | Session | FR-AP-005 | Reject action |
 | GET | `/api/dashboard/activity` | Session | FR-AL-002 | List audit log (filtered) |
+| GET | `/api/dashboard/inbox` | Session (OWNER/STAFF) | FR-IC-001 | List conversations (filter by status/assignee/tag) |
+| GET | `/api/dashboard/inbox/[id]` | Session (OWNER/STAFF) | FR-IC-002 | Conversation detail + messages |
+| POST | `/api/dashboard/inbox/[id]/messages` | Session (OWNER/STAFF) | FR-IC-003, FR-MS-002 | Human reply (sent via channel provider) |
+| POST | `/api/dashboard/inbox/[id]/assign` | Session (OWNER/STAFF) | FR-AS-001, FR-AS-002 | Assign to AI agent or human user |
+| PUT | `/api/dashboard/inbox/[id]/status` | Session (OWNER/STAFF) | FR-IC-004 | Set conversation status (OPEN/PENDING/RESOLVED) |
+| POST | `/api/dashboard/inbox/[id]/tags` | Session (OWNER/STAFF) | FR-LB-002 | Add/remove tags |
+| GET | `/api/dashboard/inbox/stream` | Session (OWNER/STAFF) | FR-IC-001 | SSE stream of inbox updates (no Redis) |
+| GET | `/api/dashboard/contacts` | Session | FR-CT-001 | List contacts |
+| PUT | `/api/dashboard/contacts/[id]` | Session | FR-CT-002 | Edit contact |
+| GET | `/api/dashboard/tags` | Session | FR-LB-001 | List tags |
+| POST | `/api/dashboard/tags` | Session (OWNER) | FR-LB-001 | Create tag |
 
 #### Tool Gateway API (agent-facing)
 
@@ -1105,8 +1340,8 @@ dashboard-initiated tool calls).
 
 | Method | Path | Auth | SRS Trace | Description |
 |--------|------|------|-----------|-------------|
-| GET | `/api/webhooks/whatsapp` | Verify Token | FR-WA-002, FR-WA-003 | Meta webhook verification |
-| POST | `/api/webhooks/whatsapp` | Meta signature | FR-WA-002, FR-WA-004 | Receive WhatsApp messages |
+| GET | `/api/webhooks/whatsapp` | Verify Token | FR-WA-002, FR-WA-003 | Meta webhook verification (Cloud API only) |
+| POST | `/api/webhooks/whatsapp` | Meta signature | FR-WA-002, FR-WA-004 | Receive WhatsApp messages (Cloud API inbound only; Baileys inbound is internal via the socket, §4.8) |
 
 #### Import API (owner-facing, session-authenticated)
 
@@ -1130,7 +1365,7 @@ dashboard-initiated tool calls).
 
 | Method | Path | Auth | SRS Trace | Description |
 |--------|------|------|-----------|-------------|
-| POST | `/api/agents/[agentId]/chat` | Internal | FR-CS-001 | Send message to agent (called by webhook) |
+| POST | `/api/agents/[agentId]/chat` | Internal | FR-CS-001 | Send message to agent (called by Cloud API webhook or Baileys ingest path) |
 
 #### Health Check
 
@@ -1251,16 +1486,24 @@ export function executeTool(toolName: string, ctx: ToolContext): Promise<ToolRes
 
 ```
 1. Customer sends WhatsApp message
-2. Meta delivers to: POST /api/webhooks/whatsapp
-3. Webhook handler:
-   a. Zod-validate payload → if invalid, return 200, log, exit
-   b. Extract: from (phone), text.body (message), id (message ID)
-   c. Return 200 immediately (Meta timeout avoidance)
-4. Resolve tenant + agent:
-   a. Look up sender phone in Channel table
-   b. Match to tenant's WhatsApp channel
-   c. Find ACTIVE agent for that channel
-   d. If no active agent → send "Agent sedang tidak aktif" → exit
+2. Inbound arrives via the channel's provider:
+   - Cloud API: Meta POSTs to /api/webhooks/whatsapp (Zod-validated; return 200
+     immediately for Meta timeout avoidance).
+   - Baileys: the in-process socket emits an event (no webhook needed).
+3. Shared ingest path (services/whatsapp → ingestInboundMessage):
+   a. Extract: from (phone), body, waMessageId, channelId, tenantId.
+   b. Upsert Contact (tenantId, phone).
+   c. Find or create Conversation (unique on tenantId+channelId+customerPhone);
+      set contactId.
+   d. Persist inbound Message (direction=INBOUND, senderType=CUSTOMER).
+   e. Update Conversation.lastMessageAt.
+4. Assignment check (lib/inbox):
+   a. If Conversation.assigneeUserId is set (human) → do NOT dispatch to the AI;
+      the message just appears in the inbox for the human (streamed via SSE).
+      Exit (no AI response).
+   b. If Conversation.assignedAgentId is set → that is the AI agent to invoke.
+   c. If neither set → fall back to the channel's default ACTIVE agent; if none,
+      reply "Agent sedang tidak aktif" → exit.
 5. Forward to: POST /api/agents/[agentId]/chat
    a. Load agent + tenant context
    b. Set tenant context (RLS session var)
@@ -1283,9 +1526,10 @@ export function executeTool(toolName: string, ctx: ToolContext): Promise<ToolRes
    b. Repeat steps 7 for each tool call
    c. Agent composes final response
 9. Agent response returned to chat handler
-10. Chat handler sends response via WhatsApp:
-    a. whatsapp.sendText(phoneNumberId, customerPhone, response)
-    b. whatsapp.markAsRead(phoneNumberId, messageId)
+10. Chat handler sends response via the channel's provider:
+    a. getProvider(channel).sendText(channel, customerPhone, response)
+    b. Persist outbound Message (direction=OUTBOUND, senderType=AGENT, senderAgentId)
+    c. getProvider(channel).markAsRead(channel, messageId)
 11. Conversation logged
 12. Audit entries persisted for any write operations
 ```
@@ -1441,7 +1685,8 @@ Agent requests data (e.g., inventory.read for "Arabica 250g"):
 |------------|---------|----------|
 | Database URL | `.env` (gitignored) | Server-side only |
 | NextAuth secret | `.env` (gitignored) | Server-side only |
-| WhatsApp token | `.env` (gitignored) | Server-side only (in `whatsapp.ts`) |
+| WhatsApp Cloud API token | `.env` (gitignored) | Server-side only (in `whatsapp-cloud.ts`) |
+| Baileys session/auth keys | `Channel.config` (DB, JSON) | Server-side only; one per tenant channel; never sent to the model |
 | Google OAuth client ID/secret | `.env` (gitignored) | Server-side only (in `sheets.ts`) |
 | Google OAuth user tokens | `DataSource.config` (DB, JSON) | Server-side only, refreshed as needed |
 | OpenClaw API key | `.env` (gitignored) | Server-side only (in `openclaw.ts`) |
@@ -1471,6 +1716,30 @@ Agent requests data (e.g., inventory.read for "Arabica 250g"):
 - Even when enabled, approval may still be required per tool.
 - This is the "Read by default. Write by permission. Act by policy." principle
   [PRD §27].
+
+### 7.6 Baileys ToS Risk & Mitigation [SRS FR-WA-011]
+
+- Baileys operates outside WhatsApp's ToS for automated clients; the connected
+  number can be banned.
+- The onboarding UI MUST show a ToS/ban-risk warning that the owner acknowledges
+  before enabling Baileys [FR-WA-011].
+- Demo on a throwaway test SIM, never a real business number.
+- Baileys is opt-in per channel; Cloud API remains the ToS-safe default for
+  risk-averse UMKM.
+- Baileys session/auth keys are tenant-scoped in `Channel.config` and never
+  exposed to the agent/model (same credential boundary as §7.3).
+
+### 7.7 Role-Based Access (within a tenant) [SRS FR-AU-007..009, FR-TS-001..004]
+
+- Two roles: OWNER (full configuration control) and STAFF (inbox handling only).
+- `User.role` is the source of truth; `getAuthSession()` returns it; a
+  `requireRole("OWNER")` helper guards configuration API routes and pages
+  (agents, capabilities, data sources, settings) [FR-AU-009].
+- Inbox APIs accept OWNER or STAFF; configuration APIs require OWNER [FR-TS-003].
+- Role is never inferred from conversation content — it is bound to the
+  authenticated session, same rule as §7.2.
+- All staff inbox actions (reply, assign, tag, resolve) are tenant-scoped and
+  written to the audit log [FR-TS-004].
 
 ------------------------------------------------------------------------
 
@@ -1553,6 +1822,12 @@ Multi-stage build:
 - If OpenClaw exceeds 1GB, apply Docker memory limits or optimize.
 - Postgres `shared_buffers` tuned down for 4GB host (e.g., 256MB).
 - No swap file initially; add if OOM events occur.
+- **Baileys providers run inside the Next.js app process** as module-level
+  singletons (one socket per active Baileys channel), not as a separate
+  container — keeps the single-process rule. Pure `@whiskeysockets/baileys`
+  (no Puppeteer) is light (~tens of MB per session). If many tenants run Baileys
+  simultaneously and RAM grows, move the Baileys sockets to a dedicated sidecar
+  container (documented future option; not needed for the single-tenant demo).
 
 ### 8.7 Health Check & Monitoring [SRS NFR-RA-001, Plans §10.8]
 

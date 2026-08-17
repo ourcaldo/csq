@@ -165,7 +165,17 @@ Gateway instances for stronger tenant isolation.
 
 HackFest MVP:
 
--   WhatsApp
+-   WhatsApp — supported via two pluggable connection methods, chosen by
+    the owner at onboarding (see §23A):
+    -   **Cloud API (official):** Meta WhatsApp Business API. ToS-safe;
+        free test number for development; free-form replies limited to the
+        24-hour customer service window, templates for proactive outbound.
+    -   **Baileys (bring your own number):** the owner links their existing
+        WhatsApp number by scanning a QR code (like WhatsApp Web). Full
+        parity, no templates, no per-message fees; carries WhatsApp
+        ToS/ban risk.
+-   Both methods feed the same shared inbox (§15.8), the same OpenClaw
+    agent, and the same Tool Gateway.
 
 Future:
 
@@ -782,6 +792,44 @@ Show:
 -   Approval status.
 -   Timestamp.
 
+## 15.8 Conversations Inbox (CRM)
+
+The dashboard includes a shared inbox — a CRM-style chat workspace
+(similar to WhatsApp Web / Qontak / CekAjaAI) where the owner and staff
+handle customer conversations alongside the AI agent.
+
+-   **Chat panel:** live message history per conversation (customer,
+    AI agent, and human staff messages), with the ability for a human to
+    reply directly through the connected WhatsApp channel.
+-   **Assignment:** each conversation can be assigned to the AI agent
+    (autonomous) or to a human staff member. Reassignment is supported;
+    changes are audited.
+-   **Tags / labels:** conversations can be tagged (e.g., "needs
+    follow-up", "VIP", "refund") and filtered by tag.
+-   **Status:** OPEN / PENDING / RESOLVED, with filtering.
+-   **Human/AI handoff:** a conversation can flow AI → human → AI. When a
+    human is assigned, the AI agent stands down for that conversation
+    until reassigned back.
+-   **Contacts:** a tenant-scoped contact record per customer phone
+    (name, notes), linked to conversations, orders, and tags.
+-   **Works with both WhatsApp connection methods** (Cloud API and
+    Baileys). Human replies respect the connection's constraints (Cloud
+    API: 24-hour window + templates for outbound; Baileys: free reply
+    anytime).
+
+## 15.9 Team & Staff Management
+
+-   A tenant can have multiple human users with roles: **OWNER** (full
+    control: configure agent, data, capabilities, invite staff, manage
+    channels) and **STAFF** (handle inbox conversations: reply, assign,
+    tag, resolve; cannot reconfigure the AI agent or business data).
+-   The owner invites staff by email; staff authenticate with the same
+    Auth.js email/password flow.
+-   Staff are tenant-scoped and cannot access other tenants' data.
+-   Role-based page protection: configuration pages (agents, data,
+    capabilities, settings) require OWNER; the inbox is open to OWNER
+    and STAFF.
+
 ------------------------------------------------------------------------
 
 # 16. Approval System
@@ -856,6 +904,7 @@ be executed.
 - Enforce customer-specific data scope server-side.
 - Treat LLM reasoning as intent interpretation, not permission granting.
 - Reject attempts to override identity or permissions through prompts, uploaded documents, spreadsheets, or customer messages.
+- Enforce role-based access within a tenant: OWNER has full configuration control; STAFF may handle inbox conversations (reply, assign, tag, resolve) but cannot reconfigure agents, capabilities, or business data.
 
 
 
@@ -1292,7 +1341,8 @@ OpenClaw and business data.
     stability and more predictable AI-assisted code generation, since
     it is a longer-established convention.
 -   **UI:** Tailwind CSS + shadcn/ui.
--   **Auth:** Auth.js (NextAuth), email/password for MVP.
+-   **Auth:** Auth.js (NextAuth), email/password for MVP, with OWNER and
+    STAFF roles per tenant (multi-staff; see §15.9).
 
 ## Database
 
@@ -1327,15 +1377,32 @@ OpenClaw and business data.
 
 ## Customer Channel (WhatsApp)
 
--   **Default:** WhatsApp Cloud API (official Meta API), using a free
-    test number via Meta for Developers. Webhook-based, no business
-    verification required for demo purposes, compliant with WhatsApp's
-    terms of service.
--   **Fallback:** Baileys (unofficial WhatsApp Web client), used only
-    if Cloud API setup becomes a blocker. Note this operates outside
-    WhatsApp's terms of service for automated clients, so it is a
-    fallback, not the default, given the HackFest's ToS-compliance
-    requirement.
+The platform supports **two pluggable WhatsApp connection methods**. The
+owner chooses one at onboarding when connecting a channel. Both implement
+the same internal interface, so the shared inbox (§15.8), the OpenClaw
+agent, and the Tool Gateway are identical regardless of the chosen method.
+
+-   **Cloud API (official Meta API).** Webhook-based. ToS-compliant. Uses a
+    free test number via Meta for Developers for the demo (no business
+    verification required for demo purposes). Free-form human/AI replies
+    are allowed within the 24-hour customer service window; proactive
+    outbound messages outside that window require pre-approved templates.
+    Recommended for UMKM who want the safe, official path. Meta provides a
+    free-tier allowance that covers demo-scale usage.
+-   **Baileys (bring your own number).** An unofficial WhatsApp Web client
+    library (`@whiskeysockets/baileys`) that links the owner's existing
+    WhatsApp number by QR/pairing-code login — like WhatsApp Web. Full
+    parity: read all messages, reply freely anytime, no templates, no
+    per-message fees. **Operates outside WhatsApp's terms of service for
+    automated clients; the connected number can be banned.** Mitigation:
+    demo on a throwaway test SIM, not a real business number. Chosen by
+    UMKM who want full WhatsApp Web parity and accept the risk.
+
+Both connectors are built and shipped in the MVP. The connection is
+provider-pluggable: `Channel.provider = CLOUD_API | BAILEYS`, with
+provider-specific config stored in `Channel.config`. Baileys runs as a
+persistent in-process socket (auth/session state in Postgres, one session
+per tenant channel); Cloud API is stateless webhook + Graph API outbound.
 
 ## Deployment
 

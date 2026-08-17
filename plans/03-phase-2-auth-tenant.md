@@ -109,6 +109,22 @@ must be protected.
   `next-auth/react`.
 - [ ] This is required for client-side session access.
 
+### 2.10 Roles & staff management
+
+- [ ] `User.role` (OWNER/STAFF) is set at registration (OWNER for the tenant
+  creator) and editable by OWNER from the dashboard (Phase 8 Team page).
+- [ ] `getAuthSession()` returns `{ userId, tenantId, role }`.
+- [ ] Add `requireRole(role: UserRole)` helper in `src/lib/auth.ts` — wraps
+  API route handlers and `getServerSideProps`; returns 403/redirect if the
+  session role is insufficient. Guard configuration pages/APIs (agents,
+  capabilities, data, settings); inbox APIs accept OWNER or STAFF
+  (FR-AU-009, FR-IC-005).
+- [ ] Staff invitation: `POST /api/dashboard/team/invite` (OWNER only) —
+  creates a User with role STAFF in the tenant (email + setup/invite-token
+  flow). Keep it simple for MVP.
+- [ ] `withAuth` gains an optional `{ requiredRole }` option for page-level
+  protection.
+
 ---
 
 ## Build Gate
@@ -145,7 +161,6 @@ src/
 ## Notes
 
 - No OAuth, no magic links, no social login. Email + password only for MVP.
-- No role-based access beyond "is authenticated and belongs to this tenant."
-  Future: admin vs staff roles.
-- The session token carries `userId` + `tenantId`. API routes use
-  `getAuthSession()` to extract these — never trust client-side claims.
+- Roles: OWNER (full control) and STAFF (inbox only), per PRD §15.9. The
+  session token carries `userId` + `tenantId` + `role`. `getAuthSession()` and
+  `requireRole()` enforce role-based access — never trust client-side claims.

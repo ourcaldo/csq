@@ -1,10 +1,11 @@
-# Phase 8 — Dashboard UI (All Pages)
+# Phase 8 — Dashboard UI + CRM Inbox UI (All Pages)
 
-**Goal:** Build the complete dashboard interface for UMKM owners. This is the
-largest phase by file count but lowest complexity — it's mostly CRUD forms and
-data tables consuming the API routes built in Phases 2-5.
-**PRD Reference:** Section 15 (Dashboard), Section 16 (Approval System)
-**Depends On:** Phase 1, Phase 2, Phase 3, Phase 4
+**Goal:** Build the complete dashboard interface for UMKM owners and staff —
+CRUD forms, data tables, AND a CRM-style shared inbox (chat panel) where humans
+handle conversations alongside the AI agent. Largest phase by file count; the
+inbox chat panel is the most interactive piece.
+**PRD Reference:** Section 15 (Dashboard), 15.8 (Inbox/CRM), 15.9 (Team & Staff), Section 16 (Approval System)
+**Depends On:** Phase 1, Phase 2, Phase 3, Phase 4, Phase 7 (inbox backend APIs)
 
 ---
 
@@ -17,7 +18,9 @@ data tables consuming the API routes built in Phases 2-5.
   - Top bar with tenant name and logout button.
   - Main content area.
 - [ ] Create `src/components/dashboard/sidebar.tsx`:
-  - Nav items: Overview, Agents, Data, Knowledge, Memory, Activity, Settings.
+  - Nav items: Overview, Inbox, Agents, Data, Knowledge, Memory, Contacts,
+    Activity, Team, Settings. (Inbox/Contacts open to OWNER + STAFF; the rest
+    require OWNER — role-based protection, PRD §15.9.)
   - Active state based on current route.
   - Collapsible on mobile (responsive).
 - [ ] All dashboard pages use this layout via `_app.tsx` route check or a
@@ -32,6 +35,11 @@ data tables consuming the API routes built in Phases 2-5.
   - `confirm-dialog.tsx` — reusable confirmation modal.
   - `loading-skeleton.tsx` — skeleton loader for data fetching.
   - `badge-status.tsx` — status badge (active/paused/error/etc.).
+  - `conversation-list.tsx` — inbox sidebar list (filter by status/assignee/tag).
+  - `chat-panel.tsx` — message thread view + reply input (the CRM chat panel).
+  - `message-bubble.tsx` — single message (customer/agent/human styling).
+  - `tag-picker.tsx` — add/remove tags on a conversation.
+  - `assignee-picker.tsx` — assign to AI agent or human user.
 
 ---
 
@@ -145,6 +153,43 @@ data tables consuming the API routes built in Phases 2-5.
     authority order (PRD 13).
   - **Account section:** change email/password (stretch — nice to have).
 
+### 8.9 Inbox — CRM Chat Panel (`/dashboard/inbox`)
+
+**PRD 15.8**
+
+- [ ] `index.tsx` — shared inbox:
+  - Left: conversation list (filter by status OPEN/PENDING/RESOLVED, assignee,
+    tag; search by customer name/phone). Unread/active highlighting.
+  - Right: chat panel — message thread (customer / AI agent / human staff
+    bubbles), reply input, mark status, assign, tag.
+  - Real-time: subscribe to `/api/dashboard/inbox/stream` (SSE) for new
+    messages; fallback to polling.
+- [ ] `[id].tsx` — single conversation view (deep-linkable).
+- [ ] Reply: POST `/api/dashboard/inbox/[id]/messages` (human reply via the
+  channel's provider — Cloud API 24h window / Baileys free).
+- [ ] Assign: picker for AI agent or human staff (OWNER/STAFF).
+- [ ] Tags: add/remove via `/api/dashboard/inbox/[id]/tags`.
+- [ ] Status: set OPEN/PENDING/RESOLVED.
+- [ ] Accessible to OWNER and STAFF (FR-IC-005).
+
+### 8.10 Contacts (`/dashboard/contacts`)
+
+**PRD 15.8**
+
+- [ ] `index.tsx` — contact list (phone, name, notes, # conversations, last
+  activity). Search.
+- [ ] `[id].tsx` — contact detail: edit name/notes, linked conversations,
+  orders, tags.
+
+### 8.11 Team & Staff (`/dashboard/team`)
+
+**PRD 15.9**
+
+- [ ] `index.tsx` — staff list (OWNER only): name, email, role.
+- [ ] Invite staff by email → creates a User with role STAFF in this tenant.
+- [ ] Remove/change role of staff (OWNER only). STAFF who land here are
+  redirected/forbidden.
+
 ---
 
 ## Build Gate
@@ -156,6 +201,11 @@ data tables consuming the API routes built in Phases 2-5.
 - [ ] Auth: unauthenticated access to any `/dashboard/*` page redirects to `/login`.
 - [ ] CRUD: create a product, edit it, view it in inventory, delete it.
 - [ ] Capabilities: toggle a tool permission, verify it persists.
+- [ ] Inbox: open a conversation, see message history, send a human reply.
+- [ ] Assignment: assign a conversation to a human → AI stands down; reassign to AI → resumes.
+- [ ] Tags: add a "needs follow-up" tag, filter the inbox by it.
+- [ ] Roles: STAFF can access Inbox/Contacts but are blocked from Agents/Data/Settings.
+- [ ] Onboarding: choose Cloud API or Baileys; Baileys shows the ToS warning.
 
 ---
 
@@ -174,6 +224,9 @@ src/
 │   └── badge-status.tsx
 ├── pages/dashboard/
 │   ├── index.tsx              (overview)
+│   ├── inbox/
+│   │   ├── index.tsx          (conversation list + chat panel)
+│   │   └── [id].tsx           (single conversation)
 │   ├── agents/
 │   │   ├── index.tsx          (list)
 │   │   ├── new.tsx            (create)
@@ -200,6 +253,11 @@ src/
 │   │   └── index.tsx
 │   ├── approvals/
 │   │   └── index.tsx
+│   ├── contacts/
+│   │   ├── index.tsx          (contact list)
+│   │   └── [id].tsx           (contact detail + conversations)
+│   ├── team/
+│   │   └── index.tsx          (staff list + invite — OWNER only)
 │   └── settings/
 │       └── index.tsx
 ```

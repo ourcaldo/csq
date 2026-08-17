@@ -207,3 +207,6 @@ src/
   pre-resolved. Handlers never extract these from params.
 - OpenClaw integration (Phase 6) will call into `executeTool()` — the interface
   must be clean and well-typed.
+- Tools are **provider-agnostic**: whether WhatsApp arrives via Cloud API or
+  Baileys (Phase 7), the agent calls the same tools through the same gateway.
+  The WhatsApp provider only affects message transport, not tool execution.

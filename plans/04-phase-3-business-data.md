@@ -72,6 +72,23 @@ that the dashboard UI (Phase 8) and Tool Gateway (Phase 5) consume.
   - Common Prisma where clause builders for tenant filtering.
 - [ ] Avoid duplicating tenant-filter logic across every route.
 
+### 3.8 Contacts CRUD
+
+- [ ] Create `src/pages/api/dashboard/contacts/`:
+  - `index.ts` — `GET` (list by tenantId, search by phone/name).
+  - `[id].ts` — `GET`, `PUT` (edit name/notes).
+- [ ] Contacts are auto-created from inbound WhatsApp messages (Phase 7); here
+  the owner/staff can list and edit them.
+- [ ] Zod schemas in `src/types/contact.ts`.
+
+### 3.9 Tags CRUD
+
+- [ ] Create `src/pages/api/dashboard/tags/`:
+  - `index.ts` — `GET` (list tags for tenant), `POST` (create tag — OWNER only).
+  - `[id].ts` — `PUT` (rename), `DELETE` (remove tag — OWNER only).
+- [ ] Applying tags to conversations is handled in Phase 7 (inbox APIs).
+- [ ] Zod schemas in `src/types/tag.ts`.
+
 ---
 
 ## Build Gate

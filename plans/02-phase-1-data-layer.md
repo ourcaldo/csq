@@ -24,17 +24,22 @@ All models live in `prisma/schema.prisma`. Every model includes `tenant_id`.
 - [ ] `Tenant` — id, name, slug, createdAt, updatedAt.
 
 **User (Auth):**
-- [ ] `User` — id, email, name, passwordHash, tenantId (FK → Tenant).
+- [ ] `User` — id, email, name, passwordHash, role (enum: `OWNER`, `STAFF`,
+  default `OWNER`), tenantId (FK → Tenant).
 - [ ] Unique constraint on email.
+- [ ] `role` enables multi-staff (PRD §15.9): OWNER = full config control,
+  STAFF = inbox handling only.
 
 **Agent:**
 - [ ] `Agent` — id, tenantId, name, type (enum: `CUSTOMER_SERVICE`), status
   (enum: `DRAFT`, `ACTIVE`, `PAUSED`), instructions (text), createdAt, updatedAt.
 
 **Channel:**
-- [ ] `Channel` — id, tenantId, agentId, type (enum: `WHATSAPP`), config (json:
-  stores phoneNumberId, token, verifyToken — encrypted or env-referenced),
-  status (enum: `CONNECTED`, `DISCONNECTED`), createdAt.
+- [ ] `Channel` — id, tenantId, agentId, type (enum: `WHATSAPP`), provider
+  (enum: `CLOUD_API`, `BAILEYS`, default `CLOUD_API`), config (json:
+  CLOUD_API stores phoneNumberId/verifyToken; BAILEYS stores sessionId/auth
+  state ref), status (enum: `CONNECTED`, `DISCONNECTED`), createdAt.
+- [ ] `provider` makes the WhatsApp connection pluggable (PRD §4.4, §23A).
 
 **Product:**
 - [ ] `Product` — id, tenantId, name, description, sku, price (Decimal),
@@ -87,14 +92,37 @@ All models live in `prisma/schema.prisma`. Every model includes `tenant_id`.
   proposedBefore, proposedAfter, status (enum: `PENDING`, `APPROVED`, `REJECTED`),
   resolvedBy (nullable FK → User), resolvedAt, createdAt.
 
-**Conversation (WhatsApp session tracking):**
-- [ ] `Conversation` — id, tenantId, agentId (FK → Agent), customerPhone,
-  openclawSessionId (nullable), lastMessageAt, createdAt.
-- [ ] Unique on `(tenantId, agentId, customerPhone)` — one session per
-  customer per agent.
-- [ ] Index on `(tenantId, agentId)`.
-- [ ] This model is created in Phase 1 (not Phase 6) because it's a data model,
-  not an integration concern. Phase 6 populates it; Phase 1 defines it.
+**Conversation (CRM inbox thread):**
+- [ ] `Conversation` — id, tenantId, channelId (FK → Channel), customerPhone,
+  contactId (nullable FK → Contact), assignedAgentId (nullable FK → Agent),
+  assigneeUserId (nullable FK → User), status (enum: `OPEN`, `PENDING`,
+  `RESOLVED`), openclawSessionId (nullable), lastMessageAt, createdAt, updatedAt.
+- [ ] Unique on `(tenantId, channelId, customerPhone)` — one thread per
+  customer per channel (assignment can change over time).
+- [ ] Index on `(tenantId, status)`, `(tenantId, assignedAgentId)`,
+  `(tenantId, assigneeUserId)`.
+- [ ] Assignment is mutually exclusive: `assignedAgentId` (AI) XOR
+  `assigneeUserId` (human). When a human is assigned, the AI stands down.
+- [ ] Created in Phase 1 (data model); populated by the WhatsApp ingest path
+  (Phase 7) and managed from the inbox UI (Phase 8).
+
+**Contact (CRM customer):**
+- [ ] `Contact` — id, tenantId, phone, name (nullable), notes (nullable),
+  createdAt, updatedAt. Unique on `(tenantId, phone)`. Auto-created from
+  inbound messages.
+
+**Message (chat history):**
+- [ ] `Message` — id, tenantId, conversationId (FK → Conversation, cascade),
+  direction (enum: `INBOUND`, `OUTBOUND`), senderType (enum: `CUSTOMER`,
+  `AGENT`, `HUMAN`), senderAgentId (nullable FK → Agent), senderUserId
+  (nullable FK → User), body, waMessageId (nullable), createdAt.
+- [ ] Index on `(tenantId, conversationId, createdAt)`.
+
+**Tag / Label:**
+- [ ] `Tag` — id, tenantId, name, color (nullable). Unique on
+  `(tenantId, name)`.
+- [ ] `ConversationTag` — id, conversationId (FK → Conversation, cascade),
+  tagId (FK → Tag, cascade). Unique on `(conversationId, tagId)`.
 
 ### 1.3 Enable pgvector extension
 

@@ -25,14 +25,14 @@ separate backend service.
 | Phase | Focus | PRD Sections | Depends On |
 |-------|-------|--------------|------------|
 | [0](./01-phase-0-scaffolding.md) | Scaffolding & Foundation | 23B.1–23B.6 | — |
-| [1](./02-phase-1-data-layer.md) | Data Layer (Prisma, Schema, Vector) | 7, 23A, 23B.4 | 0 |
+| [1](./02-phase-1-data-layer.md) | Data Layer (Prisma, Schema, Vector, CRM models) | 7, 15.8, 23A, 23B.4 | 0 |
 | [2](./03-phase-2-auth-tenant.md) | Auth & Tenant Isolation | 5, 18, 23A | 0, 1 |
-| [3](./04-phase-3-business-data.md) | Business Data CRUD + Knowledge + Memory | 7, 8.1, 15.3–15.5 | 1, 2 |
+| [3](./04-phase-3-business-data.md) | Business Data CRUD + Knowledge + Memory + Contacts/Tags | 7, 8.1, 15.3–15.5, 15.8 | 1, 2 |
 | [4](./05-phase-4-data-ingestion.md) | Data Ingestion (Excel/CSV, Google Sheets) | 8.2, 8.3 | 1, 3 |
 | [5](./06-phase-5-tool-gateway.md) | Tool Gateway (Registry, Permissions, Audit) | 9, 10, 11, 12, 17, 27 | 1, 2, 3 |
 | [6](./07-phase-6-openclaw-integration.md) | OpenClaw Integration (Agent Runtime, Cells) | 4.3, 23A, 26 | 5 |
-| [7](./08-phase-7-whatsapp-channel.md) | WhatsApp Channel (Webhook, Cloud API) | 4.4, 14, 23A | 5, 6 |
-| [8](./09-phase-8-dashboard-ui.md) | Dashboard UI (All Pages) | 15, 16 | 1, 2, 3, 4 |
+| [7](./08-phase-7-whatsapp-channel.md) | WhatsApp Channel + Inbox Backend (Pluggable: Cloud API + Baileys) | 4.4, 14, 15.8, 23A | 5, 6 |
+| [8](./09-phase-8-dashboard-ui.md) | Dashboard UI + CRM Inbox UI (All Pages) | 15, 15.8, 15.9, 16 | 1, 2, 3, 4, 7 |
 | [9](./10-phase-9-demo-marketing.md) | Demo Prep & Marketing Pages | 20A, 21, 22 | All above |
 | [10](./11-phase-10-deployment.md) | Deployment (Docker, Nginx, TLS) | 22A, 23A, 23B.3 | All above |
 
@@ -50,7 +50,11 @@ Phase 0 → 1 → 2 → 5 → 6 → 7 → 10
 
 **Phase 5 (Tool Gateway) is the bottleneck.** Nothing talks to the agent
 without it. Phases 3, 4, and 8 can run in parallel with 5, 6, 7 as long
-as 5 lands before 6.
+as 5 lands before 6. **Note:** Phase 8's CRM inbox UI depends on Phase 7's
+inbox backend (conversation/message/assignment APIs + provider dispatch),
+so the inbox pages land after Phase 7. The non-inbox dashboard pages
+(agents, data, knowledge, memory, activity, approvals, settings) only
+depend on Phases 1–4 and can proceed in parallel with 5–7.
 
 ### Parallelization Opportunities
 
@@ -70,7 +74,8 @@ After Phase 2 completes, these can run concurrently:
 | OpenClaw integration method unknown | Could change backend layout or require separate process | Validate against docs early (Phase 6). Fall back to HTTP tool-calling pattern. | **Unresolved** |
 | OpenClaw resource footprint on 4GB RAM | Might not fit alongside Next.js + Postgres | Test early. If it doesn't fit, consider running OpenClaw on a separate lightweight container. | **Unresolved** |
 | pgvector + Prisma raw SQL patterns | Potential for inconsistent vector operations | Locked convention in 23B.6 — all through `lib/vector.ts`. | Mitigated |
-| WhatsApp Cloud API test number limits | Rate limits or availability issues for demo | Prepare Baileys as documented fallback, but do NOT default to it. | Documented |
+| WhatsApp Cloud API test number limits | Rate limits or availability issues for demo | Cloud API is the ToS-safe default; Baileys is a first-class opt-in alternative (bring-your-own-number) for full parity. | Documented |
+| Baileys ToS/ban risk | A real business number using the Baileys provider can be banned | Opt-in per channel with a UI warning; demo on a throwaway test SIM; Cloud API remains the safe default. See SDD §7.6. | Documented |
 | Embedding model choice not specified | Vector dimension depends on model | Decide in Phase 1. OpenAI `text-embedding-3-small` (1536 dim) is the safe default. | **Unresolved** |
 | One-month build window | Tight for the full scope | Strict phase ordering, build gates, no gold-plating. Phase 9 (marketing) is explicitly deferred. | Acknowledged |
 
