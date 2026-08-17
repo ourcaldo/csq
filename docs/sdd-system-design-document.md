@@ -1,5 +1,5 @@
 # System Design Document (SDD)
-## UMKM Agent Workspace
+## CSQ
 
 **Document version:** 1.0
 **Date:** 2026-08-16

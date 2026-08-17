@@ -1,6 +1,6 @@
 # PRD: Self-Hosted UMKM AI Agent Platform
 
-**Working title:** UMKM Agent Workspace\
+**Working title:** CSQ\
 **HackFest category:** Customer Service\
 **Primary agent:** AI Customer Service Agent\
 **Runtime:** OpenClaw\
@@ -1453,7 +1453,7 @@ inside the app.
 ## 23B.1 Repository Layout
 
 ``` text
-umkm-agent-workspace/
+csq/
 ├── prisma/
 │   ├── schema.prisma           # all models, tenant_id from day one
 │   ├── migrations/             # includes pgvector extension setup
