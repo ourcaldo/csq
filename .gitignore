@@ -4,6 +4,7 @@ node_modules/
 # next.js build output
 .next/
 out/
+next-env.d.ts
 
 # production
 build/
@@ -13,6 +14,8 @@ build/
 .env.local
 .env.*.local
 .env.production
+.env.bak
+.env.*.bak
 
 # logs
 *.log
@@ -29,3 +32,9 @@ Thumbs.db
 
 # misc
 *.pem
+
+# local tooling state
+.neon
+
+# typescript build info
+*.tsbuildinfo

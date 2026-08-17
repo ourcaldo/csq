@@ -1,6 +1,6 @@
 # Master Implementation Plan
 
-**Project:** UMKM Agent Workspace (HackFest MVP)
+**Project:** CSQ (HackFest MVP)
 **Date:** 2026-08-16
 **Status:** Planning
 **PRD:** `../docs/prd-product-requirements-document.md`

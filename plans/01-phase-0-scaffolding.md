@@ -11,7 +11,7 @@ Everything after this phase builds on top of these files.
 
 ### 0.1 Create Next.js project
 
-- [ ] Run `npx create-next-app@latest umkm-agent-workspace` with:
+- [ ] Run `npx create-next-app@latest csq` with:
   - TypeScript: Yes
   - ESLint: Yes
   - Tailwind CSS: Yes
@@ -118,7 +118,7 @@ PRD 23B.1 layout:
 ## Files Created/Modified
 
 ```
-umkm-agent-workspace/          (entire project)
+csq/          (entire project)
 ├── docker/
 │   └── docker-compose.dev.yml
 ├── .env.example

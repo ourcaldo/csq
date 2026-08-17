@@ -1,5 +1,5 @@
 # Software Requirements Specification (SRS)
-## UMKM Agent Workspace
+## CSQ
 
 **Document version:** 1.0
 **Date:** 2026-08-16
@@ -116,7 +116,7 @@ Section 7 summarizes data requirements (detailed schema is in the SDD).
 
 ### 2.1 Product Perspective [PRD §4]
 
-The UMKM Agent Workspace is a standalone, self-hosted web application. It is
+CSQ is a standalone, self-hosted web application. It is
 not a SaaS product and does not depend on a hosted backend.
 
 The system has four layers:

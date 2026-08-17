@@ -1,0 +1,87 @@
+# Production stack for CSQ on the HackFest VPS
+# (4 vCPU / 4GB RAM / 20GB SSD Ubuntu). Run from the docker/ directory:
+#   docker compose --env-file ../.env.production up -d
+# OpenClaw is opt-in (memory-limited sidecar) — enable with --profile openclaw.
+# TLS is terminated by Nginx; Certbot renews certificates.
+
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    environment:
+      DATABASE_URL: ${DATABASE_URL}
+      NEXTAUTH_URL: ${NEXTAUTH_URL}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      WHATSAPP_TOKEN: ${WHATSAPP_TOKEN}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID}
+      WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN}
+      WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET}
+      WHATSAPP_BUSINESS_ACCOUNT_ID: ${WHATSAPP_BUSINESS_ACCOUNT_ID}
+      WHATSAPP_API_VERSION: ${WHATSAPP_API_VERSION:-v25.0}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI}
+      OPENCLAW_BASE_URL: ${OPENCLAW_BASE_URL:-http://openclaw:18789}
+      OPENCLAW_API_KEY: ${OPENCLAW_API_KEY}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-umkm_prod}
+      POSTGRES_USER: ${POSTGRES_USER:-umkm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-umkm} -d ${POSTGRES_DB:-umkm_prod}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5432:5432"
+
+  nginx:
+    build: ./nginx
+    depends_on: [app]
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    restart: unless-stopped
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: >
+      /bin/sh -c "certbot renew --webroot -w /var/www/certbot --quiet &&
+      sleep 12h && exit 0"
+    restart: unless-stopped
+
+  # Optional OpenClaw reasoning-runtime sidecar. Hard memory limit per the 4GB
+  # budget research (estimate ~400–900MB; cap at 768m and load-test before relying on it).
+  # Enable with:  docker compose --profile openclaw --env-file ../.env.production up -d
+  openclaw:
+    image: ghcr.io/openclaw/openclaw:slim
+    profiles: ["openclaw"]
+    environment:
+      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_API_KEY}
+    mem_limit: 768m
+    cpus: "1.0"
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:18789:18789"
+
+volumes:
+  pgdata:

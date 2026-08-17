@@ -1,4 +1,4 @@
-# AGENTS.md — UMKM Agent Workspace
+# AGENTS.md — CSQ
 
 ## Project Status
 Greenfield HackFest MVP (Customer Service category). No code yet — only the PRD.

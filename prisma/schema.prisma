@@ -1,0 +1,476 @@
+// Prisma schema — CSQ.
+// Multi-tenant from day one: every model carries tenant_id; all queries filter
+// server-side by tenantId (Postgres RLS is the second enforcement layer).
+//
+// pgvector: "KnowledgeEmbedding.embedding" is declared Unsupported("vector")
+// because Prisma has no native vector type. The FIRST migration must run
+// `CREATE EXTENSION IF NOT EXISTS vector;` and ALTER that column to
+// `vector(1536)` (OpenAI text-embedding-3-small dimension). All vector reads
+// and writes go through src/lib/vector.ts only — never raw SQL elsewhere.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+// ─────────────────────────── Enums ───────────────────────────
+
+enum UserRole {
+  OWNER
+  STAFF
+}
+
+enum AgentType {
+  CUSTOMER_SERVICE
+}
+
+enum AgentStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+}
+
+enum ChannelType {
+  WHATSAPP
+}
+
+enum ChannelProvider {
+  CLOUD_API
+  BAILEYS
+}
+
+enum ChannelStatus {
+  CONNECTED
+  DISCONNECTED
+}
+
+enum DataSourceType {
+  MANUAL
+  EXCEL
+  GOOGLE_SHEETS
+}
+
+enum DataSourceStatus {
+  ACTIVE
+  INACTIVE
+  ERROR
+}
+
+enum InventorySource {
+  MANUAL
+  EXCEL
+  GOOGLE_SHEETS
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+}
+
+enum KnowledgeType {
+  FAQ
+  POLICY
+  BUSINESS_INFO
+}
+
+enum MemorySource {
+  CONVERSATION
+  MANUAL
+}
+
+enum MemoryImportance {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ApprovalStatus {
+  NONE
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ConversationStatus {
+  OPEN
+  PENDING
+  RESOLVED
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageSenderType {
+  CUSTOMER
+  AGENT
+  HUMAN
+}
+
+// ─────────────────────────── Models ───────────────────────────
+
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  settings  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users         User[]
+  agents        Agent[]
+  channels      Channel[]
+  products      Product[]
+  inventory     Inventory[]
+  orders        Order[]
+  knowledge     Knowledge[]
+  knowledgeEmbeddings KnowledgeEmbedding[]
+  memories      Memory[]
+  dataSources   DataSource[]
+  auditLogs     AuditLog[]
+  approvals     Approval[]
+  conversations Conversation[]
+  contacts      Contact[]
+  tags          Tag[]
+  messages      Message[]
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String?
+  passwordHash String
+  role         UserRole @default(OWNER)
+  tenantId     String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant               Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assignedConversations Conversation[] @relation("ConversationAssignee")
+  sentMessages         Message[]       @relation("MessageSenderUser")
+  resolvedApprovals    Approval[]      @relation("ApprovalResolver")
+
+  @@index([tenantId])
+}
+
+model Agent {
+  id               String      @id @default(uuid())
+  tenantId         String
+  name             String
+  type             AgentType   @default(CUSTOMER_SERVICE)
+  status           AgentStatus @default(DRAFT)
+  instructions     String?
+  openclawCellId   String?
+  openclawAgentId  String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  tenant                Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  channels              Channel[]
+  capabilities          AgentCapability[]
+  memories              Memory[]
+  auditLogs             AuditLog[]
+  approvals             Approval[]
+  createdOrders         Order[]            @relation("OrderCreatedByAgent")
+  assignedConversations Conversation[]     @relation("ConversationAssigneeAgent")
+  sentMessages          Message[]          @relation("MessageSenderAgent")
+
+  @@index([tenantId])
+}
+
+model Channel {
+  id        String          @id @default(uuid())
+  tenantId  String
+  agentId   String?
+  type      ChannelType     @default(WHATSAPP)
+  provider  ChannelProvider @default(CLOUD_API)
+  config    Json
+  status    ChannelStatus   @default(DISCONNECTED)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agent         Agent?         @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  conversations Conversation[]
+
+  @@index([tenantId])
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String
+  description String?
+  sku         String?
+  price       Decimal  @db.Decimal(12, 2)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant     Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  inventory  Inventory?
+  orderItems OrderItem[]
+
+  @@index([tenantId, sku])
+  @@index([tenantId, name])
+}
+
+model Inventory {
+  id        String          @id @default(uuid())
+  tenantId  String
+  productId String          @unique
+  quantity  Int
+  source    InventorySource @default(MANUAL)
+  sourceRef String?
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+model Order {
+  id               String      @id @default(uuid())
+  tenantId         String
+  customerName     String?
+  customerPhone    String?
+  status           OrderStatus @default(PENDING)
+  totalAmount      Decimal     @db.Decimal(14, 2)
+  createdByAgentId String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdByAgent  Agent?       @relation("OrderCreatedByAgent", fields: [createdByAgentId], references: [id], onDelete: SetNull)
+  items           OrderItem[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
+}
+
+model OrderItem {
+  id        String  @id @default(uuid())
+  orderId   String
+  productId String
+  quantity  Int
+  unitPrice Decimal @db.Decimal(12, 2)
+  subtotal  Decimal @db.Decimal(14, 2)
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model Knowledge {
+  id        String        @id @default(uuid())
+  tenantId  String
+  type      KnowledgeType
+  title     String
+  content   String
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  tenant    Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  embedding KnowledgeEmbedding?
+
+  @@index([tenantId, type])
+}
+
+model KnowledgeEmbedding {
+  id          String   @id @default(uuid())
+  tenantId    String
+  knowledgeId String   @unique
+  embedding   Unsupported("vector")?
+  createdAt   DateTime @default(now())
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  knowledge Knowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+model Memory {
+  id         String           @id @default(uuid())
+  tenantId   String
+  agentId    String
+  key        String
+  value      String
+  source     MemorySource     @default(CONVERSATION)
+  importance MemoryImportance @default(MEDIUM)
+  createdAt  DateTime         @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agent  Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, agentId])
+}
+
+model DataSource {
+  id         String           @id @default(uuid())
+  tenantId   String
+  type       DataSourceType
+  name       String
+  config     Json
+  status     DataSourceStatus @default(ACTIVE)
+  lastSyncAt DateTime?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+}
+
+model AgentCapability {
+  id               String  @id @default(uuid())
+  agentId          String
+  tool             String
+  allowed          Boolean @default(false)
+  requiresApproval Boolean @default(false)
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, tool])
+}
+
+model AuditLog {
+  id             String         @id @default(uuid())
+  tenantId       String
+  agentId        String?
+  action         String
+  entityType     String
+  entityId       String
+  beforeValue    Json?
+  afterValue     Json?
+  approvalStatus ApprovalStatus @default(NONE)
+  customerPhone  String?
+  createdAt      DateTime       @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agent  Agent?  @relation(fields: [agentId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, agentId])
+}
+
+model Approval {
+  id             String         @id @default(uuid())
+  tenantId       String
+  agentId        String?
+  action         String
+  entityType     String
+  entityId       String
+  proposedBefore Json
+  proposedAfter  Json
+  params         Json?
+  status         ApprovalStatus @default(PENDING)
+  resolvedById   String?
+  resolvedAt     DateTime?
+  createdAt      DateTime       @default(now())
+
+  tenant     Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agent      Agent?  @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  resolvedBy User?   @relation("ApprovalResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, status])
+}
+
+model Conversation {
+  id                String             @id @default(uuid())
+  tenantId          String
+  channelId         String
+  customerPhone     String
+  contactId         String?
+  assignedAgentId   String?
+  assigneeUserId    String?
+  status            ConversationStatus @default(OPEN)
+  openclawSessionId String?
+  lastMessageAt     DateTime?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  channel       Channel   @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  contact       Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  assignedAgent Agent?    @relation("ConversationAssigneeAgent", fields: [assignedAgentId], references: [id], onDelete: SetNull)
+  assignee      User?     @relation("ConversationAssignee", fields: [assigneeUserId], references: [id], onDelete: SetNull)
+  messages      Message[]
+  tags           ConversationTag[]
+
+  @@unique([tenantId, channelId, customerPhone])
+  @@index([tenantId, status])
+  @@index([tenantId, assignedAgentId])
+  @@index([tenantId, assigneeUserId])
+}
+
+model Contact {
+  id        String   @id @default(uuid())
+  tenantId  String
+  phone     String
+  name      String?
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+
+  @@unique([tenantId, phone])
+  @@index([tenantId])
+}
+
+model Message {
+  id             String             @id @default(uuid())
+  tenantId       String
+  conversationId String
+  direction      MessageDirection
+  senderType     MessageSenderType
+  senderAgentId  String?
+  senderUserId   String?
+  body           String
+  waMessageId    String?
+  isInternal     Boolean            @default(false)
+  createdAt      DateTime           @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  senderAgent  Agent?        @relation("MessageSenderAgent", fields: [senderAgentId], references: [id], onDelete: SetNull)
+  senderUser   User?         @relation("MessageSenderUser", fields: [senderUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, conversationId, createdAt])
+}
+
+model Tag {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  color     String?
+  createdAt DateTime @default(now())
+
+  tenant        Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversations ConversationTag[]
+
+  @@unique([tenantId, name])
+}
+
+model ConversationTag {
+  id             String @id @default(uuid())
+  conversationId String
+  tagId          String
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  tag          Tag          @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, tagId])
+  @@index([tagId])
+}
