@@ -80,12 +80,12 @@ These are the constraints from `CLAUDE.md` that cost the most if missed.
 ### H3. Approvals / Activity / Settings / Team UI — Phase 8.6–8.8, 8.11
 **Status:** Backends exist (`api/dashboard/approvals/*`), but no `/dashboard/approvals`, `/dashboard/activity`, `/dashboard/settings`, or `/dashboard/team` pages. ~9 of ~18 planned dashboard pages present; all detail/edit sub-pages (`products/[id]`, `orders/[id]`, `contacts/[id]`, `knowledge/[id]`, `knowledge/new`) missing.
 
-### H4. Channels / Onboarding API — Phase 7.5
-**Status:** No `src/pages/api/dashboard/channels/` directory. `connect.ts`/`disconnect.ts`/`test.ts` all absent. `tosAcknowledged` exists in `baileysConfigSchema` but **no API enforces it**. No backend path accepts `provider` (CLOUD_API | BAILEYS) or gates Baileys on acknowledgement. The opt-in warning is deferred to UI that doesn't exist yet.
+### ~~H4. Channels / Onboarding API~~ ✅ FIXED (2026-08-17) — Phase 7.5
+**Status:** New `src/pages/api/dashboard/channels/{connect,disconnect,test}.ts` (OWNER-only, tenant-scoped). `connect` accepts `provider` (CLOUD_API | BAILEYS), Zod-parses provider-specific config, and **enforces `tosAcknowledged` before enabling Baileys** (returns PERMISSION_DENIED otherwise). `disconnect` tears down the Baileys socket. `test` sends a small text via the channel's provider.
 
-### H5. Baileys provider is a non-functional stub — Phase 7.3
-**File:** `src/services/baileys.ts:49`
-**Status:** Implements the `WhatsAppProvider` interface but `sendText` throws "Baileys provider not yet wired". No socket wiring, no QR/pair-code, no `@whiskeysockets/baileys` dependency, no session-key persistence. The provider is switchable but **not functional** — parity with Cloud API is not delivered.
+### ~~H5. Baileys provider is a non-functional stub~~ ✅ FIXED (2026-08-17) — Phase 7.3
+**File:** `src/services/baileys.ts`
+**Status:** Wired with `@whiskeysockets/baileys` + `pino`. `connectBaileysChannel` starts the socket, persists auth state on disk (`.baileys-auth/<channelId>`), emits the QR for the UI, reconnects on transient close, and feeds `messages.upsert` → `ingestInboundMessage` + `processInboundWithAgent`. `BaileysProvider.sendText` sends via the live socket. `startBaileysChannels` reconnects already-CONNECTED channels at boot (called from the scheduler). `.baileys-auth/` gitignored.
 
 ### ~~H6. Demo agent not seeded~~ ✅ FIXED (2026-08-17) — Phase 9A.2
 **File:** `prisma/seed.ts`
@@ -156,7 +156,7 @@ Registry (`tools/index.ts`, `Map`-based, no-dup guard); `permissions.ts` (overri
 DONE: `services/openclaw.ts` (sidecar/OpenAI-compatible on loopback:18789, client-side function tools per validated memory note — defensible adaptation of the plan's cell-CRUD surface); `agent-loop.ts` (Understand→Retrieve→Reason→Check Permission→Act→Verify→Record); `prompt-builder.ts` (persona + owner instructions + business info + FAQs + policies + safety rules + Bahasa Indonesia); tool-gateway routing; conversation/message persistence. INCOMPLETE: ~~deploy/pause routes (M1)~~ ✅ FIXED; ~~documented `chat.ts` route (M2)~~ ✅ FIXED; ~~full provisioning flow — `openclawCellId` field never written (M3)~~ ✅ FIXED.
 
 ### Phase 7 — WhatsApp Channel + Inbox Backend — ❌ INCOMPLETE
-DONE: `WhatsAppProvider` interface + factory (`whatsapp-provider.ts`); Cloud API provider (`whatsapp.ts`, Graph v25.0, Zod parse, 24h window in `inbox.ts:198-213`); shared ingest path (`inbox.ts`: findOrCreateConversation → recordInboundMessage); webhook always-ACK + raw-body HMAC + fire-and-forget agent; inbox APIs (conversations list/detail, messages, tags add/remove, contacts, tags). INCOMPLETE: **webhook signature bypassable (C1)**; Baileys stub non-functional (H5); channels/onboarding API entirely missing, no `tosAcknowledged` enforcement (H4); private-notes + SSE routes missing (M8, M9); `requireRole` helper missing (M5).
+DONE: `WhatsAppProvider` interface + factory (`whatsapp-provider.ts`); Cloud API provider (`whatsapp.ts`, Graph v25.0, Zod parse, 24h window in `inbox.ts:198-213`); shared ingest path (`inbox.ts`: findOrCreateConversation → recordInboundMessage); webhook always-ACK + raw-body HMAC + fire-and-forget agent; inbox APIs (conversations list/detail, messages, tags add/remove, contacts, tags). INCOMPLETE: ~~**webhook signature bypassable (C1)**~~ ✅ FIXED; ~~Baileys stub non-functional (H5)~~ ✅ FIXED; ~~channels/onboarding API entirely missing, no `tosAcknowledged` enforcement (H4)~~ ✅ FIXED; private-notes + SSE routes missing (M8, M9); ~~`requireRole` helper missing (M5)~~ ✅ FIXED.
 
 ### Phase 8 — Dashboard UI + CRM Inbox UI — ❌ INCOMPLETE
 DONE: 9 CRUD pages (products, inventory, orders, contacts, tags, knowledge, memory, sources, index) all auth-guarded via `withAuth` and using the shared shell; shadcn primitives; `use-api.ts`; `api-client.ts`; `_app.tsx` SessionProvider; `dashboard-shell.tsx`, `confirm-dialog.tsx`, `pagination.tsx`, `state-notice.tsx`. INCOMPLETE: CRM inbox UI entirely missing (H1); agent management UI missing (H2); approvals/activity/settings/team UI missing (H3); all detail/edit sub-pages missing; inbox shared components missing. Route structure flattened (`/dashboard/products` vs plan's `/dashboard/data/products`) — functionally equivalent.

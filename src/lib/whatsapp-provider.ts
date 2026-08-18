@@ -19,7 +19,7 @@ export function getProvider(channel: Channel): WhatsAppProvider {
   }
   if (channel.provider === "BAILEYS") {
     const config = baileysConfigSchema.parse(channel.config);
-    return new BaileysProvider(config);
+    return new BaileysProvider(channel.id, config);
   }
   throw new Error(`Unknown WhatsApp provider for channel ${channel.id}.`);
 }

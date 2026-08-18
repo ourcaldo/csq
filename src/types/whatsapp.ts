@@ -16,11 +16,11 @@ export const cloudApiConfigSchema = z.object({
 });
 export type CloudApiConfig = z.infer<typeof cloudApiConfigSchema>;
 
-// Baileys (bring your own number). Auth/session keys are persisted keyed by
-// channel so the socket survives restarts; filled in by the integrator once
-// @whiskeysockets/baileys is installed.
+// Baileys (bring your own number). Auth state persists per channel on disk
+// (src/services/baileys.ts useMultiFileAuthState under .baileys-auth/<channelId>),
+// so nothing secret is stored in `config`. `tosAcknowledged` is the ToS/ban-risk
+// gate the channels API enforces before enabling a Baileys channel (FR-WA-011).
 export const baileysConfigSchema = z.object({
-  sessionKeys: z.unknown().optional(),
   tosAcknowledged: z.boolean().optional(),
 });
 export type BaileysConfig = z.infer<typeof baileysConfigSchema>;
