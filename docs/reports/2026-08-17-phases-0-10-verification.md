@@ -12,6 +12,9 @@
 
 **5 of 11 phases fully complete. The critical backbone (Tool Gateway, agent loop, Cloud API, deployment stack, data layer) is solid and the sacred demo safety moment is preserved. But 6 phases are incomplete, and there is one serious security flaw that must be fixed before any demo or merge.**
 
+> **Update (2026-08-19):** All **non-UI** issues from this report have now been fixed and pushed to `main` (commits `44b2fcf` → `2a3edd9`, batches A–I). The 3 Criticals (C1 webhook fail-closed, C2 tenant_id on junction tables, C3 RLS migration) and all 6 High-priority non-UI gaps (H4 channels API, H5 Baileys wiring, H6 demo seed) are resolved, plus every Medium item except the UI-only ones (H1/H2/H3 dashboard pages, M19 shadcn components, and the Phase 9 Part B marketing deferral). Remaining open work is **UI-only**: CRM inbox UI, agent-management UI, approvals/activity/settings/team UI, and detail/edit sub-pages. Build + lint stay green after every batch. The demo safety moment remains intact.
+
+
 | Phase | Focus | Verdict |
 |-------|-------|---------|
 | 0 | Scaffolding & Foundation | ✅ COMPLETE |
