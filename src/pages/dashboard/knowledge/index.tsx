@@ -8,6 +8,7 @@ import type { Knowledge, KnowledgeType, ListResult } from "@/types/dashboard";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { StateNotice } from "@/components/dashboard/state-notice";
 import { Pagination } from "@/components/dashboard/pagination";
+import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,6 +58,17 @@ export default function KnowledgePage() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Inline edit + delete state (same pattern as Products).
+  const [editing, setEditing] = useState<Knowledge | null>(null);
+  const [editType, setEditType] = useState<KnowledgeType>("FAQ");
+  const [editTitle, setEditTitle] = useState("");
+  const [editContent, setEditContent] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const [toDelete, setToDelete] = useState<Knowledge | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
   const url = `/api/dashboard/knowledge?page=${page}&pageSize=${PAGE_SIZE}${
     typeFilter ? `&type=${typeFilter}` : ""
   }`;
@@ -81,6 +93,48 @@ export default function KnowledgePage() {
       setFormError(err instanceof Error ? err.message : "Gagal menambah pengetahuan.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  function openEdit(k: Knowledge) {
+    setEditing(k);
+    setEditType(k.type);
+    setEditTitle(k.title);
+    setEditContent(k.content);
+    setEditError(null);
+  }
+
+  async function onSaveEdit(e: FormEvent) {
+    e.preventDefault();
+    if (!editing) return;
+    setEditSaving(true);
+    setEditError(null);
+    try {
+      await apiSend<Knowledge>(`/api/dashboard/knowledge/${editing.id}`, "PUT", {
+        type: editType,
+        title: editTitle,
+        content: editContent,
+      });
+      setEditing(null);
+      refresh();
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Gagal menyimpan pengetahuan.");
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
+  async function onConfirmDelete() {
+    if (!toDelete) return;
+    setDeleting(true);
+    try {
+      await apiSend(`/api/dashboard/knowledge/${toDelete.id}`, "DELETE");
+      setToDelete(null);
+      refresh();
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Gagal menghapus pengetahuan.");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -122,12 +176,13 @@ export default function KnowledgePage() {
                   <TableHead>Judul</TableHead>
                   <TableHead>Jenis</TableHead>
                   <TableHead>Diperbarui</TableHead>
+                  <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {data && data.items.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={3}>
+                    <TableCell colSpan={4}>
                       <StateNotice variant="empty" message="Belum ada pengetahuan." />
                     </TableCell>
                   </TableRow>
@@ -140,6 +195,16 @@ export default function KnowledgePage() {
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {formatDate(k.updatedAt)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" size="sm" onClick={() => openEdit(k)}>
+                          Edit
+                        </Button>
+                        <Button variant="destructive" size="sm" onClick={() => setToDelete(k)}>
+                          Hapus
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -207,6 +272,69 @@ export default function KnowledgePage() {
           </div>
         </form>
       </Dialog>
+
+      {/* Inline edit dialog */}
+      <Dialog
+        open={editing !== null}
+        onClose={() => setEditing(null)}
+        title="Edit Pengetahuan"
+      >
+        <form onSubmit={onSaveEdit} className="flex flex-col gap-4">
+          {editError && <p className="text-sm text-destructive">{editError}</p>}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="edit-knowledge-type">Jenis</Label>
+            <Select
+              id="edit-knowledge-type"
+              value={editType}
+              onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                setEditType(toKnowledgeType(e.target.value))
+              }
+            >
+              <option value="FAQ">FAQ</option>
+              <option value="POLICY">Kebijakan</option>
+              <option value="BUSINESS_INFO">Info Usaha</option>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="edit-knowledge-title">Judul</Label>
+            <Input
+              id="edit-knowledge-title"
+              required
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="edit-knowledge-content">Isi</Label>
+            <Textarea
+              id="edit-knowledge-content"
+              required
+              rows={6}
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setEditing(null)}>
+              Batal
+            </Button>
+            <Button type="submit" disabled={editSaving}>
+              {editSaving ? "Menyimpan…" : "Simpan"}
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+
+      <ConfirmDialog
+        open={toDelete !== null}
+        title="Hapus Pengetahuan"
+        description={`Yakin ingin menghapus "${toDelete?.title}"? Tindakan ini tidak dapat dibatalkan.`}
+        confirmLabel="Hapus"
+        destructive
+        loading={deleting}
+        onConfirm={onConfirmDelete}
+        onCancel={() => setToDelete(null)}
+      />
     </DashboardShell>
   );
 }
