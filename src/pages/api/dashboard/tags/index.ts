@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import type { Tag } from "@prisma/client";
 import { getAuthSession, requireRole } from "@/lib/auth";
 import prisma from "@/lib/db";
+import { logHuman } from "@/lib/audit";
 import { paginate, requireTenant, respondError } from "@/lib/queries";
 import { apiOk, type ApiResponse } from "@/types/api";
 import { tagCreateSchema } from "@/types/tag";
@@ -35,6 +36,13 @@ export default async function handler(
       return respondError(res, "VALIDATION_ERROR", parsed.error.message);
     }
     const tag = await prisma.tag.create({ data: { ...parsed.data, tenantId } });
+    await logHuman({
+      tenantId,
+      action: "tag.create",
+      entityType: "Tag",
+      entityId: tag.id,
+      afterValue: tag,
+    });
     return res.status(201).json(apiOk(tag));
   }
 

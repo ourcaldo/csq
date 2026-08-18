@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import type { Prisma, Product } from "@prisma/client";
 import { getAuthSession } from "@/lib/auth";
 import prisma from "@/lib/db";
+import { logHuman } from "@/lib/audit";
 import { paginate, requireTenant, respondError, strQuery } from "@/lib/queries";
 import { apiOk, type ApiResponse } from "@/types/api";
 import { productCreateSchema } from "@/types/product";
@@ -37,6 +38,13 @@ export default async function handler(
     }
     const product = await prisma.product.create({
       data: { ...parsed.data, tenantId },
+    });
+    await logHuman({
+      tenantId,
+      action: "product.create",
+      entityType: "Product",
+      entityId: product.id,
+      afterValue: product,
     });
     return res.status(201).json(apiOk(product));
   }

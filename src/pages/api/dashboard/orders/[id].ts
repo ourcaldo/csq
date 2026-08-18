@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import type { Prisma } from "@prisma/client";
 import { getAuthSession } from "@/lib/auth";
 import prisma from "@/lib/db";
+import { logHuman } from "@/lib/audit";
 import { requireTenant, respondError } from "@/lib/queries";
 import { apiOk, type ApiResponse } from "@/types/api";
 import { orderStatusUpdateSchema } from "@/types/order";
@@ -41,6 +42,14 @@ export default async function handler(
       where: { id },
       data: { status: parsed.data.status },
       include: { items: true },
+    });
+    await logHuman({
+      tenantId,
+      action: "order.update_status",
+      entityType: "Order",
+      entityId: id,
+      beforeValue: existing,
+      afterValue: order,
     });
     return res.status(200).json(apiOk(order));
   }

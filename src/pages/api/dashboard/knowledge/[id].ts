@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import type { Knowledge } from "@prisma/client";
 import { getAuthSession } from "@/lib/auth";
 import prisma from "@/lib/db";
+import { logHuman } from "@/lib/audit";
 import { requireTenant, respondError } from "@/lib/queries";
 import { apiOk, type ApiResponse } from "@/types/api";
 import { knowledgeUpdateSchema } from "@/types/knowledge";
@@ -36,6 +37,14 @@ export default async function handler(
       where: { id },
       data: parsed.data,
     });
+    await logHuman({
+      tenantId,
+      action: "knowledge.update",
+      entityType: "Knowledge",
+      entityId: id,
+      beforeValue: existing,
+      afterValue: knowledge,
+    });
     return res.status(200).json(apiOk(knowledge));
   }
 
@@ -46,6 +55,13 @@ export default async function handler(
     // lib/vector.ts (deleteEmbedding) on the ingestion path; cascade handles
     // the row removal here.
     await prisma.knowledge.delete({ where: { id } });
+    await logHuman({
+      tenantId,
+      action: "knowledge.delete",
+      entityType: "Knowledge",
+      entityId: id,
+      beforeValue: existing,
+    });
     return res.status(200).json(apiOk({ id }));
   }
 

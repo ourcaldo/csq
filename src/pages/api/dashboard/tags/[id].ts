@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import type { Tag } from "@prisma/client";
 import { getAuthSession, requireRole } from "@/lib/auth";
 import prisma from "@/lib/db";
+import { logHuman } from "@/lib/audit";
 import { requireTenant, respondError } from "@/lib/queries";
 import { apiOk, type ApiResponse } from "@/types/api";
 import { tagUpdateSchema } from "@/types/tag";
@@ -31,6 +32,14 @@ export default async function handler(
     const existing = await prisma.tag.findFirst({ where: { id, tenantId } });
     if (!existing) return respondError(res, "NOT_FOUND", "Tag tidak ditemukan.");
     const tag = await prisma.tag.update({ where: { id }, data: parsed.data });
+    await logHuman({
+      tenantId,
+      action: "tag.update",
+      entityType: "Tag",
+      entityId: id,
+      beforeValue: existing,
+      afterValue: tag,
+    });
     return res.status(200).json(apiOk(tag));
   }
 
@@ -42,6 +51,13 @@ export default async function handler(
     if (!existing) return respondError(res, "NOT_FOUND", "Tag tidak ditemukan.");
     // Cascades ConversationTag associations.
     await prisma.tag.delete({ where: { id } });
+    await logHuman({
+      tenantId,
+      action: "tag.delete",
+      entityType: "Tag",
+      entityId: id,
+      beforeValue: existing,
+    });
     return res.status(200).json(apiOk({ id }));
   }
 

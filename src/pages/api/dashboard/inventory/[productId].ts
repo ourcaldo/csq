@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import type { Inventory } from "@prisma/client";
 import { getAuthSession } from "@/lib/auth";
 import prisma from "@/lib/db";
+import { logHuman } from "@/lib/audit";
 import { requireTenant, respondError } from "@/lib/queries";
 import { apiOk, type ApiResponse } from "@/types/api";
 import { inventoryUpdateSchema } from "@/types/inventory";
@@ -34,6 +35,14 @@ export default async function handler(
     const inventory = await prisma.inventory.update({
       where: { productId },
       data: parsed.data,
+    });
+    await logHuman({
+      tenantId,
+      action: "inventory.update",
+      entityType: "Inventory",
+      entityId: existing.id,
+      beforeValue: existing,
+      afterValue: inventory,
     });
     return res.status(200).json(apiOk(inventory));
   }

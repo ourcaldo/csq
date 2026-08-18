@@ -3,6 +3,7 @@ import { Decimal } from "@prisma/client/runtime/library";
 import type { Prisma } from "@prisma/client";
 import { getAuthSession } from "@/lib/auth";
 import prisma from "@/lib/db";
+import { logHuman } from "@/lib/audit";
 import { HttpError, requireTenant, respondError } from "@/lib/queries";
 import { apiOk, type ApiResponse } from "@/types/api";
 import { orderCreateSchema } from "@/types/order";
@@ -90,6 +91,13 @@ export default async function handler(
       });
     });
 
+    await logHuman({
+      tenantId,
+      action: "order.create",
+      entityType: "Order",
+      entityId: order.id,
+      afterValue: order,
+    });
     return res.status(201).json(apiOk(order));
   } catch (err) {
     if (err instanceof HttpError) {

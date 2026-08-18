@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import type { Product } from "@prisma/client";
 import { getAuthSession } from "@/lib/auth";
 import prisma from "@/lib/db";
+import { logHuman } from "@/lib/audit";
 import { requireTenant, respondError } from "@/lib/queries";
 import { apiOk, type ApiResponse } from "@/types/api";
 import { productUpdateSchema } from "@/types/product";
@@ -34,6 +35,14 @@ export default async function handler(
     const existing = await prisma.product.findFirst({ where: { id, tenantId } });
     if (!existing) return respondError(res, "NOT_FOUND", "Produk tidak ditemukan.");
     const product = await prisma.product.update({ where: { id }, data: parsed.data });
+    await logHuman({
+      tenantId,
+      action: "product.update",
+      entityType: "Product",
+      entityId: id,
+      beforeValue: existing,
+      afterValue: product,
+    });
     return res.status(200).json(apiOk(product));
   }
 
@@ -42,6 +51,13 @@ export default async function handler(
     const existing = await prisma.product.findFirst({ where: { id, tenantId } });
     if (!existing) return respondError(res, "NOT_FOUND", "Produk tidak ditemukan.");
     await prisma.product.delete({ where: { id } });
+    await logHuman({
+      tenantId,
+      action: "product.delete",
+      entityType: "Product",
+      entityId: id,
+      beforeValue: existing,
+    });
     return res.status(200).json(apiOk({ id }));
   }
 

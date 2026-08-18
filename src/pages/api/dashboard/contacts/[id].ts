@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import type { Contact } from "@prisma/client";
 import { getAuthSession } from "@/lib/auth";
 import prisma from "@/lib/db";
+import { logHuman } from "@/lib/audit";
 import { requireTenant, respondError } from "@/lib/queries";
 import { apiOk, type ApiResponse } from "@/types/api";
 import { contactUpdateSchema } from "@/types/contact";
@@ -33,6 +34,14 @@ export default async function handler(
     const existing = await prisma.contact.findFirst({ where: { id, tenantId } });
     if (!existing) return respondError(res, "NOT_FOUND", "Kontak tidak ditemukan.");
     const contact = await prisma.contact.update({ where: { id }, data: parsed.data });
+    await logHuman({
+      tenantId,
+      action: "contact.update",
+      entityType: "Contact",
+      entityId: id,
+      beforeValue: existing,
+      afterValue: contact,
+    });
     return res.status(200).json(apiOk(contact));
   }
 

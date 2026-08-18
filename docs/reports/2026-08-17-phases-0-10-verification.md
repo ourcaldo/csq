@@ -104,8 +104,8 @@ These are the constraints from `CLAUDE.md` that cost the most if missed.
 | ~~M5~~ | ~~`requireRole` helper missing~~ ✅ FIXED | 2.10 | `requireRole(session, ...roles)` in `src/lib/auth.ts`; all 9 inline role checks refactored to use it |
 | ~~M6~~ | ~~`requireAuth`/`optionalAuth` exports missing~~ ✅ FIXED | 2.5 | both exported from `src/lib/auth.ts` |
 | ~~M7~~ | ~~Sign-in `authorize()` not Zod-validated~~ ✅ FIXED | 2.1 | `signInSchema` safeParse in `authorize()` |
-| M8 | Private-notes route `[id]/notes.ts` missing | 7.7 | `src/pages/api/dashboard/inbox/` |
-| M9 | SSE stream route `inbox/stream.ts` missing | 7.7 | — |
+| ~~M8~~ | ~~Private-notes route `[id]/notes.ts` missing~~ ✅ FIXED | 7.7 | `inbox/conversations/[id]/notes.ts` (internal message, not sent to customer, audited) |
+| ~~M9~~ | ~~SSE stream route `inbox/stream.ts` missing~~ ✅ FIXED | 7.7 | `inbox/stream.ts` (GET, SSE poll of new messages + heartbeat) |
 | M10 | `writeSheet` not implemented (read-only sync works) | 4.3 | `src/services/sheets.ts` |
 | ~~M11~~ | ~~`Inventory` missing `@@unique([tenantId, productId])`~~ ✅ FIXED | 1.2 | composite unique added (kept `productId @unique` for 1:1 relation) |
 | ~~M12~~ | ~~`.env.example` missing `DATABASE_URL_UNPOOLED`~~ ✅ FIXED | 1.1 | added to `.env.example` + `.env.production.example` |
@@ -117,7 +117,7 @@ These are the constraints from `CLAUDE.md` that cost the most if missed.
 | M18 | Confidence score is aggregate, not per-field | 4.1 | `src/services/excel.ts:80` |
 | M19 | 3 shadcn base components not added: `switch`, `separator`, `dropdown-menu` | 0.3 | `src/components/ui/` |
 | ~~M20~~ | ~~`vector(1536)` column undocumented by a SQL comment~~ ✅ FIXED | 1.4 | SQL comment added in `migration.sql` |
-| M21 | Dashboard mutations not audited (agent/tool path is; human dashboard writes are not) | 3 (tension) | `api/dashboard/*` routes don't call `logAction` |
+| ~~M21~~ | ~~Dashboard mutations not audited~~ ✅ FIXED | 3 (tension) | `logHuman` helper in `lib/audit.ts`; all dashboard mutation routes (products/inventory/orders/contacts/knowledge/memory/tags/sources + notes) now audit |
 
 ---
 
@@ -144,7 +144,7 @@ DONE: all 17 models with correct fields (Tenant, User, Agent, Channel, Product, 
 DONE: NextAuth config with JWT/session callbacks embedding userId/tenantId/role (`auth.ts:14-63`); bcrypt password hashing (`password.ts`); register page+API with Zod + slug + nested OWNER create; login page; `withAuth` HOC via `getServerSideProps`; `getAuthSession` API helper; `tenant-context.ts`; `_app.tsx` SessionProvider; no middleware. INCOMPLETE: ~~`requireRole` helper (M5)~~ ✅ FIXED, ~~`requireAuth`/`optionalAuth` exports (M6)~~ ✅ FIXED, ~~staff-invite route (M4)~~ ✅ FIXED; ~~sign-in not Zod-validated (M7)~~ ✅ FIXED.
 
 ### Phase 3 — Business Data CRUD — ✅ COMPLETE
-Every CRUD route enumerated in the plan exists, is tenant-scoped via session, Zod-validated, and role-enforced (tags create/rename/delete OWNER-only). Transactional order creation. Approvals/audit/permissions machinery backing the agent safety path in place. Tension: dashboard human-write mutations are not audited (M21) — the Phase 3 plan itself does not require this (audit is scoped to the Tool Gateway in Phase 5), so it is a global-constraint tension, not a phase deliverable miss.
+Every CRUD route enumerated in the plan exists, is tenant-scoped via session, Zod-validated, and role-enforced (tags create/rename/delete OWNER-only). Transactional order creation. Approvals/audit/permissions machinery backing the agent safety path in place. Tension resolved: ~~dashboard human-write mutations are not audited (M21)~~ ✅ FIXED — `logHuman` now audits all dashboard mutation routes.
 
 ### Phase 4 — Data Ingestion — ✅ COMPLETE
 Excel/CSV (exceljs) upload→preview→confirm; Sheets (googleapis) OAuth→connect→confirm→sync; shared `import-apply.ts` applier; `node-cron` 15-min scheduler with server-only guard; error→ERROR status; source priority in `Tenant.settings` (OWNER-only PUT). Minor non-blocking gaps: `writeSheet` (M10), aggregate confidence (M18), parsed rows not Zod-validated (M17).

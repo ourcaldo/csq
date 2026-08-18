@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
 import prisma from "@/lib/db";
 import { getAuthSession, requireRole } from "@/lib/auth";
+import { logHuman } from "@/lib/audit";
 import { requireTenant, respondError } from "@/lib/queries";
 import { apiOk, type ApiResponse } from "@/types/api";
 
@@ -54,6 +55,13 @@ export default async function handler(
       data: {
         settings: { ...settings, sourcePriority: parsed.data.sourcePriority },
       },
+    });
+    await logHuman({
+      tenantId,
+      action: "source.priority_update",
+      entityType: "Tenant",
+      entityId: tenantId,
+      afterValue: { sourcePriority: parsed.data.sourcePriority },
     });
     return res.status(200).json(apiOk({ sourcePriority: parsed.data.sourcePriority }));
   }
