@@ -6,7 +6,10 @@ import { hashPassword } from "../src/lib/password";
 // productId) and findFirst-or-create for products/knowledge (no unique on
 // (tenantId, sku) by design — only an index).
 
-async function main() {
+// Seed the demo tenant, owner, products, knowledge, agent + capabilities, and
+// a WhatsApp channel. Exported so prisma/reset-demo.ts can reuse it after
+// wiping the demo tenant.
+export async function seedDemo(): Promise<void> {
   const tenant = await prisma.tenant.upsert({
     where: { slug: "toko-kopi-nusantara" },
     update: {},
@@ -87,6 +90,76 @@ async function main() {
     "Barang dapat ditukar jika rusak atau cacat produksi dalam 3 hari setelah diterima, dengan melampirkan foto dan bukti pembelian. Pengembalian dana dilakukan setelah verifikasi."
   );
 
+  // ── Demo Customer Service Agent + capabilities + WhatsApp channel ──
+  const agent =
+    (await prisma.agent.findFirst({
+      where: { tenantId: tenant.id, name: "Kopi Nusantara CS" },
+    })) ??
+    (await prisma.agent.create({
+      data: {
+        tenantId: tenant.id,
+        name: "Kopi Nusantara CS",
+        type: "CUSTOMER_SERVICE",
+        status: "ACTIVE",
+        openclawAgentId: "demo-kopi-nusantara-cs",
+        instructions:
+          "Kamu adalah customer service Toko Kopi Nusantara. Jawab dengan ramah dalam Bahasa Indonesia. " +
+          "Bantu pelanggan mencari produk, cek stok, dan membuat pesanan. JANGAN pernah mengubah harga " +
+          "tanpa persetujuan owner — perubahan harga selalu butuh approval.",
+      },
+    }));
+
+  // Explicit capabilities (deterministic for the demo). Matches tool defaults:
+  // reads allowed/no-approval; writes denied/approval (owner must enable).
+  const capabilities: Array<{ tool: string; allowed: boolean; requiresApproval: boolean }> = [
+    { tool: "product.read", allowed: true, requiresApproval: false },
+    { tool: "product.search", allowed: true, requiresApproval: false },
+    { tool: "product.update", allowed: false, requiresApproval: true },
+    { tool: "inventory.read", allowed: true, requiresApproval: false },
+    { tool: "inventory.update", allowed: false, requiresApproval: true },
+    { tool: "order.read", allowed: true, requiresApproval: false },
+    { tool: "order.create", allowed: false, requiresApproval: true },
+    { tool: "order.cancel", allowed: false, requiresApproval: true },
+    { tool: "customer.read", allowed: true, requiresApproval: false },
+    { tool: "customer.update", allowed: false, requiresApproval: true },
+    { tool: "knowledge.search", allowed: true, requiresApproval: false },
+  ];
+  for (const cap of capabilities) {
+    await prisma.agentCapability.upsert({
+      where: { agentId_tool: { agentId: agent.id, tool: cap.tool } },
+      update: { allowed: cap.allowed, requiresApproval: cap.requiresApproval },
+      create: {
+        tenantId: tenant.id,
+        agentId: agent.id,
+        tool: cap.tool,
+        allowed: cap.allowed,
+        requiresApproval: cap.requiresApproval,
+      },
+    });
+  }
+
+  // WhatsApp Cloud API channel (DISCONNECTED — owner fills real creds to demo).
+  const existingChannel = await prisma.channel.findFirst({
+    where: { tenantId: tenant.id, provider: "CLOUD_API" },
+  });
+  if (!existingChannel) {
+    await prisma.channel.create({
+      data: {
+        tenantId: tenant.id,
+        agentId: agent.id,
+        type: "WHATSAPP",
+        provider: "CLOUD_API",
+        status: "DISCONNECTED",
+        config: {
+          phoneNumberId: "DEMO_PHONE_NUMBER_ID",
+          token: "DEMO_TOKEN",
+          verifyToken: "demo-verify-token",
+          businessAccountId: "DEMO_BUSINESS_ACCOUNT_ID",
+        },
+      },
+    });
+  }
+
   console.log("Seeded demo tenant:", tenant.slug);
 }
 
@@ -106,10 +179,17 @@ async function ensureKnowledge(
   await prisma.knowledge.create({ data: { tenantId, type, title, content } });
 }
 
-main()
-  .then(() => prisma.$disconnect())
-  .catch(async (err) => {
-    console.error(err);
-    await prisma.$disconnect();
-    process.exit(1);
-  });
+async function main() {
+  await seedDemo();
+}
+
+// Run only when executed directly (not when imported by reset-demo.ts).
+if (require.main === module) {
+  main()
+    .then(() => prisma.$disconnect())
+    .catch(async (err) => {
+      console.error(err);
+      await prisma.$disconnect();
+      process.exit(1);
+    });
+}

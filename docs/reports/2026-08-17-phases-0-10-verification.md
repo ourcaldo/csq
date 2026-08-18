@@ -87,9 +87,9 @@ These are the constraints from `CLAUDE.md` that cost the most if missed.
 **File:** `src/services/baileys.ts:49`
 **Status:** Implements the `WhatsAppProvider` interface but `sendText` throws "Baileys provider not yet wired". No socket wiring, no QR/pair-code, no `@whiskeysockets/baileys` dependency, no session-key persistence. The provider is switchable but **not functional** — parity with Cloud API is not delivered.
 
-### H6. Demo agent not seeded — Phase 9A.2
+### ~~H6. Demo agent not seeded~~ ✅ FIXED (2026-08-17) — Phase 9A.2
 **File:** `prisma/seed.ts`
-**Status:** Seed creates tenant, user, products, inventory, FAQs, and policies — but **no `Agent`, no `AgentCapability`, no WhatsApp `Channel`**. There is nothing for the demo agent to run as. The end-to-end demo cannot run without this.
+**Status:** Seed now creates a `Kopi Nusantara CS` agent (ACTIVE, Bahasa instructions reinforcing the no-unauthorized-price-change rule), explicit `AgentCapability` rows for all 11 tools (reads allowed, writes denied+approval — deterministic), and a WhatsApp CLOUD_API channel (DISCONNECTED; owner fills real creds to demo). `seed.ts` refactored to export `seedDemo()` for reuse.
 
 ---
 
@@ -111,8 +111,8 @@ These are the constraints from `CLAUDE.md` that cost the most if missed.
 | ~~M12~~ | ~~`.env.example` missing `DATABASE_URL_UNPOOLED`~~ ✅ FIXED | 1.1 | added to `.env.example` + `.env.production.example` |
 | M13 | nginx uses `${CERT_DOMAIN}` in cert paths with no `envsubst` entrypoint — TLS will fail to load in prod | 10.3 | `docker/nginx/nginx.conf:26-27`, `docker/nginx/Dockerfile` |
 | M14 | `app` service has no `healthcheck:` block despite `/api/health` existing | 10.8 | `docker/docker-compose.yml` |
-| M15 | `prisma/reset-demo.ts` + `demo:reset` script missing | 9A.5 | — |
-| M16 | Demo `docs/demo/products.xlsx` missing | 9A.1 | — |
+| ~~M15~~ | ~~`prisma/reset-demo.ts` + `demo:reset` script missing~~ ✅ FIXED | 9A.5 | `prisma/reset-demo.ts` + `npm run demo:reset` (deletes tenant via cascade, re-seeds) |
+| ~~M16~~ | ~~Demo `docs/demo/products.xlsx` missing~~ ✅ FIXED | 9A.1 | `docs/demo/products.xlsx` (3 products, Indonesian headers) |
 | M17 | Parsed Excel/Sheet rows not Zod-validated (only upload request body is) | 4.1 | `src/services/excel.ts` |
 | M18 | Confidence score is aggregate, not per-field | 4.1 | `src/services/excel.ts:80` |
 | M19 | 3 shadcn base components not added: `switch`, `separator`, `dropdown-menu` | 0.3 | `src/components/ui/` |
@@ -162,7 +162,7 @@ DONE: `WhatsAppProvider` interface + factory (`whatsapp-provider.ts`); Cloud API
 DONE: 9 CRUD pages (products, inventory, orders, contacts, tags, knowledge, memory, sources, index) all auth-guarded via `withAuth` and using the shared shell; shadcn primitives; `use-api.ts`; `api-client.ts`; `_app.tsx` SessionProvider; `dashboard-shell.tsx`, `confirm-dialog.tsx`, `pagination.tsx`, `state-notice.tsx`. INCOMPLETE: CRM inbox UI entirely missing (H1); agent management UI missing (H2); approvals/activity/settings/team UI missing (H3); all detail/edit sub-pages missing; inbox shared components missing. Route structure flattened (`/dashboard/products` vs plan's `/dashboard/data/products`) — functionally equivalent.
 
 ### Phase 9 — Demo Prep & Marketing — ❌ INCOMPLETE
-Part B (marketing) — **acceptably deferred** per plan/master-plan; landing page is an explicit placeholder redirecting to `/dashboard`; login/register built. Part A (demo prep, HIGH PRIORITY) — INCOMPLETE: demo agent not seeded (H6); no `docs/demo/products.xlsx` (M16); no `prisma/reset-demo.ts`/`demo:reset` (M15). Safety moment preserved at runtime layer.
+Part B (marketing) — **acceptably deferred** per plan/master-plan; landing page is an explicit placeholder redirecting to `/dashboard`; login/register built. Part A (demo prep, HIGH PRIORITY) — ~~demo agent not seeded (H6)~~ ✅ FIXED; ~~no `docs/demo/products.xlsx` (M16)~~ ✅ FIXED; ~~no `prisma/reset-demo.ts`/`demo:reset` (M15)~~ ✅ FIXED. Safety moment preserved at runtime layer.
 
 ### Phase 10 — Deployment — ✅ COMPLETE
 DONE: multi-stage Dockerfile + standalone + Prisma client copy + `migrate deploy`; prod compose (app + pgvector postgres + nginx + certbot, OpenClaw opt-in sidecar `mem_limit:768m`); nginx reverse proxy (HTTP→HTTPS, ACME, security headers, gzip, webhook rate-limit, SSE/WS upgrade); Certbot TLS + renewal loop; `setup-vps.sh` (idempotent); `.env.production.example`; `/api/health` (DB probe, 503 on down); migrate-deploy-not-dev strategy. Minor: app healthcheck not wired into compose (M14); nginx `${CERT_DOMAIN}` needs envsubst (M13); backup command undocumented.
