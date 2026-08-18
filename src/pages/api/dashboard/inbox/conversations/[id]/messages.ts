@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Message, Prisma } from "@prisma/client";
 import { z } from "zod";
-import { getAuthSession } from "@/lib/auth";
+import { getAuthSession, requireRole } from "@/lib/auth";
 import prisma from "@/lib/db";
 import {
   HttpError,
@@ -67,7 +67,7 @@ export default async function handler(
 
   if (req.method === "POST") {
     // OWNER + STAFF can send human replies (FR-IC-005).
-    if (session.user.role !== "OWNER" && session.user.role !== "STAFF") {
+    if (!requireRole(session, "OWNER", "STAFF")) {
       return respondError(
         res,
         "PERMISSION_DENIED",

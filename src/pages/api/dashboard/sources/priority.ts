@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
 import prisma from "@/lib/db";
-import { getAuthSession } from "@/lib/auth";
+import { getAuthSession, requireRole } from "@/lib/auth";
 import { requireTenant, respondError } from "@/lib/queries";
 import { apiOk, type ApiResponse } from "@/types/api";
 
@@ -39,7 +39,7 @@ export default async function handler(
 
   if (req.method === "PUT") {
     // Owner-only — priority is a tenant-wide policy (PRD §13).
-    if (session.user.role !== "OWNER") {
+    if (!requireRole(session, "OWNER")) {
       return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengubah prioritas sumber.");
     }
     const parsed = priorityUpdateSchema.safeParse(req.body);

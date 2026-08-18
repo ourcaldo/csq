@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getAuthSession } from "@/lib/auth";
+import { getAuthSession, requireRole } from "@/lib/auth";
 import { executeApprovedAction } from "@/tools/execute";
 import { apiError, apiOk, type ApiResponse } from "@/types/api";
 
@@ -20,7 +20,7 @@ export default async function handler(
   if (!session) {
     return res.status(401).json(apiError("UNAUTHORIZED", "Authentication required"));
   }
-  if (session.user.role !== "OWNER") {
+  if (!requireRole(session, "OWNER")) {
     return res
       .status(403)
       .json(apiError("PERMISSION_DENIED", "Only owners can approve actions"));

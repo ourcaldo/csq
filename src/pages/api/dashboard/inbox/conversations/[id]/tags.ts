@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { ConversationTag } from "@prisma/client";
 import { z } from "zod";
-import { getAuthSession } from "@/lib/auth";
+import { getAuthSession, requireRole } from "@/lib/auth";
 import prisma from "@/lib/db";
 import { requireTenant, respondError, strQuery } from "@/lib/queries";
 import { apiOk, type ApiResponse } from "@/types/api";
@@ -23,7 +23,7 @@ export default async function handler(
   }
 
   // OWNER + STAFF manage tags on a conversation (FR-IC-005).
-  if (session.user.role !== "OWNER" && session.user.role !== "STAFF") {
+  if (!requireRole(session, "OWNER", "STAFF")) {
     return respondError(
       res,
       "PERMISSION_DENIED",

@@ -100,10 +100,10 @@ These are the constraints from `CLAUDE.md` that cost the most if missed.
 | M1 | Deploy/pause agent routes missing | 6.6 | no `deploy.ts`/`pause.ts` under `src/pages/api/` |
 | M2 | Documented `chat.ts` route missing (functionality wired via webhook instead) | 6.4 | no `src/pages/api/agents/` dir |
 | M3 | Full agent provisioning flow (cell creation, instruction config) partial — `openclawCellId` field never written | 6.2 | `services/openclaw.ts:177` |
-| M4 | Staff-invite route missing | 2.10 | no `src/pages/api/dashboard/team/invite.ts` |
-| M5 | `requireRole` helper missing (role checks inline) | 2.10 | `src/lib/auth.ts` |
-| M6 | `requireAuth`/`optionalAuth` exports missing | 2.5 | `src/lib/auth.ts` |
-| M7 | Sign-in `authorize()` not Zod-validated (register is) | 2.1 | `src/lib/auth.ts:22-40` |
+| ~~M4~~ | ~~Staff-invite route missing~~ ✅ FIXED | 2.10 | `src/pages/api/dashboard/team/invite.ts` (OWNER-only, Zod, generates temp password) |
+| ~~M5~~ | ~~`requireRole` helper missing~~ ✅ FIXED | 2.10 | `requireRole(session, ...roles)` in `src/lib/auth.ts`; all 9 inline role checks refactored to use it |
+| ~~M6~~ | ~~`requireAuth`/`optionalAuth` exports missing~~ ✅ FIXED | 2.5 | both exported from `src/lib/auth.ts` |
+| ~~M7~~ | ~~Sign-in `authorize()` not Zod-validated~~ ✅ FIXED | 2.1 | `signInSchema` safeParse in `authorize()` |
 | M8 | Private-notes route `[id]/notes.ts` missing | 7.7 | `src/pages/api/dashboard/inbox/` |
 | M9 | SSE stream route `inbox/stream.ts` missing | 7.7 | — |
 | M10 | `writeSheet` not implemented (read-only sync works) | 4.3 | `src/services/sheets.ts` |
@@ -141,7 +141,7 @@ All structural/config items verified present: `package.json` (next 14.2, react 1
 DONE: all 17 models with correct fields (Tenant, User, Agent, Channel, Product, Inventory, Order, OrderItem, Knowledge, KnowledgeEmbedding, Memory, DataSource, AgentCapability, AuditLog, Approval, Conversation, Contact, Message, Tag, ConversationTag); `CREATE EXTENSION vector` in init migration; `Unsupported("vector")` + `vector(1536)` column; `db.ts` singleton; `vector.ts` with `upsertEmbedding`/`findSimilar`/`deleteEmbedding`; `seed.ts` (Toko Kopi Nusantara); `types/api.ts` envelope. INCOMPLETE: ~~RLS migration missing (C3)~~ ✅ FIXED; ~~`tenant_id` missing on 3 models (C2)~~ ✅ FIXED; ~~Inventory composite unique missing (M11)~~ ✅ FIXED; ~~`.env.example` missing `DATABASE_URL_UNPOOLED` (M12)~~ ✅ FIXED.
 
 ### Phase 2 — Auth & Tenant Isolation — ❌ INCOMPLETE
-DONE: NextAuth config with JWT/session callbacks embedding userId/tenantId/role (`auth.ts:14-63`); bcrypt password hashing (`password.ts`); register page+API with Zod + slug + nested OWNER create; login page; `withAuth` HOC via `getServerSideProps`; `getAuthSession` API helper; `tenant-context.ts`; `_app.tsx` SessionProvider; no middleware. INCOMPLETE: `requireRole` helper (M5), `requireAuth`/`optionalAuth` exports (M6), staff-invite route (M4) missing; sign-in not Zod-validated (M7).
+DONE: NextAuth config with JWT/session callbacks embedding userId/tenantId/role (`auth.ts:14-63`); bcrypt password hashing (`password.ts`); register page+API with Zod + slug + nested OWNER create; login page; `withAuth` HOC via `getServerSideProps`; `getAuthSession` API helper; `tenant-context.ts`; `_app.tsx` SessionProvider; no middleware. INCOMPLETE: ~~`requireRole` helper (M5)~~ ✅ FIXED, ~~`requireAuth`/`optionalAuth` exports (M6)~~ ✅ FIXED, ~~staff-invite route (M4)~~ ✅ FIXED; ~~sign-in not Zod-validated (M7)~~ ✅ FIXED.
 
 ### Phase 3 — Business Data CRUD — ✅ COMPLETE
 Every CRUD route enumerated in the plan exists, is tenant-scoped via session, Zod-validated, and role-enforced (tags create/rename/delete OWNER-only). Transactional order creation. Approvals/audit/permissions machinery backing the agent safety path in place. Tension: dashboard human-write mutations are not audited (M21) — the Phase 3 plan itself does not require this (audit is scoped to the Tool Gateway in Phase 5), so it is a global-constraint tension, not a phase deliverable miss.

@@ -8,8 +8,17 @@ import type { NextAuthOptions, Session } from "next-auth";
 import { getServerSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { UserRole } from "@prisma/client";
+import { z } from "zod";
 import prisma from "@/lib/db";
 import { verifyPassword } from "@/lib/password";
+
+// Sign-in input validation (matches the register schema's shape). Applied at
+// the authorize() boundary so untrusted credentials are Zod-validated, not
+// just trimmed/checked for presence.
+const signInSchema = z.object({
+  email: z.string().trim().toLowerCase().email().min(1),
+  password: z.string().min(1),
+});
 
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
@@ -20,9 +29,12 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        const email = credentials?.email?.trim().toLowerCase();
-        const password = credentials?.password;
-        if (!email || !password) return null;
+        const parsed = signInSchema.safeParse({
+          email: credentials?.email,
+          password: credentials?.password,
+        });
+        if (!parsed.success) return null;
+        const { email, password } = parsed.data;
 
         const user = await prisma.user.findUnique({ where: { email } });
         if (!user) return null;
@@ -92,3 +104,32 @@ export async function getAuthSession(
 ): Promise<Session | null> {
   return getServerSession(req, res, authOptions);
 }
+
+// Role guard for API routes. Returns true if the session's role is one of the
+// allowed roles. Use before OWNER-only (or OWNER+STAFF) mutations:
+//   if (!requireRole(session, "OWNER")) return respondError(res, "PERMISSION_DENIED", ...);
+export function requireRole(session: Session, ...roles: UserRole[]): boolean {
+  return roles.includes(session.user.role);
+}
+
+// Pre-configured withAuth that only guards access (no custom props). Use for
+// dashboard pages that fetch their data client-side via use-api. Concrete
+// (non-generic) so the empty props object type-checks without a type cast.
+export function requireAuth(
+  options?: { requiredRole?: UserRole }
+): GetServerSideProps<Record<string, unknown>> {
+  return withAuth<Record<string, unknown>>(
+    async () => ({ props: {} }),
+    options
+  );
+}
+
+// Like withAuth but does NOT redirect when unauthenticated — for pages that
+// render for both signed-in and signed-out visitors. The page reads the
+// session via getSSRSession if it needs it.
+export function optionalAuth<P extends Record<string, unknown> = Record<string, unknown>>(
+  gssp: GetServerSideProps<P>
+): GetServerSideProps<P> {
+  return async (ctx): Promise<GetServerSidePropsResult<P>> => gssp(ctx);
+}
+

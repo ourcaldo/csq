@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Tag } from "@prisma/client";
-import { getAuthSession } from "@/lib/auth";
+import { getAuthSession, requireRole } from "@/lib/auth";
 import prisma from "@/lib/db";
 import { requireTenant, respondError } from "@/lib/queries";
 import { apiOk, type ApiResponse } from "@/types/api";
@@ -21,7 +21,7 @@ export default async function handler(
 
   // Rename + delete are OWNER-only (PRD §8 — owner controls taxonomy).
   if (req.method === "PUT") {
-    if (session.user.role !== "OWNER") {
+    if (!requireRole(session, "OWNER")) {
       return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengubah tag.");
     }
     const parsed = tagUpdateSchema.safeParse(req.body);
@@ -35,7 +35,7 @@ export default async function handler(
   }
 
   if (req.method === "DELETE") {
-    if (session.user.role !== "OWNER") {
+    if (!requireRole(session, "OWNER")) {
       return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat menghapus tag.");
     }
     const existing = await prisma.tag.findFirst({ where: { id, tenantId } });

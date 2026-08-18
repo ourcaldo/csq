@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Tag } from "@prisma/client";
-import { getAuthSession } from "@/lib/auth";
+import { getAuthSession, requireRole } from "@/lib/auth";
 import prisma from "@/lib/db";
 import { paginate, requireTenant, respondError } from "@/lib/queries";
 import { apiOk, type ApiResponse } from "@/types/api";
@@ -27,7 +27,7 @@ export default async function handler(
 
   if (req.method === "POST") {
     // Tag creation is OWNER-only (PRD §8 — owner controls taxonomy).
-    if (session.user.role !== "OWNER") {
+    if (!requireRole(session, "OWNER")) {
       return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat membuat tag.");
     }
     const parsed = tagCreateSchema.safeParse(req.body);
