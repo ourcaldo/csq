@@ -4,7 +4,7 @@ import { getProvider } from "@/lib/whatsapp-provider";
 import { buildSystemPrompt, toChatHistory } from "@/lib/prompt-builder";
 import { runConversation } from "@/services/openclaw";
 import { logAction } from "@/lib/audit";
-import type { ChatMessage } from "@/types/openclaw";
+import type { ChatMessage, ToolCallRecord } from "@/types/openclaw";
 
 // Fire-and-forget agent auto-reply for an inbound WhatsApp message — the
 // Phase 6 ↔ Phase 7 wiring. Called from the webhook AFTER the inbound is
@@ -21,50 +21,61 @@ import type { ChatMessage } from "@/types/openclaw";
 // All failures are caught and logged: a broken agent reply must never surface
 // as an error to Meta (which would retry and spam the customer).
 
-export async function processInboundWithAgent(args: {
-  channel: Channel;
-  conversationId: string;
-  customerPhone: string;
-  body: string;
-}): Promise<void> {
-  try {
-    await processInboundWithAgentInner(args);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    console.error(
-      `[agent-loop] Failed to process inbound for conversation ${args.conversationId}: ${message}`
-    );
-  }
-}
+export type AgentTurnResult = {
+  reply: string;
+  toolCalls: ToolCallRecord[];
+  truncated?: boolean;
+  stoodDown: boolean;
+};
 
-async function processInboundWithAgentInner(args: {
-  channel: Channel;
+// Run one agent turn for a conversation and return what the agent would reply.
+// Pure of WhatsApp-side effects (no provider send, no outbound Message row) so
+// it can be reused by both the webhook path (which then sends + records) and
+// the documented /api/agents/[agentId]/chat.ts endpoint (which just returns
+// the reply). Returns `stoodDown: true` when a human owns the conversation or
+// no ACTIVE/provisioned agent is configured.
+export async function runAgentReply(args: {
+  tenantId: string;
   conversationId: string;
   customerPhone: string;
   body: string;
-}): Promise<void> {
-  const { channel, conversationId, customerPhone, body } = args;
-  const tenantId = channel.tenantId;
+}): Promise<AgentTurnResult> {
+  const { tenantId, conversationId, customerPhone, body } = args;
 
   const conversation = await prisma.conversation.findFirst({
     where: { id: conversationId, tenantId },
   });
-  if (!conversation) return;
+  if (!conversation) {
+    return { reply: "", toolCalls: [], stoodDown: true };
+  }
 
   // Human owns the conversation → AI stands down (FR-AS-003).
-  if (conversation.assigneeUserId) return;
+  if (conversation.assigneeUserId) {
+    return { reply: "", toolCalls: [], stoodDown: true };
+  }
 
-  const agentId = conversation.assignedAgentId ?? channel.agentId;
-  if (!agentId) return; // no agent configured for this channel
+  // Resolve the replying agent: per-conversation assignment, else the channel's
+  // default agent. The channel row is loaded explicitly (no relation include).
+  const channel = await prisma.channel.findUnique({
+    where: { id: conversation.channelId },
+  });
+  const resolvedAgentId = conversation.assignedAgentId ?? channel?.agentId;
+  if (!resolvedAgentId) {
+    return { reply: "", toolCalls: [], stoodDown: true };
+  }
 
   const agent = await prisma.agent.findFirst({
-    where: { id: agentId, tenantId },
+    where: { id: resolvedAgentId, tenantId },
   });
   // Only an ACTIVE agent with a provisioned OpenClaw cell can reply.
-  if (!agent || agent.status !== "ACTIVE" || !agent.openclawAgentId) return;
+  if (!agent || agent.status !== "ACTIVE" || !agent.openclawAgentId) {
+    return { reply: "", toolCalls: [], stoodDown: true };
+  }
 
   const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
-  if (!tenant) return;
+  if (!tenant) {
+    return { reply: "", toolCalls: [], stoodDown: true };
+  }
 
   // Recent message history → OpenAI chat history (INBOUND→user, AGENT
   // outbound→assistant). The current inbound has already been recorded by
@@ -107,7 +118,54 @@ async function processInboundWithAgentInner(args: {
     customerPhone,
   });
 
-  if (!result.reply.trim()) return;
+  return {
+    reply: result.reply,
+    toolCalls: result.toolCalls,
+    truncated: result.truncated,
+    stoodDown: false,
+  };
+}
+
+export async function processInboundWithAgent(args: {
+  channel: Channel;
+  conversationId: string;
+  customerPhone: string;
+  body: string;
+}): Promise<void> {
+  try {
+    await processInboundWithAgentInner(args);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    console.error(
+      `[agent-loop] Failed to process inbound for conversation ${args.conversationId}: ${message}`
+    );
+  }
+}
+
+async function processInboundWithAgentInner(args: {
+  channel: Channel;
+  conversationId: string;
+  customerPhone: string;
+  body: string;
+}): Promise<void> {
+  const { channel, conversationId, customerPhone, body } = args;
+  const tenantId = channel.tenantId;
+
+  const turn = await runAgentReply({
+    tenantId,
+    conversationId,
+    customerPhone,
+    body,
+  });
+
+  if (turn.stoodDown || !turn.reply.trim()) return;
+
+  // Resolve which agent replied (per-conversation assignment or channel default)
+  // so the outbound Message and audit log are attributed correctly.
+  const conversation = await prisma.conversation.findFirst({
+    where: { id: conversationId, tenantId },
+  });
+  const agentId = conversation?.assignedAgentId ?? channel.agentId;
 
   // Send the reply via the channel's provider (Cloud API or Baileys) and
   // record it as an AGENT outbound message. This auto-reply is always in
@@ -115,7 +173,7 @@ async function processInboundWithAgentInner(args: {
   const provider = getProvider(channel);
   const sendResult = await provider.sendText({
     to: customerPhone,
-    body: result.reply,
+    body: turn.reply,
   });
 
   const message = await prisma.message.create({
@@ -124,8 +182,8 @@ async function processInboundWithAgentInner(args: {
       conversationId,
       direction: "OUTBOUND",
       senderType: "AGENT",
-      senderAgentId: agent.id,
-      body: result.reply,
+      senderAgentId: agentId ?? undefined,
+      body: turn.reply,
       waMessageId: sendResult.waMessageId,
     },
   });
@@ -137,17 +195,17 @@ async function processInboundWithAgentInner(args: {
 
   await logAction({
     tenantId,
-    agentId: agent.id,
+    agentId: agentId ?? null,
     action: "conversation.agent_reply",
     entityType: "Message",
     entityId: message.id,
     approvalStatus: "NONE",
     customerPhone,
     afterValue: {
-      body: result.reply,
+      body: turn.reply,
       waMessageId: sendResult.waMessageId,
-      toolCalls: result.toolCalls.length,
-      truncated: result.truncated ?? false,
+      toolCalls: turn.toolCalls.length,
+      truncated: turn.truncated ?? false,
     },
   });
 }

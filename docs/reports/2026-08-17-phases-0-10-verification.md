@@ -97,9 +97,9 @@ These are the constraints from `CLAUDE.md` that cost the most if missed.
 
 | # | Gap | Phase | File / location |
 |---|-----|-------|-----------------|
-| M1 | Deploy/pause agent routes missing | 6.6 | no `deploy.ts`/`pause.ts` under `src/pages/api/` |
-| M2 | Documented `chat.ts` route missing (functionality wired via webhook instead) | 6.4 | no `src/pages/api/agents/` dir |
-| M3 | Full agent provisioning flow (cell creation, instruction config) partial — `openclawCellId` field never written | 6.2 | `services/openclaw.ts:177` |
+| ~~M1~~ | ~~Deploy/pause agent routes missing~~ ✅ FIXED | 6.6 | `api/dashboard/agents/[id]/deploy.ts` + `pause.ts` (OWNER-only, tenant-scoped) |
+| ~~M2~~ | ~~Documented `chat.ts` route missing~~ ✅ FIXED | 6.4 | `api/agents/[agentId]/chat.ts` (session-auth, runs one agent turn via `runAgentReply`) |
+| ~~M3~~ | ~~Full agent provisioning flow partial~~ ✅ FIXED | 6.2 | `provisionAgent` now writes `openclawCellId` + `openclawAgentId` + ACTIVE; instructions supplied at runtime via system prompt (sidecar adaptation documented) |
 | ~~M4~~ | ~~Staff-invite route missing~~ ✅ FIXED | 2.10 | `src/pages/api/dashboard/team/invite.ts` (OWNER-only, Zod, generates temp password) |
 | ~~M5~~ | ~~`requireRole` helper missing~~ ✅ FIXED | 2.10 | `requireRole(session, ...roles)` in `src/lib/auth.ts`; all 9 inline role checks refactored to use it |
 | ~~M6~~ | ~~`requireAuth`/`optionalAuth` exports missing~~ ✅ FIXED | 2.5 | both exported from `src/lib/auth.ts` |
@@ -153,7 +153,7 @@ Excel/CSV (exceljs) upload→preview→confirm; Sheets (googleapis) OAuth→conn
 Registry (`tools/index.ts`, `Map`-based, no-dup guard); `permissions.ts` (override → default, grant/revoke); `audit.ts` (append-only, `Prisma.DbNull` defaults); `execute.ts` full flow (lookup → Zod → permission → denied/approval/allowed, all 5 error codes); `executeApprovedAction` (re-validate + tenant-check + stamp APPROVED + mark Approval only on success); `api/tools/[tool].ts` (resolves tenant from session OR `x-openclaw-api-key`, never from body); `api/tools/index.ts` (list); all 5 domain tools with correct defaults and `describeChange`. Safety moment preserved.
 
 ### Phase 6 — OpenClaw Integration — ❌ INCOMPLETE
-DONE: `services/openclaw.ts` (sidecar/OpenAI-compatible on loopback:18789, client-side function tools per validated memory note — defensible adaptation of the plan's cell-CRUD surface); `agent-loop.ts` (Understand→Retrieve→Reason→Check Permission→Act→Verify→Record); `prompt-builder.ts` (persona + owner instructions + business info + FAQs + policies + safety rules + Bahasa Indonesia); tool-gateway routing; conversation/message persistence. INCOMPLETE: deploy/pause routes (M1); documented `chat.ts` route (M2); full provisioning flow — `openclawCellId` field never written, no cell creation/instruction-config step (M3).
+DONE: `services/openclaw.ts` (sidecar/OpenAI-compatible on loopback:18789, client-side function tools per validated memory note — defensible adaptation of the plan's cell-CRUD surface); `agent-loop.ts` (Understand→Retrieve→Reason→Check Permission→Act→Verify→Record); `prompt-builder.ts` (persona + owner instructions + business info + FAQs + policies + safety rules + Bahasa Indonesia); tool-gateway routing; conversation/message persistence. INCOMPLETE: ~~deploy/pause routes (M1)~~ ✅ FIXED; ~~documented `chat.ts` route (M2)~~ ✅ FIXED; ~~full provisioning flow — `openclawCellId` field never written (M3)~~ ✅ FIXED.
 
 ### Phase 7 — WhatsApp Channel + Inbox Backend — ❌ INCOMPLETE
 DONE: `WhatsAppProvider` interface + factory (`whatsapp-provider.ts`); Cloud API provider (`whatsapp.ts`, Graph v25.0, Zod parse, 24h window in `inbox.ts:198-213`); shared ingest path (`inbox.ts`: findOrCreateConversation → recordInboundMessage); webhook always-ACK + raw-body HMAC + fire-and-forget agent; inbox APIs (conversations list/detail, messages, tags add/remove, contacts, tags). INCOMPLETE: **webhook signature bypassable (C1)**; Baileys stub non-functional (H5); channels/onboarding API entirely missing, no `tosAcknowledged` enforcement (H4); private-notes + SSE routes missing (M8, M9); `requireRole` helper missing (M5).

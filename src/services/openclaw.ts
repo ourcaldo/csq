@@ -170,16 +170,33 @@ export async function runConversation(args: RunConversationArgs): Promise<RunRes
   };
 }
 
-// MVP provisioning: a single OpenClaw cell is pre-provisioned for the demo
-// tenant (memory: per-tenant = one cell; does not scale, but MVP is one
-// tenant). This records the sidecar agent id on the Agent row so runConversation
-// can target it. Full fleet provisioning is out of scope for the MVP.
-export async function provisionAgent(
-  agentId: string,
-  openclawAgentId: string
-): Promise<void> {
-  await prisma.agent.update({
-    where: { id: agentId },
-    data: { openclawAgentId, status: "ACTIVE" },
+// Provision an agent against the OpenClaw sidecar (plan 6.2). The sidecar is
+// a single self-hosted Gateway exposing an OpenAI-compatible API; the "cell"
+// is a per-tenant namespace derived from tenantId (memory: one cell per tenant
+// for the MVP — does not scale, but the MVP is one tenant). Instructions are
+// supplied at runtime via the system prompt (buildSystemPrompt), so there is no
+// separate configureInstructions HTTP call against the sidecar. This records
+// both the cell id and the sidecar agent id on the Agent row and marks it
+// ACTIVE so runConversation can target it.
+export async function provisionAgent(args: {
+  agentId: string;
+  tenantId: string;
+  openclawAgentId: string;
+}): Promise<{ id: string; status: string; openclawCellId: string; openclawAgentId: string }> {
+  const openclawCellId = `cell-${args.tenantId}`;
+  const updated = await prisma.agent.update({
+    where: { id: args.agentId },
+    data: {
+      openclawCellId,
+      openclawAgentId: args.openclawAgentId,
+      status: "ACTIVE",
+    },
+    select: { id: true, status: true, openclawCellId: true, openclawAgentId: true },
   });
+  return {
+    id: updated.id,
+    status: updated.status,
+    openclawCellId: updated.openclawCellId ?? openclawCellId,
+    openclawAgentId: updated.openclawAgentId ?? args.openclawAgentId,
+  };
 }
