@@ -4,6 +4,9 @@ import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { AuthShell } from "@/components/auth/auth-shell";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,47 +22,57 @@ export default function LoginPage() {
     const res = await signIn("credentials", { email, password, redirect: false });
     setLoading(false);
     if (!res || res.error) {
-      setError("Email atau password salah.");
+      setError("Email atau password salah. Coba lagi.");
       return;
     }
     router.push("/dashboard");
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-8">
-      <form onSubmit={onSubmit} className="flex w-full max-w-sm flex-col gap-4">
-        <h1 className="text-xl font-semibold">Masuk</h1>
-        {error && <p className="text-sm text-destructive">{error}</p>}
-        <label className="flex flex-col gap-1 text-sm">
-          Email
-          <input
+    <AuthShell
+      title="Masuk"
+      subtitle="Selamat datang kembali."
+      footer={
+        <>
+          Belum punya akun?{" "}
+          <Link href="/register" className="font-semibold text-green-700 hover:text-green-800">
+            Daftar
+          </Link>
+        </>
+      }
+    >
+      <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        {error && (
+          <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error}
+          </p>
+        )}
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
             type="email"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="rounded-md border border-input bg-background px-3 py-2"
+            placeholder="kamu@usaha.id"
           />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          Password
-          <input
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="password">Password</Label>
+          <Input
+            id="password"
             type="password"
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="rounded-md border border-input bg-background px-3 py-2"
+            placeholder="•••••••••"
           />
-        </label>
-        <Button type="submit" disabled={loading}>
+        </div>
+        <Button type="submit" disabled={loading} className="bg-green-600 hover:bg-green-700">
           {loading ? "Memproses…" : "Masuk"}
         </Button>
-        <p className="text-sm text-muted-foreground">
-          Belum punya akun?{" "}
-          <Link href="/register" className="text-primary underline">
-            Daftar
-          </Link>
-        </p>
       </form>
-    </main>
+    </AuthShell>
   );
 }

@@ -43,7 +43,7 @@ export async function apiFetch<T>(url: string, init?: RequestInit): Promise<T> {
 // from repeating Content-Type / JSON.stringify boilerplate.
 export async function apiSend<T>(
   url: string,
-  method: "POST" | "PUT" | "DELETE",
+  method: "POST" | "PUT" | "PATCH" | "DELETE",
   body?: unknown
 ): Promise<T> {
   return apiFetch<T>(url, {

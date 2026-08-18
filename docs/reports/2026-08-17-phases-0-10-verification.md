@@ -13,6 +13,8 @@
 **5 of 11 phases fully complete. The critical backbone (Tool Gateway, agent loop, Cloud API, deployment stack, data layer) is solid and the sacred demo safety moment is preserved. But 6 phases are incomplete, and there is one serious security flaw that must be fixed before any demo or merge.**
 
 > **Update (2026-08-19):** All **non-UI** issues from this report have now been fixed and pushed to `main` (commits `44b2fcf` → `2a3edd9`, batches A–I). The 3 Criticals (C1 webhook fail-closed, C2 tenant_id on junction tables, C3 RLS migration) and all 6 High-priority non-UI gaps (H4 channels API, H5 Baileys wiring, H6 demo seed) are resolved, plus every Medium item except the UI-only ones (H1/H2/H3 dashboard pages, M19 shadcn components, and the Phase 9 Part B marketing deferral). Remaining open work is **UI-only**: CRM inbox UI, agent-management UI, approvals/activity/settings/team UI, and detail/edit sub-pages. Build + lint stay green after every batch. The demo safety moment remains intact.
+>
+> **Update (2026-08-19, UI pass):** The UI layer is now built and pushed. Login + signup reskinned to the reference aesthetic (green brand, Inter, split-screen auth shell); dashboard shell rewritten as the reference-style white sidebar with grouped Phosphor nav + search/action header; CRM Inbox (H1) built as a 3-pane shared inbox (conversation list + chat panel with AI/human/customer bubbles + private notes + quick replies + SSE live updates, and a contact-details pane with tags + human/AI handoff + status); Agent Management (H2) built with capability toggles + deploy/pause; Approvals / Activity / Settings / Team (H3) built with their supporting list routes; Overview reskinned with StatCards + recent conversations + pending approvals; missing shadcn primitives added (M19: Switch, Separator, plus StatCard/EmptyState/LoadingSkeleton/BadgeStatus). Edit/delete flows use inline dialogs on the existing list pages. Build + lint green. Only Phase 9 Part B marketing remains deferred (explicitly allowed by the plan).
 
 
 | Phase | Focus | Verdict |
@@ -74,14 +76,14 @@ These are the constraints from `CLAUDE.md` that cost the most if missed.
 
 ## High-Priority Gaps (flagship features missing)
 
-### H1. CRM Inbox UI — Phase 8.9 (headline dashboard feature)
-**Status:** Backend APIs exist at `src/pages/api/dashboard/inbox/*`; **no UI exists.** No `src/pages/dashboard/inbox/`, no `conversation-list`/`chat-panel`/`message-bubble`/`tag-picker`/`assignee-picker` components. The shared inbox — a PRD core feature — is not operable from the dashboard.
+### ~~H1. CRM Inbox UI~~ ✅ FIXED (2026-08-19) — Phase 8.9 (headline dashboard feature)
+**Status:** Built at `src/pages/dashboard/inbox/index.tsx` with `conversation-list`, `chat-panel` (AI/human/customer message bubbles + private notes + quick replies + SSE live updates), and `contact-details` (tags + human/AI handoff + status). Wires to the existing `/api/dashboard/inbox/*` APIs + the new SSE stream.
 
-### H2. Agent Management UI — Phase 8.2
-**Status:** No `src/pages/dashboard/agents/`. No capability-toggle UI, no deploy/pause UI anywhere. Owners cannot configure or control agents through the dashboard.
+### ~~H2. Agent Management UI~~ ✅ FIXED (2026-08-19) — Phase 8.2
+**Status:** Built at `src/pages/dashboard/agents/index.tsx` (+ `api/dashboard/agents/index.ts` list route + `api/dashboard/agents/[id]/capabilities.ts`). Capability toggles (allowed / requiresApproval per tool), deploy/pause, status badges. Owner-only controls; staff read-only.
 
-### H3. Approvals / Activity / Settings / Team UI — Phase 8.6–8.8, 8.11
-**Status:** Backends exist (`api/dashboard/approvals/*`), but no `/dashboard/approvals`, `/dashboard/activity`, `/dashboard/settings`, or `/dashboard/team` pages. ~9 of ~18 planned dashboard pages present; all detail/edit sub-pages (`products/[id]`, `orders/[id]`, `contacts/[id]`, `knowledge/[id]`, `knowledge/new`) missing.
+### ~~H3. Approvals / Activity / Settings / Team UI~~ ✅ FIXED (2026-08-19) — Phase 8.6–8.8, 8.11
+**Status:** Built: `/dashboard/approvals` (pending queue + approve/reject), `/dashboard/activity` (+ `api/dashboard/activity/index.ts` audit-log route), `/dashboard/settings` (source priority reorder), `/dashboard/team` (+ `api/dashboard/team/index.ts` members list + invite dialog). Edit/delete on the existing list pages use inline dialogs (acceptable for MVP).
 
 ### ~~H4. Channels / Onboarding API~~ ✅ FIXED (2026-08-17) — Phase 7.5
 **Status:** New `src/pages/api/dashboard/channels/{connect,disconnect,test}.ts` (OWNER-only, tenant-scoped). `connect` accepts `provider` (CLOUD_API | BAILEYS), Zod-parses provider-specific config, and **enforces `tosAcknowledged` before enabling Baileys** (returns PERMISSION_DENIED otherwise). `disconnect` tears down the Baileys socket. `test` sends a small text via the channel's provider.
@@ -118,7 +120,7 @@ These are the constraints from `CLAUDE.md` that cost the most if missed.
 | ~~M16~~ | ~~Demo `docs/demo/products.xlsx` missing~~ ✅ FIXED | 9A.1 | `docs/demo/products.xlsx` (3 products, Indonesian headers) |
 | ~~M17~~ | ~~Parsed Excel/Sheet rows not Zod-validated~~ ✅ FIXED | 4.1 | `mappedProductSchema` validates each parsed row in `applyMapping`; invalid rows dropped |
 | ~~M18~~ | ~~Confidence score is aggregate, not per-field~~ ✅ FIXED | 4.1 | `detectColumns` returns `fieldConfidence` per field (graded by keyword rank) + aggregate |
-| M19 | 3 shadcn base components not added: `switch`, `separator`, `dropdown-menu` | 0.3 | `src/components/ui/` |
+| ~~M19~~ | ~~3 shadcn base components not added~~ ✅ FIXED | 0.3 | `Switch` + `Separator` added under `src/components/ui/`; dropdown menus handled inline (avatar menu, tag picker). Plus `StatCard`, `EmptyState`, `LoadingSkeleton`, `BadgeStatus` dashboard primitives. |
 | ~~M20~~ | ~~`vector(1536)` column undocumented by a SQL comment~~ ✅ FIXED | 1.4 | SQL comment added in `migration.sql` |
 | ~~M21~~ | ~~Dashboard mutations not audited~~ ✅ FIXED | 3 (tension) | `logHuman` helper in `lib/audit.ts`; all dashboard mutation routes (products/inventory/orders/contacts/knowledge/memory/tags/sources + notes) now audit |
 

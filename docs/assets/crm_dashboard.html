@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plan CRM Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Include Phosphor Icons for a clean, modern icon set -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        /* Custom scrollbar for a cleaner look */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        .active-nav-item {
+            background-color: #f1f5f9;
+            font-weight: 600;
+        }
+        .active-tab {
+            border-bottom: 2px solid #000;
+            color: #000;
+            font-weight: 500;
+        }
+        
+        /* Message bubble styles */
+        .msg-received {
+            background-color: #f1f5f9;
+            color: #1e293b;
+            border-radius: 1rem 1rem 1rem 0.25rem;
+        }
+        .msg-sent {
+            background-color: #dcfce7; /* Light green like the reference */
+            color: #166534;
+            border-radius: 1rem 1rem 0.25rem 1rem;
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="h-screen flex overflow-hidden text-slate-800">
+
+    <!-- Sidebar -->
+    <aside class="w-64 bg-white border-r border-slate-200 flex flex-col h-full shrink-0 z-20">
+        <!-- Logo -->
+        <div class="h-16 flex items-center px-6 border-b border-slate-100">
+            <div class="flex items-center gap-2 font-bold text-xl tracking-tight">
+                <i class="ph ph-asterisk text-2xl"></i>
+                Plan
+            </div>
+        </div>
+
+        <!-- Navigation Links -->
+        <div class="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+            <a href="#" class="flex items-center gap-3 px-3 py-2 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">
+                <i class="ph ph-chart-bar text-lg"></i>
+                Overview
+            </a>
+            
+            <!-- Contacts Menu -->
+            <div>
+                <button class="w-full flex items-center justify-between px-3 py-2 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">
+                    <div class="flex items-center gap-3">
+                        <i class="ph ph-address-book text-lg"></i>
+                        Contacts
+                    </div>
+                    <i class="ph ph-caret-down text-sm text-slate-400"></i>
+                </button>
+            </div>
+
+            <!-- Deals Menu -->
+            <div>
+                <button class="w-full flex items-center justify-between px-3 py-2 text-slate-900 rounded-lg bg-slate-50 font-medium">
+                    <div class="flex items-center gap-3">
+                        <i class="ph ph-handshake text-lg"></i>
+                        Deals
+                    </div>
+                    <i class="ph ph-caret-up text-sm text-slate-400"></i>
+                </button>
+                <div class="pl-9 pr-3 py-1 space-y-1">
+                    <a href="#" onclick="switchView('deals')" id="nav-deals-active" class="block px-3 py-2 text-sm text-slate-900 bg-white shadow-sm border border-slate-100 rounded-md font-medium flex items-center gap-2">
+                        <div class="w-1 h-4 border-l-2 border-slate-300 -ml-1"></div>
+                        Active Deals
+                    </a>
+                    <a href="#" class="block px-3 py-2 text-sm text-slate-500 hover:text-slate-900 rounded-md transition-colors flex items-center gap-2">
+                        <div class="w-1 h-4 border-l-2 border-slate-200 -ml-1"></div>
+                        Closed Deals
+                    </a>
+                </div>
+            </div>
+
+            <!-- Chats Menu (Added as requested) -->
+            <a href="#" onclick="switchView('chats')" id="nav-chats" class="flex items-center justify-between px-3 py-2 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">
+                <div class="flex items-center gap-3">
+                    <i class="ph ph-chat-circle-dots text-lg"></i>
+                    Chats
+                </div>
+                <span class="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-0.5 rounded-full">3</span>
+            </a>
+
+            <a href="#" class="flex items-center gap-3 px-3 py-2 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">
+                <i class="ph ph-squares-four text-lg"></i>
+                Integration
+            </a>
+            
+            <a href="#" class="flex items-center gap-3 px-3 py-2 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">
+                <i class="ph ph-check-square text-lg"></i>
+                Tasks
+            </a>
+        </div>
+
+        <!-- Bottom Actions -->
+        <div class="p-4 border-t border-slate-200 space-y-1">
+            <a href="#" class="flex items-center gap-3 px-3 py-2 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">
+                <i class="ph ph-gear text-lg"></i>
+                Settings
+            </a>
+            <a href="#" class="flex items-center justify-between px-3 py-2 text-slate-600 rounded-lg hover:bg-slate-50 transition-colors">
+                <div class="flex items-center gap-3">
+                    <i class="ph ph-question text-lg"></i>
+                    Help & Support
+                </div>
+                <span class="bg-yellow-300 text-slate-900 text-xs font-bold px-2 py-0.5 rounded-md">8</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 flex flex-col min-w-0 bg-white">
+        
+        <!-- Header -->
+        <header class="h-16 flex items-center justify-between px-6 border-b border-slate-200 bg-white shrink-0">
+            <!-- Search -->
+            <div class="flex-1 max-w-2xl relative">
+                <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-lg"></i>
+                <input type="text" placeholder="Search or type a command" class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-slate-200 transition-shadow">
+            </div>
+
+            <!-- Right Actions -->
+            <div class="flex items-center gap-4 ml-4">
+                <button class="text-slate-400 hover:text-slate-600 transition-colors">
+                    <i class="ph ph-lightning text-xl"></i>
+                </button>
+                <button class="text-slate-400 hover:text-slate-600 transition-colors">
+                    <i class="ph ph-user-plus text-xl"></i>
+                </button>
+                <button class="text-slate-400 hover:text-slate-600 transition-colors relative">
+                    <i class="ph ph-bell text-xl"></i>
+                    <span class="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+                </button>
+                
+                <div class="h-6 w-px bg-slate-200 mx-2"></div>
+                
+                <button class="flex items-center gap-2">
+                    <img src="https://ui-avatars.com/api/?name=User&background=0D8ABC&color=fff" alt="User Profile" class="w-8 h-8 rounded-full">
+                    <i class="ph ph-caret-down text-slate-400 text-xs"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Dynamic Content Container -->
+        <div id="content-area" class="flex-1 overflow-hidden relative">
+            
+            <!-- ========================================== -->
+            <!-- VIEW 1: DEALS VIEW (From first reference image) -->
+            <!-- ========================================== -->
+            <div id="view-deals" class="absolute inset-0 flex flex-col bg-white transition-opacity duration-300 opacity-100 z-10">
+                
+                <!-- Breadcrumb & Context Header -->
+                <div class="px-8 py-4 flex items-center justify-between shrink-0">
+                    <div class="flex items-center gap-2 text-sm">
+                        <button class="p-1 hover:bg-slate-100 rounded-md transition-colors text-slate-600">
+                            <i class="ph ph-arrow-left"></i>
+                        </button>
+                        <span class="text-slate-900 font-medium">Active Deals</span>
+                        <span class="text-slate-400"><i class="ph ph-caret-right text-xs"></i></span>
+                        <span class="text-slate-500">Ronald Richards</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-xs text-slate-500">
+                        <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                        Last Activity 2 Nov, 2024 at 09:00AM
+                    </div>
+                </div>
+
+                <!-- Profile Header -->
+                <div class="px-8 pb-6 flex items-start justify-between shrink-0">
+                    <div class="flex items-center gap-4">
+                        <img src="https://ui-avatars.com/api/?name=Ronald+Richards&background=random" alt="Ronald Richards" class="w-16 h-16 rounded-full border border-slate-200">
+                        <div>
+                            <h1 class="text-2xl font-bold text-slate-900">Ronald Richards</h1>
+                            <p class="text-sm text-slate-500 mt-1">Created On: <span class="font-medium text-slate-700">2 Mar, 2025</span></p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <div class="flex -space-x-2 mr-2">
+                            <img class="w-8 h-8 rounded-full border-2 border-white" src="https://ui-avatars.com/api/?name=A&background=random" alt="Avatar">
+                            <img class="w-8 h-8 rounded-full border-2 border-white" src="https://ui-avatars.com/api/?name=B&background=random" alt="Avatar">
+                            <div class="w-8 h-8 rounded-full border-2 border-white bg-yellow-300 flex items-center justify-center text-xs font-bold">+2</div>
+                        </div>
+                        <button class="px-4 py-2 border border-slate-300 rounded-md text-sm font-medium hover:bg-slate-50 flex items-center gap-2 transition-colors">
+                            <i class="ph ph-envelope-simple"></i> Mail
+                        </button>
+                        <button class="px-4 py-2 border border-slate-300 rounded-md text-sm font-medium hover:bg-slate-50 flex items-center gap-2 transition-colors">
+                            <i class="ph ph-phone"></i> Call
+                        </button>
+                        <button class="px-3 py-2 border border-slate-300 rounded-md text-sm font-medium hover:bg-slate-50 flex items-center gap-2 transition-colors text-slate-500 bg-slate-50">
+                            <i class="ph ph-dots-three"></i> More
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tabs -->
+                <div class="px-8 border-b border-slate-200 shrink-0">
+                    <nav class="flex gap-8 text-sm text-slate-500 overflow-x-auto pb-px">
+                        <button class="py-3 px-1 border-b-2 border-transparent hover:text-slate-900 whitespace-nowrap">Deal Info</button>
+                        <button class="py-3 px-1 active-tab whitespace-nowrap">Activity</button>
+                        <button class="py-3 px-1 border-b-2 border-transparent hover:text-slate-900 whitespace-nowrap">Details</button>
+                        <button class="py-3 px-1 border-b-2 border-transparent hover:text-slate-900 whitespace-nowrap">Position</button>
+                        <button class="py-3 px-1 active-tab border-slate-900 text-slate-900 whitespace-nowrap">Documents</button>
+                        <button class="py-3 px-1 border-b-2 border-transparent hover:text-slate-900 whitespace-nowrap">Assessment</button>
+                        <button class="py-3 px-1 border-b-2 border-transparent hover:text-slate-900 whitespace-nowrap">Notes</button>
+                        <button class="py-3 px-1 border-b-2 border-transparent hover:text-slate-900 whitespace-nowrap flex items-center gap-2">Tasks <span class="bg-slate-900 text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center">7</span></button>
+                        <button class="py-3 px-1 border-b-2 border-transparent hover:text-slate-900 whitespace-nowrap">Emails</button>
+                        <button class="py-3 px-1 border-b-2 border-transparent hover:text-slate-900 whitespace-nowrap">Calls</button>
+                        <button class="py-3 px-1 border-b-2 border-transparent hover:text-slate-900 whitespace-nowrap">SMS</button>
+                    </nav>
+                </div>
+
+                <!-- Content Area (Two Columns) -->
+                <div class="flex-1 flex overflow-hidden">
+                    <!-- Left Column: Activity & Deal Info -->
+                    <div class="w-1/3 min-w-[300px] border-r border-slate-200 overflow-y-auto p-6 space-y-8 bg-slate-50/50">
+                        
+                        <!-- Recent Activity Timeline -->
+                        <div>
+                            <h3 class="text-xs font-semibold text-slate-500 tracking-wider mb-4 uppercase">Recent Activity</h3>
+                            <div class="relative pl-4 space-y-6">
+                                <!-- Timeline Line -->
+                                <div class="absolute left-[27px] top-4 bottom-0 w-px bg-slate-200"></div>
+
+                                <!-- Activity Item 1 -->
+                                <div class="relative flex gap-4">
+                                    <div class="w-8 h-8 rounded-full bg-white border border-slate-200 overflow-hidden shrink-0 z-10">
+                                        <img src="https://ui-avatars.com/api/?name=Andrew&background=random" alt="Andrew">
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-slate-900"><span class="font-medium">Andrew</span> tagged you in a comment</p>
+                                        <p class="text-xs text-slate-500 mt-1">Today 12:00 PM</p>
+                                        <div class="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-50 text-emerald-700 text-xs font-medium border border-emerald-100">
+                                            <i class="ph-fill ph-check-circle text-emerald-500"></i> Accepted
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Activity Item 2 -->
+                                <div class="relative flex gap-4">
+                                    <div class="w-8 h-8 rounded-full bg-white border border-slate-200 overflow-hidden shrink-0 z-10">
+                                        <img src="https://ui-avatars.com/api/?name=Jenny&background=random" alt="Jenny">
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-slate-900"><span class="font-medium">Jenny Cook</span> shared deal progress</p>
+                                        <p class="text-xs text-slate-500 mt-1">Today 14:30 PM</p>
+                                        <div class="mt-2 flex items-center gap-2">
+                                            <span class="px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700">New</span>
+                                            <i class="ph ph-arrow-right text-slate-400 text-xs"></i>
+                                            <span class="px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700">In progress</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Activity Item 3 -->
+                                <div class="relative flex gap-4">
+                                    <div class="w-8 h-8 rounded-full bg-yellow-300 text-yellow-900 flex items-center justify-center shrink-0 z-10 border border-yellow-400 shadow-sm">
+                                        <i class="ph-fill ph-chat-teardrop-text"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-sm text-slate-900"><span class="font-medium">Eleanor Pena</span> commented on Documents update</p>
+                                        <p class="text-xs text-slate-500 mt-1">Today 12:00 PM</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Divider -->
+                        <div class="h-px bg-slate-200 w-full"></div>
+
+                        <!-- Deal Info Summary -->
+                        <div>
+                            <h3 class="text-xs font-semibold text-slate-500 tracking-wider mb-4 uppercase">Deal Info</h3>
+                            <div class="space-y-4">
+                                <div class="flex gap-4 p-3 bg-white border border-slate-100 rounded-lg shadow-sm">
+                                    <div class="w-10 h-10 rounded bg-slate-50 flex items-center justify-center shrink-0 border border-slate-100">
+                                        <i class="ph ph-buildings text-xl text-slate-600"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-slate-500">Loan Purpose</p>
+                                        <p class="text-sm font-semibold text-slate-900">New Purchase</p>
+                                    </div>
+                                </div>
+                                <div class="flex gap-4 p-3 bg-white border border-slate-100 rounded-lg shadow-sm">
+                                    <div class="w-10 h-10 rounded bg-slate-50 flex items-center justify-center shrink-0 border border-slate-100">
+                                        <i class="ph ph-currency-circle-dollar text-xl text-slate-600"></i>
+                                    </div>
+                                    <div>
+                                        <p class="text-xs text-slate-500">Loan Amount</p>
+                                        <p class="text-sm font-semibold text-slate-900">NZ$4,50,000</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column: Tasks -->
+                    <div class="flex-1 overflow-y-auto p-8 bg-white">
+                        
+                        <div class="flex items-center justify-between mb-6">
+                            <h2 class="text-lg font-semibold text-slate-900">Upcoming Tasks</h2>
+                            <button class="px-3 py-1.5 bg-white border border-slate-200 rounded-md text-sm font-medium shadow-sm hover:bg-slate-50 transition-colors flex items-center gap-2">
+                                <i class="ph ph-plus"></i> Create Task
+                            </button>
+                        </div>
+
+                        <div class="space-y-4">
+                            <!-- Task 1 -->
+                            <div class="border border-slate-200 rounded-xl p-5 hover:border-slate-300 transition-colors bg-white shadow-sm">
+                                <div class="flex items-start gap-3">
+                                    <button class="mt-0.5 text-emerald-500 hover:text-emerald-600">
+                                        <i class="ph-fill ph-check-circle text-xl"></i>
+                                    </button>
+                                    <div class="flex-1">
+                                        <div class="flex justify-between items-start">
+                                            <h4 class="text-base font-medium text-slate-900">Share Current letter of employment</h4>
+                                            <span class="text-xs text-slate-500 font-medium">Due Date: Today 12:00 PM</span>
+                                        </div>
+                                        <p class="text-sm text-slate-500 mt-1">There should be three safety seals around the edges of the filter.</p>
+                                        
+                                        <div class="mt-4 flex items-center justify-between">
+                                            <div class="flex items-center gap-2 text-sm text-slate-600">
+                                                <img src="https://ui-avatars.com/api/?name=You&background=random" class="w-6 h-6 rounded-full" alt="You">
+                                                <span>Created by <span class="font-medium text-slate-900">You</span></span>
+                                            </div>
+                                            <div class="flex gap-2">
+                                                <button class="px-3 py-1.5 rounded-md border border-slate-200 text-xs font-medium text-slate-600 flex items-center gap-1.5 hover:bg-slate-50">
+                                                    <i class="ph ph-clock text-slate-400"></i> Priority
+                                                </button>
+                                                <button class="px-3 py-1.5 rounded-md border border-slate-200 text-xs font-medium text-slate-600 flex items-center gap-1.5 hover:bg-slate-50">
+                                                    <i class="ph ph-bell text-slate-400"></i> Reminder
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Task 2 -->
+                            <div class="border border-slate-200 rounded-xl p-5 hover:border-slate-300 transition-colors bg-white shadow-sm">
+                                <div class="flex items-start gap-3">
+                                    <button class="mt-0.5 text-slate-300 hover:text-slate-400">
+                                        <i class="ph ph-circle text-xl"></i>
+                                    </button>
+                                    <div class="flex-1">
+                                        <div class="flex justify-between items-start">
+                                            <h4 class="text-base font-medium text-slate-900">Confirmation of income tax payment</h4>
+                                            <span class="text-xs text-slate-500 font-medium">Due Date: Today 12:00 PM</span>
+                                        </div>
+                                        <p class="text-sm text-slate-500 mt-1">Confirmation of property tax payment made up to date</p>
+                                        
+                                        <div class="mt-4 flex items-center justify-between">
+                                            <div class="flex items-center gap-2 text-sm text-slate-600">
+                                                <img src="https://ui-avatars.com/api/?name=Wade+Warren&background=random" class="w-6 h-6 rounded-full" alt="Wade">
+                                                <span>Created by <span class="font-medium text-slate-900">Wade Warren</span></span>
+                                            </div>
+                                            <div class="flex gap-2">
+                                                <div class="px-3 py-1.5 rounded-md bg-pink-50 text-pink-700 text-xs font-medium flex items-center gap-1.5">
+                                                    <div class="w-1.5 h-1.5 rounded-full bg-pink-500"></div> Important
+                                                </div>
+                                                <button class="px-3 py-1.5 rounded-md border border-slate-200 text-xs font-medium text-slate-600 flex items-center gap-1.5 hover:bg-slate-50">
+                                                    <i class="ph ph-bell text-slate-400"></i> Reminder
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Task 3 -->
+                            <div class="border border-slate-200 rounded-xl p-5 hover:border-slate-300 transition-colors bg-white shadow-sm">
+                                <div class="flex items-start gap-3">
+                                    <button class="mt-0.5 text-slate-300 hover:text-slate-400">
+                                        <i class="ph ph-circle text-xl"></i>
+                                    </button>
+                                    <div class="flex-1">
+                                        <div class="flex justify-between items-start">
+                                            <h4 class="text-base font-medium text-slate-900">Confirmation of income tax payment</h4>
+                                            <span class="text-xs text-slate-500 font-medium">Due Date: Today 12:00 PM</span>
+                                        </div>
+                                        <p class="text-sm text-slate-500 mt-1">Confirmation of property tax payment made up to date</p>
+                                        
+                                        <div class="mt-4 flex items-center justify-between">
+                                            <div class="flex items-center gap-2 text-sm text-slate-600">
+                                                <img src="https://ui-avatars.com/api/?name=Wade+Warren&background=random" class="w-6 h-6 rounded-full" alt="Wade">
+                                                <span>Created by <span class="font-medium text-slate-900">Wade Warren</span></span>
+                                            </div>
+                                            <div class="flex gap-2">
+                                                <button class="px-3 py-1.5 rounded-md border border-slate-200 text-xs font-medium text-slate-600 flex items-center gap-1.5 hover:bg-slate-50">
+                                                    <i class="ph ph-bell text-slate-400"></i> Reminder
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Task History -->
+                        <div class="mt-10">
+                            <h2 class="text-base font-semibold text-slate-900 mb-1">Task History</h2>
+                            <p class="text-xs text-slate-500 mb-4">12th November, 2024</p>
+                            
+                            <div class="border border-slate-200 rounded-xl p-5 opacity-70 bg-slate-50">
+                                <div class="flex items-start gap-3">
+                                    <i class="ph-fill ph-check-circle text-xl text-emerald-500 mt-0.5"></i>
+                                    <div class="flex-1">
+                                        <div class="flex justify-between items-start">
+                                            <h4 class="text-base font-medium text-slate-900 line-through">Confirmation of property tax payment made up to date</h4>
+                                            <span class="text-xs text-slate-500 font-medium">Due Date: Today 12:00 PM</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- VIEW 2: CHATS VIEW (From second reference image) -->
+            <!-- ========================================== -->
+            <div id="view-chats" class="absolute inset-0 flex bg-slate-50 transition-opacity duration-300 opacity-0 pointer-events-none z-0">
+                
+                <!-- Chat App Sidebar (Platforms) -->
+                <div class="w-16 bg-white border-r border-slate-200 flex flex-col items-center py-4 gap-4 shrink-0">
+                    <button class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-100 transition-colors">
+                        <i class="ph ph-chat-circle-dots text-xl"></i>
+                    </button>
+                    <button class="w-10 h-10 rounded-xl text-slate-400 flex items-center justify-center hover:bg-slate-100 transition-colors">
+                        <i class="ph ph-whatsapp-logo text-xl"></i>
+                    </button>
+                    <button class="w-10 h-10 rounded-xl text-slate-400 flex items-center justify-center hover:bg-slate-100 transition-colors relative">
+                        <i class="ph ph-messenger-logo text-xl"></i>
+                        <span class="absolute top-2 right-2 w-2 h-2 bg-blue-500 rounded-full"></span>
+                    </button>
+                    <button class="w-10 h-10 rounded-xl text-slate-400 flex items-center justify-center hover:bg-slate-100 transition-colors">
+                        <i class="ph ph-instagram-logo text-xl"></i>
+                    </button>
+                    <div class="w-8 h-px bg-slate-200 my-2"></div>
+                    <button class="w-10 h-10 rounded-xl text-slate-400 flex items-center justify-center hover:bg-slate-100 transition-colors">
+                        <i class="ph ph-chart-line-up text-xl"></i>
+                    </button>
+                    <button class="w-10 h-10 rounded-xl text-slate-400 flex items-center justify-center hover:bg-slate-100 transition-colors">
+                        <i class="ph ph-users text-xl"></i>
+                    </button>
+                </div>
+
+                <!-- Chat List Column -->
+                <div class="w-80 bg-white border-r border-slate-200 flex flex-col shrink-0 relative">
+                    <!-- Filters & Search -->
+                    <div class="p-4 border-b border-slate-100">
+                        <div class="flex items-center justify-between mb-4">
+                            <button class="flex items-center gap-1 text-slate-700 font-medium hover:bg-slate-50 px-2 py-1 rounded">
+                                All Age <i class="ph ph-caret-down text-xs"></i>
+                            </button>
+                            <div class="flex gap-2 text-slate-400">
+                                <button class="hover:text-slate-600"><i class="ph ph-magnifying-glass text-lg"></i></button>
+                                <button class="hover:text-slate-600"><i class="ph ph-faders text-lg"></i></button>
+                                <button class="hover:text-slate-600"><i class="ph ph-plus text-lg"></i></button>
+                                <button class="hover:text-slate-600"><i class="ph ph-list-dashes text-lg"></i></button>
+                            </div>
+                        </div>
+                        
+                        <!-- Tabs -->
+                        <div class="flex gap-1 p-1 bg-slate-100 rounded-lg">
+                            <button class="flex-1 py-1.5 px-3 bg-white shadow-sm rounded-md text-sm font-medium text-blue-600 flex justify-center items-center gap-2">
+                                Assigned <span class="bg-blue-100 text-blue-700 text-xs px-1.5 py-0.5 rounded-full">63</span>
+                            </button>
+                            <button class="flex-1 py-1.5 px-3 rounded-md text-sm font-medium text-slate-500 hover:text-slate-700">
+                                Unassigned
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- AI Insight Tooltip Overlay (Decorative) -->
+                    <div class="absolute left-0 top-36 -translate-x-1/2 bg-white rounded-full shadow-lg border border-slate-100 px-4 py-2 flex items-center gap-2 text-sm z-10 pointer-events-none">
+                        <div class="w-2 h-2 rounded-full bg-blue-500"></div>
+                        <span class="font-bold text-blue-600">30%</span>
+                        <span class="text-slate-600 whitespace-nowrap">Pertumbuhan Closing Rate</span>
+                    </div>
+
+                    <!-- Conversation List -->
+                    <div class="flex-1 overflow-y-auto">
+                        <!-- Active Chat -->
+                        <div class="flex items-start gap-3 p-4 bg-blue-50/50 border-l-4 border-blue-500 cursor-pointer hover:bg-blue-50 transition-colors">
+                            <div class="relative">
+                                <img src="https://ui-avatars.com/api/?name=Gwen&background=random" class="w-12 h-12 rounded-full" alt="Gwen">
+                                <div class="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full flex items-center justify-center">
+                                    <i class="ph-fill ph-whatsapp-logo text-[10px] text-white"></i>
+                                </div>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex justify-between items-baseline mb-1">
+                                    <h4 class="font-semibold text-slate-900 truncate">Gwen</h4>
+                                    <span class="text-xs text-slate-400 whitespace-nowrap ml-2">14.00 PM</span>
+                                </div>
+                                <p class="text-sm text-slate-600 truncate">Hi, I'm interested in the oversized t-shirt...</p>
+                            </div>
+                        </div>
+
+                        <!-- Other Chats -->
+                        <div class="flex items-start gap-3 p-4 border-b border-slate-50 cursor-pointer hover:bg-slate-50 transition-colors">
+                            <div class="relative">
+                                <img src="https://ui-avatars.com/api/?name=Emily&background=random" class="w-12 h-12 rounded-full" alt="Emily">
+                                <div class="absolute bottom-0 right-0 w-4 h-4 bg-blue-500 border-2 border-white rounded-full flex items-center justify-center">
+                                    <i class="ph-fill ph-messenger-logo text-[10px] text-white"></i>
+                                </div>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex justify-between items-baseline mb-1">
+                                    <h4 class="font-medium text-slate-900 truncate">Emily</h4>
+                                    <span class="text-xs text-slate-400 whitespace-nowrap ml-2">14.04 PM</span>
+                                </div>
+                                <p class="text-sm text-slate-500 truncate">Can you share the price and...</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start gap-3 p-4 border-b border-slate-50 cursor-pointer hover:bg-slate-50 transition-colors">
+                            <div class="relative">
+                                <img src="https://ui-avatars.com/api/?name=Dave+Austin&background=random" class="w-12 h-12 rounded-full" alt="Dave">
+                                <div class="absolute bottom-0 right-0 w-4 h-4 bg-green-500 border-2 border-white rounded-full flex items-center justify-center">
+                                    <i class="ph-fill ph-whatsapp-logo text-[10px] text-white"></i>
+                                </div>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex justify-between items-baseline mb-1">
+                                    <h4 class="font-medium text-slate-900 truncate">Dave Austin</h4>
+                                    <span class="text-xs text-slate-400 whitespace-nowrap ml-2">14.10 PM</span>
+                                </div>
+                                <p class="text-sm text-slate-500 truncate">I'd like to place an order for...</p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start gap-3 p-4 border-b border-slate-50 cursor-pointer hover:bg-slate-50 transition-colors">
+                            <div class="relative">
+                                <img src="https://ui-avatars.com/api/?name=Smith+Jr&background=random" class="w-12 h-12 rounded-full" alt="Smith">
+                                <div class="absolute bottom-0 right-0 w-4 h-4 bg-blue-500 border-2 border-white rounded-full flex items-center justify-center">
+                                    <i class="ph-fill ph-messenger-logo text-[10px] text-white"></i>
+                                </div>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex justify-between items-baseline mb-1">
+                                    <h4 class="font-medium text-slate-900 truncate">Smith Jr</h4>
+                                    <span class="text-xs text-slate-400 whitespace-nowrap ml-2">14.13 PM</span>
+                                </div>
+                                <p class="text-sm text-slate-500 truncate">How long does delivery usual...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Chat Window -->
+                <div class="flex-1 flex flex-col bg-white relative">
+                    <!-- Chat Header -->
+                    <div class="h-16 px-6 border-b border-slate-100 flex items-center justify-between shrink-0 bg-white/80 backdrop-blur-sm z-10">
+                        <div class="flex items-center gap-3">
+                            <h2 class="text-lg font-semibold text-slate-900">Gwen</h2>
+                            <span class="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-medium rounded">Online</span>
+                        </div>
+                        <div class="flex items-center gap-3 text-slate-400">
+                            <button class="p-2 hover:bg-slate-50 rounded-full transition-colors"><i class="ph ph-phone text-lg"></i></button>
+                            <button class="p-2 hover:bg-slate-50 rounded-full transition-colors"><i class="ph ph-video-camera text-lg"></i></button>
+                            <button class="p-2 hover:bg-slate-50 rounded-full transition-colors"><i class="ph ph-dots-three-vertical text-lg"></i></button>
+                        </div>
+                    </div>
+
+                    <!-- Decorative elements reflecting the second reference image background -->
+                    <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.03] pointer-events-none"></div>
+
+                    <!-- Chat Messages Area -->
+                    <div class="flex-1 overflow-y-auto p-6 space-y-6 flex flex-col" id="chat-messages">
+                        
+                        <!-- AI Tooltip overlay inside chat -->
+                        <div class="self-end mr-[10%] mb-2 relative z-10">
+                             <div class="bg-white rounded-full shadow-md border border-slate-100 px-3 py-1.5 flex items-center gap-2 text-xs">
+                                <div class="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
+                                <span class="font-bold text-blue-600">10menit</span>
+                                <span class="text-slate-600">Pengaturan AI</span>
+                            </div>
+                        </div>
+
+                        <!-- Message Row: Received -->
+                        <div class="flex items-end gap-2 max-w-[80%]">
+                            <img src="https://ui-avatars.com/api/?name=Gwen&background=random" class="w-8 h-8 rounded-full mb-1 shrink-0" alt="Gwen">
+                            <div>
+                                <div class="msg-received p-3 text-sm shadow-sm">
+                                    Hi, I'm interested in the oversized t-shirt. Do you have size M?
+                                </div>
+                                <span class="text-[10px] text-slate-400 mt-1 ml-1 block">14:00</span>
+                            </div>
+                        </div>
+
+                        <!-- Message Row: Sent -->
+                        <div class="flex items-end justify-end gap-2 max-w-[80%] self-end">
+                            <div>
+                                <div class="msg-sent p-3 text-sm shadow-sm border border-green-200">
+                                    Yes, size M is available. Would you like the black or white color?
+                                </div>
+                                <span class="text-[10px] text-slate-400 mt-1 mr-1 block text-right">14:02 <i class="ph-fill ph-checks text-blue-500 ml-1"></i></span>
+                            </div>
+                        </div>
+
+                        <!-- Message Row: Received -->
+                        <div class="flex items-end gap-2 max-w-[80%]">
+                            <img src="https://ui-avatars.com/api/?name=Gwen&background=random" class="w-8 h-8 rounded-full mb-1 shrink-0" alt="Gwen">
+                            <div>
+                                <div class="msg-received p-3 text-sm shadow-sm">
+                                    Black please. How much is it including shipping to Jakarta?
+                                </div>
+                                <span class="text-[10px] text-slate-400 mt-1 ml-1 block">14:05</span>
+                            </div>
+                        </div>
+
+                        <!-- Message Row: Sent -->
+                        <div class="flex items-end justify-end gap-2 max-w-[80%] self-end">
+                            <div>
+                                <div class="msg-sent p-3 text-sm shadow-sm border border-green-200 text-right">
+                                    The price is Rp185,000.<br>
+                                    Shipping to Jakarta is Rp20,000.<br>
+                                    Total: Rp205,000.<br>
+                                    I can send you the payment link if you're ready.
+                                </div>
+                                <span class="text-[10px] text-slate-400 mt-1 mr-1 block text-right">14:08 <i class="ph-fill ph-checks text-blue-500 ml-1"></i></span>
+                            </div>
+                        </div>
+                        
+                        <!-- Message Row: Received -->
+                        <div class="flex items-end gap-2 max-w-[80%]">
+                            <img src="https://ui-avatars.com/api/?name=Gwen&background=random" class="w-8 h-8 rounded-full mb-1 shrink-0" alt="Gwen">
+                            <div>
+                                <div class="msg-received p-3 text-sm shadow-sm">
+                                    Sounds good. Please send the payment link
+                                </div>
+                                <span class="text-[10px] text-slate-400 mt-1 ml-1 block">14:15</span>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Chat Input -->
+                    <div class="p-4 bg-white border-t border-slate-100 shrink-0">
+                        <!-- Quick Actions/Templates -->
+                        <div class="flex gap-2 mb-3">
+                            <button class="text-xs px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-md transition-colors flex items-center gap-1">
+                                <i class="ph ph-lightning"></i> Replay
+                            </button>
+                            <button class="text-xs px-3 py-1.5 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 rounded-md transition-colors flex items-center gap-1 border border-yellow-200">
+                                <i class="ph ph-note-pencil"></i> Private Note
+                            </button>
+                            <button class="text-xs px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-md transition-colors flex items-center gap-1">
+                                <i class="ph ph-file-text"></i> Template
+                            </button>
+                        </div>
+                        
+                        <!-- Input Box -->
+                        <div class="flex items-end gap-2 bg-slate-50 border border-slate-200 rounded-xl p-2 focus-within:ring-2 focus-within:ring-blue-100 focus-within:border-blue-300 transition-all">
+                            <button class="p-2 text-slate-400 hover:text-slate-600 shrink-0">
+                                <i class="ph ph-smiley text-xl"></i>
+                            </button>
+                            <textarea id="chat-input-field" rows="1" class="w-full bg-transparent border-none focus:ring-0 resize-none py-2 text-sm text-slate-700 placeholder-slate-400 max-h-32" placeholder="Type a message or type / to view quick replies..."></textarea>
+                            <div class="flex gap-1 shrink-0 pb-1">
+                                <button class="p-2 text-slate-400 hover:text-slate-600">
+                                    <i class="ph ph-paperclip text-xl"></i>
+                                </button>
+                                <button onclick="sendMessage()" class="p-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors flex items-center justify-center">
+                                    <i class="ph-fill ph-paper-plane-right text-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Side Details Panel (Optional, typical in CRMs) -->
+                <div class="w-72 bg-white border-l border-slate-200 p-6 overflow-y-auto hidden lg:block shrink-0">
+                    <div class="text-center mb-6">
+                        <img src="https://ui-avatars.com/api/?name=Gwen&background=random&size=128" class="w-20 h-20 rounded-full mx-auto mb-3" alt="Gwen">
+                        <h3 class="text-lg font-semibold text-slate-900">Gwen</h3>
+                        <p class="text-sm text-slate-500">Customer</p>
+                    </div>
+
+                    <div class="space-y-6">
+                        <div>
+                            <h4 class="text-xs font-semibold text-slate-900 uppercase tracking-wider mb-3">About</h4>
+                            <div class="space-y-3 text-sm">
+                                <div class="flex items-center gap-3 text-slate-600">
+                                    <i class="ph ph-envelope text-slate-400"></i> gwen@example.com
+                                </div>
+                                <div class="flex items-center gap-3 text-slate-600">
+                                    <i class="ph ph-phone text-slate-400"></i> +62 812 3456 7890
+                                </div>
+                                <div class="flex items-center gap-3 text-slate-600">
+                                    <i class="ph ph-map-pin text-slate-400"></i> Jakarta, Indonesia
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="h-px bg-slate-100"></div>
+
+                        <div>
+                            <h4 class="text-xs font-semibold text-slate-900 uppercase tracking-wider mb-3">Tags</h4>
+                            <div class="flex flex-wrap gap-2">
+                                <span class="px-2.5 py-1 bg-blue-50 text-blue-700 rounded-md text-xs font-medium">VIP</span>
+                                <span class="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-md text-xs font-medium">Retail</span>
+                                <span class="px-2.5 py-1 bg-green-50 text-green-700 rounded-md text-xs font-medium border border-green-100">Hot Lead</span>
+                                <button class="px-2 py-1 border border-dashed border-slate-300 text-slate-500 rounded-md text-xs hover:bg-slate-50">+</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        // --- View Switching Logic ---
+        function switchView(viewName) {
+            const dealsView = document.getElementById('view-deals');
+            const chatsView = document.getElementById('view-chats');
+            
+            const navDealsActive = document.getElementById('nav-deals-active');
+            const navChats = document.getElementById('nav-chats');
+
+            if (viewName === 'deals') {
+                // Show Deals, Hide Chats
+                dealsView.classList.remove('opacity-0', 'pointer-events-none');
+                dealsView.classList.add('opacity-100', 'z-10');
+                
+                chatsView.classList.remove('opacity-100', 'z-10');
+                chatsView.classList.add('opacity-0', 'pointer-events-none', 'z-0');
+
+                // Update Nav Styles
+                navDealsActive.classList.add('bg-white', 'shadow-sm', 'border-slate-100', 'text-slate-900', 'font-medium');
+                navDealsActive.classList.remove('text-slate-500', 'border-transparent');
+                
+                navChats.classList.remove('active-nav-item');
+                
+            } else if (viewName === 'chats') {
+                // Show Chats, Hide Deals
+                chatsView.classList.remove('opacity-0', 'pointer-events-none');
+                chatsView.classList.add('opacity-100', 'z-10');
+                
+                dealsView.classList.remove('opacity-100', 'z-10');
+                dealsView.classList.add('opacity-0', 'pointer-events-none', 'z-0');
+
+                // Update Nav Styles
+                navChats.classList.add('active-nav-item');
+                
+                navDealsActive.classList.remove('bg-white', 'shadow-sm', 'border-slate-100', 'text-slate-900', 'font-medium');
+                navDealsActive.classList.add('text-slate-500', 'border-transparent');
+            }
+        }
+
+        // --- Simple Chat Functionality ---
+        const chatInput = document.getElementById('chat-input-field');
+        const chatMessages = document.getElementById('chat-messages');
+
+        // Auto-resize textarea
+        chatInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+            if(this.value === '') {
+                this.style.height = 'auto'; // Reset if empty
+            }
+        });
+
+        // Send message on Enter (prevent default newline if not shift+enter)
+        chatInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        function sendMessage() {
+            const message = chatInput.value.trim();
+            if (!message) return;
+
+            const now = new Date();
+            const timeString = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+            // Create new message HTML
+            const messageHTML = `
+                <div class="flex items-end justify-end gap-2 max-w-[80%] self-end mt-4">
+                    <div>
+                        <div class="msg-sent p-3 text-sm shadow-sm border border-green-200 text-right">
+                            ${escapeHTML(message).replace(/\n/g, '<br>')}
+                        </div>
+                        <span class="text-[10px] text-slate-400 mt-1 mr-1 block text-right">${timeString} <i class="ph ph-clock text-slate-300 ml-1"></i></span>
+                    </div>
+                </div>
+            `;
+
+            // Append and scroll
+            chatMessages.insertAdjacentHTML('beforeend', messageHTML);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            // Clear input
+            chatInput.value = '';
+            chatInput.style.height = 'auto';
+
+            // Simulate 'read' status update after a brief delay
+            setTimeout(() => {
+                const latestMsgStatus = chatMessages.lastElementChild.querySelector('.ph-clock');
+                if(latestMsgStatus) {
+                    latestMsgStatus.classList.remove('ph-clock', 'ph', 'text-slate-300');
+                    latestMsgStatus.classList.add('ph-checks', 'ph-fill', 'text-blue-500');
+                }
+            }, 1500);
+        }
+
+        // Utility to prevent XSS in chat
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, 
+                tag => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    "'": '&#39;',
+                    '"': '&quot;'
+                }[tag] || tag)
+            );
+        }
+
+        // Initialize scroll to bottom of chat
+        window.onload = function() {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+    </script>
+</body>
+</html>
