@@ -8,6 +8,7 @@ type PreviewResponse = {
   headers: string[];
   mapping: ColumnMapping;
   confidence: number;
+  fieldConfidence: Record<string, number>;
   previewRows: Record<string, unknown>[];
 };
 
@@ -33,9 +34,9 @@ export default async function handler(
   const { filename, base64 } = parsed.data;
   const buffer = Buffer.from(base64, "base64");
   const { headers, rows } = await parseFile(buffer, filename);
-  const { mapping, confidence } = detectColumns(headers);
+  const { mapping, confidence, fieldConfidence } = detectColumns(headers);
 
   return res.status(200).json(
-    apiOk({ headers, mapping, confidence, previewRows: rows.slice(0, 5) })
+    apiOk({ headers, mapping, confidence, fieldConfidence, previewRows: rows.slice(0, 5) })
   );
 }

@@ -106,15 +106,15 @@ These are the constraints from `CLAUDE.md` that cost the most if missed.
 | ~~M7~~ | ~~Sign-in `authorize()` not Zod-validated~~ ✅ FIXED | 2.1 | `signInSchema` safeParse in `authorize()` |
 | ~~M8~~ | ~~Private-notes route `[id]/notes.ts` missing~~ ✅ FIXED | 7.7 | `inbox/conversations/[id]/notes.ts` (internal message, not sent to customer, audited) |
 | ~~M9~~ | ~~SSE stream route `inbox/stream.ts` missing~~ ✅ FIXED | 7.7 | `inbox/stream.ts` (GET, SSE poll of new messages + heartbeat) |
-| M10 | `writeSheet` not implemented (read-only sync works) | 4.3 | `src/services/sheets.ts` |
+| ~~M10~~ | ~~`writeSheet` not implemented~~ ✅ FIXED | 4.3 | `writeSheet` in `src/services/sheets.ts` (opt-in; spreadsheets write scope added) |
 | ~~M11~~ | ~~`Inventory` missing `@@unique([tenantId, productId])`~~ ✅ FIXED | 1.2 | composite unique added (kept `productId @unique` for 1:1 relation) |
 | ~~M12~~ | ~~`.env.example` missing `DATABASE_URL_UNPOOLED`~~ ✅ FIXED | 1.1 | added to `.env.example` + `.env.production.example` |
 | M13 | nginx uses `${CERT_DOMAIN}` in cert paths with no `envsubst` entrypoint — TLS will fail to load in prod | 10.3 | `docker/nginx/nginx.conf:26-27`, `docker/nginx/Dockerfile` |
 | M14 | `app` service has no `healthcheck:` block despite `/api/health` existing | 10.8 | `docker/docker-compose.yml` |
 | ~~M15~~ | ~~`prisma/reset-demo.ts` + `demo:reset` script missing~~ ✅ FIXED | 9A.5 | `prisma/reset-demo.ts` + `npm run demo:reset` (deletes tenant via cascade, re-seeds) |
 | ~~M16~~ | ~~Demo `docs/demo/products.xlsx` missing~~ ✅ FIXED | 9A.1 | `docs/demo/products.xlsx` (3 products, Indonesian headers) |
-| M17 | Parsed Excel/Sheet rows not Zod-validated (only upload request body is) | 4.1 | `src/services/excel.ts` |
-| M18 | Confidence score is aggregate, not per-field | 4.1 | `src/services/excel.ts:80` |
+| ~~M17~~ | ~~Parsed Excel/Sheet rows not Zod-validated~~ ✅ FIXED | 4.1 | `mappedProductSchema` validates each parsed row in `applyMapping`; invalid rows dropped |
+| ~~M18~~ | ~~Confidence score is aggregate, not per-field~~ ✅ FIXED | 4.1 | `detectColumns` returns `fieldConfidence` per field (graded by keyword rank) + aggregate |
 | M19 | 3 shadcn base components not added: `switch`, `separator`, `dropdown-menu` | 0.3 | `src/components/ui/` |
 | ~~M20~~ | ~~`vector(1536)` column undocumented by a SQL comment~~ ✅ FIXED | 1.4 | SQL comment added in `migration.sql` |
 | ~~M21~~ | ~~Dashboard mutations not audited~~ ✅ FIXED | 3 (tension) | `logHuman` helper in `lib/audit.ts`; all dashboard mutation routes (products/inventory/orders/contacts/knowledge/memory/tags/sources + notes) now audit |
@@ -147,7 +147,7 @@ DONE: NextAuth config with JWT/session callbacks embedding userId/tenantId/role 
 Every CRUD route enumerated in the plan exists, is tenant-scoped via session, Zod-validated, and role-enforced (tags create/rename/delete OWNER-only). Transactional order creation. Approvals/audit/permissions machinery backing the agent safety path in place. Tension resolved: ~~dashboard human-write mutations are not audited (M21)~~ ✅ FIXED — `logHuman` now audits all dashboard mutation routes.
 
 ### Phase 4 — Data Ingestion — ✅ COMPLETE
-Excel/CSV (exceljs) upload→preview→confirm; Sheets (googleapis) OAuth→connect→confirm→sync; shared `import-apply.ts` applier; `node-cron` 15-min scheduler with server-only guard; error→ERROR status; source priority in `Tenant.settings` (OWNER-only PUT). Minor non-blocking gaps: `writeSheet` (M10), aggregate confidence (M18), parsed rows not Zod-validated (M17).
+Excel/CSV (exceljs) upload→preview→confirm; Sheets (googleapis) OAuth→connect→confirm→sync; shared `import-apply.ts` applier; `node-cron` 15-min scheduler with server-only guard; error→ERROR status; source priority in `Tenant.settings` (OWNER-only PUT). Minor non-blocking gaps: ~~`writeSheet` (M10)~~ ✅ FIXED, ~~aggregate confidence (M18)~~ ✅ FIXED, ~~parsed rows not Zod-validated (M17)~~ ✅ FIXED.
 
 ### Phase 5 — Tool Gateway — ✅ COMPLETE
 Registry (`tools/index.ts`, `Map`-based, no-dup guard); `permissions.ts` (override → default, grant/revoke); `audit.ts` (append-only, `Prisma.DbNull` defaults); `execute.ts` full flow (lookup → Zod → permission → denied/approval/allowed, all 5 error codes); `executeApprovedAction` (re-validate + tenant-check + stamp APPROVED + mark Approval only on success); `api/tools/[tool].ts` (resolves tenant from session OR `x-openclaw-api-key`, never from body); `api/tools/index.ts` (list); all 5 domain tools with correct defaults and `describeChange`. Safety moment preserved.
