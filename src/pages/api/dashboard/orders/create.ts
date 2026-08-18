@@ -78,6 +78,7 @@ export default async function handler(
           totalAmount,
           items: {
             create: lines.map((line) => ({
+              tenantId,
               productId: line.productId,
               quantity: line.quantity,
               unitPrice: line.unitPrice,

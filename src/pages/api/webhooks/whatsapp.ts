@@ -120,18 +120,24 @@ export default async function handler(
       return;
     }
 
-    // Signature verification (recommended). Requires appSecret in channel
-    // config; if absent, log a warning and proceed (dev convenience — the
-    // integrator should set appSecret for production).
+    // Signature verification — fail-closed. Resolve the app secret from the
+    // channel config first, then fall back to WHATSAPP_APP_SECRET. If neither
+    // is set, reject (401): never accept unsigned inbound POSTs, since a spoofed
+    // message would flow straight into the agent loop. The HMAC is verified
+    // against the raw body with a constant-time compare.
     const sigHeader = req.headers["x-hub-signature-256"];
     const signature = Array.isArray(sigHeader) ? sigHeader[0] : sigHeader;
     const configResult = cloudApiConfigSchema.safeParse(channel.config);
-    const appSecret = configResult.success ? configResult.data.appSecret : undefined;
+    const channelSecret = configResult.success ? configResult.data.appSecret : undefined;
+    const appSecret = channelSecret ?? process.env.WHATSAPP_APP_SECRET;
     if (!appSecret) {
-      console.warn(
-        `[whatsapp-webhook] Channel ${channel.id} has no appSecret; skipping signature verification.`
+      console.error(
+        `[whatsapp-webhook] Channel ${channel.id} has no appSecret and WHATSAPP_APP_SECRET is unset; rejecting inbound (fail-closed).`
       );
-    } else if (!verifySignature(raw, signature, appSecret)) {
+      res.status(401).send("Unauthorized");
+      return;
+    }
+    if (!verifySignature(raw, signature, appSecret)) {
       res.status(401).send("Unauthorized");
       return;
     }

@@ -57,7 +57,7 @@ export default async function handler(
         conversationId_tagId: { conversationId: id, tagId: parsed.data.tagId },
       },
       update: {},
-      create: { conversationId: id, tagId: parsed.data.tagId },
+      create: { tenantId, conversationId: id, tagId: parsed.data.tagId },
     });
     return res.status(201).json(apiOk(ct));
   }

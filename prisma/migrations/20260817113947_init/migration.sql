@@ -182,6 +182,8 @@ CREATE TABLE "KnowledgeEmbedding" (
     "id" TEXT NOT NULL,
     "tenantId" TEXT NOT NULL,
     "knowledgeId" TEXT NOT NULL,
+    -- pgvector column: vector(1536). Dimension matches OpenAI text-embedding-3-small.
+    -- Declared Unsupported("vector") in schema.prisma; all reads/writes go through src/lib/vector.ts only.
     "embedding" vector(1536),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 

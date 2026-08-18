@@ -28,6 +28,7 @@ export async function checkPermission(
 // Dashboard-facing capability config: set an explicit override. The owner
 // enables a write tool per agent (and may keep requiresApproval true).
 export async function grantCapability(
+  tenantId: string,
   agentId: string,
   tool: string,
   allowed: boolean,
@@ -36,7 +37,7 @@ export async function grantCapability(
   await prisma.agentCapability.upsert({
     where: { agentId_tool: { agentId, tool } },
     update: { allowed, requiresApproval },
-    create: { agentId, tool, allowed, requiresApproval },
+    create: { tenantId, agentId, tool, allowed, requiresApproval },
   });
 }
 

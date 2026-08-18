@@ -36,7 +36,7 @@ These are the constraints from `CLAUDE.md` that cost the most if missed.
 
 | Constraint | Status | Evidence |
 |---|---|---|
-| `tenant_id` on **every** Prisma model | ❌ **BREACH (3 models)** | `OrderItem` (`schema.prisma:259`), `AgentCapability` (`:334`), `ConversationTag` (`:466`) have no `tenantId`. All other models compliant. |
+| `tenant_id` on **every** Prisma model | ✅ FIXED (was ❌ BREACH) | `OrderItem`, `AgentCapability`, `ConversationTag` now carry `tenantId` + FK + index; migration backfills from parents. |
 | No `as any` / `as unknown` in `src/` | ✅ CLEAN | Grep across `src/` returned zero matches. `db.ts` explicitly avoids `as` casting. |
 | All pgvector raw SQL confined to `lib/vector.ts` | ✅ CLEAN | Grep for `vector(`, `<=>`, `CREATE EXTENSION vector` hits only `src/lib/vector.ts` (plus DDL in the init migration, as expected). |
 | Vector columns declared `Unsupported("vector")` | ✅ CLEAN | `schema.prisma:293`; migration creates actual `vector(1536)` column. |
@@ -46,21 +46,21 @@ These are the constraints from `CLAUDE.md` that cost the most if missed.
 | Agents read-only by default; writes per-tool permission; selected writes require owner approval | ✅ CLEAN | `executeTool` calls `checkPermission` (`execute.ts:48`); denied writes audited and returned without execution. `product.update` etc. default `{allowed:false, requiresApproval:true}`. |
 | Demo safety moment preserved (refuse unauthorized price change) | ✅ CLEAN | Blocked + audited at `execute.ts:49-62`; reinforced in system prompt (`prompt-builder.ts:66-76`). |
 | Tool Gateway is the **only** path between agents and business data | ✅ CLEAN (with nuance) | OpenClaw tool_calls routed through `executeTool` (`services/openclaw.ts:145`). `agent-loop.ts` and `openclaw.ts` import Prisma, but only for conversation/agent **bookkeeping** — not business-data access. Core isolation invariant holds. |
-| Webhook signature verification | ❌ **BYPASSABLE** | `webhooks/whatsapp.ts:130-133` proceeds without verifying `X-Hub-Signature-256` when `appSecret` is absent. See Critical #1. |
+| Webhook signature verification | ✅ FIXED (was ❌ BYPASSABLE) | `webhooks/whatsapp.ts` now fail-closed: resolves `appSecret` from channel config then `process.env.WHATSAPP_APP_SECRET`, returns 401 if unset or on HMAC mismatch. |
 
 ---
 
 ## Critical Issues (fix before demo/merge)
 
-### C1. Webhook signature verification is bypassable — SECURITY
+### ~~C1. Webhook signature verification is bypassable — SECURITY~~ ✅ FIXED (2026-08-17)
 **File:** `src/pages/api/webhooks/whatsapp.ts:130-133`
 **Problem:** When `channel.config.appSecret` is absent, the handler logs a warning and proceeds **without verifying `X-Hub-Signature-256`**. `appSecret` is `optional` in the Zod schema (`src/types/whatsapp.ts:14`), and `WHATSAPP_APP_SECRET` is **never referenced anywhere in `src/`**. A misconfigured or default channel silently accepts unsigned POSTs — an attacker can spoof inbound WhatsApp messages, which then flow into the agent loop.
-**Fix:** Fail-closed (return 401) when no secret is configured, or fall back to `process.env.WHATSAPP_APP_SECRET`. Make `appSecret` required for the CLOUD_API provider.
+**Fix applied:** Now fail-closed — resolves secret from channel config first, then `process.env.WHATSAPP_APP_SECRET`; returns 401 if neither is set, and 401 on HMAC mismatch. Unsigned POSTs are no longer accepted.
 
-### C2. `tenant_id` missing on 3 Prisma models — NON-NEGOTIABLE BREACH
+### ~~C2. `tenant_id` missing on 3 Prisma models — NON-NEGOTIABLE BREACH~~ ✅ FIXED (2026-08-17)
 **Files:** `prisma/schema.prisma:259` (`OrderItem`), `:334` (`AgentCapability`), `:466` (`ConversationTag`)
 **Problem:** Violates the "tenant_id on every table from day one" constraint. These are junction/child tables (tenant derivable via parent), but the constraint is unconditional.
-**Fix:** Add `tenantId` field + `@relation` + `@@index([tenantId])` to each, and backfill a migration. (Alternatively, document an explicit exception — but the constraint says no exceptions.)
+**Fix applied:** Added `tenantId` + `@relation` + `@@index([tenantId])` to all three; new migration `20260818000000_tenant_id_junction_tables` backfills from parent rows; all create sites (`tools/order.ts`, `api/dashboard/orders/create.ts`, `lib/permissions.ts`, inbox `tags.ts`) updated to pass `tenantId`.
 
 ### C3. RLS migration entirely missing
 **Plan:** Phase 1 task 1.8 requires a second migration adding RLS policies on key tables.
@@ -107,8 +107,8 @@ These are the constraints from `CLAUDE.md` that cost the most if missed.
 | M8 | Private-notes route `[id]/notes.ts` missing | 7.7 | `src/pages/api/dashboard/inbox/` |
 | M9 | SSE stream route `inbox/stream.ts` missing | 7.7 | — |
 | M10 | `writeSheet` not implemented (read-only sync works) | 4.3 | `src/services/sheets.ts` |
-| M11 | `Inventory` missing `@@unique([tenantId, productId])` — has `productId @unique` only | 1.2 | `schema.prisma:227` |
-| M12 | `.env.example` missing `DATABASE_URL_UNPOOLED` (schema `directUrl` references it) | 1.1 | `schema.prisma:18` |
+| ~~M11~~ | ~~`Inventory` missing `@@unique([tenantId, productId])`~~ ✅ FIXED | 1.2 | composite unique added (kept `productId @unique` for 1:1 relation) |
+| ~~M12~~ | ~~`.env.example` missing `DATABASE_URL_UNPOOLED`~~ ✅ FIXED | 1.1 | added to `.env.example` + `.env.production.example` |
 | M13 | nginx uses `${CERT_DOMAIN}` in cert paths with no `envsubst` entrypoint — TLS will fail to load in prod | 10.3 | `docker/nginx/nginx.conf:26-27`, `docker/nginx/Dockerfile` |
 | M14 | `app` service has no `healthcheck:` block despite `/api/health` existing | 10.8 | `docker/docker-compose.yml` |
 | M15 | `prisma/reset-demo.ts` + `demo:reset` script missing | 9A.5 | — |
@@ -116,7 +116,7 @@ These are the constraints from `CLAUDE.md` that cost the most if missed.
 | M17 | Parsed Excel/Sheet rows not Zod-validated (only upload request body is) | 4.1 | `src/services/excel.ts` |
 | M18 | Confidence score is aggregate, not per-field | 4.1 | `src/services/excel.ts:80` |
 | M19 | 3 shadcn base components not added: `switch`, `separator`, `dropdown-menu` | 0.3 | `src/components/ui/` |
-| M20 | `vector(1536)` column undocumented by a SQL comment (letter-of-spec) | 1.4 | `migration.sql:185` |
+| ~~M20~~ | ~~`vector(1536)` column undocumented by a SQL comment~~ ✅ FIXED | 1.4 | SQL comment added in `migration.sql` |
 | M21 | Dashboard mutations not audited (agent/tool path is; human dashboard writes are not) | 3 (tension) | `api/dashboard/*` routes don't call `logAction` |
 
 ---
@@ -138,7 +138,7 @@ These are the constraints from `CLAUDE.md` that cost the most if missed.
 All structural/config items verified present: `package.json` (next 14.2, react 18.3.1), `tsconfig.json` (`@/*` alias), `tailwind.config.ts`, `.eslintrc.json`, `components.json` (`rsc:false`), full `src/` directory layout, `docker-compose.dev.yml` (`pgvector/pgvector:pg16`), `.env.example`/`.env.production.example`, `.gitignore`. Deviations: `tsx` used instead of `ts-node` (functionally equivalent); 3 shadcn base components not added (M19); initial commit message is `Initial commit` rather than the plan's prescribed `chore: scaffold...`.
 
 ### Phase 1 — Data Layer — ❌ INCOMPLETE
-DONE: all 17 models with correct fields (Tenant, User, Agent, Channel, Product, Inventory, Order, OrderItem, Knowledge, KnowledgeEmbedding, Memory, DataSource, AgentCapability, AuditLog, Approval, Conversation, Contact, Message, Tag, ConversationTag); `CREATE EXTENSION vector` in init migration; `Unsupported("vector")` + `vector(1536)` column; `db.ts` singleton; `vector.ts` with `upsertEmbedding`/`findSimilar`/`deleteEmbedding`; `seed.ts` (Toko Kopi Nusantara); `types/api.ts` envelope. INCOMPLETE: RLS migration missing (C3); `tenant_id` missing on 3 models (C2); Inventory composite unique missing (M11); `.env.example` missing `DATABASE_URL_UNPOULED` (M12).
+DONE: all 17 models with correct fields (Tenant, User, Agent, Channel, Product, Inventory, Order, OrderItem, Knowledge, KnowledgeEmbedding, Memory, DataSource, AgentCapability, AuditLog, Approval, Conversation, Contact, Message, Tag, ConversationTag); `CREATE EXTENSION vector` in init migration; `Unsupported("vector")` + `vector(1536)` column; `db.ts` singleton; `vector.ts` with `upsertEmbedding`/`findSimilar`/`deleteEmbedding`; `seed.ts` (Toko Kopi Nusantara); `types/api.ts` envelope. INCOMPLETE: RLS migration missing (C3); ~~`tenant_id` missing on 3 models (C2)~~ ✅ FIXED; ~~Inventory composite unique missing (M11)~~ ✅ FIXED; ~~`.env.example` missing `DATABASE_URL_UNPOOLED` (M12)~~ ✅ FIXED.
 
 ### Phase 2 — Auth & Tenant Isolation — ❌ INCOMPLETE
 DONE: NextAuth config with JWT/session callbacks embedding userId/tenantId/role (`auth.ts:14-63`); bcrypt password hashing (`password.ts`); register page+API with Zod + slug + nested OWNER create; login page; `withAuth` HOC via `getServerSideProps`; `getAuthSession` API helper; `tenant-context.ts`; `_app.tsx` SessionProvider; no middleware. INCOMPLETE: `requireRole` helper (M5), `requireAuth`/`optionalAuth` exports (M6), staff-invite route (M4) missing; sign-in not Zod-validated (M7).

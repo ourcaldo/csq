@@ -138,6 +138,7 @@ const orderCreate: ToolDefinition<OrderCreateParams> = {
         const subtotal = unitPrice.mul(item.quantity);
         total += subtotal.toNumber();
         orderItems.push({
+          tenantId: ctx.tenantId,
           productId: item.productId,
           quantity: item.quantity,
           unitPrice,

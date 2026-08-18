@@ -140,6 +140,9 @@ model Tenant {
   contacts      Contact[]
   tags          Tag[]
   messages      Message[]
+  orderItems       OrderItem[]
+  agentCapabilities AgentCapability[]
+  conversationTags ConversationTag[]
 }
 
 model User {
@@ -234,6 +237,7 @@ model Inventory {
   tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
+  @@unique([tenantId, productId])
   @@index([tenantId])
 }
 
@@ -258,15 +262,18 @@ model Order {
 
 model OrderItem {
   id        String  @id @default(uuid())
+  tenantId  String
   orderId   String
   productId String
   quantity  Int
   unitPrice Decimal @db.Decimal(12, 2)
   subtotal  Decimal @db.Decimal(14, 2)
 
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id])
 
+  @@index([tenantId])
   @@index([orderId])
   @@index([productId])
 }
@@ -333,14 +340,17 @@ model DataSource {
 
 model AgentCapability {
   id               String  @id @default(uuid())
+  tenantId         String
   agentId          String
   tool             String
   allowed          Boolean @default(false)
   requiresApproval Boolean @default(false)
 
-  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agent  Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
   @@unique([agentId, tool])
+  @@index([tenantId])
 }
 
 model AuditLog {
@@ -465,12 +475,15 @@ model Tag {
 
 model ConversationTag {
   id             String @id @default(uuid())
+  tenantId       String
   conversationId String
   tagId          String
 
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   tag          Tag          @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   @@unique([conversationId, tagId])
+  @@index([tenantId])
   @@index([tagId])
 }
