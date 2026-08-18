@@ -109,8 +109,8 @@ These are the constraints from `CLAUDE.md` that cost the most if missed.
 | ~~M10~~ | ~~`writeSheet` not implemented~~ ✅ FIXED | 4.3 | `writeSheet` in `src/services/sheets.ts` (opt-in; spreadsheets write scope added) |
 | ~~M11~~ | ~~`Inventory` missing `@@unique([tenantId, productId])`~~ ✅ FIXED | 1.2 | composite unique added (kept `productId @unique` for 1:1 relation) |
 | ~~M12~~ | ~~`.env.example` missing `DATABASE_URL_UNPOOLED`~~ ✅ FIXED | 1.1 | added to `.env.example` + `.env.production.example` |
-| M13 | nginx uses `${CERT_DOMAIN}` in cert paths with no `envsubst` entrypoint — TLS will fail to load in prod | 10.3 | `docker/nginx/nginx.conf:26-27`, `docker/nginx/Dockerfile` |
-| M14 | `app` service has no `healthcheck:` block despite `/api/health` existing | 10.8 | `docker/docker-compose.yml` |
+| ~~M13~~ | ~~nginx `${CERT_DOMAIN}` no envsubst~~ ✅ FIXED | 10.3 | nginx.conf shipped as `/etc/nginx/templates/default.conf.template`; nginx image envsubst substitutes `${CERT_DOMAIN}` at startup; `CERT_DOMAIN` passed to the nginx service in compose |
+| ~~M14~~ | ~~`app` service no healthcheck~~ ✅ FIXED | 10.8 | `healthcheck:` block on the `app` service hitting `/api/health` via node |
 | ~~M15~~ | ~~`prisma/reset-demo.ts` + `demo:reset` script missing~~ ✅ FIXED | 9A.5 | `prisma/reset-demo.ts` + `npm run demo:reset` (deletes tenant via cascade, re-seeds) |
 | ~~M16~~ | ~~Demo `docs/demo/products.xlsx` missing~~ ✅ FIXED | 9A.1 | `docs/demo/products.xlsx` (3 products, Indonesian headers) |
 | ~~M17~~ | ~~Parsed Excel/Sheet rows not Zod-validated~~ ✅ FIXED | 4.1 | `mappedProductSchema` validates each parsed row in `applyMapping`; invalid rows dropped |
@@ -165,7 +165,7 @@ DONE: 9 CRUD pages (products, inventory, orders, contacts, tags, knowledge, memo
 Part B (marketing) — **acceptably deferred** per plan/master-plan; landing page is an explicit placeholder redirecting to `/dashboard`; login/register built. Part A (demo prep, HIGH PRIORITY) — ~~demo agent not seeded (H6)~~ ✅ FIXED; ~~no `docs/demo/products.xlsx` (M16)~~ ✅ FIXED; ~~no `prisma/reset-demo.ts`/`demo:reset` (M15)~~ ✅ FIXED. Safety moment preserved at runtime layer.
 
 ### Phase 10 — Deployment — ✅ COMPLETE
-DONE: multi-stage Dockerfile + standalone + Prisma client copy + `migrate deploy`; prod compose (app + pgvector postgres + nginx + certbot, OpenClaw opt-in sidecar `mem_limit:768m`); nginx reverse proxy (HTTP→HTTPS, ACME, security headers, gzip, webhook rate-limit, SSE/WS upgrade); Certbot TLS + renewal loop; `setup-vps.sh` (idempotent); `.env.production.example`; `/api/health` (DB probe, 503 on down); migrate-deploy-not-dev strategy. Minor: app healthcheck not wired into compose (M14); nginx `${CERT_DOMAIN}` needs envsubst (M13); backup command undocumented.
+DONE: multi-stage Dockerfile + standalone + Prisma client copy + `migrate deploy`; prod compose (app + pgvector postgres + nginx + certbot, OpenClaw opt-in sidecar `mem_limit:768m`); nginx reverse proxy (HTTP→HTTPS, ACME, security headers, gzip, webhook rate-limit, SSE/WS upgrade); Certbot TLS + renewal loop; `setup-vps.sh` (idempotent); `.env.production.example`; `/api/health` (DB probe, 503 on down); migrate-deploy-not-dev strategy. Minor: ~~app healthcheck not wired into compose (M14)~~ ✅ FIXED; ~~nginx `${CERT_DOMAIN}` needs envsubst (M13)~~ ✅ FIXED; backup command undocumented (left as a documented ops task).
 
 ---
 

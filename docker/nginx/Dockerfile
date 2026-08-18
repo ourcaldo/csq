@@ -1,8 +1,11 @@
 FROM nginx:stable-alpine
 
-# nginx.conf uses ${CERT_DOMAIN} and the limit_req_zone directive; copy it into
-# the conf.d directory so it is loaded as the default server block.
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+# Ship nginx.conf as a TEMPLATE. The official nginx image runs envsubst on
+# /etc/nginx/templates/*.template at startup, substituting container env vars
+# (here ${CERT_DOMAIN}) and emitting the result to /etc/nginx/conf.d/. This is
+# what makes the ${CERT_DOMAIN} cert paths in nginx.conf resolve at runtime —
+# nginx itself does not do shell variable substitution.
+COPY nginx.conf /etc/nginx/templates/default.conf.template
 
-# The base image ships a default.conf that would conflict — remove it.
-RUN rm -f /etc/nginx/conf.d/default.conf.bak
+# Drop the stock default server block so only ours is loaded.
+RUN rm -f /etc/nginx/conf.d/default.conf

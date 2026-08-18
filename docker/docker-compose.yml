@@ -30,6 +30,13 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:3000:3000"
+    healthcheck:
+      # node is guaranteed present in the slim image; wget/curl are not.
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   postgres:
     image: pgvector/pgvector:pg16
@@ -54,6 +61,10 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    environment:
+      # Consumed by the nginx image's envsubst of nginx.conf.template so the
+      # ${CERT_DOMAIN} TLS cert paths resolve at runtime.
+      CERT_DOMAIN: ${CERT_DOMAIN}
     volumes:
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
