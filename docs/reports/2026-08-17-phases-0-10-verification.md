@@ -62,10 +62,10 @@ These are the constraints from `CLAUDE.md` that cost the most if missed.
 **Problem:** Violates the "tenant_id on every table from day one" constraint. These are junction/child tables (tenant derivable via parent), but the constraint is unconditional.
 **Fix applied:** Added `tenantId` + `@relation` + `@@index([tenantId])` to all three; new migration `20260818000000_tenant_id_junction_tables` backfills from parent rows; all create sites (`tools/order.ts`, `api/dashboard/orders/create.ts`, `lib/permissions.ts`, inbox `tags.ts`) updated to pass `tenantId`.
 
-### C3. RLS migration entirely missing
+### ~~C3. RLS migration entirely missing~~ ✅ FIXED (2026-08-17)
 **Plan:** Phase 1 task 1.8 requires a second migration adding RLS policies on key tables.
 **Problem:** Only one migration exists (`20260817113947_init`). `src/lib/tenant-context.ts` sets `app.current_tenant_id` via `SET LOCAL`, but **no policy consumes it** — the second isolation layer the plan requires is absent. App-level `tenantId` filtering (`requireTenant`) remains the sole guard, which the plan allows as "primary" for MVP but not as the only layer.
-**Fix:** Add a `*_rls` migration enabling RLS and policies scoped to `app.current_tenant_id` on all tenant-owned tables.
+**Fix applied:** New migration `20260818010000_rls_policies` enables RLS + a `tenant_isolation` policy (`USING/WITH CHECK tenant_id = current_setting('app.current_tenant_id', true)`) on all 19 tenant-owned tables. Not FORCED (Prisma pooled connections don't persist `SET LOCAL`), so the owner-bypassing app role keeps working while policies enforce for any non-owner role — switching the app to a limited role post-MVP activates this layer with no code changes.
 
 ---
 
@@ -138,7 +138,7 @@ These are the constraints from `CLAUDE.md` that cost the most if missed.
 All structural/config items verified present: `package.json` (next 14.2, react 18.3.1), `tsconfig.json` (`@/*` alias), `tailwind.config.ts`, `.eslintrc.json`, `components.json` (`rsc:false`), full `src/` directory layout, `docker-compose.dev.yml` (`pgvector/pgvector:pg16`), `.env.example`/`.env.production.example`, `.gitignore`. Deviations: `tsx` used instead of `ts-node` (functionally equivalent); 3 shadcn base components not added (M19); initial commit message is `Initial commit` rather than the plan's prescribed `chore: scaffold...`.
 
 ### Phase 1 — Data Layer — ❌ INCOMPLETE
-DONE: all 17 models with correct fields (Tenant, User, Agent, Channel, Product, Inventory, Order, OrderItem, Knowledge, KnowledgeEmbedding, Memory, DataSource, AgentCapability, AuditLog, Approval, Conversation, Contact, Message, Tag, ConversationTag); `CREATE EXTENSION vector` in init migration; `Unsupported("vector")` + `vector(1536)` column; `db.ts` singleton; `vector.ts` with `upsertEmbedding`/`findSimilar`/`deleteEmbedding`; `seed.ts` (Toko Kopi Nusantara); `types/api.ts` envelope. INCOMPLETE: RLS migration missing (C3); ~~`tenant_id` missing on 3 models (C2)~~ ✅ FIXED; ~~Inventory composite unique missing (M11)~~ ✅ FIXED; ~~`.env.example` missing `DATABASE_URL_UNPOOLED` (M12)~~ ✅ FIXED.
+DONE: all 17 models with correct fields (Tenant, User, Agent, Channel, Product, Inventory, Order, OrderItem, Knowledge, KnowledgeEmbedding, Memory, DataSource, AgentCapability, AuditLog, Approval, Conversation, Contact, Message, Tag, ConversationTag); `CREATE EXTENSION vector` in init migration; `Unsupported("vector")` + `vector(1536)` column; `db.ts` singleton; `vector.ts` with `upsertEmbedding`/`findSimilar`/`deleteEmbedding`; `seed.ts` (Toko Kopi Nusantara); `types/api.ts` envelope. INCOMPLETE: ~~RLS migration missing (C3)~~ ✅ FIXED; ~~`tenant_id` missing on 3 models (C2)~~ ✅ FIXED; ~~Inventory composite unique missing (M11)~~ ✅ FIXED; ~~`.env.example` missing `DATABASE_URL_UNPOOLED` (M12)~~ ✅ FIXED.
 
 ### Phase 2 — Auth & Tenant Isolation — ❌ INCOMPLETE
 DONE: NextAuth config with JWT/session callbacks embedding userId/tenantId/role (`auth.ts:14-63`); bcrypt password hashing (`password.ts`); register page+API with Zod + slug + nested OWNER create; login page; `withAuth` HOC via `getServerSideProps`; `getAuthSession` API helper; `tenant-context.ts`; `_app.tsx` SessionProvider; no middleware. INCOMPLETE: `requireRole` helper (M5), `requireAuth`/`optionalAuth` exports (M6), staff-invite route (M4) missing; sign-in not Zod-validated (M7).
