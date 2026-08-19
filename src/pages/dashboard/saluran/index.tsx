@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import type { GetServerSideProps } from "next";
 import { useSession } from "next-auth/react";
 import {
@@ -6,9 +7,9 @@ import {
   Cloud,
   PlugsConnected,
   QrCode,
-  Warning,
-  CheckCircle,
+  Check,
   PaperPlaneRight,
+  ArrowLeft,
   Plug,
 } from "@phosphor-icons/react";
 import { QRCodeSVG } from "qrcode.react";
@@ -25,16 +26,19 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
-// Channels / WhatsApp onboarding page (gap B). Wires entirely to the existing
-// channels backend: GET /api/dashboard/channels (list), POST .../connect,
-// POST .../disconnect?id, POST .../test?id. Owner picks Cloud API (enter creds)
-// or Baileys (acknowledge ToS → scan QR). The agent picker sets channel.agentId
-// so runAgentReply doesn't stand down (agent-loop resolves via channel.agentId).
+// Channels / WhatsApp onboarding page (gap B). Step-by-step wizard:
+//   1. Pilih Metode  — pick how to connect (white-labeled; no provider names)
+//   2. Sambungkan    — configure the chosen method (creds, or scan QR)
+//   3. Aktif         — connected: test / disconnect / edit credentials
+// Wires to the existing channels backend (connect / disconnect / test / list).
+// The channel must link to an ACTIVE agent or runAgentReply stands down.
 // ---------------------------------------------------------------------------
+
+type Provider = "CLOUD_API" | "BAILEYS";
 
 type ChannelView = {
   id: string;
-  provider: "CLOUD_API" | "BAILEYS";
+  provider: Provider;
   type: "WHATSAPP";
   status: string;
   agentId: string | null;
@@ -53,6 +57,8 @@ type ConnectResult = {
   qr: string | null;
 };
 
+const STEPS = ["Pilih Metode", "Sambungkan", "Aktif"];
+
 const EMPTY_CLOUD = {
   phoneNumberId: "",
   token: "",
@@ -65,12 +71,8 @@ function errMsg(e: unknown, fallback: string): string {
   return e instanceof Error ? e.message : fallback;
 }
 
-function statusTone(status: string): "green" | "neutral" {
-  return status === "CONNECTED" ? "green" : "neutral";
-}
-function statusLabel(status: string): string {
-  return status === "CONNECTED" ? "Terhubung" : "Terputus";
-}
+const inputCls =
+  "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm placeholder-slate-400 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20";
 
 export default function SaluranPage() {
   const { data: session } = useSession();
@@ -83,6 +85,7 @@ export default function SaluranPage() {
   );
 
   const channels = channelsData?.items ?? [];
+  const connected = channels.find((c) => c.status === "CONNECTED") ?? null;
   const cloud = channels.find((c) => c.provider === "CLOUD_API");
   const baileys = channels.find((c) => c.provider === "BAILEYS");
 
@@ -90,42 +93,53 @@ export default function SaluranPage() {
     (a) => a.status === "ACTIVE"
   );
 
+  const [step, setStep] = useState<1 | 2>(1);
+  const [method, setMethod] = useState<Provider | null>(null);
+  const [editCreds, setEditCreds] = useState(false);
+
   const [agentId, setAgentId] = useState("");
   useEffect(() => {
     if (!agentId && activeAgents[0]) setAgentId(activeAgents[0].id);
   }, [activeAgents, agentId]);
 
   const [cloudForm, setCloudForm] = useState(EMPTY_CLOUD);
-  // Prefill phoneNumberId once a connected Cloud channel loads.
   useEffect(() => {
     if (cloud?.phoneNumberId && !cloudForm.phoneNumberId) {
       setCloudForm((f) => ({ ...f, phoneNumberId: cloud.phoneNumberId! }));
     }
   }, [cloud?.phoneNumberId, cloudForm.phoneNumberId]);
 
-  const [connecting, setConnecting] = useState<"" | "CLOUD_API" | "BAILEYS">("");
-  const [baileysTos, setBaileysTos] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [tos, setTos] = useState(false);
   const [qr, setQr] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
   const [testTo, setTestTo] = useState<Record<string, string>>({});
   const [testing, setTesting] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<Record<string, string>>({});
 
-  // Poll the channel list while a Baileys QR is pending, so we detect the
-  // socket opening (status → CONNECTED) without a manual refresh.
+  // Poll while a QR is pending so we detect the socket opening.
   useEffect(() => {
     if (!qr) return;
     const t = setInterval(refresh, 3000);
     return () => clearInterval(t);
   }, [qr, refresh]);
 
-  // Clear the QR once Baileys is connected.
   useEffect(() => {
     if (baileys?.status === "CONNECTED" && qr) setQr(null);
   }, [baileys?.status, qr]);
 
+  // The wizard's effective step (3 once connected & not editing creds).
+  const currentStep = connected && !editCreds ? 3 : step;
+
+  function chooseMethod(p: Provider) {
+    setMethod(p);
+    setStep(2);
+    setPageError(null);
+    setQr(null);
+  }
+
   async function connectCloud() {
-    setConnecting("CLOUD_API");
+    setConnecting(true);
     setPageError(null);
     try {
       await apiSend<ConnectResult>("/api/dashboard/channels/connect", "POST", {
@@ -140,16 +154,17 @@ export default function SaluranPage() {
         },
       });
       setCloudForm((f) => ({ ...f, token: "", appSecret: "" }));
+      setEditCreds(false);
       refresh();
     } catch (e) {
-      setPageError(errMsg(e, "Gagal menyambungkan Cloud API."));
+      setPageError(errMsg(e, "Gagal menyambungkan."));
     } finally {
-      setConnecting("");
+      setConnecting(false);
     }
   }
 
-  async function connectBaileys() {
-    setConnecting("BAILEYS");
+  async function connectByo() {
+    setConnecting(true);
     setPageError(null);
     setQr(null);
     try {
@@ -165,9 +180,9 @@ export default function SaluranPage() {
       if (res.qr) setQr(res.qr);
       refresh();
     } catch (e) {
-      setPageError(errMsg(e, "Gagal menyambungkan Baileys."));
+      setPageError(errMsg(e, "Gagal memulai sambungan."));
     } finally {
-      setConnecting("");
+      setConnecting(false);
     }
   }
 
@@ -175,9 +190,12 @@ export default function SaluranPage() {
     setPageError(null);
     try {
       await apiSend(`/api/dashboard/channels/disconnect?id=${id}`, "POST");
+      setEditCreds(false);
+      setStep(1);
+      setMethod(null);
       refresh();
     } catch (e) {
-      setPageError(errMsg(e, "Gagal memutus channel."));
+      setPageError(errMsg(e, "Gagal memutus saluran."));
     }
   }
 
@@ -195,9 +213,6 @@ export default function SaluranPage() {
       setTesting(null);
     }
   }
-
-  const inputCls =
-    "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm placeholder-slate-400 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20";
 
   return (
     <DashboardShell
@@ -220,261 +235,467 @@ export default function SaluranPage() {
         </p>
       )}
 
-      {loading && <LoadingSkeleton rows={2} />}
-
-      {/* Agent picker — the channel must link to an ACTIVE agent or the AI
-          auto-reply stands down (agent-loop resolves via channel.agentId). */}
-      {!loading && activeAgents.length > 0 && (
-        <div className="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h2 className="text-sm font-semibold text-slate-900">
-                Agent yang Membalas
-              </h2>
-              <p className="mt-0.5 text-sm text-slate-500">
-                Pesan masuk pada saluran ini akan dibalas oleh agent ini.
-              </p>
-            </div>
-            <select
-              value={agentId}
-              onChange={(e) => setAgentId(e.target.value)}
-              disabled={!isOwner}
-              className={cn(inputCls, "md:w-72")}
-            >
-              {activeAgents.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
-            </select>
-          </div>
+      {/* Stepper */}
+      {!loading && (
+        <div className="mb-6 flex items-center gap-1">
+          {STEPS.map((label, i) => {
+            const n = i + 1;
+            const done = currentStep > n;
+            const active = currentStep === n;
+            return (
+              <div key={label} className="flex items-center">
+                <div className="flex items-center gap-2">
+                  <div
+                    className={cn(
+                      "flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold",
+                      active
+                        ? "bg-green-600 text-white"
+                        : done
+                        ? "bg-green-100 text-green-700"
+                        : "bg-slate-100 text-slate-400"
+                    )}
+                  >
+                    {done ? <Check size={14} weight="bold" /> : n}
+                  </div>
+                  <span
+                    className={cn(
+                      "text-sm",
+                      active
+                        ? "font-semibold text-slate-900"
+                        : "text-slate-500"
+                    )}
+                  >
+                    {label}
+                  </span>
+                </div>
+                {i < STEPS.length - 1 && (
+                  <div
+                    className={cn(
+                      "mx-2 h-px w-6 sm:w-12",
+                      done ? "bg-green-300" : "bg-slate-200"
+                    )}
+                  />
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {!loading && activeAgents.length === 0 && (
+      {loading && <LoadingSkeleton rows={2} />}
+
+      {!loading && activeAgents.length === 0 && !connected && (
         <StateNotice
           variant="empty"
           message="Belum ada agent aktif. Deploy sebuah agent di halaman Agent sebelum menyambungkan saluran."
         />
       )}
 
-      {!loading && (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          {/* ───────────── Cloud API ───────────── */}
-          <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="flex items-center justify-between p-5">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-600 text-white">
+      {/* ───────────── Step 3: Aktif ───────────── */}
+      {!loading && connected && !editCreds && (
+        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+          <div className="flex flex-col gap-3 p-5 md:flex-row md:items-start md:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-600 text-white">
+                {connected.provider === "CLOUD_API" ? (
                   <Cloud size={20} weight="fill" />
-                </div>
-                <div>
-                  <h2 className="text-base font-semibold text-slate-900">
-                    WhatsApp Cloud API
-                  </h2>
-                  <p className="text-sm text-slate-500">
-                    Resmi, aman ToS, jendela 24 jam.
-                  </p>
-                </div>
+                ) : (
+                  <WhatsappLogo size={20} weight="fill" />
+                )}
               </div>
-              <BadgeStatus tone={statusTone(cloud?.status ?? "DISCONNECTED")}>
-                {statusLabel(cloud?.status ?? "Terputus")}
-              </BadgeStatus>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-semibold text-slate-900">
+                    {connected.provider === "CLOUD_API"
+                      ? "WhatsApp Resmi"
+                      : "Bawa Nomor Sendiri"}
+                  </h2>
+                  <BadgeStatus tone="green">Terhubung</BadgeStatus>
+                </div>
+                <p className="mt-1 text-sm text-slate-500">
+                  {connected.provider === "CLOUD_API"
+                    ? `Phone Number ID: ${connected.phoneNumberId ?? "—"}`
+                    : "Terhubung via pindaian QR."}
+                </p>
+              </div>
             </div>
-            <Separator />
-            <div className="space-y-3 p-5">
+            <div className="flex shrink-0 items-center gap-2">
+              {connected.provider === "CLOUD_API" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={!isOwner}
+                  onClick={() => {
+                    setMethod("CLOUD_API");
+                    setEditCreds(true);
+                  }}
+                >
+                  Edit Kredensial
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!isOwner}
+                onClick={() => disconnectChannel(connected.id)}
+              >
+                Putuskan
+              </Button>
+            </div>
+          </div>
+          <Separator />
+          <div className="p-5">
+            <TestBox
+              id={connected.id}
+              testTo={testTo}
+              testResult={testResult}
+              testing={testing}
+              onTo={(v) =>
+                setTestTo((p) => ({ ...p, [connected.id]: v }))
+              }
+              onTest={() => testChannel(connected.id)}
+              disabled={!isOwner}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ───────────── Step 1: Pilih Metode ───────────── */}
+      {!loading && !connected && step === 1 && (
+        <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <MethodCard
+            icon={<Cloud size={22} weight="fill" />}
+            tone="green"
+            title="WhatsApp Resmi"
+            subtitle="Via Meta Cloud API"
+            points={[
+              "Resmi & patuh ToS WhatsApp",
+              "Cocok untuk nomor bisnis",
+              "Memerlukan kredensial dari Meta App Manager",
+            ]}
+            ctaLabel="Pilih WhatsApp Resmi"
+            disabled={!isOwner || activeAgents.length === 0}
+            onChoose={() => chooseMethod("CLOUD_API")}
+          />
+          <MethodCard
+            icon={<WhatsappLogo size={22} weight="fill" />}
+            tone="slate"
+            title="Bawa Nomor Sendiri"
+            subtitle="Pindai QR dari aplikasi WhatsApp"
+            points={[
+              "Aktif dalam hitungan menit",
+              "Tanpa pengaturan Meta",
+              "Gunakan nomor WhatsApp Anda yang sudah aktif",
+            ]}
+            ctaLabel="Pilih Bawa Nomor Sendiri"
+            disabled={!isOwner || activeAgents.length === 0}
+            onChoose={() => chooseMethod("BAILEYS")}
+          />
+        </div>
+      )}
+
+      {/* ───────────── Step 2: Sambungkan ───────────── */}
+      {!loading && !connected && step === 2 && method === "CLOUD_API" && (
+        <ConfigureCard
+          title="WhatsApp Resmi"
+          icon={<Cloud size={20} weight="fill" />}
+          onBack={() => setStep(1)}
+        >
+          <div className="space-y-3">
+            <Field
+              label="Phone Number ID"
+              value={cloudForm.phoneNumberId}
+              onChange={(v) => setCloudForm((f) => ({ ...f, phoneNumberId: v }))}
+              placeholder="103xxxxxxxxxx"
+              disabled={!isOwner}
+            />
+            <Field
+              label="Access Token"
+              value={cloudForm.token}
+              onChange={(v) => setCloudForm((f) => ({ ...f, token: v }))}
+              placeholder="EAAGxxxxxxxx..."
+              disabled={!isOwner}
+              type="password"
+            />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field
-                label="Phone Number ID"
-                value={cloudForm.phoneNumberId}
-                onChange={(v) => setCloudForm((f) => ({ ...f, phoneNumberId: v }))}
-                placeholder="103xxxxxxxxxx"
+                label="Verify Token (webhook)"
+                value={cloudForm.verifyToken}
+                onChange={(v) =>
+                  setCloudForm((f) => ({ ...f, verifyToken: v }))
+                }
+                placeholder="demo-verify-token"
                 disabled={!isOwner}
               />
               <Field
-                label="Access Token"
-                value={cloudForm.token}
-                onChange={(v) => setCloudForm((f) => ({ ...f, token: v }))}
-                placeholder={
-                  cloud?.status === "CONNECTED"
-                    ? "••••••••  (masukkan ulang untuk menyimpan)"
-                    : "EAAGxxxxxxxx..."
-                }
+                label="App Secret"
+                value={cloudForm.appSecret}
+                onChange={(v) => setCloudForm((f) => ({ ...f, appSecret: v }))}
+                placeholder="xxx..."
                 disabled={!isOwner}
                 type="password"
               />
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Field
-                  label="Verify Token (webhook)"
-                  value={cloudForm.verifyToken}
-                  onChange={(v) =>
-                    setCloudForm((f) => ({ ...f, verifyToken: v }))
-                  }
-                  placeholder="demo-verify-token"
-                  disabled={!isOwner}
-                />
-                <Field
-                  label="App Secret (opsional)"
-                  value={cloudForm.appSecret}
-                  onChange={(v) => setCloudForm((f) => ({ ...f, appSecret: v }))}
-                  placeholder="xxx..."
-                  disabled={!isOwner}
-                  type="password"
-                />
-              </div>
-              <Field
-                label="Business Account ID (opsional)"
-                value={cloudForm.businessAccountId}
-                onChange={(v) =>
-                  setCloudForm((f) => ({ ...f, businessAccountId: v }))
-                }
-                placeholder="10xxxx..."
-                disabled={!isOwner}
-              />
-
-              <div className="flex items-center gap-2 pt-1">
-                <Button
-                  size="sm"
-                  disabled={!isOwner || connecting === "CLOUD_API"}
-                  onClick={connectCloud}
-                >
-                  <PlugsConnected size={16} />
-                  {connecting === "CLOUD_API"
-                    ? "Menyambungkan…"
-                    : cloud?.status === "CONNECTED"
-                    ? "Simpan"
-                    : "Sambungkan"}
-                </Button>
-                {cloud?.status === "CONNECTED" && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={!isOwner}
-                    onClick={() => disconnectChannel(cloud.id)}
-                  >
-                    Putuskan
-                  </Button>
-                )}
-              </div>
-
-              {cloud?.status === "CONNECTED" && (
-                <TestBox
-                  id={cloud.id}
-                  testTo={testTo}
-                  testResult={testResult}
-                  testing={testing}
-                  onTo={(v) => setTestTo((p) => ({ ...p, [cloud.id]: v }))}
-                  onTest={() => testChannel(cloud.id)}
-                  disabled={!isOwner}
-                />
-              )}
-
-              <p className="text-xs text-slate-400">
-                Setel webhook di Meta App Manager ke{" "}
-                <code className="rounded bg-slate-100 px-1">
-                  https://csq-z821.onrender.com/api/webhooks/whatsapp
-                </code>{" "}
-                dengan verify token yang sama.
-              </p>
             </div>
+            <Field
+              label="Business Account ID (opsional)"
+              value={cloudForm.businessAccountId}
+              onChange={(v) =>
+                setCloudForm((f) => ({ ...f, businessAccountId: v }))
+              }
+              placeholder="10xxxx..."
+              disabled={!isOwner}
+            />
+
+            <AgentPicker
+              agents={activeAgents}
+              value={agentId}
+              onChange={setAgentId}
+              disabled={!isOwner}
+            />
+
+            <div className="pt-1">
+              <Button
+                disabled={!isOwner || connecting}
+                onClick={connectCloud}
+              >
+                <PlugsConnected size={16} />
+                {connecting ? "Menyambungkan…" : "Sambungkan"}
+              </Button>
+            </div>
+
+            <p className="text-xs text-slate-400">
+              Setel webhook di Meta App Manager ke{" "}
+              <code className="rounded bg-slate-100 px-1">
+                https://csq-z821.onrender.com/api/webhooks/whatsapp
+              </code>{" "}
+              dengan verify token yang sama.
+            </p>
           </div>
+        </ConfigureCard>
+      )}
 
-          {/* ───────────── Baileys ───────────── */}
-          <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="flex items-center justify-between p-5">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-800 text-white">
-                  <WhatsappLogo size={20} weight="fill" />
-                </div>
-                <div>
-                  <h2 className="text-base font-semibold text-slate-900">
-                    Baileys (Bawa Nomor Sendiri)
-                  </h2>
-                  <p className="text-sm text-slate-500">
-                    Pindai QR, paritas penuh, tanpa template.
-                  </p>
-                </div>
-              </div>
-              <BadgeStatus tone={statusTone(baileys?.status ?? "DISCONNECTED")}>
-                {statusLabel(baileys?.status ?? "Terputus")}
-              </BadgeStatus>
+      {!loading && !connected && step === 2 && method === "BAILEYS" && (
+        <ConfigureCard
+          title="Bawa Nomor Sendiri"
+          icon={<WhatsappLogo size={20} weight="fill" />}
+          onBack={() => setStep(1)}
+        >
+          <div className="space-y-4">
+            <AgentPicker
+              agents={activeAgents}
+              value={agentId}
+              onChange={setAgentId}
+              disabled={!isOwner}
+            />
+
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <Switch checked={tos} disabled={!isOwner} onChange={setTos} />
+              Saya menyetujui ketentuan layanan untuk penggunaan nomor pribadi.
+            </label>
+
+            <div className="flex items-center gap-2">
+              <Button
+                disabled={!isOwner || !tos || connecting}
+                onClick={connectByo}
+              >
+                <Plug size={16} />
+                {connecting ? "Memulai…" : "Tampilkan QR"}
+              </Button>
             </div>
-            <Separator />
-            <div className="space-y-3 p-5">
-              <div className="flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-800">
-                <Warning size={18} weight="fill" className="mt-0.5 shrink-0" />
-                <p>
-                  Baileys menggunakan nomor pribadi dan berisiko dibanned oleh
-                  WhatsApp. Owner wajib menyetujui risiko ini sebelum
-                  mengaktifkan.
+
+            {qr && (
+              <div className="flex flex-col items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                <div className="rounded-lg bg-white p-3 shadow-sm">
+                  <QRCodeSVG value={qr} size={200} level="M" />
+                </div>
+                <p className="flex items-center gap-1.5 text-sm text-slate-600">
+                  <QrCode size={16} />
+                  Buka WhatsApp &gt; Tautkan perangkat, lalu pindai QR ini.
+                  Status diperbarui otomatis.
                 </p>
               </div>
+            )}
+          </div>
+        </ConfigureCard>
+      )}
 
-              <label className="flex items-center gap-2 text-sm text-slate-700">
-                <Switch
-                  checked={baileysTos}
-                  disabled={!isOwner}
-                  onChange={setBaileysTos}
-                />
-                Saya memahami dan menyetujui risiko ToS/banned.
-              </label>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  disabled={!isOwner || !baileysTos || connecting === "BAILEYS"}
-                  onClick={connectBaileys}
-                >
-                  <Plug size={16} />
-                  {connecting === "BAILEYS"
-                    ? "Memulai…"
-                    : baileys?.status === "CONNECTED"
-                    ? "Sambungkan Ulang"
-                    : "Mulai & Tampilkan QR"}
-                </Button>
-                {baileys?.status === "CONNECTED" && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={!isOwner}
-                    onClick={() => disconnectChannel(baileys.id)}
-                  >
-                    Putuskan
-                  </Button>
-                )}
-              </div>
-
-              {qr && baileys?.status !== "CONNECTED" && (
-                <div className="flex flex-col items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-4">
-                  <div className="rounded-lg bg-white p-3 shadow-sm">
-                    <QRCodeSVG value={qr} size={200} level="M" />
-                  </div>
-                  <p className="flex items-center gap-1.5 text-sm text-slate-600">
-                    <QrCode size={16} />
-                    Pindai QR ini dari WhatsApp &gt; Tautkan perangkat. Status
-                    diperbarui otomatis.
-                  </p>
-                </div>
-              )}
-
-              {baileys?.status === "CONNECTED" && (
-                <TestBox
-                  id={baileys.id}
-                  testTo={testTo}
-                  testResult={testResult}
-                  testing={testing}
-                  onTo={(v) => setTestTo((p) => ({ ...p, [baileys.id]: v }))}
-                  onTest={() => testChannel(baileys.id)}
-                  disabled={!isOwner}
-                />
-              )}
+      {/* Edit credentials for an already-connected Cloud channel */}
+      {!loading && connected && editCreds && method === "CLOUD_API" && (
+        <ConfigureCard
+          title="Edit Kredensial"
+          icon={<Cloud size={20} weight="fill" />}
+          onBack={() => setEditCreds(false)}
+        >
+          <div className="space-y-3">
+            <Field
+              label="Phone Number ID"
+              value={cloudForm.phoneNumberId}
+              onChange={(v) => setCloudForm((f) => ({ ...f, phoneNumberId: v }))}
+              disabled={!isOwner}
+            />
+            <Field
+              label="Access Token"
+              value={cloudForm.token}
+              onChange={(v) => setCloudForm((f) => ({ ...f, token: v }))}
+              placeholder="Masukkan ulang token…"
+              disabled={!isOwner}
+              type="password"
+            />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field
+                label="Verify Token (webhook)"
+                value={cloudForm.verifyToken}
+                onChange={(v) =>
+                  setCloudForm((f) => ({ ...f, verifyToken: v }))
+                }
+                disabled={!isOwner}
+              />
+              <Field
+                label="App Secret"
+                value={cloudForm.appSecret}
+                onChange={(v) => setCloudForm((f) => ({ ...f, appSecret: v }))}
+                placeholder="Masukkan ulang app secret…"
+                disabled={!isOwner}
+                type="password"
+              />
+            </div>
+            <div className="flex items-center gap-2 pt-1">
+              <Button disabled={!isOwner || connecting} onClick={connectCloud}>
+                <PlugsConnected size={16} />
+                {connecting ? "Menyimpan…" : "Simpan"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setEditCreds(false)}
+                disabled={connecting}
+              >
+                Batal
+              </Button>
             </div>
           </div>
-        </div>
+        </ConfigureCard>
       )}
     </DashboardShell>
   );
 }
 
-// ─────────────────────────── Field + TestBox ───────────────────────────
+// ─────────────────────────── Subcomponents ───────────────────────────
+
+function MethodCard(props: {
+  icon: ReactNode;
+  tone: "green" | "slate";
+  title: string;
+  subtitle: string;
+  points: string[];
+  ctaLabel: string;
+  disabled?: boolean;
+  onChoose: () => void;
+}) {
+  const iconWrap =
+    props.tone === "green"
+      ? "bg-green-600 text-white"
+      : "bg-slate-800 text-white";
+  return (
+    <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="flex items-center gap-3">
+        <div
+          className={cn(
+            "flex h-11 w-11 items-center justify-center rounded-lg",
+            iconWrap
+          )}
+        >
+          {props.icon}
+        </div>
+        <div>
+          <h3 className="text-base font-semibold text-slate-900">
+            {props.title}
+          </h3>
+          <p className="text-sm text-slate-500">{props.subtitle}</p>
+        </div>
+      </div>
+      <ul className="mt-4 flex-1 space-y-2">
+        {props.points.map((p) => (
+          <li
+            key={p}
+            className="flex items-start gap-2 text-sm text-slate-600"
+          >
+            <Check
+              size={16}
+              weight="bold"
+              className="mt-0.5 shrink-0 text-green-600"
+            />
+            {p}
+          </li>
+        ))}
+      </ul>
+      <div className="mt-5">
+        <Button
+          className="w-full"
+          disabled={props.disabled}
+          onClick={props.onChoose}
+        >
+          {props.ctaLabel}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function ConfigureCard(props: {
+  title: string;
+  icon: ReactNode;
+  onBack: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="flex items-center gap-3 p-5">
+        <button
+          onClick={props.onBack}
+          className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+          aria-label="Kembali"
+        >
+          <ArrowLeft size={18} />
+        </button>
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-green-600 text-white">
+          {props.icon}
+        </div>
+        <h2 className="text-base font-semibold text-slate-900">
+          {props.title}
+        </h2>
+      </div>
+      <Separator />
+      <div className="p-5">{props.children}</div>
+    </div>
+  );
+}
+
+function AgentPicker(props: {
+  agents: AgentItem[];
+  value: string;
+  onChange: (v: string) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-xs font-medium text-slate-600">
+        Agent yang Membalas
+      </span>
+      <select
+        value={props.value}
+        onChange={(e) => props.onChange(e.target.value)}
+        disabled={props.disabled}
+        className={cn(inputCls, "md:w-72")}
+      >
+        {props.agents.map((a) => (
+          <option key={a.id} value={a.id}>
+            {a.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
 
 function Field(props: {
   label: string;
@@ -484,8 +705,6 @@ function Field(props: {
   disabled?: boolean;
   type?: string;
 }) {
-  const inputCls =
-    "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm placeholder-slate-400 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20";
   return (
     <label className="block">
       <span className="mb-1 block text-xs font-medium text-slate-600">
@@ -515,7 +734,7 @@ function TestBox(props: {
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
       <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
-        <CheckCircle size={14} /> Kirim Pesan Test
+        <PaperPlaneRight size={14} /> Kirim Pesan Test
       </p>
       <div className="flex items-center gap-2">
         <input
@@ -523,7 +742,7 @@ function TestBox(props: {
           onChange={(e) => props.onTo(e.target.value)}
           placeholder="62812xxxxxxx"
           disabled={props.disabled}
-          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm placeholder-slate-400 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20"
+          className={inputCls}
         />
         <Button
           size="sm"
@@ -531,7 +750,6 @@ function TestBox(props: {
           disabled={props.disabled || props.testing === props.id}
           onClick={props.onTest}
         >
-          <PaperPlaneRight size={16} />
           {props.testing === props.id ? "Mengirim…" : "Test"}
         </Button>
       </div>
