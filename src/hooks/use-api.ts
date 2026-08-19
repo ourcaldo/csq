@@ -2,7 +2,7 @@
 // its filter state and builds the request URL (including query + page); this
 // hook handles loading/error/refresh. `refresh()` bumps an internal nonce to
 // re-run the effect without changing the URL — used after mutations.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch, ApiError } from "@/lib/api-client";
 
 export type UseApiResult<T> = {
@@ -17,12 +17,16 @@ export function useApi<T>(url: string): UseApiResult<T> {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
+  // Track the first load so refresh() doesn't toggle `loading` (which would
+  // flash the loading skeleton on every poll/refresh and blink the page).
+  const firstRef = useRef(true);
 
   const refresh = useCallback(() => setNonce((n) => n + 1), []);
 
   useEffect(() => {
     let active = true;
-    setLoading(true);
+    const first = firstRef.current;
+    if (first) setLoading(true);
     apiFetch<T>(url)
       .then((d) => {
         if (active) {
@@ -36,7 +40,8 @@ export function useApi<T>(url: string): UseApiResult<T> {
         }
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (active && first) setLoading(false);
+        firstRef.current = false;
       });
     return () => {
       active = false;

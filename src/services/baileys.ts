@@ -78,86 +78,102 @@ export async function connectBaileysChannel(
   channel: Channel
 ): Promise<{ qr: string | null; open: boolean }> {
   const existing = sockets.get(channel.id);
-  if (existing) {
-    return { qr: existing.qr, open: existing.open };
+  if (existing && existing.open) {
+    // Already connected.
+    return { qr: null, open: true };
   }
 
-  const { state, saveCreds } = await loadAuthState(authFolder(channel.id));
-  const sock = makeWASocket({
-    auth: state,
-    logger,
-    printQRInTerminal: false,
-    connectTimeoutMs: 20_000,
-  });
+  let entry: SocketEntry;
+  if (existing) {
+    // A socket already exists for this channel (e.g. login pending). Reuse it
+    // instead of creating a duplicate — the QR arrives async via
+    // connection.update and we wait for it below.
+    entry = existing;
+  } else {
+    const { state, saveCreds } = await loadAuthState(authFolder(channel.id));
+    const sock = makeWASocket({
+      auth: state,
+      logger,
+      printQRInTerminal: false,
+      connectTimeoutMs: 20_000,
+    });
 
-  const entry: SocketEntry = { sock, qr: null, open: false };
-  sockets.set(channel.id, entry);
+    entry = { sock, qr: null, open: false };
+    sockets.set(channel.id, entry);
 
-  sock.ev.on("connection.update", (update) => {
-    if (update.qr) {
-      entry.qr = update.qr;
-    }
-    if (update.connection === "open") {
-      entry.open = true;
-      entry.qr = null;
-      void prisma.channel.update({
-        where: { id: channel.id },
-        data: { status: "CONNECTED" },
-      });
-    } else if (update.connection === "close") {
-      const code = disconnectCode(update.lastDisconnect?.error);
-      sockets.delete(channel.id);
-      if (code !== DisconnectReason.loggedOut) {
-        // Reconnect on transient close; reload the channel row for fresh state.
-        void prisma.channel
-          .findUnique({ where: { id: channel.id } })
-          .then((fresh) => {
-            if (fresh) void connectBaileysChannel(fresh);
-          });
-      } else {
+    sock.ev.on("connection.update", (update) => {
+      if (update.qr) {
+        entry.qr = update.qr;
+      }
+      if (update.connection === "open") {
+        entry.open = true;
+        entry.qr = null;
         void prisma.channel.update({
           where: { id: channel.id },
-          data: { status: "DISCONNECTED" },
+          data: { status: "CONNECTED" },
         });
-      }
-    }
-  });
-
-  sock.ev.on("creds.update", saveCreds);
-
-  sock.ev.on("messages.upsert", (event) => {
-    if (event.type !== "notify") return;
-    for (const m of event.messages) {
-      // Skip own outgoing messages.
-      if (m.key.fromMe) continue;
-      const body = extractBody(m.message);
-      if (!body) continue;
-      const from = fromJid(m.key.remoteJid);
-      if (!from) continue;
-      const tenantId = channel.tenantId;
-      void (async () => {
-        const recorded = await ingestInboundMessage({
-          channelId: channel.id,
-          tenantId,
-          from,
-          body,
-          waMessageId: m.key.id ?? "",
-          receivedAt: new Date(),
-        });
-        // Reload the channel so the agent loop sees fresh status/agentId.
-        const fresh = await prisma.channel.findUnique({ where: { id: channel.id } });
-        if (fresh) {
-          void processInboundWithAgent({
-            channel: fresh,
-            conversationId: recorded.conversationId,
-            customerPhone: from,
-            body,
+      } else if (update.connection === "close") {
+        const code = disconnectCode(update.lastDisconnect?.error);
+        sockets.delete(channel.id);
+        if (code !== DisconnectReason.loggedOut) {
+          // Reconnect on transient close; reload the channel row for fresh state.
+          void prisma.channel
+            .findUnique({ where: { id: channel.id } })
+            .then((fresh) => {
+              if (fresh) void connectBaileysChannel(fresh);
+            });
+        } else {
+          void prisma.channel.update({
+            where: { id: channel.id },
+            data: { status: "DISCONNECTED" },
           });
         }
-      })();
-    }
-  });
+      }
+    });
 
+    sock.ev.on("creds.update", saveCreds);
+
+    sock.ev.on("messages.upsert", (event) => {
+      if (event.type !== "notify") return;
+      for (const m of event.messages) {
+        // Skip own outgoing messages.
+        if (m.key.fromMe) continue;
+        const body = extractBody(m.message);
+        if (!body) continue;
+        const from = fromJid(m.key.remoteJid);
+        if (!from) continue;
+        const tenantId = channel.tenantId;
+        void (async () => {
+          const recorded = await ingestInboundMessage({
+            channelId: channel.id,
+            tenantId,
+            from,
+            body,
+            waMessageId: m.key.id ?? "",
+            receivedAt: new Date(),
+          });
+          // Reload the channel so the agent loop sees fresh status/agentId.
+          const fresh = await prisma.channel.findUnique({ where: { id: channel.id } });
+          if (fresh) {
+            void processInboundWithAgent({
+              channel: fresh,
+              conversationId: recorded.conversationId,
+              customerPhone: from,
+              body,
+            });
+          }
+        })();
+      }
+    });
+  }
+
+  // The QR arrives asynchronously via connection.update; wait briefly so the
+  // FIRST connect call returns it instead of null (which forced a second
+  // click). Give up after 15s and return whatever we have.
+  const deadline = Date.now() + 15_000;
+  while (!entry.qr && !entry.open && Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 300));
+  }
   return { qr: entry.qr, open: entry.open };
 }
 

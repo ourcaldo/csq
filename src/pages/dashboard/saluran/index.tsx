@@ -112,6 +112,7 @@ export default function SaluranPage() {
   const [connecting, setConnecting] = useState(false);
   const [tos, setTos] = useState(false);
   const [qr, setQr] = useState<string | null>(null);
+  const [qrAt, setQrAt] = useState<number | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
   const [testTo, setTestTo] = useState<Record<string, string>>({});
   const [testing, setTesting] = useState<string | null>(null);
@@ -125,11 +126,20 @@ export default function SaluranPage() {
   }, [qr, refresh]);
 
   useEffect(() => {
-    if (baileys?.status === "CONNECTED" && qr) setQr(null);
+    if (baileys?.status === "CONNECTED" && qr) {
+      setQr(null);
+      setQrAt(null);
+    }
   }, [baileys?.status, qr]);
 
   // The wizard's effective step (3 once connected & not editing creds).
   const currentStep = connected && !editCreds ? 3 : step;
+
+  // Show a retry hint if the QR has been sitting for >60s without a connection.
+  const qrStale =
+    qrAt !== null &&
+    baileys?.status !== "CONNECTED" &&
+    Date.now() - qrAt > 60_000;
 
   function chooseMethod(p: Provider) {
     setMethod(p);
@@ -177,7 +187,10 @@ export default function SaluranPage() {
           config: { tosAcknowledged: true },
         }
       );
-      if (res.qr) setQr(res.qr);
+      if (res.qr) {
+        setQr(res.qr);
+        setQrAt(Date.now());
+      }
       refresh();
     } catch (e) {
       setPageError(errMsg(e, "Gagal memulai sambungan."));
@@ -513,6 +526,23 @@ export default function SaluranPage() {
                   Buka WhatsApp &gt; Tautkan perangkat, lalu pindai QR ini.
                   Status diperbarui otomatis.
                 </p>
+                {qrStale && (
+                  <div className="mt-1 flex flex-col items-center gap-2">
+                    <p className="text-center text-xs text-amber-700">
+                      Scan belum terdeteksi setelah 1 menit. Pastikan telepon
+                      tersambung internet, lalu coba lagi.
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={connecting || !tos}
+                      onClick={connectByo}
+                    >
+                      <Plug size={16} />
+                      Coba Lagi
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
           </div>
