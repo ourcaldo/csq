@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import type { GetServerSideProps } from "next";
 import { useSession } from "next-auth/react";
@@ -8,6 +8,8 @@ import {
   PlugsConnected,
   QrCode,
   Check,
+  CheckCircle,
+  WarningCircle,
   PaperPlaneRight,
   ArrowLeft,
   Plug,
@@ -117,7 +119,17 @@ export default function SaluranPage() {
   const [pageError, setPageError] = useState<string | null>(null);
   const [testTo, setTestTo] = useState<Record<string, string>>({});
   const [testing, setTesting] = useState<string | null>(null);
-  const [testResult, setTestResult] = useState<Record<string, string>>({});
+  const [toast, setToast] = useState<{
+    msg: string;
+    tone: "success" | "error";
+  } | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function showToast(msg: string, tone: "success" | "error") {
+    setToast({ msg, tone });
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 3500);
+  }
 
   // Poll the LIVE QR + open state while a Baileys QR is pending. Baileys
   // rotates the QR periodically, so we must display the *current* one (not
@@ -243,12 +255,12 @@ export default function SaluranPage() {
     const to = (testTo[id] ?? "").trim();
     if (!to) return;
     setTesting(id);
-    setTestResult((p) => ({ ...p, [id]: "" }));
     try {
       await apiSend(`/api/dashboard/channels/test?id=${id}`, "POST", { to });
-      setTestResult((p) => ({ ...p, [id]: "Terkirim ✅" }));
+      showToast("Pesan test terkirim.", "success");
+      setTestTo((p) => ({ ...p, [id]: "" }));
     } catch (e) {
-      setTestResult((p) => ({ ...p, [id]: errMsg(e, "Gagal.") }));
+      showToast(errMsg(e, "Pesan test gagal terkirim."), "error");
     } finally {
       setTesting(null);
     }
@@ -383,12 +395,15 @@ export default function SaluranPage() {
               </Button>
             </div>
           </div>
+          <p className="px-5 pb-4 text-xs text-slate-400">
+            Ingin berganti metode? Putuskan saluran ini, lalu pilih metode lain
+            (mis. WhatsApp Resmi) dari langkah pertama.
+          </p>
           <Separator />
           <div className="p-5">
             <TestBox
               id={connected.id}
               testTo={testTo}
-              testResult={testResult}
               testing={testing}
               onTo={(v) =>
                 setTestTo((p) => ({ ...p, [connected.id]: v }))
@@ -446,14 +461,14 @@ export default function SaluranPage() {
               label="Phone Number ID"
               value={cloudForm.phoneNumberId}
               onChange={(v) => setCloudForm((f) => ({ ...f, phoneNumberId: v }))}
-              placeholder="103xxxxxxxxxx"
+              hint="Contoh: 103xxxxxxxxxx"
               disabled={!isOwner}
             />
             <Field
               label="Access Token"
               value={cloudForm.token}
               onChange={(v) => setCloudForm((f) => ({ ...f, token: v }))}
-              placeholder="EAAGxxxxxxxx..."
+              hint="Token akses Meta Graph API, diawali EAAG…"
               disabled={!isOwner}
               type="password"
             />
@@ -464,14 +479,14 @@ export default function SaluranPage() {
                 onChange={(v) =>
                   setCloudForm((f) => ({ ...f, verifyToken: v }))
                 }
-                placeholder="demo-verify-token"
+                hint="Token untuk verifikasi webhook Meta, mis. demo-verify-token"
                 disabled={!isOwner}
               />
               <Field
                 label="App Secret"
                 value={cloudForm.appSecret}
                 onChange={(v) => setCloudForm((f) => ({ ...f, appSecret: v }))}
-                placeholder="xxx..."
+                hint="App Secret dari Meta App Manager"
                 disabled={!isOwner}
                 type="password"
               />
@@ -482,7 +497,7 @@ export default function SaluranPage() {
               onChange={(v) =>
                 setCloudForm((f) => ({ ...f, businessAccountId: v }))
               }
-              placeholder="10xxxx..."
+              hint="Opsional. Contoh: 10xxxx…"
               disabled={!isOwner}
             />
 
@@ -588,13 +603,14 @@ export default function SaluranPage() {
               label="Phone Number ID"
               value={cloudForm.phoneNumberId}
               onChange={(v) => setCloudForm((f) => ({ ...f, phoneNumberId: v }))}
+              hint="Contoh: 103xxxxxxxxxx"
               disabled={!isOwner}
             />
             <Field
               label="Access Token"
               value={cloudForm.token}
               onChange={(v) => setCloudForm((f) => ({ ...f, token: v }))}
-              placeholder="Masukkan ulang token…"
+              hint="Masukkan ulang token akses Meta Graph API"
               disabled={!isOwner}
               type="password"
             />
@@ -605,13 +621,14 @@ export default function SaluranPage() {
                 onChange={(v) =>
                   setCloudForm((f) => ({ ...f, verifyToken: v }))
                 }
+                hint="Token verifikasi webhook Meta"
                 disabled={!isOwner}
               />
               <Field
                 label="App Secret"
                 value={cloudForm.appSecret}
                 onChange={(v) => setCloudForm((f) => ({ ...f, appSecret: v }))}
-                placeholder="Masukkan ulang app secret…"
+                hint="Masukkan ulang App Secret dari Meta App Manager"
                 disabled={!isOwner}
                 type="password"
               />
@@ -632,6 +649,8 @@ export default function SaluranPage() {
           </div>
         </ConfigureCard>
       )}
+
+      <Toast toast={toast} />
     </DashboardShell>
   );
 }
@@ -758,7 +777,7 @@ function Field(props: {
   label: string;
   value: string;
   onChange: (v: string) => void;
-  placeholder?: string;
+  hint?: string;
   disabled?: boolean;
   type?: string;
 }) {
@@ -771,10 +790,14 @@ function Field(props: {
         type={props.type ?? "text"}
         value={props.value}
         onChange={(e) => props.onChange(e.target.value)}
-        placeholder={props.placeholder}
         disabled={props.disabled}
         className={inputCls}
       />
+      {props.hint && (
+        <span className="mt-1 block text-xs text-slate-400">
+          {props.hint}
+        </span>
+      )}
     </label>
   );
 }
@@ -782,7 +805,6 @@ function Field(props: {
 function TestBox(props: {
   id: string;
   testTo: Record<string, string>;
-  testResult: Record<string, string>;
   testing: string | null;
   onTo: (v: string) => void;
   onTest: () => void;
@@ -797,7 +819,6 @@ function TestBox(props: {
         <input
           value={props.testTo[props.id] ?? ""}
           onChange={(e) => props.onTo(e.target.value)}
-          placeholder="62812xxxxxxx"
           disabled={props.disabled}
           className={inputCls}
         />
@@ -810,11 +831,33 @@ function TestBox(props: {
           {props.testing === props.id ? "Mengirim…" : "Test"}
         </Button>
       </div>
-      {props.testResult[props.id] && (
-        <p className="mt-2 text-xs text-slate-600">
-          {props.testResult[props.id]}
-        </p>
+      <p className="mt-2 text-xs text-slate-400">
+        Nomor tujuan format internasional, mis. 62812xxxxxxx
+      </p>
+    </div>
+  );
+}
+
+function Toast({
+  toast,
+}: {
+  toast: { msg: string; tone: "success" | "error" } | null;
+}) {
+  if (!toast) return null;
+  return (
+    <div
+      className={cn(
+        "fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white shadow-lg",
+        toast.tone === "success" ? "bg-green-600" : "bg-red-600"
       )}
+      role="status"
+    >
+      {toast.tone === "success" ? (
+        <CheckCircle size={18} weight="fill" />
+      ) : (
+        <WarningCircle size={18} weight="fill" />
+      )}
+      {toast.msg}
     </div>
   );
 }
