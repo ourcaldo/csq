@@ -1,7 +1,13 @@
 # Production stack for CSQ on the HackFest VPS
 # (4 vCPU / 4GB RAM / 20GB SSD Ubuntu). Run from the docker/ directory:
-#   docker compose --env-file ../.env.production up -d
-# OpenClaw is opt-in (memory-limited sidecar) — enable with --profile openclaw.
+#   docker compose --env-file ../.env.production up -d --build
+#
+# Per-tenant OpenClaw cells (PRD §5/§26): there is NO single shared openclaw
+# service here. CSQ provisions one isolated OpenClaw container per store via
+# `openclaw fleet create <slug>` (OPENCLAW_PROVISIONING=fleet). To do that,
+# the app container talks to the host Docker daemon through the mounted
+# /var/run/docker.sock and has the `openclaw` + `docker` CLIs baked in (see
+# Dockerfile). Cell containers run as siblings on the host, not in this compose.
 # TLS is terminated by Nginx; Certbot renews certificates.
 
 services:
@@ -22,8 +28,22 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI}
-      OPENCLAW_BASE_URL: ${OPENCLAW_BASE_URL:-http://openclaw:18789}
-      OPENCLAW_API_KEY: ${OPENCLAW_API_KEY}
+      # OpenClaw per-tenant cell provisioning (production = fleet).
+      OPENCLAW_PROVISIONING: fleet
+      OPENCLAW_AGENT_MODEL: ${OPENCLAW_AGENT_MODEL:-fireworks/accounts/fireworks/models/qwen3p7-plus}
+      # Dev-only fallback (unused in fleet mode, but required by the code path).
+      OPENCLAW_BASE_URL: ${OPENCLAW_BASE_URL:-http://127.0.0.1:18789}
+      OPENCLAW_API_KEY: ${OPENCLAW_API_KEY:-}
+    volumes:
+      # Required for `openclaw fleet create` + `docker exec <cell>` to manage
+      # per-tenant cell containers on the host daemon. Keep this; without it,
+      # provisioning and agent creation cannot work in fleet mode.
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Persist Baileys auth state (bring-your-own-number WhatsApp sessions)
+      # across app restarts so owners don't re-scan the QR.
+      - baileys-auth:/app/.baileys-auth
+      # Persist OpenClaw Fleet cell metadata across app restarts.
+      - openclaw-fleet:/data/.openclaw
     depends_on:
       postgres:
         condition: service_healthy
@@ -80,19 +100,7 @@ services:
       sleep 12h && exit 0"
     restart: unless-stopped
 
-  # Optional OpenClaw reasoning-runtime sidecar. Hard memory limit per the 4GB
-  # budget research (estimate ~400–900MB; cap at 768m and load-test before relying on it).
-  # Enable with:  docker compose --profile openclaw --env-file ../.env.production up -d
-  openclaw:
-    image: ghcr.io/openclaw/openclaw:slim
-    profiles: ["openclaw"]
-    environment:
-      OPENCLAW_GATEWAY_TOKEN: ${OPENCLAW_API_KEY}
-    mem_limit: 768m
-    cpus: "1.0"
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:18789:18789"
-
 volumes:
   pgdata:
+  baileys-auth:
+  openclaw-fleet:

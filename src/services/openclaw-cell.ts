@@ -36,6 +36,9 @@ const SHARED_TOKEN =
 const AGENT_MODEL =
   process.env.OPENCLAW_AGENT_MODEL ??
   "fireworks/accounts/fireworks/models/qwen3p7-plus";
+// Fireworks API key passed to each cell so its OpenClaw fireworks provider
+// can call Fireworks. Required in fleet (production) mode.
+const FIREWORKS_API_KEY = process.env.FIREWORKS_API_KEY ?? "";
 
 // Fleet tenant ids must match ^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$. Slugs
 // produced by the register route already satisfy this; clamp defensively.
@@ -105,8 +108,13 @@ type FleetCreateResult = {
 };
 
 async function fleetCreateCell(slug: string): Promise<FleetCreateResult> {
+  // Pass FIREWORKS_API_KEY into the cell so its OpenClaw fireworks provider
+  // can authenticate. Other --env flags can be added here as needed.
+  const envFlags = FIREWORKS_API_KEY
+    ? ` --env FIREWORKS_API_KEY=${JSON.stringify(FIREWORKS_API_KEY)}`
+    : "";
   const { stdout } = await execAsync(
-    `openclaw fleet create ${JSON.stringify(slug)} --json`,
+    `openclaw fleet create ${JSON.stringify(slug)}${envFlags} --json`,
     { timeout: 120_000 }
   );
   const parsed = fleetCreateSchema.parse(JSON.parse(stdout));

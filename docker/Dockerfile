@@ -1,7 +1,8 @@
 # syntax=docker/dockerfile:1
-# Multi-stage build for CSQ (Next.js standalone).
-# Never build on the 4GB VPS — build elsewhere / in CI and pull, or build on a
-# beefier machine and load. Image targets node 20 (LTS).
+# Multi-stage build for CSQ (Next.js standalone) + the OpenClaw + docker CLIs so
+# the app can provision per-tenant OpenClaw cells (PRD §5/§26) via the host
+# Docker socket (see docker-compose.yml). Never build on the 4GB VPS — build
+# elsewhere / in CI and pull, or build on a beefier machine and load.
 
 # ── builder ──
 FROM node:20-bookworm-slim AS builder
@@ -16,11 +17,34 @@ RUN npx prisma generate
 COPY . .
 RUN npm run build
 
+# ── OpenClaw CLI stage (copied from the official slim image) ──
+# Used by src/services/openclaw-cell.ts to run `openclaw fleet create` and
+# `docker exec <cell> openclaw agents add …`. The slim image ships the CLI at
+# /app/dist/index.js with a /usr/local/bin/openclaw wrapper; we copy /app and
+# recreate the wrapper against the runner's node.
+FROM ghcr.io/openclaw/openclaw:slim AS openclaw-cli
+
 # ── runner ──
 FROM node:20-bookworm-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
+
+# docker CLI: lets the app talk to the host Docker daemon through the mounted
+# /var/run/docker.sock (manage cell containers). docker.io is the engine pkg on
+# Debian; only the CLI is needed here, but installing the metapackage is the
+# simplest reliable path on slim.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      docker.io ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# OpenClaw CLI.
+COPY --from=openclaw-cli /app /opt/openclaw
+RUN printf '#!/bin/sh\nexec node /opt/openclaw/dist/index.js "$@"\n' \
+      > /usr/local/bin/openclaw && chmod +x /usr/local/bin/openclaw
+# Fleet state lives under OPENCLAW_STATE_DIR; mounted as a volume in compose
+# so cell metadata survives app restarts.
+ENV OPENCLAW_STATE_DIR=/data/.openclaw
 
 # Next standalone server bundle + static assets + public.
 COPY --from=builder /app/.next/standalone ./
