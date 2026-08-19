@@ -10,15 +10,18 @@ type PaginationProps = {
 };
 
 export function Pagination({ page, pageSize, total, onPageChange }: PaginationProps) {
+  // When there are no items, the table already shows its own in-table empty
+  // state (e.g. "Belum ada produk"). Render nothing here so we don't show a
+  // redundant "Tidak ada item" below it.
+  if (total === 0) return null;
+
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const from = (page - 1) * pageSize + 1;
   const to = Math.min(total, page * pageSize);
 
   return (
     <div className="flex flex-col gap-3 py-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-      <span>
-        {total > 0 ? `Menampilkan ${from}–${to} dari ${total} item` : "Tidak ada item"}
-      </span>
+      <span>{`Menampilkan ${from}–${to} dari ${total} item`}</span>
       <div className="flex items-center gap-2">
         <Button
           variant="outline"

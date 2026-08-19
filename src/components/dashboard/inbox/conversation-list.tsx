@@ -56,7 +56,7 @@ export function ConversationList({
   return (
     <div
       className={cn(
-        "flex shrink-0 flex-col border-r border-slate-200 bg-white",
+        "flex h-full min-h-0 shrink-0 flex-col border-r border-slate-200 bg-white",
         mobileHidden ? "hidden w-80 lg:flex" : "w-full lg:w-80"
       )}
     >
@@ -118,7 +118,7 @@ export function ConversationList({
       </div>
 
       {/* List */}
-      <div className="scrollbar-slim flex-1 overflow-y-auto">
+      <div className="scrollbar-slim flex-1 min-h-0 overflow-y-auto">
         {loading && <LoadingSkeleton rows={5} className="p-3" />}
         {error && (
           <div className="p-4 text-sm text-red-600">{error}</div>
