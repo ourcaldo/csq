@@ -14,6 +14,7 @@ import {
   Robot,
   DotsThreeVertical,
   Phone,
+  ArrowLeft,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { apiFetch, apiSend } from "@/lib/api-client";
@@ -26,6 +27,8 @@ type ChatPanelProps = {
   customerName: string;
   customerPhone: string;
   aiActive: boolean; // an AI agent is assigned (not handed to a human)
+  /** Mobile back-to-list action. */
+  onBack?: () => void;
 };
 
 type ComposerMode = "reply" | "note";
@@ -86,7 +89,7 @@ function MessageBubble({ m }: { m: Message }) {
   );
 }
 
-export function ChatPanel({ conversationId, customerName, customerPhone, aiActive }: ChatPanelProps) {
+export function ChatPanel({ conversationId, customerName, customerPhone, aiActive, onBack }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -173,6 +176,15 @@ export function ChatPanel({ conversationId, customerName, customerPhone, aiActiv
       {/* Header */}
       <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-100 px-6">
         <div className="flex items-center gap-3">
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="-ml-1 rounded-md p-1 text-slate-600 hover:bg-slate-100 lg:hidden"
+              aria-label="Kembali ke daftar"
+            >
+              <ArrowLeft size={20} />
+            </button>
+          )}
           <h2 className="text-lg font-semibold text-slate-900">{customerName}</h2>
           {aiActive ? (
             <span className="inline-flex items-center gap-1 rounded bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">

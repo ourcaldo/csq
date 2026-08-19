@@ -8,18 +8,32 @@ import { apiOk, type ApiResponse } from "@/types/api";
 
 // Source priority config (PRD §13). Stored in Tenant.settings.sourcePriority
 // as an ordered array of DataSourceType. Tenant.settings is a Json column;
-// read/written through Zod (never `as`).
+// read/written through Zod (never `as`). The GET is resilient to legacy
+// stored values that may include entries outside the valid set (e.g. an old
+// "MEMORY" entry) — invalid entries are dropped instead of throwing a 500.
 
-const priorityValueSchema = z.enum(["MANUAL", "EXCEL", "GOOGLE_SHEETS"]);
-const tenantSettingsSchema = z
-  .object({ sourcePriority: z.array(priorityValueSchema).optional() })
+const DEFAULT_PRIORITY = ["MANUAL", "EXCEL", "GOOGLE_SHEETS"];
+const VALID_PRIORITY: readonly string[] = ["MANUAL", "EXCEL", "GOOGLE_SHEETS"];
+
+// Permissive read shape for stored settings (any strings allowed, then filtered).
+const storedSettingsSchema = z
+  .object({ sourcePriority: z.array(z.string()).optional() })
   .passthrough();
 
+// Strict input for the PUT (client must send valid values).
 const priorityUpdateSchema = z.object({
-  sourcePriority: z.array(priorityValueSchema).min(1),
+  sourcePriority: z.array(z.enum(["MANUAL", "EXCEL", "GOOGLE_SHEETS"])).min(1),
 });
 
 type PriorityResponse = { sourcePriority: string[] };
+
+// Read stored settings defensively: drop any entries outside the valid set.
+function readPriority(settings: unknown): string[] {
+  const parsed = storedSettingsSchema.safeParse(settings ?? {});
+  const raw = parsed.success ? parsed.data.sourcePriority ?? [] : [];
+  const filtered = raw.filter((v): v is string => VALID_PRIORITY.includes(v));
+  return filtered.length ? filtered : DEFAULT_PRIORITY;
+}
 
 export default async function handler(
   req: NextApiRequest,
@@ -32,10 +46,9 @@ export default async function handler(
   if (req.method === "GET") {
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
     if (!tenant) return respondError(res, "NOT_FOUND", "Tenant tidak ditemukan.");
-    const settings = tenantSettingsSchema.parse(tenant.settings ?? {});
-    return res.status(200).json(
-      apiOk({ sourcePriority: settings.sourcePriority ?? ["MANUAL", "EXCEL", "GOOGLE_SHEETS"] })
-    );
+    return res
+      .status(200)
+      .json(apiOk({ sourcePriority: readPriority(tenant.settings) }));
   }
 
   if (req.method === "PUT") {
@@ -49,11 +62,14 @@ export default async function handler(
     }
     const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
     if (!tenant) return respondError(res, "NOT_FOUND", "Tenant tidak ditemukan.");
-    const settings = tenantSettingsSchema.parse(tenant.settings ?? {});
+    // Merge onto the existing settings (preserve unrelated keys), replacing
+    // sourcePriority with the validated order.
+    const existing = storedSettingsSchema.safeParse(tenant.settings ?? {});
+    const base = existing.success ? existing.data : {};
     await prisma.tenant.update({
       where: { id: tenantId },
       data: {
-        settings: { ...settings, sourcePriority: parsed.data.sourcePriority },
+        settings: { ...base, sourcePriority: parsed.data.sourcePriority },
       },
     });
     await logHuman({

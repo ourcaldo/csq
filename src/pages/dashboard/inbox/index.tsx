@@ -78,6 +78,7 @@ export default function InboxPage() {
           selectedId={selectedId}
           onSelect={onSelect}
           totals={totals}
+          mobileHidden={!!selectedId}
         />
 
         {selected ? (
@@ -87,9 +88,10 @@ export default function InboxPage() {
             customerName={selected.contact?.name ?? selected.customerPhone}
             customerPhone={selected.customerPhone}
             aiActive={!selected.assignee && !!selected.assignedAgent}
+            onBack={() => setSelectedId(null)}
           />
         ) : (
-          <div className="flex flex-1 flex-col items-center justify-center bg-slate-50 text-center">
+          <div className="hidden flex-1 flex-col items-center justify-center bg-slate-50 text-center lg:flex">
             <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-slate-400">
               {/* chat icon placeholder */}
               <span className="text-2xl">💬</span>

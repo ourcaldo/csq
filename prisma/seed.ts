@@ -16,7 +16,7 @@ export async function seedDemo(): Promise<void> {
     create: {
       name: "Toko Kopi Nusantara",
       slug: "toko-kopi-nusantara",
-      settings: { sourcePriority: ["MANUAL", "GOOGLE_SHEETS", "EXCEL", "MEMORY"] },
+      settings: { sourcePriority: ["MANUAL", "GOOGLE_SHEETS", "EXCEL"] },
     },
   });
 

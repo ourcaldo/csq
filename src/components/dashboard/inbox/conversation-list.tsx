@@ -21,6 +21,8 @@ type ConversationListProps = {
   selectedId: string | null;
   onSelect: (id: string) => void;
   totals: { assigned: number; unassigned: number };
+  /** Hide the list on mobile (a chat is open). Always visible on lg+. */
+  mobileHidden?: boolean;
 };
 
 function initials(name: string): string {
@@ -45,13 +47,19 @@ export function ConversationList({
   selectedId,
   onSelect,
   totals,
+  mobileHidden,
 }: ConversationListProps) {
   function submitSearch(e: FormEvent) {
     e.preventDefault();
   }
 
   return (
-    <div className="flex w-80 shrink-0 flex-col border-r border-slate-200 bg-white">
+    <div
+      className={cn(
+        "flex shrink-0 flex-col border-r border-slate-200 bg-white",
+        mobileHidden ? "hidden w-80 lg:flex" : "w-full lg:w-80"
+      )}
+    >
       {/* Filters */}
       <div className="border-b border-slate-100 p-4">
         <div className="mb-3 flex items-center justify-between">

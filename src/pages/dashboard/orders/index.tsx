@@ -31,6 +31,11 @@ function statusBadge(status: OrderStatus) {
   return <Badge variant="warning">Menunggu</Badge>;
 }
 
+// Short, unique, human-friendly order number derived from the uuid id.
+function orderNumber(id: string): string {
+  return "#" + id.slice(0, 8).toUpperCase();
+}
+
 function formatRupiah(value: string): string {
   const n = Number(value);
   if (Number.isNaN(n)) return value;
@@ -163,6 +168,7 @@ export default function OrdersPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>No. Pesanan</TableHead>
                   <TableHead>Pelanggan</TableHead>
                   <TableHead>Item</TableHead>
                   <TableHead>Total</TableHead>
@@ -174,7 +180,7 @@ export default function OrdersPage() {
               <TableBody>
                 {data && data.items.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6}>
+                    <TableCell colSpan={7}>
                       <StateNotice variant="empty" message="Belum ada pesanan." />
                     </TableCell>
                   </TableRow>
@@ -182,6 +188,9 @@ export default function OrdersPage() {
                 {data?.items.map((o) => (
                   <Fragment key={o.id}>
                     <TableRow>
+                      <TableCell className="font-mono text-xs text-slate-500">
+                        {orderNumber(o.id)}
+                      </TableCell>
                       <TableCell className="font-medium">
                         {o.customerName ?? o.customerPhone ?? "—"}
                       </TableCell>
@@ -224,7 +233,7 @@ export default function OrdersPage() {
                     </TableRow>
                     {expanded === o.id && (
                       <TableRow>
-                        <TableCell colSpan={6} className="bg-muted/30">
+                        <TableCell colSpan={7} className="bg-muted/30">
                           <ul className="flex flex-col gap-1 py-1 text-sm">
                             {o.items.map((it) => (
                               <li key={it.id} className="flex justify-between">
