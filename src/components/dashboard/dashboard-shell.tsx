@@ -271,7 +271,7 @@ export function DashboardShell({ title, description, actions, flush, children }:
             </div>
           )}
 
-          <div className={flush ? "min-h-0 flex-1" : "p-4 md:p-6"}>{children}</div>
+          <div className={flush ? "flex min-h-0 flex-1 flex-col" : "p-4 md:p-6"}>{children}</div>
         </main>
       </div>
     </div>
