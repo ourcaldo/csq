@@ -215,6 +215,31 @@ export async function startBaileysChannels(): Promise<void> {
   }
 }
 
+// Heartbeat: a host proxy (e.g. Render's load balancer) can terminate the
+// long-lived WebSocket to WhatsApp's servers minutes after it opens, and the
+// raw close sometimes doesn't surface as a connection.update event — so the
+// auto-reconnect in the close handler never fires and the socket stays dead
+// (inbound messages silently drop). Poll every 45s: for each CONNECTED
+// Baileys channel, reconnect if the socket entry is missing or stuck (not
+// open, no pending QR). On the production VPS (direct connection) this is a
+// harmless no-op once stable.
+let heartbeat: ReturnType<typeof setInterval> | null = null;
+export function startBaileysHeartbeat(): void {
+  if (heartbeat) return;
+  heartbeat = setInterval(async () => {
+    const channels = await prisma.channel.findMany({
+      where: { provider: "BAILEYS", status: "CONNECTED" },
+    });
+    for (const c of channels) {
+      const entry = sockets.get(c.id);
+      if (!entry || (!entry.open && !entry.qr)) {
+        console.log(`[baileys:${c.id}] heartbeat: socket dead, reconnecting`);
+        void connectBaileysChannel(c);
+      }
+    }
+  }, 45_000);
+}
+
 // Stop and forget a channel's socket (used by disconnect).
 export function disconnectBaileysChannel(channelId: string): void {
   const entry = sockets.get(channelId);

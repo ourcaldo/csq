@@ -5,7 +5,7 @@ import { applyImport } from "@/lib/import-apply";
 import { applyMapping } from "@/services/excel";
 import { readSheet } from "@/services/sheets";
 import { sheetsSourceConfigSchema } from "@/types/sheets";
-import { startBaileysChannels } from "@/services/baileys";
+import { startBaileysChannels, startBaileysHeartbeat } from "@/services/baileys";
 
 // In-process periodic sync for Google Sheets sources (PRD §23A — no Redis/queue,
 // node-cron runs inside the Next.js server). Server-only: callers must invoke
@@ -20,6 +20,9 @@ export function startScheduler(): void {
   // Reconnect any already-CONNECTED Baileys channels (session keys persist on
   // disk, so no re-scan unless logged out). Fire-and-forget.
   void startBaileysChannels().catch(() => undefined);
+  // Auto-reconnect Baileys sockets that get killed by the host proxy so
+  // inbound messages don't silently drop.
+  startBaileysHeartbeat();
   // Every 15 minutes.
   cron.schedule("*/15 * * * *", () => {
     void syncAllSheetsSources().catch(() => {
