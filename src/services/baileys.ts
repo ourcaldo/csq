@@ -99,6 +99,11 @@ export async function connectBaileysChannel(
       logger,
       printQRInTerminal: false,
       connectTimeoutMs: 20_000,
+      // Keep the WebSocket alive so host proxies (Render's load balancer)
+      // don't terminate it as idle — this is what keeps the agent on 24/7
+      // instead of dropping after a few minutes.
+      keepAliveIntervalMs: 10_000,
+      retryRequestDelayMs: 2_000,
     });
 
     entry = { sock, qr: null, open: false };
@@ -237,7 +242,7 @@ export function startBaileysHeartbeat(): void {
         void connectBaileysChannel(c);
       }
     }
-  }, 45_000);
+  }, 20_000);
 }
 
 // Stop and forget a channel's socket (used by disconnect).
