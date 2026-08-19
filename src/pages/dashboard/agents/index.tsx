@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import type { GetServerSideProps } from "next";
 import { useSession } from "next-auth/react";
-import { Robot, Sparkle, Power, Pause, Play } from "@phosphor-icons/react";
+import { Robot, Sparkle, Power, Pause, Play, Pencil } from "@phosphor-icons/react";
 import { withAuth } from "@/lib/auth";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
@@ -13,6 +13,9 @@ import { LoadingSkeleton } from "@/components/dashboard/loading-skeleton";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Dialog } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableHeader,
@@ -100,6 +103,12 @@ export default function AgentsPage() {
   const [actioningId, setActioningId] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
 
+  // Persona edit dialog state (gap C).
+  const [editing, setEditing] = useState<AgentWithCapabilities | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editInstructions, setEditInstructions] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+
   const agents = useMemo(() => data?.items ?? [], [data]);
 
   const counts = useMemo(() => {
@@ -176,6 +185,30 @@ export default function AgentsPage() {
         next.delete(key);
         return next;
       });
+    }
+  }
+
+  function openEdit(agent: AgentWithCapabilities) {
+    setEditing(agent);
+    setEditName(agent.name);
+    setEditInstructions(agent.instructions ?? "");
+  }
+
+  async function onSaveEdit() {
+    if (!editing) return;
+    setSavingEdit(true);
+    setPageError(null);
+    try {
+      await apiSend(`/api/dashboard/agents/${editing.id}/edit`, "PUT", {
+        name: editName.trim(),
+        instructions: editInstructions.trim() || null,
+      });
+      setEditing(null);
+      refresh();
+    } catch (err) {
+      setPageError(err instanceof Error ? err.message : "Gagal menyimpan agent.");
+    } finally {
+      setSavingEdit(false);
     }
   }
 
@@ -284,6 +317,14 @@ export default function AgentsPage() {
 
                   {isOwner && (
                     <div className="flex shrink-0 items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openEdit(agent)}
+                      >
+                        <Pencil size={16} />
+                        Edit
+                      </Button>
                       {agent.status === "ACTIVE" ? (
                         <Button
                           variant="outline"
@@ -405,6 +446,53 @@ export default function AgentsPage() {
           })}
         </div>
       )}
+
+      {/* Persona edit dialog (gap C) */}
+      <Dialog
+        open={editing !== null}
+        onClose={() => setEditing(null)}
+        title="Edit Agent"
+        description="Ubah nama dan instruksi (persona) agent."
+      >
+        <div className="space-y-4">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-slate-600">
+              Nama
+            </span>
+            <Input
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              placeholder="Nama agent"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-slate-600">
+              Instruksi (persona)
+            </span>
+            <Textarea
+              value={editInstructions}
+              onChange={(e) => setEditInstructions(e.target.value)}
+              placeholder="Kamu adalah customer service…"
+              rows={6}
+            />
+            <span className="mt-1 block text-xs text-slate-400">
+              Instruksi ini menjadi system prompt agent pada setiap percakapan.
+            </span>
+          </label>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setEditing(null)}
+              disabled={savingEdit}
+            >
+              Batal
+            </Button>
+            <Button onClick={onSaveEdit} disabled={savingEdit}>
+              {savingEdit ? "Menyimpan…" : "Simpan"}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </DashboardShell>
   );
 }

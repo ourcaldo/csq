@@ -15,6 +15,7 @@ import { useSession, signOut } from "next-auth/react";
 import {
   ChartBar,
   ChatCircleDots,
+  WhatsappLogo,
   Package,
   Stack,
   ShoppingCart,
@@ -45,6 +46,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/dashboard", label: "Ringkasan", icon: <ChartBar size={18} /> },
       { href: "/dashboard/inbox", label: "Percakapan", icon: <ChatCircleDots size={18} /> },
+      { href: "/dashboard/saluran", label: "Saluran", icon: <WhatsappLogo size={18} /> },
     ],
   },
   {

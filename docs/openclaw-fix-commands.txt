@@ -1,0 +1,19 @@
+OpenClaw model cleanup — run each line one at a time in the Render browser shell.
+Goal: keep ONLY Qwen, remove OpenRouter provider + dead Kimi entry.
+
+1) openclaw config set agents.defaults.model "fireworks/accounts/fireworks/models/qwen3p7-plus"
+
+2) openclaw config unset agents.defaults.models.openrouter/auto
+
+3) openclaw config unset agents.defaults.models.fireworks/accounts/fireworks/routers/kimi-k2p5-turbo
+
+4) openclaw config unset models.providers.openrouter
+
+5) openclaw gateway restart
+
+6) openclaw config get agents
+
+7) openclaw config get models.providers
+
+After step 5, paste the output of steps 6 and 7 here.
+Expected: agents.defaults.model.primary = qwen3p7-plus, models map has only qwen, providers has fireworks only (no openrouter).
