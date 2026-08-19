@@ -60,15 +60,38 @@ function disconnectCode(err: unknown): number | undefined {
 }
 
 // Extract a text body from a Baileys message (text / extendedText / caption).
-// Zod-parsed to avoid `as` casts on the untrusted message shape.
-const messageBodySchema = z.object({
-  conversation: z.string().optional(),
-  extendedTextMessage: z.object({ text: z.string().optional() }).optional(),
-});
+// Zod-parsed to avoid `as` casts on the untrusted message shape. Handles the
+// common text carriers plus media captions and ephemeral/view-once wrappers
+// (newer WhatsApp clients often wrap text in ephemeralMessage).
+const messageBodySchema = z
+  .object({
+    conversation: z.string().optional(),
+    extendedTextMessage: z.object({ text: z.string().optional() }).optional(),
+    imageMessage: z.object({ caption: z.string().optional() }).optional(),
+    videoMessage: z.object({ caption: z.string().optional() }).optional(),
+    documentMessage: z.object({ caption: z.string().optional() }).optional(),
+    audioMessage: z.object({ caption: z.string().optional() }).optional(),
+    ephemeralMessage: z.object({ message: z.unknown().optional() }).optional(),
+    viewOnceMessage: z.object({ message: z.unknown().optional() }).optional(),
+  })
+  .passthrough();
 function extractBody(message: unknown): string {
   const parsed = messageBodySchema.safeParse(message);
   if (!parsed.success) return "";
-  return parsed.data.conversation ?? parsed.data.extendedTextMessage?.text ?? "";
+  const d = parsed.data;
+  const direct =
+    d.conversation ??
+    d.extendedTextMessage?.text ??
+    d.imageMessage?.caption ??
+    d.videoMessage?.caption ??
+    d.documentMessage?.caption ??
+    d.audioMessage?.caption ??
+    "";
+  if (direct) return direct;
+  // Wrapped (ephemeral / view-once) — recurse one level into the inner message.
+  const wrapped = d.ephemeralMessage?.message ?? d.viewOnceMessage?.message;
+  if (wrapped) return extractBody(wrapped);
+  return "";
 }
 
 // Start (or reattach) the socket for a Baileys channel. Returns the current QR
@@ -165,7 +188,7 @@ export async function connectBaileysChannel(
         }
         const body = extractBody(m.message);
         console.log(
-          `[baileys:${channel.id}] inbound from=${fromJid(m.key.remoteJid)} body=${JSON.stringify(body).slice(0, 80)}`
+          `[baileys:${channel.id}] inbound from=${fromJid(m.key.remoteJid)} keys=${JSON.stringify(Object.keys(m.message ?? {}))} body=${JSON.stringify(body).slice(0, 80)}`
         );
         if (!body) {
           console.log(`[baileys:${channel.id}] skip empty body`);
