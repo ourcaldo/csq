@@ -4,6 +4,7 @@ import prisma from "@/lib/db";
 import { hashPassword } from "@/lib/password";
 import { registerSchema } from "@/types/auth";
 import { apiError, apiOk, type ApiResponse } from "@/types/api";
+import { provisionCell } from "@/services/openclaw-cell";
 
 function slugify(s: string): string {
   return s
@@ -51,6 +52,18 @@ export default async function handler(
         create: { email: lowerEmail, name, passwordHash, role: "OWNER" },
       },
     },
+  });
+
+  // Provision the tenant's isolated OpenClaw cell (PRD §5/§26). Fire-and-
+  // forget so registration returns immediately; provisionCell updates
+  // cellStatus (PENDING -> PROVISIONED | FAILED) on the Tenant row. In
+  // dev (shared) this is a fast DB write; in production (fleet) it spawns
+  // a Gateway container for the new store.
+  void provisionCell(tenant).catch((err) => {
+    console.error(
+      `[register] OpenClaw cell provisioning failed for tenant ${tenant.id}:`,
+      err
+    );
   });
 
   return res.status(201).json(apiOk({ tenantId: tenant.id }));

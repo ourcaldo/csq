@@ -110,7 +110,8 @@ export async function runAgentReply(args: {
 
   const result = await runConversation({
     tenantId,
-    agentId: agent.id,
+    agentId: agent.id, // CSQ UUID — keys executeTool/capability lookup
+    openclawAgentId: agent.openclawAgentId, // OpenClaw model target (guarded non-null above)
     conversationId,
     systemPrompt,
     history,

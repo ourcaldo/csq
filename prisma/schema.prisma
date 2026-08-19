@@ -121,6 +121,14 @@ model Tenant {
   name      String
   slug      String   @unique
   settings  Json?
+  // Per-tenant OpenClaw cell connection (PRD §5/§26: one isolated cell per
+  // tenant). Provisioned by the platform at tenant creation. cellStatus is
+  // PENDING | PROVISIONED | FAILED. In dev (shared provisioning) these point
+  // at a single shared gateway; in production (fleet) at the tenant's own cell.
+  openclawCellId  String?
+  openclawBaseUrl String?
+  openclawToken   String?
+  cellStatus      String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

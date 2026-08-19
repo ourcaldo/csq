@@ -261,11 +261,10 @@ Toko Budi
 +-- Admin Agent
 ```
 
-For the HackFest MVP, only the Customer Service Agent needs to be
-implemented fully.
-
-The architecture should remain capable of supporting additional agents
-later.
+The Customer Service Agent is the first fully-implemented agent type. A
+tenant can create multiple agents from day one, and additional
+specialized types (Sales, Inventory, Admin, Operations) can be added
+over time — the architecture supports this from the start.
 
 ------------------------------------------------------------------------
 
@@ -1337,8 +1336,9 @@ OpenClaw and business data.
 -   Single VPS provided by HackFest (CloudBaik): 4 vCPU, 4GB RAM, 20GB
     SSD.
 -   One-month build window (September).
--   Only one tenant is deployed and demoed (see section 22), even
-    though the schema is multi-tenant-ready.
+-   The schema and runtime are multi-tenant by construction: each tenant
+    gets an isolated OpenClaw cell (see sections 5 and 26). There is no
+    single-tenant mode and no shared-cell fallback.
 -   Prefer stack patterns that are well represented in AI coding
     assistant training data, since most implementation will be
     AI-assisted (GitHub Copilot Chat).
@@ -1435,9 +1435,10 @@ per tenant channel); Cloud API is stateless webhook + Graph API outbound.
     pgvector is sufficient at this scope and avoids an extra running
     service.
 -   **Redis / task queue** — unnecessary at single-tenant demo scale.
--   **Multiple OpenClaw Gateway instances** — the schema and
-    architecture support per-tenant isolation, but only one Gateway
-    runs for the MVP demo (see section 22).
+-   **A shared OpenClaw Gateway as a multi-tenant security boundary** —
+    never used. Each tenant gets its own isolated OpenClaw cell/Gateway
+    (sections 5 and 26); agents, sessions, workspaces, and credentials
+    never cross tenant boundaries.
 -   **Vite + separate backend (e.g. Fastify)** — considered, but a
     single Next.js app was chosen to minimize the number of processes
     running on a 4GB host.
@@ -1779,10 +1780,12 @@ deploy isolated AI employees, connect existing business data, teach
 business-specific knowledge and rules, and control exactly what each
 agent can read or change.**
 
-The HackFest MVP focuses on one agent:
+The first agent is:
 
 > **Customer Service Agent over WhatsApp**
 
+The platform supports creating multiple agents per tenant, each running
+in the tenant's own isolated OpenClaw cell.
 with:
 
 -   Internal business data.

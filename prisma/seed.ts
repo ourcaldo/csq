@@ -100,8 +100,7 @@ export async function seedDemo(): Promise<void> {
         tenantId: tenant.id,
         name: "Kopi Nusantara CS",
         type: "CUSTOMER_SERVICE",
-        status: "ACTIVE",
-        openclawAgentId: "demo-kopi-nusantara-cs",
+        status: "DRAFT",
         instructions:
           "Kamu adalah customer service Toko Kopi Nusantara. Jawab dengan ramah dalam Bahasa Indonesia. " +
           "Bantu pelanggan mencari produk, cek stok, dan membuat pesanan. JANGAN pernah mengubah harga " +

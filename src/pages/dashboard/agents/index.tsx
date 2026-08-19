@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import type { GetServerSideProps } from "next";
 import { useSession } from "next-auth/react";
-import { Robot, Sparkle, Power, Pause, Play, Pencil } from "@phosphor-icons/react";
+import { Robot, Sparkle, Power, Pause, Play, Pencil, Plus } from "@phosphor-icons/react";
 import { withAuth } from "@/lib/auth";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
@@ -109,6 +109,12 @@ export default function AgentsPage() {
   const [editInstructions, setEditInstructions] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
 
+  // Create-agent dialog state (PRD §15.2/§19).
+  const [creating, setCreating] = useState(false);
+  const [createName, setCreateName] = useState("");
+  const [createInstructions, setCreateInstructions] = useState("");
+  const [savingCreate, setSavingCreate] = useState(false);
+
   const agents = useMemo(() => data?.items ?? [], [data]);
 
   const counts = useMemo(() => {
@@ -212,10 +218,41 @@ export default function AgentsPage() {
     }
   }
 
+  function openCreate() {
+    setCreateName("");
+    setCreateInstructions("");
+    setCreating(true);
+  }
+
+  async function onSaveCreate() {
+    setSavingCreate(true);
+    setPageError(null);
+    try {
+      await apiSend("/api/dashboard/agents", "POST", {
+        name: createName.trim(),
+        instructions: createInstructions.trim() || null,
+      });
+      setCreating(false);
+      refresh();
+    } catch (err) {
+      setPageError(err instanceof Error ? err.message : "Gagal membuat agent.");
+    } finally {
+      setSavingCreate(false);
+    }
+  }
+
   return (
     <DashboardShell
       title="Agent"
       description="Kelola agent AI: status deploy dan kapabilitas per alat."
+      actions={
+        isOwner ? (
+          <Button size="sm" onClick={openCreate}>
+            <Plus size={16} />
+            Buat Agent
+          </Button>
+        ) : undefined
+      }
     >
       {pageError && (
         <p className="mb-4 rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-700">
@@ -275,7 +312,11 @@ export default function AgentsPage() {
         <EmptyState
           icon={<Robot size={24} />}
           title="Belum ada agent"
-          description="Agent AI akan muncul di sini setelah dibuat oleh sistem."
+          description={
+            isOwner
+              ? "Buat agent pertama Anda dengan tombol \"Buat Agent\" di kanan atas, lalu deploy untuk menyambungkannya ke OpenClaw."
+              : "Owner dapat membuat agent dari halaman ini."
+          }
         />
       )}
 
@@ -489,6 +530,57 @@ export default function AgentsPage() {
             </Button>
             <Button onClick={onSaveEdit} disabled={savingEdit}>
               {savingEdit ? "Menyimpan…" : "Simpan"}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Create-agent dialog (PRD §15.2/§19) */}
+      <Dialog
+        open={creating}
+        onClose={() => setCreating(false)}
+        title="Buat Agent"
+        description="Agent baru dibuat sebagai draf. Deploy untuk menyambungkannya ke OpenClaw."
+      >
+        <div className="space-y-4">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-slate-600">
+              Nama
+            </span>
+            <Input
+              value={createName}
+              onChange={(e) => setCreateName(e.target.value)}
+              placeholder="Contoh: Customer Service"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-slate-600">
+              Instruksi (persona)
+            </span>
+            <Textarea
+              value={createInstructions}
+              onChange={(e) => setCreateInstructions(e.target.value)}
+              placeholder="Kamu adalah customer service…"
+              rows={6}
+            />
+            <span className="mt-1 block text-xs text-slate-400">
+              Tipe agent: Customer Service. Tipe khusus lain (Sales, Inventaris)
+              dapat ditambahkan kemudian.
+            </span>
+          </label>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setCreating(false)}
+              disabled={savingCreate}
+            >
+              Batal
+            </Button>
+            <Button
+              onClick={onSaveCreate}
+              disabled={savingCreate || !createName.trim()}
+            >
+              {savingCreate ? "Membuat…" : "Buat"}
             </Button>
           </div>
         </div>

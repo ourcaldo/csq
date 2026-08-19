@@ -35,8 +35,9 @@ export default async function handler(
   const agent = await prisma.agent.findFirst({ where: { id, tenantId } });
   if (!agent) return respondError(res, "NOT_FOUND", "Agent tidak ditemukan.");
 
-  const openclawAgentId = agent.openclawAgentId ?? agent.id;
-  const result = await provisionAgent({ agentId: agent.id, tenantId, openclawAgentId });
+  // provisionAgent now creates the agent inside the tenant's OpenClaw cell
+  // and decides the openclawAgentId itself (no caller-supplied id).
+  const result = await provisionAgent({ agentId: agent.id, tenantId });
 
   return res.status(200).json(apiOk(result));
 }

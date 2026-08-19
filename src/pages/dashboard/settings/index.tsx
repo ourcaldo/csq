@@ -14,6 +14,7 @@ import {
   Storefront,
   CheckCircle,
   WarningCircle,
+  PlugsConnected,
 } from "@phosphor-icons/react";
 import { withAuth } from "@/lib/auth";
 import { apiSend } from "@/lib/api-client";
@@ -43,6 +44,21 @@ const TYPE_DESCRIPTION: Record<SourceType, string> = {
 
 type PriorityResult = { sourcePriority: string[] };
 
+type TenantInfo = {
+  id: string;
+  name: string;
+  slug: string;
+  cellStatus: string | null;
+  openclawCellId: string | null;
+};
+
+function cellStatusLabel(status: string | null): string {
+  if (status === "PROVISIONED") return "Aktif";
+  if (status === "PENDING") return "Membuat…";
+  if (status === "FAILED") return "Gagal";
+  return "Menunggu";
+}
+
 function isSourceType(value: string): value is SourceType {
   return value === "MANUAL" || value === "EXCEL" || value === "GOOGLE_SHEETS";
 }
@@ -54,6 +70,25 @@ export default function SettingsPage() {
   const { data, loading, error, refresh } = useApi<PriorityResult>(
     "/api/dashboard/sources/priority"
   );
+
+  // Tenant / OpenClaw cell status (PRD §5/§26).
+  const { data: tenantInfo, refresh: refreshTenant } =
+    useApi<TenantInfo>("/api/dashboard/tenant");
+  const [reprovisioning, setReprovisioning] = useState(false);
+  const [reprovisionError, setReprovisionError] = useState<string | null>(null);
+
+  async function onReprovision() {
+    setReprovisioning(true);
+    setReprovisionError(null);
+    try {
+      await apiSend("/api/dashboard/tenant/reprovision", "POST");
+      refreshTenant();
+    } catch (err) {
+      setReprovisionError(err instanceof Error ? err.message : "Gagal memprovisi ulang.");
+    } finally {
+      setReprovisioning(false);
+    }
+  }
 
   // Local working copy of the order. Initialized from the GET; tracked with a
   // dirty flag so the Save button only enables when the order actually changed.
@@ -283,6 +318,80 @@ export default function SettingsPage() {
             <Gear size={14} />
             Pengaturan tambahan akan ditambahkan di iterasi berikutnya.
           </p>
+        </section>
+
+        {/* Seluran OpenClaw — cell status (PRD §5/§26) */}
+        <section className="rounded-lg border border-slate-200 bg-white p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-green-100 text-green-700">
+                <PlugsConnected size={20} />
+              </span>
+              <div>
+                <h2 className="text-base font-semibold text-slate-900">
+                  Seluran OpenClaw
+                </h2>
+                <p className="mt-0.5 text-sm text-slate-500">
+                  Runtime agent AI terisolasi untuk usaha ini. Satu sel per
+                  usaha — tidak berbagi dengan usaha lain.
+                </p>
+              </div>
+            </div>
+            <Badge
+              variant={
+                tenantInfo?.cellStatus === "PROVISIONED"
+                  ? "success"
+                  : tenantInfo?.cellStatus === "FAILED"
+                  ? "destructive"
+                  : "secondary"
+              }
+            >
+              {cellStatusLabel(tenantInfo?.cellStatus ?? null)}
+            </Badge>
+          </div>
+
+          <Separator className="my-4" />
+
+          <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                Cell ID
+              </dt>
+              <dd className="mt-1 break-all text-sm text-slate-900">
+                {tenantInfo?.openclawCellId ?? "—"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">
+                Slug
+              </dt>
+              <dd className="mt-1 text-sm text-slate-900">
+                {tenantInfo?.slug ?? "—"}
+              </dd>
+            </div>
+          </dl>
+
+          {reprovisionError && (
+            <div className="mt-4 flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+              <WarningCircle size={18} className="mt-0.5 shrink-0" />
+              <span>{reprovisionError}</span>
+            </div>
+          )}
+
+          {isOwner && (
+            <div className="mt-4 flex justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={reprovisioning}
+                onClick={onReprovision}
+              >
+                <ArrowsClockwise size={16} />
+                {reprovisioning ? "Memprovisi…" : "Provisi Ulang"}
+              </Button>
+            </div>
+          )}
         </section>
       </div>
     </DashboardShell>
