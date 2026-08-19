@@ -1,4 +1,5 @@
 import makeWASocket, {
+  BufferJSON,
   DisconnectReason,
   type WASocket,
 } from "@whiskeysockets/baileys";
@@ -185,6 +186,9 @@ export async function connectBaileysChannel(
         const body = extractBody(m.message);
         console.log(
           `[baileys:${channel.id}] inbound from=${fromJid(m.key.remoteJid)} keys=${JSON.stringify(Object.keys(m.message ?? {}))} body=${JSON.stringify(body).slice(0, 80)}`
+        );
+        console.log(
+          `[baileys:${channel.id}] raw=${JSON.stringify(m.message, BufferJSON.replacer).slice(0, 400)}`
         );
         if (!body) {
           console.log(`[baileys:${channel.id}] skip empty body`);
