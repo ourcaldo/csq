@@ -214,6 +214,17 @@ model Channel {
   @@index([tenantId])
 }
 
+// Baileys (bring-your-own-number) auth state, stored in the DB so it
+// survives restarts without a persistent disk (PRD: always-on, no re-pair
+// on restart). Keyed by channelId. creds/keys are the BufferJSON-serialized
+// auth state (see src/lib/baileys-auth-db.ts).
+model BaileysAuth {
+  channelId String   @id
+  creds    String?
+  keys     String?
+  updatedAt DateTime @updatedAt
+}
+
 model Product {
   id          String   @id @default(uuid())
   tenantId    String

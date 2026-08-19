@@ -1,14 +1,13 @@
 import makeWASocket, {
-  useMultiFileAuthState as loadAuthState,
   DisconnectReason,
   type WASocket,
 } from "@whiskeysockets/baileys";
 import { pino } from "pino";
-import path from "path";
 import { z } from "zod";
 import prisma from "@/lib/db";
 import { ingestInboundMessage } from "@/lib/inbox";
 import { processInboundWithAgent } from "@/lib/agent-loop";
+import { loadDbAuthState } from "@/lib/baileys-auth-db";
 import type { Channel } from "@prisma/client";
 import type {
   BaileysConfig,
@@ -25,8 +24,9 @@ import type {
 //
 // Socket-driven: inbound arrives via `messages.upsert` events, not HTTP, so
 // verifyWebhook/parseInbound are no-ops (the webhook route is Cloud-API-only).
-// Auth state persists per channel on disk under ./.baileys-auth/<channelId> so
-// the session survives restarts without re-scanning the QR.
+// Auth state persists per channel in the database (BaileysAuth table, see
+// src/lib/baileys-auth-db.ts) so the session survives restarts without a
+// persistent disk and without re-scanning the QR.
 //
 // Server-only. Module-level singleton socket map — works under the Docker
 // standalone Node deploy target (long-lived process).
@@ -35,10 +35,6 @@ const logger = pino({ level: "silent" });
 
 type SocketEntry = { sock: WASocket; qr: string | null; open: boolean };
 const sockets = new Map<string, SocketEntry>();
-
-function authFolder(channelId: string): string {
-  return path.join(process.cwd(), ".baileys-auth", channelId);
-}
 
 // Normalize a bare number to a WhatsApp JID.
 function toJid(number: string): string {
@@ -116,7 +112,7 @@ export async function connectBaileysChannel(
     // connection.update and we wait for it below.
     entry = existing;
   } else {
-    const { state, saveCreds } = await loadAuthState(authFolder(channel.id));
+    const { state, saveCreds } = await loadDbAuthState(channel.id);
     const sock = makeWASocket({
       auth: state,
       logger,
