@@ -153,12 +153,24 @@ export async function connectBaileysChannel(
     sock.ev.on("creds.update", saveCreds);
 
     sock.ev.on("messages.upsert", (event) => {
+      console.log(
+        `[baileys:${channel.id}] messages.upsert type=${event.type} count=${event.messages?.length ?? 0}`
+      );
       if (event.type !== "notify") return;
       for (const m of event.messages) {
         // Skip own outgoing messages.
-        if (m.key.fromMe) continue;
+        if (m.key.fromMe) {
+          console.log(`[baileys:${channel.id}] skip own message`);
+          continue;
+        }
         const body = extractBody(m.message);
-        if (!body) continue;
+        console.log(
+          `[baileys:${channel.id}] inbound from=${fromJid(m.key.remoteJid)} body=${JSON.stringify(body).slice(0, 80)}`
+        );
+        if (!body) {
+          console.log(`[baileys:${channel.id}] skip empty body`);
+          continue;
+        }
         const from = fromJid(m.key.remoteJid);
         if (!from) continue;
         const tenantId = channel.tenantId;
