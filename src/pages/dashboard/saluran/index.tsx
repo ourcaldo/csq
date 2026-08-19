@@ -14,7 +14,7 @@ import {
 } from "@phosphor-icons/react";
 import { QRCodeSVG } from "qrcode.react";
 import { withAuth } from "@/lib/auth";
-import { apiSend } from "@/lib/api-client";
+import { apiFetch, apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { BadgeStatus } from "@/components/dashboard/badge-status";
@@ -113,17 +113,43 @@ export default function SaluranPage() {
   const [tos, setTos] = useState(false);
   const [qr, setQr] = useState<string | null>(null);
   const [qrAt, setQrAt] = useState<number | null>(null);
+  const [byoChannelId, setByoChannelId] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
   const [testTo, setTestTo] = useState<Record<string, string>>({});
   const [testing, setTesting] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<Record<string, string>>({});
 
-  // Poll while a QR is pending so we detect the socket opening.
+  // Poll the LIVE QR + open state while a Baileys QR is pending. Baileys
+  // rotates the QR periodically, so we must display the *current* one (not
+  // the QR from the initial connect call) and detect when the scan completes.
   useEffect(() => {
-    if (!qr) return;
-    const t = setInterval(refresh, 3000);
-    return () => clearInterval(t);
-  }, [qr, refresh]);
+    if (!byoChannelId || !qr) return;
+    let active = true;
+    const tick = async () => {
+      try {
+        const state = await apiFetch<{ qr: string | null; open: boolean }>(
+          `/api/dashboard/channels/${byoChannelId}/qr`
+        );
+        if (!active) return;
+        if (state.open) {
+          setQr(null);
+          setQrAt(null);
+          refresh();
+        } else if (state.qr) {
+          setQr(state.qr);
+          setQrAt((prev) => prev ?? Date.now());
+        }
+      } catch {
+        /* ignore transient poll errors */
+      }
+    };
+    void tick();
+    const t = setInterval(tick, 3000);
+    return () => {
+      active = false;
+      clearInterval(t);
+    };
+  }, [byoChannelId, qr, refresh]);
 
   useEffect(() => {
     if (baileys?.status === "CONNECTED" && qr) {
@@ -191,6 +217,7 @@ export default function SaluranPage() {
         setQr(res.qr);
         setQrAt(Date.now());
       }
+      setByoChannelId(res.channelId);
       refresh();
     } catch (e) {
       setPageError(errMsg(e, "Gagal memulai sambungan."));

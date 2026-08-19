@@ -78,6 +78,9 @@ export async function connectBaileysChannel(
   channel: Channel
 ): Promise<{ qr: string | null; open: boolean }> {
   const existing = sockets.get(channel.id);
+  console.log(
+    `[baileys:${channel.id}] connect requested; existing=${!!existing} open=${existing?.open ?? false} qr=${!!existing?.qr}`
+  );
   if (existing && existing.open) {
     // Already connected.
     return { qr: null, open: true };
@@ -102,18 +105,29 @@ export async function connectBaileysChannel(
     sockets.set(channel.id, entry);
 
     sock.ev.on("connection.update", (update) => {
+      console.log(
+        `[baileys:${channel.id}] connection.update`,
+        JSON.stringify({
+          connection: update.connection,
+          hasQr: !!update.qr,
+          lastDisconnect: update.lastDisconnect?.error?.message,
+        })
+      );
       if (update.qr) {
         entry.qr = update.qr;
       }
       if (update.connection === "open") {
         entry.open = true;
         entry.qr = null;
-        void prisma.channel.update({
-          where: { id: channel.id },
-          data: { status: "CONNECTED" },
-        });
+        console.log(`[baileys:${channel.id}] OPEN — marking channel CONNECTED`);
+        void prisma.channel
+          .update({ where: { id: channel.id }, data: { status: "CONNECTED" } })
+          .catch((err) =>
+            console.error(`[baileys:${channel.id}] failed to mark CONNECTED:`, err)
+          );
       } else if (update.connection === "close") {
         const code = disconnectCode(update.lastDisconnect?.error);
+        console.log(`[baileys:${channel.id}] CLOSE code=${code}`);
         sockets.delete(channel.id);
         if (code !== DisconnectReason.loggedOut) {
           // Reconnect on transient close; reload the channel row for fresh state.
@@ -175,6 +189,18 @@ export async function connectBaileysChannel(
     await new Promise((r) => setTimeout(r, 300));
   }
   return { qr: entry.qr, open: entry.open };
+}
+
+// Read the live state of a Baileys channel's socket (current QR + open flag)
+// without starting a new socket. Used by the GET /channels/[id]/qr route so
+// the Saluran page can display the *current* QR (Baileys rotates it) and detect
+// a completed scan. Returns { qr: null, open: false } when no socket is
+// running (e.g. after a process restart) — the caller should re-connect.
+export function getBaileysState(
+  channelId: string
+): { qr: string | null; open: boolean } {
+  const entry = sockets.get(channelId);
+  return { qr: entry?.qr ?? null, open: entry?.open ?? false };
 }
 
 // At boot, reconnect every already-CONNECTED Baileys channel (session keys
