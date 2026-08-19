@@ -125,6 +125,7 @@ export function ConversationList({
         )}
         {!loading && !error && items.length === 0 && (
           <EmptyState
+            className="h-full"
             title="Tidak ada percakapan"
             description="Percakapan pelanggan via WhatsApp akan muncul di sini."
           />
