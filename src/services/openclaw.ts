@@ -79,7 +79,6 @@ async function chatCompletion(
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${cell.token}`,
-      "x-openclaw-agent-id": openclawAgentId,
     },
     body: JSON.stringify(body),
   });
