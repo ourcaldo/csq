@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { getAuthSession, requireRole } from "@/lib/auth";
 import prisma from "@/lib/db";
 import { logAction } from "@/lib/audit";
+import { sendApprovalFollowUp } from "@/lib/agent-outbox";
 import { apiError, apiOk, type ApiResponse } from "@/types/api";
 
 // POST /api/dashboard/approvals/[id]/reject — owner rejects a pending action.
@@ -58,6 +59,16 @@ export default async function handler(
     entityId: approval.id,
     approvalStatus: "REJECTED",
   });
+
+  // G1: close the loop — tell the customer the owner declined. Best-effort,
+  // fire-and-forget so the owner's reject response is never delayed or failed
+  // by the WhatsApp send.
+  void sendApprovalFollowUp({ approvalId: id, approved: false }).catch(
+    (err) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[approval-followup] reject ${id} failed: ${msg}`);
+    }
+  );
 
   return res.status(200).json(apiOk({ id, status: "REJECTED" }));
 }

@@ -1,6 +1,7 @@
 import type {
   CloudApiConfig,
   ParsedInbound,
+  SendTemplateInput,
   SendTextInput,
   SendTextResult,
   WhatsAppProvider,
@@ -61,8 +62,8 @@ export class CloudApiProvider implements WhatsAppProvider {
     return parseCloudApiInbound(payload);
   }
 
-  // Outbound text. Caller (inbox) enforces the 24h customer-service window for
-  // free-form text; templates for proactive outbound are a later concern.
+  // Outbound text. The caller (agent-outbox) enforces the 24h customer-service
+  // window for free-form text; outside the window it must use sendTemplate.
   async sendText(input: SendTextInput): Promise<SendTextResult> {
     const url = `https://graph.facebook.com/${GRAPH_API_VERSION}/${this.config.phoneNumberId}/messages`;
     const res = await fetch(url, {
@@ -84,6 +85,40 @@ export class CloudApiProvider implements WhatsAppProvider {
       // 429/rate-limit and other failures are logged by the caller; we do not
       // auto-retry (avoid spamming the customer).
       throw new Error(`WhatsApp Cloud API send failed (${res.status}): ${text}`);
+    }
+    const json: unknown = await res.json();
+    const data = sendTextResponseSchema.parse(json);
+    return { waMessageId: data.messages[0].id };
+  }
+
+  // Outbound template — required by Cloud API to reach a customer outside the
+  // 24h customer-service window. The template must be pre-approved in Meta's
+  // Business Manager; its name + language come from SendTemplateInput (caller
+  // supplies env-configured names). Components are omitted (body-only templates).
+  async sendTemplate(input: SendTemplateInput): Promise<SendTextResult> {
+    const url = `https://graph.facebook.com/${GRAPH_API_VERSION}/${this.config.phoneNumberId}/messages`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.config.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: input.to,
+        type: "template",
+        template: {
+          name: input.templateName,
+          language: { code: input.languageCode ?? "id" },
+        },
+      }),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(
+        `WhatsApp Cloud API template send failed (${res.status}): ${text}`
+      );
     }
     const json: unknown = await res.json();
     const data = sendTextResponseSchema.parse(json);

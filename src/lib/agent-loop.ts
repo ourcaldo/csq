@@ -1,9 +1,8 @@
 import type { Channel } from "@prisma/client";
 import prisma from "@/lib/db";
-import { getProvider } from "@/lib/whatsapp-provider";
 import { buildSystemPrompt, toChatHistory } from "@/lib/prompt-builder";
 import { runConversation } from "@/services/openclaw";
-import { logAction } from "@/lib/audit";
+import { sendAgentMessage } from "@/lib/agent-outbox";
 import type { ChatMessage, ToolCallRecord } from "@/types/openclaw";
 
 // Fire-and-forget agent auto-reply for an inbound WhatsApp message — the
@@ -119,6 +118,7 @@ export async function runAgentReply(args: {
     agentId: agent.id, // CSQ UUID — keys executeTool/capability lookup
     openclawAgentId: agent.openclawAgentId, // OpenClaw model target (guarded non-null above)
     conversationId,
+    channelId: channel.id, // G1: routing context for approval follow-ups
     systemPrompt,
     history,
     userMessage,
@@ -140,12 +140,50 @@ export async function processInboundWithAgent(args: {
   body: string;
 }): Promise<void> {
   try {
-    await processInboundWithAgentInner(args);
+    // G2: serialize turns per conversation across all instances. A
+    // transaction-scoped advisory lock on hashtext(conversationId) blocks any
+    // other turn for the same conversation (on this or another instance) until
+    // this one finishes — preventing duplicate replies and serializing stock
+    // mutations. Transaction-scoped locks are safe with PgBouncer transaction
+    // pooling (the tx pins one server connection for its lifetime). The lock is
+    // held for the whole turn, including OpenClaw HTTP latency, so a generous
+    // timeout is required; at UMKM scale holding one pooled connection per
+    // active turn is acceptable (a lock table is the documented upgrade path if
+    // turn latency grows). Inner DB ops use the global prisma; the lock tx only
+    // needs to stay open.
+    await prisma.$transaction(
+      async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${args.conversationId})::bigint)`;
+        await processInboundWithAgentInner(args);
+      },
+      { timeout: 120_000, maxWait: 10_000 }
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error(
       `[agent-loop] Failed to process inbound for conversation ${args.conversationId}: ${message}`
     );
+    // G5: don't leave the customer in silence when the agent errors (OpenClaw
+    // down, send failure, etc.). Best-effort canned fallback — the 24h window
+    // is open because the inbound that triggered this turn just arrived. Guarded
+    // so a second failure here can never throw out of this catch.
+    try {
+      await sendAgentMessage({
+        channel: args.channel,
+        conversationId: args.conversationId,
+        customerPhone: args.customerPhone,
+        body:
+          "Maaf, sistem kami sedang mengalami gangguan sebentar. Pesan Anda akan kami balas secepatnya.",
+        action: "conversation.agent_error",
+        templateName: process.env.WHATSAPP_AGENT_FALLBACK_TEMPLATE || undefined,
+        auditAfter: { error: message },
+      });
+    } catch (sendErr) {
+      const sendMsg = sendErr instanceof Error ? sendErr.message : String(sendErr);
+      console.error(
+        `[agent-loop] fallback send also failed for conversation ${args.conversationId}: ${sendMsg}`
+      );
+    }
   }
 }
 
@@ -165,7 +203,19 @@ async function processInboundWithAgentInner(args: {
     body,
   });
 
-  if (turn.stoodDown || !turn.reply.trim()) return;
+  if (turn.stoodDown) return;
+
+  // G6: a truncated turn (iteration cap hit) may carry empty or mid-thought
+  // content. Send a clean "still processing" message instead of a partial
+  // reply, so the customer is never left hanging or handed a half-finished
+  // answer. A non-truncated empty reply means the model had nothing to say —
+  // nothing to send.
+  let replyBody = turn.reply;
+  if (turn.truncated) {
+    replyBody =
+      "Mohon tunggu, saya sedang memproses permintaan Anda dan akan segera membalas.";
+  }
+  if (!replyBody.trim()) return;
 
   // Resolve which agent replied (per-conversation assignment or channel default)
   // so the outbound Message and audit log are attributed correctly.
@@ -174,50 +224,26 @@ async function processInboundWithAgentInner(args: {
   });
   const agentId = conversation?.assignedAgentId ?? channel.agentId;
 
-  // Send the reply via the channel's provider (Cloud API or Baileys) and
-  // record it as an AGENT outbound message. This auto-reply is always in
-  // direct response to a fresh inbound, so the Cloud API 24h window is open.
-  // Reload the channel first — if the owner disconnected (Putuskan) while
-  // the turn was running, don't send the reply.
+  // Reload the channel — if the owner disconnected (Putuskan) while the turn
+  // was running, don't send the reply.
   const freshChannel = await prisma.channel.findUnique({
     where: { id: channel.id },
   });
   if (!freshChannel || freshChannel.status !== "CONNECTED") return;
 
-  const provider = getProvider(freshChannel);
-  const sendResult = await provider.sendText({
-    to: customerPhone,
-    body: turn.reply,
-  });
-
-  const message = await prisma.message.create({
-    data: {
-      tenantId,
-      conversationId,
-      direction: "OUTBOUND",
-      senderType: "AGENT",
-      senderAgentId: agentId ?? undefined,
-      body: turn.reply,
-      waMessageId: sendResult.waMessageId,
-    },
-  });
-
-  await prisma.conversation.update({
-    where: { id: conversationId },
-    data: { lastMessageAt: new Date() },
-  });
-
-  await logAction({
-    tenantId,
+  // G7: send via the shared agent-outbox, which enforces the 24h
+  // customer-service window (free-form within, template outside) and records
+  // the OUTBOUND/AGENT Message + audit. The fallback template is used only
+  // if the turn ran so long the window closed mid-flight.
+  await sendAgentMessage({
+    channel: freshChannel,
+    conversationId,
+    customerPhone,
+    body: replyBody,
     agentId: agentId ?? null,
     action: "conversation.agent_reply",
-    entityType: "Message",
-    entityId: message.id,
-    approvalStatus: "NONE",
-    customerPhone,
-    afterValue: {
-      body: turn.reply,
-      waMessageId: sendResult.waMessageId,
+    templateName: process.env.WHATSAPP_AGENT_FALLBACK_TEMPLATE || undefined,
+    auditAfter: {
       toolCalls: turn.toolCalls.length,
       truncated: turn.truncated ?? false,
     },

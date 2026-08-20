@@ -129,9 +129,17 @@ const productUpdate: ToolDefinition<ProductUpdateParams> = {
     if (p.sku !== undefined) data.sku = p.sku;
     if (p.price !== undefined) data.price = p.price;
 
-    const after = await ctx.prisma.product.update({
-      where: { id: p.productId },
+    // G9: tenant-gate the mutation via updateMany + count assert (Product has
+    // no compound unique on id, only the PK), then re-read for the audit diff.
+    const updateResult = await ctx.prisma.product.updateMany({
+      where: { id: p.productId, tenantId: ctx.tenantId },
       data,
+    });
+    if (updateResult.count !== 1) {
+      return { success: false, error: "Product not found", errorCode: "NOT_FOUND" };
+    }
+    const after = await ctx.prisma.product.findFirstOrThrow({
+      where: { id: p.productId, tenantId: ctx.tenantId },
     });
     await ctx.audit({
       action: "product.update",

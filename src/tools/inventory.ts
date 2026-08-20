@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import type { ToolDefinition, ToolResult } from "@/types/tools";
+import { resolveInventory } from "@/lib/source-priority";
 
 // inventory.* tools. inventory.read is allowed by default; inventory.update is
 // a write (denied + approval by default). Stock is set absolutely (not a delta)
@@ -40,18 +41,26 @@ const inventoryRead: ToolDefinition<InventoryReadParams> = {
   defaultPermission: { allowed: true, requiresApproval: false },
   async handler(ctx): Promise<ToolResult> {
     const p = ctx.params;
-    const inv = await ctx.prisma.inventory.findFirst({
-      where: { tenantId: ctx.tenantId, productId: p.productId },
-    });
-    if (!inv) {
+    // G8: resolve the authoritative quantity by Tenant.settings.sourcePriority
+    // across per-source snapshots, falling back to the canonical Inventory row.
+    const resolved = await resolveInventory(ctx.tenantId, p.productId);
+    if (!resolved) {
       return { success: false, error: "Inventory not found", errorCode: "NOT_FOUND" };
     }
     await ctx.audit({
       action: "inventory.read",
       entityType: "inventory",
-      entityId: inv.productId,
+      entityId: p.productId,
     });
-    return { success: true, data: serializeInventory(inv) };
+    return {
+      success: true,
+      data: {
+        productId: p.productId,
+        quantity: resolved.quantity,
+        source: resolved.source,
+        sourceRef: resolved.sourceRef,
+      },
+    };
   },
 };
 
@@ -76,9 +85,23 @@ const inventoryUpdate: ToolDefinition<InventoryUpdateParams> = {
       return { success: false, error: "Inventory not found", errorCode: "NOT_FOUND" };
     }
 
+    // G8: record the manual write as a MANUAL snapshot so the resolution
+    // layer sees it alongside imports, then update the canonical row.
+    await ctx.prisma.inventorySnapshot.upsert({
+      where: { tenantId_productId_source: { tenantId: ctx.tenantId, productId: p.productId, source: "MANUAL" } },
+      create: {
+        tenantId: ctx.tenantId,
+        productId: p.productId,
+        source: "MANUAL",
+        quantity: p.quantity,
+        syncedAt: new Date(),
+      },
+      update: { quantity: p.quantity, syncedAt: new Date() },
+    });
+
     const after = await ctx.prisma.inventory.update({
-      where: { productId: p.productId },
-      data: { quantity: p.quantity },
+      where: { tenantId_productId: { tenantId: ctx.tenantId, productId: p.productId } },
+      data: { quantity: p.quantity, source: "MANUAL", sourceRef: null },
     });
     await ctx.audit({
       action: "inventory.update",

@@ -118,10 +118,10 @@ enum MessageSenderType {
 // ─────────────────────────── Models ───────────────────────────
 
 model Tenant {
-  id        String   @id @default(uuid())
-  name      String
-  slug      String   @unique
-  settings  Json?
+  id              String   @id @default(uuid())
+  name            String
+  slug            String   @unique
+  settings        Json?
   // Per-tenant OpenClaw cell connection (PRD §5/§26: one isolated cell per
   // tenant). Provisioned by the platform at tenant creation. cellStatus is
   // PENDING | PROVISIONED | FAILED. In dev (shared provisioning) these point
@@ -130,28 +130,29 @@ model Tenant {
   openclawBaseUrl String?
   openclawToken   String?
   cellStatus      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  users         User[]
-  agents        Agent[]
-  channels      Channel[]
-  products      Product[]
-  inventory     Inventory[]
-  orders        Order[]
-  knowledge     Knowledge[]
+  users               User[]
+  agents              Agent[]
+  channels            Channel[]
+  products            Product[]
+  inventory           Inventory[]
+  orders              Order[]
+  knowledge           Knowledge[]
   knowledgeEmbeddings KnowledgeEmbedding[]
-  memories      Memory[]
-  dataSources   DataSource[]
-  auditLogs     AuditLog[]
-  approvals     Approval[]
-  conversations Conversation[]
-  contacts      Contact[]
-  tags          Tag[]
-  messages      Message[]
-  orderItems       OrderItem[]
-  agentCapabilities AgentCapability[]
-  conversationTags ConversationTag[]
+  memories            Memory[]
+  inventorySnapshots  InventorySnapshot[]
+  dataSources         DataSource[]
+  auditLogs           AuditLog[]
+  approvals           Approval[]
+  conversations       Conversation[]
+  contacts            Contact[]
+  tags                Tag[]
+  messages            Message[]
+  orderItems          OrderItem[]
+  agentCapabilities   AgentCapability[]
+  conversationTags    ConversationTag[]
 }
 
 model User {
@@ -164,35 +165,35 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  tenant               Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant                Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   assignedConversations Conversation[] @relation("ConversationAssignee")
-  sentMessages         Message[]       @relation("MessageSenderUser")
-  resolvedApprovals    Approval[]      @relation("ApprovalResolver")
+  sentMessages          Message[]      @relation("MessageSenderUser")
+  resolvedApprovals     Approval[]     @relation("ApprovalResolver")
 
   @@index([tenantId])
 }
 
 model Agent {
-  id               String      @id @default(uuid())
-  tenantId         String
-  name             String
-  type             AgentType   @default(CUSTOMER_SERVICE)
-  status           AgentStatus @default(DRAFT)
-  instructions     String?
-  openclawCellId   String?
-  openclawAgentId  String?
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
+  id              String      @id @default(uuid())
+  tenantId        String
+  name            String
+  type            AgentType   @default(CUSTOMER_SERVICE)
+  status          AgentStatus @default(DRAFT)
+  instructions    String?
+  openclawCellId  String?
+  openclawAgentId String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
 
-  tenant                Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant                Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   channels              Channel[]
   capabilities          AgentCapability[]
   memories              Memory[]
   auditLogs             AuditLog[]
   approvals             Approval[]
-  createdOrders         Order[]            @relation("OrderCreatedByAgent")
-  assignedConversations Conversation[]     @relation("ConversationAssigneeAgent")
-  sentMessages          Message[]          @relation("MessageSenderAgent")
+  createdOrders         Order[]           @relation("OrderCreatedByAgent")
+  assignedConversations Conversation[]    @relation("ConversationAssigneeAgent")
+  sentMessages          Message[]         @relation("MessageSenderAgent")
 
   @@index([tenantId])
 }
@@ -221,8 +222,8 @@ model Channel {
 // auth state (see src/lib/baileys-auth-db.ts).
 model BaileysAuth {
   channelId String   @id
-  creds    String?
-  keys     String?
+  creds     String?
+  keys      String?
   updatedAt DateTime @updatedAt
 }
 
@@ -236,9 +237,10 @@ model Product {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  tenant     Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  inventory  Inventory?
-  orderItems OrderItem[]
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  inventory          Inventory?
+  orderItems         OrderItem[]
+  inventorySnapshots InventorySnapshot[]
 
   @@index([tenantId, sku])
   @@index([tenantId, name])
@@ -261,6 +263,28 @@ model Inventory {
   @@index([tenantId])
 }
 
+// G8: per-source stock snapshot so Tenant.settings.sourcePriority can
+// arbitrate conflicts between sources. One row per (tenant, product, source).
+// The canonical Inventory row holds the resolved quantity; snapshots hold each
+// source's contribution. Resolution lives in src/lib/source-priority.ts.
+model InventorySnapshot {
+  id        String          @id @default(uuid())
+  tenantId  String
+  productId String
+  source    InventorySource
+  quantity  Int
+  sourceRef String?
+  syncedAt  DateTime        @default(now())
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, productId, source])
+  @@index([tenantId, productId])
+}
+
 model Order {
   id               String      @id @default(uuid())
   tenantId         String
@@ -272,9 +296,9 @@ model Order {
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
 
-  tenant          Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  createdByAgent  Agent?       @relation("OrderCreatedByAgent", fields: [createdByAgentId], references: [id], onDelete: SetNull)
-  items           OrderItem[]
+  tenant         Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdByAgent Agent?      @relation("OrderCreatedByAgent", fields: [createdByAgentId], references: [id], onDelete: SetNull)
+  items          OrderItem[]
 
   @@index([tenantId, status])
   @@index([tenantId, createdAt])
@@ -314,13 +338,13 @@ model Knowledge {
 }
 
 model KnowledgeEmbedding {
-  id          String   @id @default(uuid())
+  id          String                 @id @default(uuid())
   tenantId    String
-  knowledgeId String   @unique
+  knowledgeId String                 @unique
   embedding   Unsupported("vector")?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime               @default(now())
 
-  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   knowledge Knowledge @relation(fields: [knowledgeId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
@@ -339,6 +363,7 @@ model Memory {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   agent  Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
+  @@unique([tenantId, agentId, key])
   @@index([tenantId, agentId])
 }
 
@@ -387,7 +412,7 @@ model AuditLog {
   createdAt      DateTime       @default(now())
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  agent  Agent?  @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  agent  Agent? @relation(fields: [agentId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, createdAt])
   @@index([tenantId, agentId])
@@ -407,12 +432,19 @@ model Approval {
   resolvedById   String?
   resolvedAt     DateTime?
   createdAt      DateTime       @default(now())
+  // G1: routing context so the approval result can be sent back to the
+  // originating customer conversation once the owner resolves it.
+  conversationId String?
+  channelId      String?
+  customerPhone  String?
 
-  tenant     Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  agent      Agent?  @relation(fields: [agentId], references: [id], onDelete: SetNull)
-  resolvedBy User?   @relation("ApprovalResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  agent        Agent?        @relation(fields: [agentId], references: [id], onDelete: SetNull)
+  resolvedBy   User?         @relation("ApprovalResolver", fields: [resolvedById], references: [id], onDelete: SetNull)
+  conversation Conversation? @relation("ApprovalConversation", fields: [conversationId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, status])
+  @@index([conversationId])
 }
 
 model Conversation {
@@ -429,13 +461,14 @@ model Conversation {
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
-  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  channel       Channel   @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  contact       Contact?  @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  assignedAgent Agent?    @relation("ConversationAssigneeAgent", fields: [assignedAgentId], references: [id], onDelete: SetNull)
-  assignee      User?     @relation("ConversationAssignee", fields: [assigneeUserId], references: [id], onDelete: SetNull)
+  tenant        Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  channel       Channel           @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  contact       Contact?          @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  assignedAgent Agent?            @relation("ConversationAssigneeAgent", fields: [assignedAgentId], references: [id], onDelete: SetNull)
+  assignee      User?             @relation("ConversationAssignee", fields: [assigneeUserId], references: [id], onDelete: SetNull)
   messages      Message[]
-  tags           ConversationTag[]
+  tags          ConversationTag[]
+  approvals     Approval[]        @relation("ApprovalConversation")
 
   @@unique([tenantId, channelId, customerPhone])
   @@index([tenantId, status])
@@ -461,7 +494,7 @@ model Contact {
 }
 
 model Message {
-  id             String             @id @default(uuid())
+  id             String            @id @default(uuid())
   tenantId       String
   conversationId String
   direction      MessageDirection
@@ -470,13 +503,13 @@ model Message {
   senderUserId   String?
   body           String
   waMessageId    String?
-  isInternal     Boolean            @default(false)
-  createdAt      DateTime           @default(now())
+  isInternal     Boolean           @default(false)
+  createdAt      DateTime          @default(now())
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  senderAgent  Agent?        @relation("MessageSenderAgent", fields: [senderAgentId], references: [id], onDelete: SetNull)
-  senderUser   User?         @relation("MessageSenderUser", fields: [senderUserId], references: [id], onDelete: SetNull)
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  senderAgent  Agent?       @relation("MessageSenderAgent", fields: [senderAgentId], references: [id], onDelete: SetNull)
+  senderUser   User?        @relation("MessageSenderUser", fields: [senderUserId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, conversationId, createdAt])
 }

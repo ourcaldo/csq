@@ -1,5 +1,6 @@
 import type { Agent, Tenant } from "@prisma/client";
 import prisma from "@/lib/db";
+import type { MemoryImportance } from "@prisma/client";
 
 // Build the CS agent's system prompt from tenant business context (PRD §7,
 // §15.3). The prompt carries ONLY small, stable, always-relevant context:
@@ -21,17 +22,31 @@ import prisma from "@/lib/db";
 // be bounded so prompt size never grows linearly with tenant data.
 const MAX_BUSINESS_INFO_IN_PROMPT = 10;
 
+// Cap on HIGH-importance memories embedded in the prompt (G4/G10). Memories are
+// the continuity layer beyond the chat-history window; bounded to keep the
+// prompt small.
+const MAX_MEMORIES_IN_PROMPT = 10;
+
 export async function buildSystemPrompt(args: {
   tenant: Tenant;
   agent: Agent;
 }): Promise<string> {
   // Only BUSINESS_INFO is loaded into the prompt. FAQ and POLICY are retrieved
   // on demand via knowledge.search (bounded context, AGENTS.md rule 10).
-  const businessInfo = await prisma.knowledge.findMany({
-    where: { tenantId: args.tenant.id, type: "BUSINESS_INFO" },
-    orderBy: { updatedAt: "desc" },
-    take: MAX_BUSINESS_INFO_IN_PROMPT,
-  });
+  const [businessInfo, memories] = await Promise.all([
+    prisma.knowledge.findMany({
+      where: { tenantId: args.tenant.id, type: "BUSINESS_INFO" },
+      orderBy: { updatedAt: "desc" },
+      take: MAX_BUSINESS_INFO_IN_PROMPT,
+    }),
+    // G4/G10: inject HIGH-importance agent memories as the continuity layer
+    // beyond the chat-history window. Bounded so the prompt stays small.
+    prisma.memory.findMany({
+      where: { tenantId: args.tenant.id, agentId: args.agent.id, importance: "HIGH" as MemoryImportance },
+      orderBy: { createdAt: "desc" },
+      take: MAX_MEMORIES_IN_PROMPT,
+    }),
+  ]);
 
   const sections: string[] = [];
 
@@ -46,6 +61,13 @@ export async function buildSystemPrompt(args: {
   if (businessInfo.length > 0) {
     sections.push(
       `Informasi usaha:\n${businessInfo.map((k) => `- ${k.title}: ${k.content}`).join("\n")}`
+    );
+  }
+
+  // G4/G10: high-importance memories persist facts beyond the chat-history window.
+  if (memories.length > 0) {
+    sections.push(
+      `Hal yang diingat:\n${memories.map((m) => `- ${m.key}: ${m.value}`).join("\n")}`
     );
   }
 
@@ -78,7 +100,7 @@ export async function buildSystemPrompt(args: {
 // context window is bounded by the caller via a limit).
 export function toChatHistory(
   messages: { direction: string; senderType: string; body: string }[],
-  limit = 20
+  limit = 30
 ): { role: string; content: string }[] {
   return messages
     .slice(-limit)

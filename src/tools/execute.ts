@@ -24,6 +24,10 @@ type ExecuteArgs = {
   agentId: string;
   params: Record<string, unknown>;
   customerPhone?: string;
+  // G1: routing context so a pending approval can be replied to the
+  // originating customer conversation once the owner resolves it.
+  conversationId?: string;
+  channelId?: string;
 };
 
 // The single entry point between agents and business data (SDD §4.4 / §6.2).
@@ -88,6 +92,11 @@ export async function executeTool(args: ExecuteArgs): Promise<ExecuteOutcome> {
         proposedAfter: after,
         params: toJson(parsed.data),
         status: "PENDING",
+        // G1: remember where this approval came from so the resolved result
+        // can be sent back to the customer.
+        conversationId: args.conversationId,
+        channelId: args.channelId,
+        customerPhone: args.customerPhone,
       },
     });
     await logAction({

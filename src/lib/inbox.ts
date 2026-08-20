@@ -11,8 +11,8 @@ import type { InboundMessage } from "@/types/whatsapp";
 // message content.
 
 // 24h customer-service window for Cloud API free-form replies (FR-MS-003).
-// Baileys has no such restriction.
-const CLOUD_API_WINDOW_MS = 24 * 60 * 60 * 1000;
+// Baileys has no such restriction. Shared with src/lib/agent-outbox.ts.
+export const CLOUD_API_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 // Upsert Contact (tenantId+phone unique) and Conversation
 // (tenantId+channelId+phone unique), then stamp lastMessageAt. Returns the

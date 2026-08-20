@@ -5,15 +5,16 @@ import { getAuthSession, requireRole } from "@/lib/auth";
 import { logHuman } from "@/lib/audit";
 import { requireTenant, respondError } from "@/lib/queries";
 import { apiOk, type ApiResponse } from "@/types/api";
+import { readSourcePriority } from "@/lib/source-priority";
 
 // Source priority config (PRD §13). Stored in Tenant.settings.sourcePriority
 // as an ordered array of DataSourceType. Tenant.settings is a Json column;
 // read/written through Zod (never `as`). The GET is resilient to legacy
 // stored values that may include entries outside the valid set (e.g. an old
 // "MEMORY" entry) — invalid entries are dropped instead of throwing a 500.
-
-const DEFAULT_PRIORITY = ["MANUAL", "EXCEL", "GOOGLE_SHEETS"];
-const VALID_PRIORITY: readonly string[] = ["MANUAL", "EXCEL", "GOOGLE_SHEETS"];
+//
+// readSourcePriority is the single source of truth — shared with the tools/
+// import layer that actually resolves inventory by priority (src/lib/source-priority.ts).
 
 // Permissive read shape for stored settings (any strings allowed, then filtered).
 const storedSettingsSchema = z
@@ -26,14 +27,6 @@ const priorityUpdateSchema = z.object({
 });
 
 type PriorityResponse = { sourcePriority: string[] };
-
-// Read stored settings defensively: drop any entries outside the valid set.
-function readPriority(settings: unknown): string[] {
-  const parsed = storedSettingsSchema.safeParse(settings ?? {});
-  const raw = parsed.success ? parsed.data.sourcePriority ?? [] : [];
-  const filtered = raw.filter((v): v is string => VALID_PRIORITY.includes(v));
-  return filtered.length ? filtered : DEFAULT_PRIORITY;
-}
 
 export default async function handler(
   req: NextApiRequest,
@@ -48,7 +41,7 @@ export default async function handler(
     if (!tenant) return respondError(res, "NOT_FOUND", "Tenant tidak ditemukan.");
     return res
       .status(200)
-      .json(apiOk({ sourcePriority: readPriority(tenant.settings) }));
+      .json(apiOk({ sourcePriority: readSourcePriority(tenant.settings) }));
   }
 
   if (req.method === "PUT") {

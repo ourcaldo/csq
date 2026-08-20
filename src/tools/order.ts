@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import type { ToolDefinition, ToolResult } from "@/types/tools";
 
 // order.* tools. order.read allowed by default. order.create is a write
@@ -119,6 +119,18 @@ const orderCreate: ToolDefinition<OrderCreateParams> = {
       });
       const byId = new Map(products.map((pr) => [pr.id, pr]));
 
+      // G2: lock the inventory rows FOR UPDATE so a concurrent order.create or
+      // stock write cannot both pass the stock check against a stale snapshot
+      // and oversell. Prisma has no FOR UPDATE API, so raw SQL through the
+      // transaction client. Row-level locking is defense-in-depth on top of
+      // the per-conversation advisory lock in the agent loop.
+      const locked = await tx.$queryRaw<
+        Array<{ productId: string; quantity: number }>
+      >`SELECT "productId", quantity FROM "Inventory"
+        WHERE "tenantId" = ${ctx.tenantId} AND "productId" IN (${Prisma.join(productIds)})
+        FOR UPDATE`;
+      const lockedById = new Map(locked.map((r) => [r.productId, r.quantity]));
+
       // Single pass: validate each item, build order items, compute total, and
       // stage the stock adjustments. The throw narrows `pr` for TS.
       let total = 0;
@@ -130,7 +142,7 @@ const orderCreate: ToolDefinition<OrderCreateParams> = {
         if (!pr) {
           throw new Error(`Product not found: ${item.productId}`);
         }
-        const have = pr.inventory?.quantity ?? 0;
+        const have = lockedById.get(item.productId) ?? 0;
         if (have < item.quantity) {
           throw new Error(`Insufficient stock for ${pr.name} (have ${have})`);
         }
@@ -163,10 +175,11 @@ const orderCreate: ToolDefinition<OrderCreateParams> = {
         include: { items: { include: { product: true } } },
       });
 
-      // Decrement stock for each validated item.
+      // Decrement stock for each validated item. G9: tenant-gated compound
+      // unique selector (not the global productId @unique).
       for (const adj of stockAdjust) {
         await tx.inventory.update({
-          where: { productId: adj.productId },
+          where: { tenantId_productId: { tenantId: ctx.tenantId, productId: adj.productId } },
           data: { quantity: adj.newQuantity },
         });
       }
@@ -225,24 +238,38 @@ const orderCancel: ToolDefinition<OrderCancelParams> = {
         throw new Error("Order already cancelled");
       }
 
-      const cancelled = await tx.order.update({
-        where: { id: order.id },
+      // G9: tenant-gate the status mutation via updateMany + count assert (Order
+      // has no compound unique on id, only the PK), then re-read with include.
+      const updateResult = await tx.order.updateMany({
+        where: { id: order.id, tenantId: ctx.tenantId },
         data: { status: "CANCELLED" },
+      });
+      if (updateResult.count !== 1) {
+        throw new Error("Order not found or not tenant-owned");
+      }
+      const cancelled = await tx.order.findFirstOrThrow({
+        where: { id: order.id, tenantId: ctx.tenantId },
         include: { items: { include: { product: true } } },
       });
 
-      // Restore stock for each line item.
+      // G2/G9: lock the inventory rows FOR UPDATE before restoring, and use the
+      // tenant-gated compound unique selector on the update. Locking prevents a
+      // concurrent order.create from racing the restore.
+      const restoreProductIds = order.items.map((it) => it.productId);
+      const locked = await tx.$queryRaw<
+        Array<{ productId: string; quantity: number }>
+      >`SELECT "productId", quantity FROM "Inventory"
+        WHERE "tenantId" = ${ctx.tenantId} AND "productId" IN (${Prisma.join(restoreProductIds)})
+        FOR UPDATE`;
+      const lockedById = new Map(locked.map((r) => [r.productId, r.quantity]));
+
       for (const item of order.items) {
-        const inv = await tx.inventory.findFirst({
-          where: { tenantId: ctx.tenantId, productId: item.productId },
+        const current = lockedById.get(item.productId);
+        if (current === undefined) continue;
+        await tx.inventory.update({
+          where: { tenantId_productId: { tenantId: ctx.tenantId, productId: item.productId } },
+          data: { quantity: current + item.quantity },
         });
-        const current = inv?.quantity ?? 0;
-        if (inv) {
-          await tx.inventory.update({
-            where: { productId: item.productId },
-            data: { quantity: current + item.quantity },
-          });
-        }
       }
 
       return cancelled;

@@ -15,6 +15,7 @@ import type { Channel } from "@prisma/client";
 import type {
   BaileysConfig,
   ParsedInbound,
+  SendTemplateInput,
   SendTextInput,
   SendTextResult,
   WhatsAppProvider,
@@ -351,5 +352,13 @@ export class BaileysProvider implements WhatsAppProvider {
     const sentKeySchema = z.object({ key: z.object({ id: z.string() }).optional() });
     const parsed = sentKeySchema.safeParse(sent);
     return { waMessageId: parsed.success ? parsed.data.key?.id : undefined };
+  }
+
+  // Baileys has no 24h/template restriction, so a "template" send is just a
+  // free-form text message using the template name as the body. This keeps the
+  // agent-outbox path provider-agnostic: callers can always call sendTemplate
+  // without a Cloud-API-specific approved template existing.
+  async sendTemplate(input: SendTemplateInput): Promise<SendTextResult> {
+    return this.sendText({ to: input.to, body: input.templateName });
   }
 }

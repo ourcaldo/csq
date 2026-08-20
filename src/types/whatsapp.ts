@@ -122,6 +122,19 @@ export const sendTextResponseSchema = z.object({
   messages: z.array(z.object({ id: z.string() })).min(1),
 });
 
+// ─────────────────────────── Template send (G7) ───────────────────────────
+// Cloud API requires an approved template to message a customer outside the
+// 24h customer-service window. Templates are pre-approved in the Meta Business
+// Manager; their names are configured via env (WHATSAPP_APPROVAL_TEMPLATE, …).
+// `components` is optional — simple body-only templates need none. Baileys
+// has no 24h restriction, so its `sendTemplate` delegates to free-form text.
+export const sendTemplateSchema = z.object({
+  to: z.string().min(1),
+  templateName: z.string().min(1),
+  languageCode: z.string().min(1).max(8).optional(),
+});
+export type SendTemplateInput = z.infer<typeof sendTemplateSchema>;
+
 // ─────────────────────────── Provider interface ───────────────────────────
 // Both Cloud API and Baileys implement this so the inbox/agent layer is
 // provider-agnostic. The owner picks the provider at onboarding; the factory
@@ -135,4 +148,5 @@ export interface WhatsAppProvider {
   verifyWebhook(mode: string | undefined, verifyToken: string | undefined): boolean;
   parseInbound(payload: unknown): ParsedInbound[];
   sendText(input: SendTextInput): Promise<SendTextResult>;
+  sendTemplate(input: SendTemplateInput): Promise<SendTextResult>;
 }

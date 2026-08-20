@@ -34,7 +34,10 @@ import {
 //
 // Server-only. Secrets stay server-side.
 
-const MAX_TOOL_ITERATIONS = 6;
+// G6: the order workflow is ~4-5 tool calls (search product → read stock → read
+// price → create order → confirm). 10 gives headroom for verify/refine loops
+// without running the loop unboundedly.
+const MAX_TOOL_ITERATIONS = 10;
 
 type FunctionTool = {
   type: "function";
@@ -118,6 +121,7 @@ export type RunConversationArgs = {
   agentId: string; // CSQ Agent.id UUID — keys executeTool/capability lookup
   openclawAgentId: string; // OpenClaw agent id — the `model: openclaw/<id>` target
   conversationId: string;
+  channelId?: string; // G1: routing context for approval follow-ups
   systemPrompt?: string;
   history: ChatMessage[];
   userMessage: string;
@@ -168,6 +172,8 @@ export async function runConversation(args: RunConversationArgs): Promise<RunRes
         agentId: args.agentId,
         params,
         customerPhone: args.customerPhone,
+        conversationId: args.conversationId,
+        channelId: args.channelId,
       });
       const outcomeStr = serializeOutcome(outcome);
       toolCallLog.push({ tool: tc.function.name, params, outcome: outcomeStr });

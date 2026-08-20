@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getAuthSession, requireRole } from "@/lib/auth";
 import { executeApprovedAction } from "@/tools/execute";
+import { sendApprovalFollowUp } from "@/lib/agent-outbox";
 import { apiError, apiOk, type ApiResponse } from "@/types/api";
 
 // POST /api/dashboard/approvals/[id]/approve — owner approves a pending action.
@@ -39,6 +40,15 @@ export default async function handler(
 
   switch (outcome.kind) {
     case "ok":
+      // G1: close the loop — tell the customer the owner approved. Best-effort
+      // and fire-and-forget so the owner's approve response never waits on or
+      // fails because of the WhatsApp send.
+      void sendApprovalFollowUp({ approvalId: id, approved: true }).catch(
+        (err) => {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.error(`[approval-followup] approve ${id} failed: ${msg}`);
+        }
+      );
       return res
         .status(200)
         .json(apiOk(outcome.result.data ?? { approved: true }));
