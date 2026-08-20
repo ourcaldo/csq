@@ -4,6 +4,7 @@ import { getAuthSession } from "@/lib/auth";
 import prisma from "@/lib/db";
 import { paginate, requireTenant, respondError, strQuery } from "@/lib/queries";
 import { apiOk, type ApiResponse } from "@/types/api";
+import { getPnForLid } from "@/lib/baileys-auth-db";
 
 type Item = Prisma.ConversationGetPayload<{
   include: {
@@ -13,8 +14,14 @@ type Item = Prisma.ConversationGetPayload<{
     tags: { include: { tag: true } };
   };
 }>;
+// Item + a display phone number. For LID-based chats (newer WhatsApp),
+// customerPhone is the raw LID JID used for sending; customerPhoneDisplay
+// is the real phone number resolved from Baileys' LID→PN mapping (or the
+// bare LID if unresolved). For classic @s.whatsapp.net chats it's the bare
+// phone number.
+type DisplayItem = Item & { customerPhoneDisplay: string };
 type ListResult = {
-  items: Item[];
+  items: DisplayItem[];
   total: number;
   page: number;
   pageSize: number;
@@ -66,7 +73,22 @@ export default async function handler(
       }),
       prisma.conversation.count({ where }),
     ]);
-    return res.status(200).json(apiOk({ items, total, page, pageSize }));
+
+    // Resolve LID → real phone number for display.
+    const itemsWithDisplay: DisplayItem[] = await Promise.all(
+      items.map(async (item) => {
+        let customerPhoneDisplay = item.customerPhone;
+        if (item.customerPhone.includes("@lid")) {
+          const pn = await getPnForLid(item.channelId, item.customerPhone);
+          customerPhoneDisplay = pn ?? item.customerPhone.split("@")[0];
+        } else if (item.customerPhone.includes("@s.whatsapp.net")) {
+          customerPhoneDisplay = item.customerPhone.split("@")[0];
+        }
+        return { ...item, customerPhoneDisplay };
+      })
+    );
+
+    return res.status(200).json(apiOk({ items: itemsWithDisplay, total, page, pageSize }));
   }
 
   return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");

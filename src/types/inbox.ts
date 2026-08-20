@@ -37,7 +37,8 @@ export type ConversationListItem = {
   id: string;
   tenantId: string;
   channelId: string;
-  customerPhone: string;
+  customerPhone: string; // full JID (e.g. <lid>@lid) — used for sending
+  customerPhoneDisplay: string; // real phone number for display (LID resolved)
   contactId: string | null;
   assignedAgentId: string | null;
   assigneeUserId: string | null;

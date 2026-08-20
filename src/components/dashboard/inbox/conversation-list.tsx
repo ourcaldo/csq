@@ -133,7 +133,7 @@ export function ConversationList({
         {!loading &&
           !error &&
           items.map((c) => {
-            const name = c.contact?.name ?? c.customerPhone;
+            const name = c.contact?.name ?? c.customerPhoneDisplay;
             const active = c.id === selectedId;
             return (
               <button

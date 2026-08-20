@@ -19,6 +19,29 @@ import prisma from "@/lib/db";
 // per-file layout of useMultiFileAuthState. Server-only. No `as` casts —
 // JSON.parse returns any, which assigns cleanly into the Baileys types.
 
+// Resolve a WhatsApp LID (Linked Identity) JID to the real phone number,
+// using the LID→PN mapping Baileys stores in the signal auth keys (which
+// we persist in BaileysAuth.keys). Returns the bare phone number (e.g.
+// "62812xxxxxxx") for display, or null if no mapping is stored yet.
+//
+// lidJid is the full remoteJid, e.g. "194274775822580@lid" or
+// "<user>:<device>@lid" / "@hosted.lid". The mapping key is
+// `lid-mapping-<lidUser>_reverse` → pnUser (see Baileys' LIDMappingStore).
+export async function getPnForLid(
+  channelId: string,
+  lidJid: string
+): Promise<string | null> {
+  const row = await prisma.baileysAuth.findUnique({ where: { channelId } });
+  if (!row?.keys) return null;
+  const keysMap: Record<string, any> = JSON.parse(row.keys, BufferJSON.reviver);
+  const userPart = lidJid.split("@")[0];
+  const [lidUser] = userPart.split(":");
+  if (!lidUser) return null;
+  const pnUser = keysMap[`lid-mapping-${lidUser}_reverse`];
+  if (typeof pnUser !== "string" || !pnUser) return null;
+  return pnUser;
+}
+
 export async function loadDbAuthState(
   channelId: string
 ): Promise<{ state: AuthenticationState; saveCreds: () => Promise<void> }> {
