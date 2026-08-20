@@ -1,6 +1,8 @@
 import makeWASocket, {
-  BufferJSON,
   DisconnectReason,
+  getContentType,
+  normalizeMessageContent,
+  proto,
   type WASocket,
 } from "@whiskeysockets/baileys";
 import { pino } from "pino";
@@ -57,37 +59,33 @@ function disconnectCode(err: unknown): number | undefined {
 }
 
 // Extract a text body from a Baileys message (text / extendedText / caption).
-// Zod-parsed to avoid `as` casts on the untrusted message shape. Handles the
-// common text carriers plus media captions and ephemeral/view-once wrappers
-// (newer WhatsApp clients often wrap text in ephemeralMessage).
-const messageBodySchema = z
-  .object({
-    conversation: z.string().optional(),
-    extendedTextMessage: z.object({ text: z.string().optional() }).optional(),
-    imageMessage: z.object({ caption: z.string().optional() }).optional(),
-    videoMessage: z.object({ caption: z.string().optional() }).optional(),
-    documentMessage: z.object({ caption: z.string().optional() }).optional(),
-    audioMessage: z.object({ caption: z.string().optional() }).optional(),
-    ephemeralMessage: z.object({ message: z.unknown().optional() }).optional(),
-    viewOnceMessage: z.object({ message: z.unknown().optional() }).optional(),
-  })
-  .passthrough();
-function extractBody(message: unknown): string {
-  const parsed = messageBodySchema.safeParse(message);
-  if (!parsed.success) return "";
-  const d = parsed.data;
-  const direct =
-    d.conversation ??
-    d.extendedTextMessage?.text ??
-    d.imageMessage?.caption ??
-    d.videoMessage?.caption ??
-    d.documentMessage?.caption ??
-    d.audioMessage?.caption ??
-    "";
-  if (direct) return direct;
-  // Wrapped (ephemeral / view-once) — recurse one level into the inner message.
-  const wrapped = d.ephemeralMessage?.message ?? d.viewOnceMessage?.message;
-  if (wrapped) return extractBody(wrapped);
+// Extract a text body from a Baileys message using Baileys' OWN utilities
+// (normalizeMessageContent + getContentType), not a Zod schema. A Zod
+// z.object().safeParse() on the raw protobufjs message object fails because
+// the nested messageContextInfo carries Buffer values (messageSecret,
+// recipientKeyHash) and the proto instance isn't a plain object Zod can
+// parse — so the text in `conversation`/`extendedTextMessage.text` was
+// silently dropped and every inbound was skipped as "empty body". Baileys'
+// utilities handle the proto object and ephemeral/view-once wrapping
+// correctly. No `as` casts — normalizeMessageContent returns any.
+function extractBody(message: proto.IMessage | null | undefined): string {
+  const content = normalizeMessageContent(message);
+  if (!content) return "";
+  // Typed property access on proto.IMessage — no string indexing, no `as`.
+  // normalizeMessageContent already unwrapped ephemeral/view-once.
+  if (typeof content.conversation === "string") return content.conversation;
+  if (typeof content.extendedTextMessage?.text === "string") {
+    return content.extendedTextMessage.text;
+  }
+  if (typeof content.imageMessage?.caption === "string") {
+    return content.imageMessage.caption;
+  }
+  if (typeof content.videoMessage?.caption === "string") {
+    return content.videoMessage.caption;
+  }
+  if (typeof content.documentMessage?.caption === "string") {
+    return content.documentMessage.caption;
+  }
   return "";
 }
 
@@ -185,10 +183,7 @@ export async function connectBaileysChannel(
         }
         const body = extractBody(m.message);
         console.log(
-          `[baileys:${channel.id}] inbound from=${fromJid(m.key.remoteJid)} keys=${JSON.stringify(Object.keys(m.message ?? {}))} body=${JSON.stringify(body).slice(0, 80)}`
-        );
-        console.log(
-          `[baileys:${channel.id}] raw=${JSON.stringify(m.message, BufferJSON.replacer).slice(0, 400)}`
+          `[baileys:${channel.id}] inbound from=${fromJid(m.key.remoteJid)} type=${getContentType(normalizeMessageContent(m.message)) ?? "?"} body=${JSON.stringify(body).slice(0, 80)}`
         );
         if (!body) {
           console.log(`[baileys:${channel.id}] skip empty body`);
