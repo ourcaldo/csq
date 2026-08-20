@@ -23,7 +23,6 @@ export default function InboxPage() {
   const [tab, setTab] = useState<Tab>("unassigned");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [nonce, setNonce] = useState(0);
 
   // Fetch all tenant conversations; tab/search filter client-side for MVP.
   const { data, loading, error, refresh } = useApi<ListResult<ConversationListItem>>(
@@ -58,7 +57,6 @@ export default function InboxPage() {
   // Refresh conversation metadata after a details-pane mutation.
   function onConversationChanged() {
     void refresh();
-    setNonce((n) => n + 1);
   }
 
   return (
@@ -83,7 +81,6 @@ export default function InboxPage() {
 
         {selected ? (
           <ChatPanel
-            key={selected.id}
             conversationId={selected.id}
             customerName={selected.contact?.name ?? selected.customerPhoneDisplay}
             customerPhone={selected.customerPhoneDisplay}
@@ -106,7 +103,6 @@ export default function InboxPage() {
 
         {selected && (
           <ContactDetails
-            key={selected.id}
             conversation={selected}
             onChanged={onConversationChanged}
           />
