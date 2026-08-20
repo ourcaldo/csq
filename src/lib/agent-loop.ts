@@ -59,6 +59,12 @@ export async function runAgentReply(args: {
   const channel = await prisma.channel.findUnique({
     where: { id: conversation.channelId },
   });
+  // Don't run the AI on a channel that's been disconnected (e.g. owner clicked
+  // Putuskan while the inbound was in-flight). Standing down here prevents a
+  // reply from going out after disconnect.
+  if (!channel || channel.status !== "CONNECTED") {
+    return { reply: "", toolCalls: [], stoodDown: true };
+  }
   const resolvedAgentId = conversation.assignedAgentId ?? channel?.agentId;
   if (!resolvedAgentId) {
     return { reply: "", toolCalls: [], stoodDown: true };
@@ -171,7 +177,14 @@ async function processInboundWithAgentInner(args: {
   // Send the reply via the channel's provider (Cloud API or Baileys) and
   // record it as an AGENT outbound message. This auto-reply is always in
   // direct response to a fresh inbound, so the Cloud API 24h window is open.
-  const provider = getProvider(channel);
+  // Reload the channel first — if the owner disconnected (Putuskan) while
+  // the turn was running, don't send the reply.
+  const freshChannel = await prisma.channel.findUnique({
+    where: { id: channel.id },
+  });
+  if (!freshChannel || freshChannel.status !== "CONNECTED") return;
+
+  const provider = getProvider(freshChannel);
   const sendResult = await provider.sendText({
     to: customerPhone,
     body: turn.reply,
