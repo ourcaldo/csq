@@ -34,6 +34,7 @@ export function ContactDetails({ conversation, onChanged }: ContactDetailsProps)
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [savingContact, setSavingContact] = useState(false);
 
@@ -71,6 +72,7 @@ export function ContactDetails({ conversation, onChanged }: ContactDetailsProps)
     try {
       await apiSend(`/api/dashboard/contacts/${contact.id}`, "PUT", {
         name: editName.trim() || null,
+        email: editEmail.trim() || null,
         notes: editNotes.trim() || null,
       });
       setEditing(false);
@@ -84,6 +86,7 @@ export function ContactDetails({ conversation, onChanged }: ContactDetailsProps)
 
   function startEdit() {
     setEditName(contact?.name ?? "");
+    setEditEmail(contact?.email ?? "");
     setEditNotes(contact?.notes ?? "");
     setEditing(true);
   }
@@ -135,6 +138,12 @@ export function ContactDetails({ conversation, onChanged }: ContactDetailsProps)
               placeholder="Nama kontak"
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20"
             />
+            <input
+              value={editEmail}
+              onChange={(e) => setEditEmail(e.target.value)}
+              placeholder="Email (opsional)"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20"
+            />
             <textarea
               value={editNotes}
               onChange={(e) => setEditNotes(e.target.value)}
@@ -183,6 +192,11 @@ export function ContactDetails({ conversation, onChanged }: ContactDetailsProps)
             <div className="flex items-center gap-3 text-slate-600">
               <Phone size={16} className="text-slate-400" /> {conversation.customerPhoneDisplay}
             </div>
+            {contact?.email && (
+              <div className="flex items-center gap-3 text-slate-600">
+                <EnvelopeSimple size={16} className="text-slate-400" /> {contact.email}
+              </div>
+            )}
             {contact?.name && (
               <div className="flex items-center gap-3 text-slate-600">
                 <EnvelopeSimple size={16} className="text-slate-400" /> {contact.name}

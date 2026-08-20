@@ -191,6 +191,16 @@ export async function connectBaileysChannel(
           console.log(`[baileys:${channel.id}] skip own message`);
           continue;
         }
+        // Skip group/broadcast/newsletter messages — the CS agent handles
+        // 1:1 customer chats only, not groups the number joined.
+        const jid = m.key.remoteJid ?? "";
+        if (
+          jid.endsWith("@g.us") ||
+          jid.endsWith("@broadcast") ||
+          jid.endsWith("@newsletter")
+        ) {
+          continue;
+        }
         const body = extractBody(m.message);
         console.log(
           `[baileys:${channel.id}] inbound from=${fromJid(m.key.remoteJid)} type=${getContentType(normalizeMessageContent(m.message)) ?? "?"} body=${JSON.stringify(body).slice(0, 80)}`
@@ -292,17 +302,24 @@ export function startBaileysHeartbeat(): void {
 }
 
 // Stop and forget a channel's socket (used by disconnect).
-export function disconnectBaileysChannel(channelId: string): void {
+// Disconnect (Putuskan): logs out the linked device on WhatsApp's side
+// (sock.logout() — the paired device is auto-removed from the owner's
+// phone), tears down the socket, and deletes the saved creds so reconnect
+// requires a fresh QR. This is a FULL disconnect, not just pausing the
+// socket.
+export async function disconnectBaileysChannel(channelId: string): Promise<void> {
   disconnecting.add(channelId);
   const entry = sockets.get(channelId);
   if (entry) {
     try {
-      entry.sock.end(undefined);
+      await entry.sock.logout();
     } catch {
-      // ignore
+      // ignore — socket may already be closed
     }
     sockets.delete(channelId);
   }
+  // Destroy the saved creds so reconnect requires a fresh QR scan.
+  await prisma.baileysAuth.delete({ where: { channelId } }).catch(() => undefined);
 }
 
 export class BaileysProvider implements WhatsAppProvider {

@@ -31,7 +31,7 @@ export default async function handler(
   if (!channel) return respondError(res, "NOT_FOUND", "Channel tidak ditemukan.");
 
   if (channel.provider === "BAILEYS") {
-    disconnectBaileysChannel(channel.id);
+    await disconnectBaileysChannel(channel.id);
   }
 
   const updated = await prisma.channel.update({

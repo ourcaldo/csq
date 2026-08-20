@@ -81,7 +81,9 @@ export type Contact = {
   id: string;
   tenantId: string;
   phone: string;
+  phoneDisplay?: string;
   name: string | null;
+  email: string | null;
   notes: string | null;
   createdAt: string;
   updatedAt: string;

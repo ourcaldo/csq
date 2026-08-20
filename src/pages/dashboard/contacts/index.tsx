@@ -30,6 +30,7 @@ export default function ContactsPage() {
 
   const [editing, setEditing] = useState<Contact | null>(null);
   const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -48,6 +49,7 @@ export default function ContactsPage() {
   function openEdit(contact: Contact) {
     setEditing(contact);
     setName(contact.name ?? "");
+    setEmail(contact.email ?? "");
     setNotes(contact.notes ?? "");
     setFormError(null);
   }
@@ -60,6 +62,7 @@ export default function ContactsPage() {
     try {
       await apiSend<Contact>(`/api/dashboard/contacts/${editing.id}`, "PUT", {
         name: name || undefined,
+        email: email || undefined,
         notes: notes || undefined,
       });
       setEditing(null);
@@ -95,6 +98,7 @@ export default function ContactsPage() {
                 <TableRow>
                   <TableHead>Nama</TableHead>
                   <TableHead>No. Telepon</TableHead>
+                  <TableHead>Email</TableHead>
                   <TableHead>Catatan</TableHead>
                   <TableHead>Dibuat</TableHead>
                   <TableHead className="text-right">Aksi</TableHead>
@@ -103,7 +107,7 @@ export default function ContactsPage() {
               <TableBody>
                 {data && data.items.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5}>
+                    <TableCell colSpan={6}>
                       <StateNotice variant="empty" message="Belum ada kontak." />
                     </TableCell>
                   </TableRow>
@@ -111,7 +115,10 @@ export default function ContactsPage() {
                 {data?.items.map((c) => (
                   <TableRow key={c.id}>
                     <TableCell className="font-medium">{c.name ?? "—"}</TableCell>
-                    <TableCell>{c.phone}</TableCell>
+                    <TableCell>{c.phoneDisplay ?? c.phone}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {c.email ?? "—"}
+                    </TableCell>
                     <TableCell className="max-w-xs truncate text-muted-foreground">
                       {c.notes ?? "—"}
                     </TableCell>
@@ -152,6 +159,16 @@ export default function ContactsPage() {
               id="contact-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="contact-email">Email</Label>
+            <Input
+              id="contact-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="email@contoh.com"
             />
           </div>
           <div className="flex flex-col gap-1.5">
