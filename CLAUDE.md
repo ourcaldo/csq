@@ -94,6 +94,8 @@ No test framework initially. Add Vitest later only for modules that genuinely ne
 - **Dashboard auth via `withAuth(getServerSideProps)` HOC** — no Next.js middleware.
 - **Agents read-only by default.** Write is a per-tool permission (`product.update`, `inventory.update`, `order.create`…); selected writes require owner approval. Every mutation is logged (before/after, approval status).
 - **Demo safety moment is sacred:** the agent must refuse an unauthorized price change from a customer message. Preserve this in any refactor.
+- **Production-ready and scalable — no "MVP-only" excuses.** Every design must be correct and scale to production. Never justify an unscalable or flawed design with "fine for the MVP" / "fix it later." "Lazy code that works" means minimal code, never minimal rigor. Unbounded growth (loops, prompts, queries), missing locks, missing tenant filters, silent failures, and silent-drop caps are defects to redesign, not shortcuts to ship.
+- **Agent context is bounded and retrieved on demand.** The system prompt carries only small, stable, always-relevant context (persona, owner instructions, safety rules, a bounded set of core facts). FAQs/policies/knowledge that grows with the tenant is fetched via retrieval tools (`knowledge.search` over pgvector) during the turn — never bulk-loaded into the prompt every turn. See `AGENTS.md` rule 10 and the Architecture Rules. When the scalable design depends on an unfinished piece (e.g. the embedding pipeline), build the dependency — don't paper over it.
 
 ## Out of Scope — Do Not Build
 

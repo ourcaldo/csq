@@ -164,6 +164,30 @@ Write the **least code that fully solves the task**. Boring beats clever.
 - **Minimal Impact**: Changes touch only what's necessary. Avoid introducing bugs.
 - **Full Traceability**: When changing shared code, verify all consumers still work.
 
+### 10. Production-Ready and Scalable — No "MVP-Only" Excuses
+- **Every line ships to production standard.** Never justify a flawed or
+  unscalable design with "it's fine for the MVP" / "we'll fix it later" / "good
+  enough for now." If a design does not scale or is not production-correct, it
+  is wrong — fix the design, not the framing.
+- "Lazy code that works" (see Coding Style) means *minimal code*, never
+  *minimal rigor*. The least code that **fully and correctly** solves the task
+  at production scale — not the least code that demos.
+- If you catch yourself or anyone proposing a shortcut that won't scale (unbounded
+  loops, unbounded prompt growth, N+1 queries, no locking, no tenant filter,
+  silent failure, hardcoded caps that silently drop work), STOP and redesign.
+  Surface the scaling problem explicitly; do not bury it.
+- Context that grows with data must be **retrieved on demand, not bulk-loaded**.
+  Specifically: business knowledge (FAQs, policies, business info) is **not**
+  dumped wholesale into the agent's system prompt every turn. Only small,
+  always-relevant, stable context (persona, owner instructions, safety rules, a
+  bounded set of core facts) belongs in the prompt. Everything else is fetched
+  via retrieval tools (`knowledge.search` over pgvector) when the agent needs it,
+  so prompt size stays bounded regardless of how much knowledge the tenant owns.
+- When the proper scalable design depends on an unfinished piece (e.g. retrieval
+  requires the embedding pipeline), the correct response is to **build the
+  dependency**, not to paper over it with an unscalable substitute. Track the gap
+  explicitly (see `docs/report/`) until it is closed.
+
 ## Stack — Fixed Constraints (do not substitute)
 - **Next.js with Pages Router — NOT App Router.** This is an explicit PRD decision; do not
   scaffold with App Router or suggest migration.
@@ -195,6 +219,14 @@ Write the **least code that fully solves the task**. Boring beats clever.
   validated.
 - Data authority: track source, timestamp, last sync, priority per source. On conflict,
   prefer authoritative source; if unresolvable, escalate to human — never invent an answer.
+- **Agent context is bounded and retrieved on demand (production-scalability rule).**
+  The system prompt carries only small, stable, always-relevant context: persona,
+  owner instructions, safety rules, and a bounded set of core business facts.
+  FAQs, policies, and any knowledge that grows with the tenant are **not**
+  bulk-loaded into the prompt — the agent fetches them via retrieval tools
+  (`knowledge.search` over pgvector) during the turn. Prompt size must stay
+  bounded regardless of tenant knowledge volume. Bulk-loading knowledge into the
+  prompt every turn is a scaling defect, not an MVP shortcut (see rule 10).
 
 ## Security — Non-Negotiable
 - **Every table gets a `tenant_id` column from day one.** All queries and tool calls
