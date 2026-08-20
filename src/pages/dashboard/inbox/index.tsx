@@ -83,11 +83,12 @@ export default function InboxPage() {
 
         {selected ? (
           <ChatPanel
-            key={selected.id + nonce.toString()}
+            key={selected.id}
             conversationId={selected.id}
             customerName={selected.contact?.name ?? selected.customerPhoneDisplay}
-            customerPhone={selected.customerPhone}
+            customerPhone={selected.customerPhoneDisplay}
             aiActive={!selected.assignee && !!selected.assignedAgent}
+            humanTakenOver={!!selected.assignee}
             onBack={() => setSelectedId(null)}
           />
         ) : (
@@ -105,7 +106,7 @@ export default function InboxPage() {
 
         {selected && (
           <ContactDetails
-            key={selected.id + nonce.toString()}
+            key={selected.id}
             conversation={selected}
             onChanged={onConversationChanged}
           />

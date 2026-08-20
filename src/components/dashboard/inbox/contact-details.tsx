@@ -12,6 +12,9 @@ import {
   X,
   Hand,
   ArrowUp,
+  WhatsappLogo,
+  PencilSimple,
+  FloppyDisk,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { apiFetch, apiSend } from "@/lib/api-client";
@@ -29,6 +32,10 @@ export function ContactDetails({ conversation, onChanged }: ContactDetailsProps)
   const [tags, setTags] = useState<Tag[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+  const [savingContact, setSavingContact] = useState(false);
 
   async function loadTags() {
     try {
@@ -55,6 +62,30 @@ export function ContactDetails({ conversation, onChanged }: ContactDetailsProps)
     } finally {
       setBusy(false);
     }
+  }
+
+  async function saveContact() {
+    if (!contact) return;
+    setSavingContact(true);
+    setError(null);
+    try {
+      await apiSend(`/api/dashboard/contacts/${contact.id}`, "PUT", {
+        name: editName.trim() || null,
+        notes: editNotes.trim() || null,
+      });
+      setEditing(false);
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menyimpan kontak.");
+    } finally {
+      setSavingContact(false);
+    }
+  }
+
+  function startEdit() {
+    setEditName(contact?.name ?? "");
+    setEditNotes(contact?.notes ?? "");
+    setEditing(true);
   }
 
   async function addTag(tagId: string) {
@@ -93,11 +124,53 @@ export function ContactDetails({ conversation, onChanged }: ContactDetailsProps)
     <div className="hidden w-72 shrink-0 overflow-y-auto border-l border-slate-200 bg-white p-6 lg:block">
       {/* Contact card */}
       <div className="mb-6 text-center">
-        <div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-slate-100 text-2xl font-semibold text-slate-600">
-          {(contact?.name ?? conversation.customerPhone).charAt(0).toUpperCase()}
+        <div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-green-50 text-green-600">
+          <WhatsappLogo size={36} weight="fill" />
         </div>
-        <h3 className="text-lg font-semibold text-slate-900">{contact?.name ?? "Pelanggan"}</h3>
-        <p className="text-sm text-slate-500">Pelanggan</p>
+        {editing ? (
+          <div className="space-y-3 text-left">
+            <input
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              placeholder="Nama kontak"
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20"
+            />
+            <textarea
+              value={editNotes}
+              onChange={(e) => setEditNotes(e.target.value)}
+              placeholder="Catatan (opsional)"
+              rows={2}
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setEditing(false)}
+                disabled={savingContact}
+                className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+              >
+                Batal
+              </button>
+              <button
+                onClick={saveContact}
+                disabled={savingContact}
+                className="flex items-center gap-1 rounded-md bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700"
+              >
+                <FloppyDisk size={14} /> Simpan
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <h3 className="text-lg font-semibold text-slate-900">{contact?.name ?? "Pelanggan"}</h3>
+            <p className="text-sm text-slate-500">{conversation.customerPhoneDisplay}</p>
+            <button
+              onClick={startEdit}
+              className="mt-2 inline-flex items-center gap-1 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+            >
+              <PencilSimple size={14} /> Edit Kontak
+            </button>
+          </>
+        )}
       </div>
 
       {error && <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>}
@@ -108,7 +181,7 @@ export function ContactDetails({ conversation, onChanged }: ContactDetailsProps)
           <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Kontak</h4>
           <div className="space-y-3 text-sm">
             <div className="flex items-center gap-3 text-slate-600">
-              <Phone size={16} className="text-slate-400" /> {conversation.customerPhone}
+              <Phone size={16} className="text-slate-400" /> {conversation.customerPhoneDisplay}
             </div>
             {contact?.name && (
               <div className="flex items-center gap-3 text-slate-600">

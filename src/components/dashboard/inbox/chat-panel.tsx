@@ -27,6 +27,7 @@ type ChatPanelProps = {
   customerName: string;
   customerPhone: string;
   aiActive: boolean; // an AI agent is assigned (not handed to a human)
+  humanTakenOver: boolean; // a human staff member has taken over
   /** Mobile back-to-list action. */
   onBack?: () => void;
 };
@@ -89,7 +90,7 @@ function MessageBubble({ m }: { m: Message }) {
   );
 }
 
-export function ChatPanel({ conversationId, customerName, customerPhone, aiActive, onBack }: ChatPanelProps) {
+export function ChatPanel({ conversationId, customerName, customerPhone, aiActive, humanTakenOver, onBack }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -190,9 +191,9 @@ export function ChatPanel({ conversationId, customerName, customerPhone, aiActiv
             <span className="inline-flex items-center gap-1 rounded bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
               <Robot size={12} weight="fill" /> AI menangani
             </span>
-          ) : (
+          ) : humanTakenOver ? (
             <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">Diambil alih tim</span>
-          )}
+          ) : null}
         </div>
         <div className="flex items-center gap-1 text-slate-400">
           <button className="rounded-full p-2 hover:bg-slate-50" aria-label="Telepon">
