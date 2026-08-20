@@ -45,6 +45,7 @@ export type ConversationListItem = {
   assigneeUserId: string | null;
   status: ConversationStatus;
   lastMessageAt: string | null;
+  lastMessage: { body: string; senderType: string } | null;
   createdAt: string;
   updatedAt: string;
   contact: Contact | null;

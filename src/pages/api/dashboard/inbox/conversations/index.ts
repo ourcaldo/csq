@@ -19,7 +19,10 @@ type Item = Prisma.ConversationGetPayload<{
 // is the real phone number resolved from Baileys' LID→PN mapping (or the
 // bare LID if unresolved). For classic @s.whatsapp.net chats it's the bare
 // phone number.
-type DisplayItem = Item & { customerPhoneDisplay: string };
+type DisplayItem = Item & {
+  customerPhoneDisplay: string;
+  lastMessage: { body: string; senderType: string } | null;
+};
 type ListResult = {
   items: DisplayItem[];
   total: number;
@@ -68,13 +71,14 @@ export default async function handler(
           assignedAgent: true,
           assignee: true,
           tags: { include: { tag: true } },
+          messages: { take: 1, orderBy: { createdAt: "desc" }, select: { body: true, senderType: true } },
         },
         orderBy: { lastMessageAt: "desc" },
       }),
       prisma.conversation.count({ where }),
     ]);
 
-    // Resolve LID → real phone number for display.
+    // Resolve LID → real phone number for display + attach the last message.
     const itemsWithDisplay: DisplayItem[] = await Promise.all(
       items.map(async (item) => {
         let customerPhoneDisplay = item.customerPhone;
@@ -84,7 +88,11 @@ export default async function handler(
         } else if (item.customerPhone.includes("@s.whatsapp.net")) {
           customerPhoneDisplay = item.customerPhone.split("@")[0];
         }
-        return { ...item, customerPhoneDisplay };
+        const { messages: lastMsgs, ...rest } = item;
+        const lastMessage = lastMsgs[0]
+          ? { body: lastMsgs[0].body, senderType: lastMsgs[0].senderType }
+          : null;
+        return { ...rest, customerPhoneDisplay, lastMessage };
       })
     );
 

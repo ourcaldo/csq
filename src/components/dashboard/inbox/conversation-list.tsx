@@ -161,6 +161,16 @@ export function ConversationList({
                       {timeLabel(c.lastMessageAt)}
                     </span>
                   </div>
+                  {c.lastMessage && (
+                    <p className="truncate text-xs text-slate-400">
+                      {c.lastMessage.senderType === "AGENT"
+                        ? "AI: "
+                        : c.lastMessage.senderType === "HUMAN"
+                          ? "Anda: "
+                          : ""}
+                      {c.lastMessage.body}
+                    </p>
+                  )}
                   {c.assignee && (
                     <p className="text-xs text-slate-500">Ditugaskan ke {c.assignee.name ?? c.assignee.email}</p>
                   )}
