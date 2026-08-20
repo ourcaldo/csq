@@ -3,10 +3,11 @@
 // server-side by tenantId (Postgres RLS is the second enforcement layer).
 //
 // pgvector: "KnowledgeEmbedding.embedding" is declared Unsupported("vector")
-// because Prisma has no native vector type. The FIRST migration must run
-// `CREATE EXTENSION IF NOT EXISTS vector;` and ALTER that column to
-// `vector(1536)` (OpenAI text-embedding-3-small dimension). All vector reads
-// and writes go through src/lib/vector.ts only — never raw SQL elsewhere.
+// because Prisma has no native vector type. The FIRST migration runs
+// `CREATE EXTENSION IF NOT EXISTS vector;` and creates the column; a later
+// migration alters it to `vector(1024)` (Fireworks fireworks/qwen3-embedding-8b
+// dimension, via the `dimensions` param). All vector reads and writes go
+// through src/lib/vector.ts only — never raw SQL elsewhere.
 
 generator client {
   provider = "prisma-client-js"

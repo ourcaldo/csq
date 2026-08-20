@@ -1,0 +1,11 @@
+-- AlterKnowledgeEmbedding: vector dimension 1536 -> 1024.
+--
+-- The embedding column was created as vector(1536) (OpenAI text-embedding-3-
+-- small dimension) in the init migration. Knowledge retrieval now uses
+-- Fireworks fireworks/qwen3-embedding-8b with the `dimensions` parameter set
+-- to 1024 (Matryoshka truncation), so the column must match.
+--
+-- Safe: the column is empty (upsertEmbedding had no callers before this
+-- change) and there is no ANN index to drop/recreate. A plain ALTER TYPE
+-- works with no USING expression on an empty column.
+ALTER TABLE "KnowledgeEmbedding" ALTER COLUMN "embedding" TYPE vector(1024);

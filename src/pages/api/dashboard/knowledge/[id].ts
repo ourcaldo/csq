@@ -6,6 +6,8 @@ import { logHuman } from "@/lib/audit";
 import { requireTenant, respondError } from "@/lib/queries";
 import { apiOk, type ApiResponse } from "@/types/api";
 import { knowledgeUpdateSchema } from "@/types/knowledge";
+import { upsertEmbedding, deleteEmbedding } from "@/lib/vector";
+import { embed, isEmbeddingsConfigured } from "@/services/embeddings";
 
 export default async function handler(
   req: NextApiRequest,
@@ -45,16 +47,34 @@ export default async function handler(
       beforeValue: existing,
       afterValue: knowledge,
     });
+    // Re-embed on update so the vector reflects new title/content. Best-effort
+    // graceful degradation — the update is already persisted above.
+    if (isEmbeddingsConfigured()) {
+      try {
+        const vec = await embed(`${knowledge.title}\n${knowledge.content}`);
+        await upsertEmbedding("KnowledgeEmbedding", id, tenantId, vec);
+      } catch (err) {
+        console.warn(
+          `[knowledge.update] embedding upsert skipped for ${id}:`,
+          err
+        );
+      }
+    }
     return res.status(200).json(apiOk(knowledge));
   }
 
   if (req.method === "DELETE") {
     const existing = await prisma.knowledge.findFirst({ where: { id, tenantId } });
     if (!existing) return respondError(res, "NOT_FOUND", "Knowledge tidak ditemukan.");
-    // Cascades to KnowledgeEmbedding. Embedding vector cleanup is owned by
-    // lib/vector.ts (deleteEmbedding) on the ingestion path; cascade handles
-    // the row removal here.
     await prisma.knowledge.delete({ where: { id } });
+    // Explicit vector cleanup via lib/vector.ts (symmetric with the upsert on
+    // create/update). The FK cascade would also remove the row, but relying on
+    // hidden cascade behavior is worse than an explicit, best-effort delete.
+    try {
+      await deleteEmbedding("KnowledgeEmbedding", id, tenantId);
+    } catch (err) {
+      console.warn(`[knowledge.delete] embedding cleanup skipped for ${id}:`, err);
+    }
     await logHuman({
       tenantId,
       action: "knowledge.delete",

@@ -1,5 +1,7 @@
 import prisma from "../src/lib/db";
 import { hashPassword } from "../src/lib/password";
+import { upsertEmbedding } from "../src/lib/vector";
+import { embed, isEmbeddingsConfigured } from "../src/services/embeddings";
 
 // Demo tenant: Toko Kopi Nusantara (PRD §21). Run with `npm run prisma:seed`.
 // Idempotent-ish: upserts by unique keys (tenant slug, user email, inventory
@@ -171,11 +173,40 @@ async function ensureKnowledge(
   const existing = await prisma.knowledge.findFirst({
     where: { tenantId, type, title },
   });
+  const id = existing?.id;
   if (existing) {
     await prisma.knowledge.update({ where: { id: existing.id }, data: { content } });
+  } else {
+    const created = await prisma.knowledge.create({
+      data: { tenantId, type, title, content },
+    });
+    await embedKnowledge(tenantId, created.id, title, content);
     return;
   }
-  await prisma.knowledge.create({ data: { tenantId, type, title, content } });
+  if (id) {
+    await embedKnowledge(tenantId, id, title, content);
+  }
+}
+
+// Best-effort embedding so seeded knowledge is semantically retrievable. If
+// FIREWORKS_API_KEY is unset (e.g. seeding in an env without embeddings), skip
+// with a warning — the row is already saved and retrieval degrades to keyword.
+async function embedKnowledge(
+  tenantId: string,
+  knowledgeId: string,
+  title: string,
+  content: string
+): Promise<void> {
+  if (!isEmbeddingsConfigured()) {
+    console.warn(`[seed] embeddings not configured — skipping "${title}"`);
+    return;
+  }
+  try {
+    const vec = await embed(`${title}\n${content}`);
+    await upsertEmbedding("KnowledgeEmbedding", knowledgeId, tenantId, vec);
+  } catch (err) {
+    console.warn(`[seed] embedding upsert skipped for "${title}":`, err);
+  }
 }
 
 async function main() {

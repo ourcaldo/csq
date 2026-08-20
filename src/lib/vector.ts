@@ -2,8 +2,11 @@ import prisma from "@/lib/db";
 
 // ALL pgvector reads and writes go through this module. No raw vector SQL
 // anywhere else. Prisma declares the embedding column as Unsupported("vector");
-// the actual Postgres type is vector(1536), created/altered in the first
-// migration. Cosine distance operator is `<=>`; similarity = 1 - distance.
+// the actual Postgres type is vector(1024) (Fireworks fireworks/qwen3-embedding-8b
+// via the `dimensions` param), altered in a migration. Embeddings are generated
+// in src/services/embeddings.ts. Cosine distance operator is `<=>`; similarity
+// = 1 - distance. Qwen3 vectors are not unit-length, but `<=>` is magnitude-
+// invariant so no normalization is required.
 
 type VectorModel = "KnowledgeEmbedding";
 
@@ -38,9 +41,13 @@ export async function upsertEmbedding(
 ): Promise<void> {
   assertModel(model);
   const vector = toVectorLiteral(embedding);
+  // `id` is TEXT NOT NULL with no DB default (Prisma's @default(uuid()) is
+  // client-side only, and this is raw SQL), so generate it here with
+  // gen_random_uuid()::text. ON CONFLICT on the unique "knowledgeId" makes the
+  // create-vs-update distinction automatic.
   await prisma.$executeRaw`
-    INSERT INTO "KnowledgeEmbedding" ("knowledgeId", "tenantId", embedding, "createdAt")
-    VALUES (${recordId}, ${tenantId}, ${vector}::vector, NOW())
+    INSERT INTO "KnowledgeEmbedding" (id, "knowledgeId", "tenantId", embedding, "createdAt")
+    VALUES (gen_random_uuid()::text, ${recordId}, ${tenantId}, ${vector}::vector, NOW())
     ON CONFLICT ("knowledgeId") DO UPDATE
     SET embedding = ${vector}::vector, "tenantId" = ${tenantId}
   `;
