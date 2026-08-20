@@ -189,7 +189,12 @@ export async function connectBaileysChannel(
           console.log(`[baileys:${channel.id}] skip empty body`);
           continue;
         }
-        const from = fromJid(m.key.remoteJid);
+        // Store the FULL remoteJid (e.g. "194274775822580@lid" or
+        // "<phone>@s.whatsapp.net") — NOT the bare fromJid — so replies
+        // route to the correct JID. Newer WhatsApp uses LIDs for 1:1 chats;
+        // appending @s.whatsapp.net to a LID (as toJid would) sends to a
+        // non-existent user and the reply is silently lost.
+        const from = m.key.remoteJid ?? "";
         if (!from) continue;
         const tenantId = channel.tenantId;
         void (async () => {
@@ -200,6 +205,7 @@ export async function connectBaileysChannel(
             body,
             waMessageId: m.key.id ?? "",
             receivedAt: new Date(),
+            customerName: m.pushName || undefined,
           });
           // Reload the channel so the agent loop sees fresh status/agentId.
           const fresh = await prisma.channel.findUnique({ where: { id: channel.id } });
