@@ -38,6 +38,11 @@ const logger = pino({ level: "silent" });
 
 type SocketEntry = { sock: WASocket; qr: string | null; open: boolean };
 const sockets = new Map<string, SocketEntry>();
+// Channels the owner intentionally disconnected (Putuskan). The close
+// handler checks this so it doesn't auto-reconnect on the end() —
+// without this, disconnect bounces back to CONNECTED because the saved
+// creds let the socket reopen.
+const disconnecting = new Set<string>();
 
 // Normalize a bare number to a WhatsApp JID.
 function toJid(number: string): string {
@@ -152,6 +157,11 @@ export async function connectBaileysChannel(
         const code = disconnectCode(update.lastDisconnect?.error);
         console.log(`[baileys:${channel.id}] CLOSE code=${code}`);
         sockets.delete(channel.id);
+        // Owner-initiated disconnect (Putuskan): don't reconnect.
+        if (disconnecting.has(channel.id)) {
+          disconnecting.delete(channel.id);
+          return;
+        }
         if (code !== DisconnectReason.loggedOut) {
           // Reconnect on transient close; reload the channel row for fresh state.
           void prisma.channel
@@ -283,6 +293,7 @@ export function startBaileysHeartbeat(): void {
 
 // Stop and forget a channel's socket (used by disconnect).
 export function disconnectBaileysChannel(channelId: string): void {
+  disconnecting.add(channelId);
   const entry = sockets.get(channelId);
   if (entry) {
     try {
