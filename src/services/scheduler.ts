@@ -36,8 +36,13 @@ export function startScheduler(): void {
 }
 
 async function syncAllSheetsSources(): Promise<void> {
+  // Sync ACTIVE sources, and retry ERROR sources so a transient failure (e.g. a
+  // deploy that hit the old mapping:null parse bug, or a one-off Google API
+  // hiccup) self-heals on the next tick instead of forcing the owner to
+  // delete + re-add. syncOne flips status back to ACTIVE on success; on failure
+  // it stays ERROR. Mirrors the Baileys startup-reconnect pattern.
   const sources = await prisma.dataSource.findMany({
-    where: { type: "GOOGLE_SHEETS", status: "ACTIVE" },
+    where: { type: "GOOGLE_SHEETS", status: { in: ["ACTIVE", "ERROR"] } },
   });
   for (const source of sources) {
     try {
