@@ -244,7 +244,7 @@ export default function SourcesPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
-                        {s.type === "GOOGLE_SHEETS" && (
+                        {s.type === "GOOGLE_SHEETS" && s.status === "ACTIVE" && (
                           <Button
                             variant="outline"
                             size="sm"
