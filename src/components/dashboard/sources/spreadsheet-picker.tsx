@@ -12,7 +12,12 @@ import { DataTypeSelector } from "./data-type-selector";
 // Spreadsheet picker for the Google Sheets flow. Uses the tenant's stored
 // Google connection (no re-login). Bound to a placeholder GOOGLE_SHEETS
 // DataSource (sourceId) created by the callback or by /sheets/create.
-// Phases: pick spreadsheet → pick tab → mapping preview → confirm import.
+//
+// Phases: (1) pick spreadsheet AND tab on one screen, (2) mapping preview.
+// Previously these were two separate "Lanjut" steps, which read as "the first
+// click did nothing" — collapsed into one step so a single Lanjut reaches the
+// preview. `loading` covers fetch operations (list, tabs); `busy` covers
+// action button clicks (connect/confirm), so a fetch never disables the action.
 
 type ConnectResponse = {
   headers: string[];
@@ -31,8 +36,9 @@ type Props = {
 };
 
 export function SpreadsheetPicker({ sourceId, onClose, onDone }: Props) {
-  const [phase, setPhase] = useState<"sheet" | "tab" | "preview">("sheet");
+  const [phase, setPhase] = useState<"sheet" | "preview">("sheet");
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [spreadsheets, setSpreadsheets] = useState<SpreadsheetRef[]>([]);
@@ -45,7 +51,7 @@ export function SpreadsheetPicker({ sourceId, onClose, onDone }: Props) {
   // Load the spreadsheet list on mount.
   useEffect(() => {
     let active = true;
-    setBusy(true);
+    setLoading(true);
     apiFetch<SpreadsheetRef[]>("/api/dashboard/sources/spreadsheets")
       .then((r) => {
         if (active) setSpreadsheets(r);
@@ -54,28 +60,33 @@ export function SpreadsheetPicker({ sourceId, onClose, onDone }: Props) {
         if (active) setError(err instanceof ApiError ? err.message : "Gagal memuat spreadsheet.");
       })
       .finally(() => {
-        if (active) setBusy(false);
+        if (active) setLoading(false);
       });
     return () => {
       active = false;
     };
   }, []);
 
-  async function loadTabs(id: string) {
-    setBusy(true);
+  // When a spreadsheet is selected, load its tabs inline (same step) so the
+  // owner picks sheet + tab on one screen and a single Lanjut reaches preview.
+  function onPickSpreadsheet(id: string) {
+    setSpreadsheetId(id);
+    setTabs([]);
+    setTab("");
+    if (!id) return;
+    setLoading(true);
     setError(null);
-    try {
-      const res = await apiFetch<{ tabs: string[] }>(
-        `/api/dashboard/sources/sheets/tabs?spreadsheetId=${encodeURIComponent(id)}`
-      );
-      setTabs(res.tabs);
-      setTab(res.tabs[0] ?? "");
-      setPhase("tab");
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Gagal memuat tab.");
-    } finally {
-      setBusy(false);
-    }
+    apiFetch<{ tabs: string[] }>(
+      `/api/dashboard/sources/sheets/tabs?spreadsheetId=${encodeURIComponent(id)}`
+    )
+      .then((r) => {
+        setTabs(r.tabs);
+        setTab(r.tabs[0] ?? "");
+      })
+      .catch((err: unknown) => {
+        setError(err instanceof ApiError ? err.message : "Gagal memuat tab.");
+      })
+      .finally(() => setLoading(false));
   }
 
   async function doConnect() {
@@ -155,11 +166,11 @@ export function SpreadsheetPicker({ sourceId, onClose, onDone }: Props) {
             initialMapping={connect.mapping}
             busy={busy}
             onConfirm={confirm}
-            onCancel={() => setPhase("tab")}
+            onCancel={() => setPhase("sheet")}
           />
         ) : (
           <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setPhase("tab")} disabled={busy}>
+            <Button variant="outline" onClick={() => setPhase("sheet")} disabled={busy}>
               Batal
             </Button>
             <Button onClick={() => confirm(undefined)} disabled={busy}>
@@ -171,58 +182,38 @@ export function SpreadsheetPicker({ sourceId, onClose, onDone }: Props) {
     );
   }
 
+  // Combined sheet + tab selection on one screen.
   return (
-    <div className="space-y-4">
-      {phase === "sheet" && (
-        <div className="space-y-3">
-          <div>
-            <Label htmlFor="pick-sheet">Pilih Spreadsheet</Label>
-            <p className="text-xs text-muted-foreground">Daftar dari akun Google Anda.</p>
-          </div>
-          {spreadsheets.length === 0 && !busy && !error && (
-            <StateNotice variant="empty" message="Tidak ada spreadsheet ditemukan di akun Anda." />
-          )}
-          <Select
-            id="pick-sheet"
-            value={spreadsheetId}
-            onChange={(e) => setSpreadsheetId(e.target.value)}
-            disabled={busy}
-          >
-            <option value="">— pilih spreadsheet —</option>
-            {spreadsheets.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </Select>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={onClose} disabled={busy}>
-              Batal
-            </Button>
-            <Button
-              disabled={busy || !spreadsheetId}
-              onClick={() => loadTabs(spreadsheetId)}
-            >
-              {busy ? "Memuat…" : "Lanjut"}
-            </Button>
-          </div>
-        </div>
+    <div className="space-y-3">
+      <div>
+        <Label htmlFor="pick-sheet">Pilih Spreadsheet</Label>
+        <p className="text-xs text-muted-foreground">Daftar dari akun Google Anda.</p>
+      </div>
+      {spreadsheets.length === 0 && !loading && !error && (
+        <StateNotice variant="empty" message="Tidak ada spreadsheet ditemukan di akun Anda." />
       )}
+      <Select
+        id="pick-sheet"
+        value={spreadsheetId}
+        onChange={(e) => onPickSpreadsheet(e.target.value)}
+        disabled={loading || busy}
+      >
+        <option value="">— pilih spreadsheet —</option>
+        {spreadsheets.map((s) => (
+          <option key={s.id} value={s.id}>
+            {s.name}
+          </option>
+        ))}
+      </Select>
 
-      {phase === "tab" && (
-        <div className="space-y-3">
-          <div>
-            <Label htmlFor="pick-tab">Pilih Tab</Label>
-            <p className="text-xs text-muted-foreground">
-              Spreadsheet: {spreadsheets.find((s) => s.id === spreadsheetId)?.name}
-            </p>
-          </div>
+      {spreadsheetId && (
+        <div className="space-y-2 pt-2">
+          <Label htmlFor="pick-tab">Pilih Tab</Label>
           <Select
             id="pick-tab"
             value={tab}
             onChange={(e) => setTab(e.target.value)}
-            disabled={busy}
+            disabled={loading || busy || tabs.length === 0}
           >
             {tabs.map((t) => (
               <option key={t} value={t}>
@@ -230,17 +221,24 @@ export function SpreadsheetPicker({ sourceId, onClose, onDone }: Props) {
               </option>
             ))}
           </Select>
-          {error && <p className="text-sm text-destructive">{error}</p>}
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setPhase("sheet")} disabled={busy}>
-              Kembali
-            </Button>
-            <Button disabled={busy || !tab} onClick={doConnect}>
-              {busy ? "Memuat…" : "Lanjut"}
-            </Button>
-          </div>
+          {loading && tabs.length === 0 && (
+            <p className="text-xs text-muted-foreground">Memuat tab…</p>
+          )}
         </div>
       )}
+
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      <div className="flex justify-end gap-2 pt-2">
+        <Button variant="outline" onClick={onClose} disabled={busy}>
+          Batal
+        </Button>
+        <Button
+          disabled={busy || loading || !spreadsheetId || !tab}
+          onClick={doConnect}
+        >
+          {busy ? "Memuat…" : "Lanjut"}
+        </Button>
+      </div>
     </div>
   );
 }
