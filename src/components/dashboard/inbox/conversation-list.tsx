@@ -182,6 +182,11 @@ export function ConversationList({
                       Selesai
                     </span>
                   )}
+                  {c.stage && (
+                    <span className="mt-1 inline-block rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
+                      {c.stage.name}
+                    </span>
+                  )}
                 </div>
               </button>
             );

@@ -18,7 +18,8 @@ import {
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { apiFetch, apiSend } from "@/lib/api-client";
-import type { ConversationListItem, Tag } from "@/types/inbox";
+import { Select } from "@/components/ui/select";
+import type { ConversationListItem, Stage, Tag } from "@/types/inbox";
 import { useSession } from "next-auth/react";
 
 type ContactDetailsProps = {
@@ -30,6 +31,7 @@ export function ContactDetails({ conversation, onChanged }: ContactDetailsProps)
   const { data: session } = useSession();
   const me = session?.user?.id;
   const [tags, setTags] = useState<Tag[] | null>(null);
+  const [stages, setStages] = useState<Stage[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
@@ -46,9 +48,20 @@ export function ContactDetails({ conversation, onChanged }: ContactDetailsProps)
       setTags([]);
     }
   }
-  // Load tenant tags once.
+
+  async function loadStages() {
+    try {
+      const data = await apiFetch<{ stages: Stage[] }>("/api/dashboard/pipeline");
+      setStages(data.stages);
+    } catch {
+      setStages([]);
+    }
+  }
+
+  // Load tenant tags + pipeline stages once.
   useEffect(() => {
     void loadTags();
+    void loadStages();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -60,6 +73,21 @@ export function ContactDetails({ conversation, onChanged }: ContactDetailsProps)
       onChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal memperbarui.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Move the conversation's deal to a new stage (human manual change).
+  // Hits the pipeline deal endpoint, not the conversation PATCH.
+  async function setStage(stageName: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      await apiSend(`/api/dashboard/pipeline/deals/${conversation.id}`, "PATCH", { stage: stageName });
+      onChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal mengubah tahap.");
     } finally {
       setBusy(false);
     }
@@ -265,6 +293,29 @@ export function ContactDetails({ conversation, onChanged }: ContactDetailsProps)
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Tahap / Pipeline stage */}
+        <div>
+          <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Tahap</h4>
+          {stages === null ? (
+            <p className="text-xs text-slate-400">Memuat tahap…</p>
+          ) : stages.length === 0 ? (
+            <p className="text-xs text-slate-400">Belum ada tahap.</p>
+          ) : (
+            <Select
+              value={conversation.stage?.name ?? ""}
+              onChange={(e) => setStage(e.target.value)}
+              disabled={busy}
+            >
+              <option value="">— pilih tahap —</option>
+              {stages.map((s) => (
+                <option key={s.id} value={s.name}>
+                  {s.name}
+                </option>
+              ))}
+            </Select>
+          )}
         </div>
 
         {/* Tags */}

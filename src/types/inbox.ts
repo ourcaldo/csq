@@ -34,6 +34,17 @@ export type Contact = {
 
 export type ConversationTag = { tag: Tag };
 
+export type StageKind = "OPENING" | "WON" | "LOST" | "NORMAL";
+
+export type Stage = {
+  id: string;
+  name: string;
+  order: number;
+  winProbability: number | null;
+  expectedDays: number | null;
+  kind: StageKind;
+};
+
 export type ConversationListItem = {
   id: string;
   tenantId: string;
@@ -44,6 +55,7 @@ export type ConversationListItem = {
   assignedAgentId: string | null;
   assigneeUserId: string | null;
   status: ConversationStatus;
+  stage: Stage | null; // current pipeline stage (from Conversation.deal.stage)
   lastMessageAt: string | null;
   lastMessage: { body: string; senderType: string } | null;
   createdAt: string;

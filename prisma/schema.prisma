@@ -104,6 +104,16 @@ enum ConversationStatus {
   RESOLVED
 }
 
+// Role of a stage in a pipeline. OPENING is the single first stage a new
+// conversation lands on; WON and LOST are terminal (deals stop there). A
+// pipeline has exactly one of each (enforced by a partial unique index).
+enum StageKind {
+  OPENING
+  WON
+  LOST
+  NORMAL
+}
+
 enum MessageDirection {
   INBOUND
   OUTBOUND
@@ -154,6 +164,10 @@ model Tenant {
   agentCapabilities   AgentCapability[]
   conversationTags    ConversationTag[]
   sourceRows          SourceRow[]
+  pipelines           Pipeline[]
+  stages              Stage[]
+  deals               Deal[]
+  dealStageHistories  DealStageHistory[]
 }
 
 model User {
@@ -496,6 +510,7 @@ model Conversation {
   messages      Message[]
   tags          ConversationTag[]
   approvals     Approval[]        @relation("ApprovalConversation")
+  deal          Deal?
 
   @@unique([tenantId, channelId, customerPhone])
   @@index([tenantId, status])
@@ -567,4 +582,84 @@ model ConversationTag {
   @@unique([conversationId, tagId])
   @@index([tenantId])
   @@index([tagId])
+}
+
+// Sales pipeline for a tenant — one per tenant. Lazily seeded from the default
+// template the first time the owner opens the Pipeline page.
+model Pipeline {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  stages Stage[]
+
+  @@index([tenantId])
+}
+
+// A stage in a tenant's pipeline. `order` is the kanban column order. `kind`
+// marks the role: OPENING (the single entry stage), WON/LOST (terminal), NORMAL
+// (intermediate). winProbability (0..1) and expectedDays are optional per stage
+// and power the funnel/stuck-deal views. A pipeline has exactly one OPENING,
+// one WON, one LOST — enforced by a partial unique index in the migration
+// (Prisma schema can't express filtered uniques); the app also enforces it.
+model Stage {
+  id              String    @id @default(uuid())
+  tenantId        String
+  pipelineId      String
+  name            String
+  order           Int
+  winProbability Float?
+  expectedDays    Int?
+  kind            StageKind
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  pipeline Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  deals   Deal[]
+
+  @@index([pipelineId, order])
+  @@index([pipelineId, kind])
+  @@index([tenantId])
+}
+
+// A deal is a conversation being worked through the pipeline. 1:1 with
+// Conversation; `stageId` is the current stage. Created lazily the first time a
+// conversation is placed on a stage (by the AI agent or a human).
+model Deal {
+  id             String   @id @default(uuid())
+  tenantId       String
+  conversationId String   @unique
+  stageId        String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  stage         Stage         @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  histories    DealStageHistory[]
+
+  @@index([tenantId, stageId])
+}
+
+// Audit trail of stage transitions — one row per move. `movedByUserId` for a
+// human move, `movedByAgentId` for an AI auto-move; at least one is set.
+model DealStageHistory {
+  id             String    @id @default(uuid())
+  tenantId       String
+  dealId         String
+  fromStageId     String
+  toStageId       String
+  movedByUserId   String?
+  movedByAgentId  String?
+  reason         String?
+  createdAt       DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, dealId, createdAt])
 }

@@ -43,6 +43,7 @@ export async function runAgentReply(args: {
 
   const conversation = await prisma.conversation.findFirst({
     where: { id: conversationId, tenantId },
+    include: { deal: { include: { stage: true } } },
   });
   if (!conversation) {
     return { reply: "", toolCalls: [], stoodDown: true };
@@ -111,7 +112,15 @@ export async function runAgentReply(args: {
     }))
   );
 
-  const systemPrompt = await buildSystemPrompt({ tenant, agent });
+  // Map the Prisma conversation's deal+stage into the minimal prompt context.
+  const stage = conversation.deal?.stage;
+  const systemPrompt = await buildSystemPrompt({
+    tenant,
+    agent,
+    conversation: stage
+      ? { deal: { stage: { name: stage.name, kind: stage.kind } } }
+      : undefined,
+  });
 
   const result = await runConversation({
     tenantId,

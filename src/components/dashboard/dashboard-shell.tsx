@@ -34,6 +34,7 @@ import {
   CaretDown,
   SignOut,
   List,
+  Kanban,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 
@@ -47,6 +48,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard", label: "Ringkasan", icon: <ChartBar size={18} /> },
       { href: "/dashboard/inbox", label: "Percakapan", icon: <ChatCircleDots size={18} /> },
       { href: "/dashboard/saluran", label: "Saluran", icon: <WhatsappLogo size={18} /> },
+      { href: "/dashboard/pipeline", label: "Manajemen Pipeline", icon: <Kanban size={18} /> },
     ],
   },
   {

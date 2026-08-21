@@ -144,6 +144,31 @@ export async function seedDemo(): Promise<void> {
     });
   }
 
+  // Default sales pipeline for the demo tenant. Real tenants get this template
+  // lazily on first Pipeline-page open (see lib/pipeline.ts). Mapped onto the
+  // existing order flow: Pesanan ↔ order.create, Menang ↔ confirmed order.
+  const existingPipeline = await prisma.pipeline.findFirst({
+    where: { tenantId: tenant.id },
+  });
+  if (!existingPipeline) {
+    await prisma.pipeline.create({
+      data: {
+        tenantId: tenant.id,
+        name: "Pipeline Penjualan",
+        stages: {
+          create: [
+            { tenantId: tenant.id, name: "Baru", order: 1, winProbability: 0.1, expectedDays: 3, kind: "OPENING" },
+            { tenantId: tenant.id, name: "Tertarik", order: 2, winProbability: 0.25, expectedDays: 7, kind: "NORMAL" },
+            { tenantId: tenant.id, name: "Penawaran", order: 3, winProbability: 0.5, expectedDays: 7, kind: "NORMAL" },
+            { tenantId: tenant.id, name: "Pesanan", order: 4, winProbability: 0.75, expectedDays: 3, kind: "NORMAL" },
+            { tenantId: tenant.id, name: "Menang", order: 5, winProbability: 1, kind: "WON" },
+            { tenantId: tenant.id, name: "Kalah", order: 6, winProbability: 0, kind: "LOST" },
+          ],
+        },
+      },
+    });
+  }
+
   // WhatsApp Cloud API channel (DISCONNECTED — owner fills real creds to demo).
   const existingChannel = await prisma.channel.findFirst({
     where: { tenantId: tenant.id, provider: "CLOUD_API" },
