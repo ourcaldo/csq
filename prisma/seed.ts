@@ -110,8 +110,12 @@ export async function seedDemo(): Promise<void> {
       },
     }));
 
-  // Explicit capabilities (deterministic for the demo). Matches tool defaults:
-  // reads allowed/no-approval; writes denied/approval (owner must enable).
+  // Explicit capabilities (deterministic for the demo). Reads and
+  // customer.update (customer-volunteered identity) + conversation.handoff
+  // (customer-requested human escalation) are allowed/no-approval. Orders are
+  // enabled for the demo: order.create autonomous (allowed/no-approval),
+  // order.cancel approval-gated (cancels restore stock + should be confirmed).
+  // Other sensitive business writes (product/inventory) stay denied/approval.
   const capabilities: Array<{ tool: string; allowed: boolean; requiresApproval: boolean }> = [
     { tool: "product.read", allowed: true, requiresApproval: false },
     { tool: "product.search", allowed: true, requiresApproval: false },
@@ -119,11 +123,12 @@ export async function seedDemo(): Promise<void> {
     { tool: "inventory.read", allowed: true, requiresApproval: false },
     { tool: "inventory.update", allowed: false, requiresApproval: true },
     { tool: "order.read", allowed: true, requiresApproval: false },
-    { tool: "order.create", allowed: false, requiresApproval: true },
-    { tool: "order.cancel", allowed: false, requiresApproval: true },
+    { tool: "order.create", allowed: true, requiresApproval: false },
+    { tool: "order.cancel", allowed: true, requiresApproval: true },
     { tool: "customer.read", allowed: true, requiresApproval: false },
-    { tool: "customer.update", allowed: false, requiresApproval: true },
+    { tool: "customer.update", allowed: true, requiresApproval: false },
     { tool: "knowledge.search", allowed: true, requiresApproval: false },
+    { tool: "conversation.handoff", allowed: true, requiresApproval: false },
   ];
   for (const cap of capabilities) {
     await prisma.agentCapability.upsert({

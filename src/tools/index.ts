@@ -14,6 +14,7 @@ import { orderTools } from "./order";
 import { customerTools } from "./customer";
 import { knowledgeTools } from "./knowledge";
 import { memoryTools } from "./memory";
+import { conversationTools } from "./conversation";
 
 const registry = new Map<string, ToolDefinition<any>>();
 
@@ -44,8 +45,11 @@ export function listToolSummaries(): ToolSummary[] {
 }
 
 // Register every tool at module load. No name conflicts — registerTool throws
-// on duplicates. Defaults: *.read allowed/no-approval; *.update|*.create|
-// *.cancel denied/approval (the owner must explicitly enable writes).
+// on duplicates. Defaults: *.read allowed/no-approval; customer.update and
+// conversation.handoff allowed/no-approval (customer-volunteered identity
+// capture and customer-requested human escalation); *.update|*.create|
+// *.cancel on business data denied/approval (the owner must explicitly enable
+// writes).
 const allTools: ToolDefinition<any>[] = [
   ...productTools,
   ...inventoryTools,
@@ -53,6 +57,7 @@ const allTools: ToolDefinition<any>[] = [
   ...customerTools,
   ...knowledgeTools,
   ...memoryTools,
+  ...conversationTools,
 ];
 for (const t of allTools) {
   registerTool(t);

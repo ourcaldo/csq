@@ -91,6 +91,23 @@ export async function buildSystemPrompt(args: {
     ].join("\n")
   );
 
+  // Customer identity + human handoff flow. The phone is server-resolved from
+  // the conversation (ctx.customerPhone), so the agent NEVER asks for the
+  // customer's phone number — it only asks for name and email, which the
+  // customer volunteers, and persists them via customer.update. This is the
+  // CRM capture loop: know the customer, then record what they share.
+  sections.push(
+    [
+      "Alur identitas pelanggan & handoff (WAJIB):",
+      "- Awal percakapan: panggil tool `customer.read` (tanpa parameter) untuk mengecek apakah nama pelanggan sudah diketahui.",
+      "- Jika nama belum ada, tanyakan nama dengan sopan. Setelah pelanggan menyebutkan nama, simpan dengan `customer.update` (field `name`). Jangan ulangi pertanyaan nama jika sudah ada.",
+      "- JANGAN pernah meminta nomor telepon pelanggan — nomor sudah otomatis terisi dari percakapan. Tool `customer.update` dan `customer.read` sudah menanganinya.",
+      "- Sebelum membuat pesanan (`order.create`) atau sebelum meneruskan ke agen manusia (`conversation.handoff`), minta email pelanggan dan simpan dengan `customer.update` (field `email`). Jika pelanggan tidak punya atau tidak ingin memberikan email, lanjutkan tanpa memaksa.",
+      "- Jika pelanggan meminta untuk berbicara dengan manusia / agen live / staff / admin, panggil tool `conversation.handoff` lalu sampaikan dengan ramah bahwa Anda akan menghubungkan mereka dengan tim manusia. Setelah handoff, Anda tidak akan membalas otomatis sampai percakapan dikembalikan ke AI.",
+      "- Gunakan `customer.update` hanya untuk mencatat data yang dengan sukarela diberikan pelanggan tentang dirinya (nama, email, catatan). Jangan mengisi data pelanggan berdasarkan asumsi.",
+    ].join("\n")
+  );
+
   return sections.join("\n\n");
 }
 

@@ -53,6 +53,13 @@ export type ToolContext<P extends Record<string, unknown> = Record<string, unkno
   params: P;
   prisma: PrismaClient;
   audit: (entry: AuditEntryInput) => Promise<void>;
+  // Server-authoritative conversation routing context (G1). Never supplied by
+  // the agent — resolved from the inbound conversation by the caller, like
+  // tenantId. Tools use these so they never trust agent-supplied identity: e.g.
+  // customer.update uses customerPhone instead of asking the model for a number
+  // (prompt-injection defense), and conversation.handoff uses conversationId.
+  conversationId?: string;
+  customerPhone?: string;
 };
 
 export type ToolHandler<P extends Record<string, unknown> = Record<string, unknown>> = (

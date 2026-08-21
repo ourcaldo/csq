@@ -138,6 +138,8 @@ export async function executeTool(args: ExecuteArgs): Promise<ExecuteOutcome> {
     params: parsed.data,
     prisma,
     audit: auditFn,
+    conversationId: args.conversationId,
+    customerPhone: args.customerPhone,
   };
 
   try {
@@ -216,6 +218,11 @@ export async function executeApprovedAction(
     params: parsed.data,
     prisma,
     audit: auditFn,
+    // Re-expose the originating conversation's routing context so approved
+    // replay of context-aware tools (customer.update, conversation.handoff)
+    // resolves identity the same way the original call did.
+    conversationId: approval.conversationId ?? undefined,
+    customerPhone: approval.customerPhone ?? undefined,
   };
 
   try {
