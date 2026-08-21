@@ -5,6 +5,7 @@ import { applyImport } from "@/lib/import-apply";
 import { applyMapping } from "@/services/excel";
 import { readSheet } from "@/services/sheets";
 import { sheetsSourceConfigSchema } from "@/types/sheets";
+import { getGoogleCreds } from "@/lib/google-connect";
 import { startBaileysChannels, startBaileysHeartbeat } from "@/services/baileys";
 
 // In-process periodic sync for Google Sheets sources (PRD §23A — no Redis/queue,
@@ -56,8 +57,14 @@ export async function syncOne(
   // Parse the Json config with Zod — never `as`. A corrupt config throws and
   // is surfaced by the caller as a sync error (DataSource.status = ERROR).
   const config = sheetsSourceConfigSchema.parse(rawConfig);
+  // OAuth credentials live on the tenant now (lib/google-connect), not in the
+  // source config. No creds => treat as a sync error (caller marks ERROR).
+  const creds = await getGoogleCreds(tenantId);
+  if (!creds) {
+    throw new Error("Google account not connected");
+  }
   const range = config.range || config.sheetName;
-  const sheet = await readSheet(config, config.spreadsheetId, range);
+  const sheet = await readSheet(creds, config.spreadsheetId, range);
   const products = applyMapping(sheet.rows, config.mapping);
   const summary = await applyImport(
     tenantId,

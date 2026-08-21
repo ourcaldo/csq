@@ -6,6 +6,7 @@ import { apiOk, type ApiResponse } from "@/types/api";
 import { detectColumns } from "@/services/excel";
 import { readSheet } from "@/services/sheets";
 import { sheetsConnectSchema, sheetsSourceConfigSchema } from "@/types/sheets";
+import { getGoogleCreds } from "@/lib/google-connect";
 
 // Step 3: after OAuth, the owner picks a spreadsheet + sheet. We read the
 // first rows, detect columns, persist the selection into DataSource.config,
@@ -41,9 +42,14 @@ export default async function handler(
   });
   if (!source) return respondError(res, "NOT_FOUND", "Sumber Sheets tidak ditemukan.");
 
+  // OAuth credentials live on the tenant now, not in DataSource.config.
+  const creds = await getGoogleCreds(tenantId);
+  if (!creds) {
+    return respondError(res, "VALIDATION_ERROR", "Akun Google belum terhubung. Sambungkan dulu.");
+  }
   const config = sheetsSourceConfigSchema.parse(source.config);
   const readRange = range || sheetName;
-  const sheet = await readSheet(config, spreadsheetId, readRange);
+  const sheet = await readSheet(creds, spreadsheetId, readRange);
   const { mapping, confidence } = detectColumns(sheet.headers);
 
   await prisma.dataSource.update({

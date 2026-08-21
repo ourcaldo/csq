@@ -65,6 +65,22 @@ export async function listSpreadsheets(
     .map((f) => ({ id: f.id, name: f.name }));
 }
 
+// List the tab (sheet) titles within a spreadsheet, so the owner can pick which
+// tab to import after choosing a spreadsheet. The connect step needs a
+// sheetName, and reading "the whole file" isn't an option with the Sheets API.
+export async function listSheets(
+  creds: OAuthCredentials,
+  spreadsheetId: string
+): Promise<string[]> {
+  const sheets = google.sheets({ version: "v4", auth: authedClient(creds) });
+  const res = await sheets.spreadsheets.get({
+    spreadsheetId,
+    fields: "sheets.properties.title",
+  });
+  const titles = res.data.sheets?.map((s) => s.properties?.title).filter(Boolean) ?? [];
+  return titles.filter((t): t is string => typeof t === "string");
+}
+
 export async function readSheet(
   creds: OAuthCredentials,
   spreadsheetId: string,

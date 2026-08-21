@@ -1,16 +1,33 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { GetServerSideProps } from "next";
+import { useRouter } from "next/router";
 import { withAuth } from "@/lib/auth";
 import { apiFetch, apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
-import type { DataSource, DataSourceStatusResult, DataSourceType, ListResult } from "@/types/dashboard";
+import type {
+  DataSource,
+  DataSourceStatusResult,
+  DataSourceType,
+  ListResult,
+} from "@/types/dashboard";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { StateNotice } from "@/components/dashboard/state-notice";
 import { Pagination } from "@/components/dashboard/pagination";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
+import { AddSourceDialog } from "@/components/dashboard/sources/add-source-dialog";
+import { GoogleSheetsStep } from "@/components/dashboard/sources/google-sheets-step";
+import { SpreadsheetPicker } from "@/components/dashboard/sources/spreadsheet-picker";
+import { Dialog } from "@/components/ui/dialog";
 
 const PAGE_SIZE = 20;
 
@@ -39,7 +56,10 @@ function formatDateTime(iso: string | null): string {
   });
 }
 
+type GoogleStatus = { connected: boolean; email?: string };
+
 export default function SourcesPage() {
+  const router = useRouter();
   const [page, setPage] = useState(1);
 
   const [toDelete, setToDelete] = useState<DataSource | null>(null);
@@ -48,8 +68,24 @@ export default function SourcesPage() {
   const [statusMap, setStatusMap] = useState<Record<string, DataSourceStatusResult>>({});
   const [error, setError] = useState<string | null>(null);
 
+  const [addOpen, setAddOpen] = useState(false);
+  const [pickerSourceId, setPickerSourceId] = useState<string | null>(null);
+
   const url = `/api/dashboard/sources?page=${page}&pageSize=${PAGE_SIZE}`;
   const { data, loading, error: fetchError, refresh } = useApi<ListResult<DataSource>>(url);
+  const google = useApi<GoogleStatus>("/api/dashboard/sources/google");
+
+  // After Google OAuth, the callback redirects here with ?sheets_source=<id>.
+  // Open the spreadsheet picker for that source, then clean the URL so a refresh
+  // doesn't reopen it.
+  useEffect(() => {
+    const raw = router.query.sheets_source;
+    const src = typeof raw === "string" ? raw : undefined;
+    if (src) {
+      setPickerSourceId(src);
+      void router.replace({ pathname: router.pathname }, undefined, { shallow: true });
+    }
+  }, [router.query.sheets_source, router]);
 
   async function checkStatus(source: DataSource) {
     setCheckingId(source.id);
@@ -89,11 +125,27 @@ export default function SourcesPage() {
     return statusMap[source.id]?.lastSyncAt ?? source.lastSyncAt;
   }
 
+  const googleConnected = google.data?.connected ?? false;
+  const googleEmail = google.data?.email;
+
   return (
     <DashboardShell
       title="Sumber Data"
       description="Excel, Google Sheets, dan sumber data lain yang tersambung."
+      actions={
+        <Button onClick={() => setAddOpen(true)}>Tambah Sumber Data</Button>
+      }
     >
+      {/* Google connection banner — the dynamic Connect/Disconnect button. */}
+      <div className="mb-4 rounded-lg border bg-white p-4">
+        <GoogleSheetsStep
+          connected={googleConnected}
+          email={googleEmail}
+          onConnectionChanged={() => google.refresh()}
+          onOpenPicker={(id) => setPickerSourceId(id)}
+        />
+      </div>
+
       {fetchError && <p className="mb-4 text-sm text-destructive">{fetchError}</p>}
       {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
       {loading && <StateNotice variant="loading" message="Memuat sumber data…" />}
@@ -116,7 +168,7 @@ export default function SourcesPage() {
                     <TableCell colSpan={5}>
                       <StateNotice
                         variant="empty"
-                        message="Belum ada sumber data. Impor Excel atau sambungkan Google Sheets dari halaman lain."
+                        message="Belum ada sumber data. Klik Tambah Sumber Data untuk mulai."
                       />
                     </TableCell>
                   </TableRow>
@@ -165,6 +217,37 @@ export default function SourcesPage() {
           )}
         </>
       )}
+
+      <AddSourceDialog
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        googleConnected={googleConnected}
+        googleEmail={googleEmail}
+        onConnectionChanged={() => google.refresh()}
+        onOpenPicker={(id) => setPickerSourceId(id)}
+        onImported={() => refresh()}
+      />
+
+      {/* Spreadsheet picker (post-OAuth or "Tambah Spreadsheet"). */}
+      <Dialog
+        open={pickerSourceId !== null}
+        onClose={() => setPickerSourceId(null)}
+        title="Pilih Spreadsheet"
+        description="Pilih spreadsheet dan tab, lalu petakan kolom untuk diimpor."
+        className="max-w-xl"
+      >
+        {pickerSourceId && (
+          <SpreadsheetPicker
+            sourceId={pickerSourceId}
+            onClose={() => setPickerSourceId(null)}
+            onDone={() => {
+              setPickerSourceId(null);
+              refresh();
+              google.refresh();
+            }}
+          />
+        )}
+      </Dialog>
 
       <ConfirmDialog
         open={toDelete !== null}

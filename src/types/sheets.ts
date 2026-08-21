@@ -1,7 +1,9 @@
 import { z } from "zod";
 
-// Google Sheets OAuth + connection types (PRD §8.3). OAuth credentials are
-// stored per-tenant in DataSource.config (Json), never in .env.
+// Google Sheets OAuth + connection types (PRD §8.3). OAuth credentials live
+// at the tenant level in Tenant.settings.googleSheets (see lib/google-connect),
+// NOT in each DataSource — one Google connection powers many spreadsheets.
+// DataSource.config holds only the per-spreadsheet selection + column mapping.
 
 export type OAuthCredentials = {
   accessToken: string;
@@ -40,12 +42,12 @@ export const sheetsSyncSchema = z.object({
 });
 export type SheetsSyncInput = z.infer<typeof sheetsSyncSchema>;
 
-// DataSource.config Json shape for GOOGLE_SHEETS sources. Parsed with Zod
-// (never `as`) at every read — the DB Json column is an external boundary.
+// DataSource.config Json shape for GOOGLE_SHEETS sources — the per-spreadsheet
+// selection + column mapping only (no OAuth tokens; those live on the tenant).
+// Parsed with Zod (never `as`) at every read — the DB Json column is an
+// external boundary. Zod strips unknown keys, so legacy sources that still
+// carry token fields parse fine.
 export const sheetsSourceConfigSchema = z.object({
-  accessToken: z.string(),
-  refreshToken: z.string().optional(),
-  expiryDate: z.number().optional(),
   spreadsheetId: z.string(),
   sheetName: z.string(),
   range: z.string().optional(),
