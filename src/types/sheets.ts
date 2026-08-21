@@ -53,8 +53,11 @@ export type SheetsSyncInput = z.infer<typeof sheetsSyncSchema>;
 // selection + column mapping only (no OAuth tokens; those live on the tenant).
 // Parsed with Zod (never `as`) at every read — the DB Json column is an
 // external boundary. Zod strips unknown keys, so legacy sources that still
-// carry token fields parse fine. mapping is optional: only "produk" sources
-// have one; other data types (cabang, staff, ...) are stored as raw rows.
+// carry token fields parse fine. mapping is nullish: "produk" sources have a
+// mapping object; other data types (cabang, staff, ...) store `mapping: null`
+// (confirm persists `mapping ?? null`), so the schema must accept null as well
+// as undefined — `.optional()` alone rejects null, which made non-produk sources
+// fail config parsing (and thus sync) with a misleading error.
 export const sheetsSourceConfigSchema = z.object({
   spreadsheetId: z.string(),
   sheetName: z.string(),
@@ -68,6 +71,6 @@ export const sheetsSourceConfigSchema = z.object({
       sku: z.string().nullable().optional(),
       description: z.string().nullable().optional(),
     })
-    .optional(),
+    .nullish(),
 });
 export type SheetsSourceConfig = z.infer<typeof sheetsSourceConfigSchema>;
