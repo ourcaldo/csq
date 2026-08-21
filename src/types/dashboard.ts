@@ -119,6 +119,7 @@ export type DataSource = {
   tenantId: string;
   type: DataSourceType;
   name: string;
+  dataType: string;
   config: unknown;
   status: DataSourceStatus;
   lastSyncAt: string | null;

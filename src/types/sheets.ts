@@ -27,13 +27,20 @@ export type SheetsConnectInput = z.infer<typeof sheetsConnectSchema>;
 export const sheetsConfirmSchema = z.object({
   sourceId: z.string().uuid(),
   name: z.string().min(1).optional(),
-  mapping: z.object({
-    name: z.string().nullable(),
-    price: z.string().nullable(),
-    quantity: z.string().nullable(),
-    sku: z.string().nullable().optional(),
-    description: z.string().nullable().optional(),
-  }),
+  // What kind of data this is ("produk", "cabang", "staff", ...). Only
+  // "produk" gets structured product/inventory import; anything else is stored
+  // as raw rows for source.search. Defaults to "produk".
+  dataType: z.string().min(1).optional(),
+  // Required only when dataType is "produk"; ignored otherwise.
+  mapping: z
+    .object({
+      name: z.string().nullable(),
+      price: z.string().nullable(),
+      quantity: z.string().nullable(),
+      sku: z.string().nullable().optional(),
+      description: z.string().nullable().optional(),
+    })
+    .optional(),
 });
 export type SheetsConfirmInput = z.infer<typeof sheetsConfirmSchema>;
 
@@ -46,17 +53,21 @@ export type SheetsSyncInput = z.infer<typeof sheetsSyncSchema>;
 // selection + column mapping only (no OAuth tokens; those live on the tenant).
 // Parsed with Zod (never `as`) at every read — the DB Json column is an
 // external boundary. Zod strips unknown keys, so legacy sources that still
-// carry token fields parse fine.
+// carry token fields parse fine. mapping is optional: only "produk" sources
+// have one; other data types (cabang, staff, ...) are stored as raw rows.
 export const sheetsSourceConfigSchema = z.object({
   spreadsheetId: z.string(),
   sheetName: z.string(),
   range: z.string().optional(),
-  mapping: z.object({
-    name: z.string().nullable(),
-    price: z.string().nullable(),
-    quantity: z.string().nullable(),
-    sku: z.string().nullable().optional(),
-    description: z.string().nullable().optional(),
-  }),
+  dataType: z.string().optional(),
+  mapping: z
+    .object({
+      name: z.string().nullable(),
+      price: z.string().nullable(),
+      quantity: z.string().nullable(),
+      sku: z.string().nullable().optional(),
+      description: z.string().nullable().optional(),
+    })
+    .optional(),
 });
 export type SheetsSourceConfig = z.infer<typeof sheetsSourceConfigSchema>;

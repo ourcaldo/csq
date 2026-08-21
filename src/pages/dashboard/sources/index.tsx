@@ -229,7 +229,12 @@ export default function SourcesPage() {
                 )}
                 {data?.items.map((s) => (
                   <TableRow key={s.id}>
-                    <TableCell className="font-medium">{s.name}</TableCell>
+                    <TableCell className="font-medium">
+                      {s.name}
+                      <span className="block text-xs font-normal text-muted-foreground">
+                        {s.dataType}
+                      </span>
+                    </TableCell>
                     <TableCell>
                       <Badge variant="outline">{TYPE_LABEL[s.type]}</Badge>
                     </TableCell>

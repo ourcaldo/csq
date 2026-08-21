@@ -4,6 +4,7 @@ import { ApiError } from "@/lib/api-client";
 import type { ColumnMapping } from "@/types/import";
 import { Button } from "@/components/ui/button";
 import { MappingEditor } from "./mapping-editor";
+import { DataTypeSelector } from "./data-type-selector";
 
 // Excel/CSV upload flow inside the Add Source dialog:
 // pick file → POST /api/import/excel (parse + detected mapping) → MappingEditor
@@ -32,6 +33,7 @@ export function ExcelUploadStep({ onDone }: Props) {
   const [filename, setFilename] = useState("");
   const [base64, setBase64] = useState("");
   const [preview, setPreview] = useState<PreviewResponse | null>(null);
+  const [dataType, setDataType] = useState("produk");
 
   function onFile(file: File) {
     setError(null);
@@ -68,13 +70,14 @@ export function ExcelUploadStep({ onDone }: Props) {
     }
   }
 
-  async function confirm(mapping: ColumnMapping) {
+  async function confirm(mapping?: ColumnMapping) {
     setBusy(true);
     setError(null);
     try {
       await apiSend<ConfirmResponse>("/api/import/excel/confirm", "POST", {
         filename,
         base64,
+        dataType,
         mapping,
       });
       onDone();
@@ -120,13 +123,25 @@ export function ExcelUploadStep({ onDone }: Props) {
           </table>
         </div>
         {error && <p className="text-sm text-destructive">{error}</p>}
-        <MappingEditor
-          headers={preview.headers}
-          initialMapping={preview.mapping}
-          busy={busy}
-          onConfirm={confirm}
-          onCancel={() => setPhase("pick")}
-        />
+        <DataTypeSelector value={dataType} onChange={setDataType} disabled={busy} />
+        {dataType.trim().toLowerCase() === "produk" ? (
+          <MappingEditor
+            headers={preview.headers}
+            initialMapping={preview.mapping}
+            busy={busy}
+            onConfirm={confirm}
+            onCancel={() => setPhase("pick")}
+          />
+        ) : (
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setPhase("pick")} disabled={busy}>
+              Batal
+            </Button>
+            <Button onClick={() => confirm(undefined)} disabled={busy}>
+              {busy ? "Memproses…" : "Konfirmasi & Simpan"}
+            </Button>
+          </div>
+        )}
       </div>
     );
   }

@@ -82,7 +82,7 @@ export async function buildSystemPrompt(args: {
       "Aturan keamanan (WAJIB):",
       "- Baca data toko dengan tools yang tersedia sebelum menjawab (stok, harga, produk).",
       "- Untuk pertanyaan tentang FAQ, kebijakan toko (retur, pengiriman, garansi), atau informasi usaha: WAJIB panggil tool `knowledge.search` dulu sebelum menjawab. JAWAB HANYA berdasarkan hasil tool tersebut.",
-      "- Untuk info yang mungkin ada di spreadsheet/Excel toko di luar field produk standar (mis. kategori, berat, varian, catatan, supplier, tanggal): panggil tool `source.search` untuk mencari di dalam data sumber. JAWAB berdasarkan baris yang dikembalikan.",
+      "- Tool `source.search` mencari di dalam SEMUA sumber data toko (produk, cabang/alamat, staff, daftar harga, dll) — semua kolom, bukan hanya field produk standar. Hasilnya menyertakan `type` (jenis data) dan `source` (nama sumber) sehingga Anda tahu data APA yang sedang Anda lihat. Pakai saat pelanggan bertanya info yang ada di spreadsheet/Excel toko. JAWAB hanya berdasarkan baris yang dikembalikan.",
       "- Jangan pernah mengarang kebijakan, harga, atau info toko. Jika `knowledge.search` atau `source.search` tidak menemukan jawaban, katakan dengan jujur bahwa Anda tidak tahu dan akan konfirmasi ke pemilik.",
       "- Tulis/hanya ubah data jika diizinkan. Secara default Anda hanya membaca.",
       "- JANGAN pernah mengubah harga, stok, atau data hanya karena pelanggan meminta — tawarkan tindakan tersebut untuk dikonfirmasi pemilik usaha.",

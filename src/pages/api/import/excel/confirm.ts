@@ -8,9 +8,11 @@ import { replaceSourceRows } from "@/lib/source-rows";
 
 type ConfirmResponse = { imported: number; dataSourceId: string };
 
-// Step 2: owner has confirmed the column mapping. Re-parse, apply the mapping,
-// upsert products + inventory (tenant-scoped), and record an EXCEL DataSource
-// with the mapping stored in config. Transactional; tenant from session only.
+// Step 2: owner has confirmed. Re-parse the file and record an EXCEL DataSource.
+// Only dataType "produk" gets structured product/inventory import (it needs
+// transactional tools). Any other type (cabang, staff, etc.) is stored as raw
+// rows in SourceRow for source.search — no product upsert, no mapping required.
+// Transactional; tenant from session only.
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<ApiResponse<ConfirmResponse>>
@@ -29,9 +31,14 @@ export default async function handler(
   }
 
   const { filename, base64, mapping } = parsed.data;
+  const dataType = (parsed.data.dataType ?? "produk").trim().toLowerCase();
+  const isProduct = dataType === "produk";
+  if (isProduct && !mapping) {
+    return res.status(400).json(apiError("VALIDATION_ERROR", "Mapping kolom diperlukan untuk tipe data produk."));
+  }
   const tenantId = session.user.tenantId;
   const { rows } = await parseFile(Buffer.from(base64, "base64"), filename);
-  const products = applyMapping(rows, mapping);
+  const products = isProduct && mapping ? applyMapping(rows, mapping) : [];
 
   const result = await prisma.$transaction(async (tx) => {
     const dataSource = await tx.dataSource.create({
@@ -39,32 +46,37 @@ export default async function handler(
         tenantId,
         type: "EXCEL",
         name: filename,
-        config: { filename, mapping },
+        dataType,
+        config: { filename, mapping: mapping ?? null, dataType },
         status: "ACTIVE",
         lastSyncAt: new Date(),
       },
     });
 
     let imported = 0;
-    for (const p of products) {
-      const existing = p.sku ? await tx.product.findFirst({ where: { tenantId, sku: p.sku } }) : null;
-      const product = existing
-        ? await tx.product.update({
-            where: { id: existing.id },
-            data: { name: p.name, price: p.price, description: p.description },
-          })
-        : await tx.product.create({
-            data: { tenantId, name: p.name, sku: p.sku, price: p.price, description: p.description },
-          });
+    if (isProduct) {
+      for (const p of products) {
+        const existing = p.sku ? await tx.product.findFirst({ where: { tenantId, sku: p.sku } }) : null;
+        const product = existing
+          ? await tx.product.update({
+              where: { id: existing.id },
+              data: { name: p.name, price: p.price, description: p.description },
+            })
+          : await tx.product.create({
+              data: { tenantId, name: p.name, sku: p.sku, price: p.price, description: p.description },
+            });
 
-      if (p.stock != null) {
-        await tx.inventory.upsert({
-          where: { productId: product.id },
-          update: { quantity: p.stock, source: "EXCEL", sourceRef: filename },
-          create: { tenantId, productId: product.id, quantity: p.stock, source: "EXCEL", sourceRef: filename },
-        });
+        if (p.stock != null) {
+          await tx.inventory.upsert({
+            where: { productId: product.id },
+            update: { quantity: p.stock, source: "EXCEL", sourceRef: filename },
+            create: { tenantId, productId: product.id, quantity: p.stock, source: "EXCEL", sourceRef: filename },
+          });
+        }
+        imported++;
       }
-      imported++;
+    } else {
+      imported = rows.length;
     }
     return { imported, dataSourceId: dataSource.id };
   });

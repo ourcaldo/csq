@@ -20,7 +20,12 @@ export const columnMappingSchema = z.object({
 export const excelConfirmSchema = z.object({
   filename: z.string().min(1),
   base64: z.string().min(1),
-  mapping: columnMappingSchema,
+  // What kind of data this is ("produk", "cabang", "staff", ...). Only
+  // "produk" gets structured product/inventory import; anything else is stored
+  // as raw rows for source.search. Defaults to "produk".
+  dataType: z.string().min(1).optional(),
+  // Required only when dataType is "produk"; ignored otherwise.
+  mapping: columnMappingSchema.optional(),
 });
 
 export type ExcelUpload = z.infer<typeof excelUploadSchema>;

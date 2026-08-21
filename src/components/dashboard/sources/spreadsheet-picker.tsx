@@ -7,6 +7,7 @@ import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { StateNotice } from "@/components/dashboard/state-notice";
 import { MappingEditor } from "./mapping-editor";
+import { DataTypeSelector } from "./data-type-selector";
 
 // Spreadsheet picker for the Google Sheets flow. Uses the tenant's stored
 // Google connection (no re-login). Bound to a placeholder GOOGLE_SHEETS
@@ -39,6 +40,7 @@ export function SpreadsheetPicker({ sourceId, onClose, onDone }: Props) {
   const [tabs, setTabs] = useState<string[]>([]);
   const [tab, setTab] = useState("");
   const [connect, setConnect] = useState<ConnectResponse | null>(null);
+  const [dataType, setDataType] = useState("produk");
 
   // Load the spreadsheet list on mount.
   useEffect(() => {
@@ -94,13 +96,14 @@ export function SpreadsheetPicker({ sourceId, onClose, onDone }: Props) {
     }
   }
 
-  async function confirm(mapping: ColumnMapping) {
+  async function confirm(mapping?: ColumnMapping) {
     setBusy(true);
     setError(null);
     try {
       await apiSend<ConfirmResponse>("/api/import/sheets/confirm", "POST", {
         sourceId,
         name: tab,
+        dataType,
         mapping,
       });
       onDone();
@@ -145,13 +148,25 @@ export function SpreadsheetPicker({ sourceId, onClose, onDone }: Props) {
           </table>
         </div>
         {error && <p className="text-sm text-destructive">{error}</p>}
-        <MappingEditor
-          headers={connect.headers}
-          initialMapping={connect.mapping}
-          busy={busy}
-          onConfirm={confirm}
-          onCancel={() => setPhase("tab")}
-        />
+        <DataTypeSelector value={dataType} onChange={setDataType} disabled={busy} />
+        {dataType.trim().toLowerCase() === "produk" ? (
+          <MappingEditor
+            headers={connect.headers}
+            initialMapping={connect.mapping}
+            busy={busy}
+            onConfirm={confirm}
+            onCancel={() => setPhase("tab")}
+          />
+        ) : (
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setPhase("tab")} disabled={busy}>
+              Batal
+            </Button>
+            <Button onClick={() => confirm(undefined)} disabled={busy}>
+              {busy ? "Memproses…" : "Konfirmasi & Simpan"}
+            </Button>
+          </div>
+        )}
       </div>
     );
   }

@@ -25,6 +25,7 @@ type SourceSearchParams = z.infer<typeof sourceSearchSchema>;
 const rawRowSchema = z.object({
   dataSourceId: z.string(),
   sourceName: z.string(),
+  dataType: z.string(),
   rowIndex: z.number(),
   dataText: z.string(),
 });
@@ -35,6 +36,7 @@ const rowDataSchema = z.record(z.unknown());
 
 type SerializedMatch = {
   source: string;
+  type: string;
   row: Record<string, unknown>;
 };
 
@@ -53,9 +55,9 @@ const sourceSearch: ToolDefinition<SourceSearchParams> = {
     // ACTIVE sources are searched. Parameterized — no string interpolation of
     // user input (prompt-injection / SQL-injection safe).
     const rows = await ctx.prisma.$queryRaw<
-      Array<{ dataSourceId: string; sourceName: string; rowIndex: number; dataText: string }>
+      Array<{ dataSourceId: string; sourceName: string; dataType: string; rowIndex: number; dataText: string }>
     >`
-      SELECT sr."dataSourceId", ds.name AS "sourceName", sr."rowIndex", sr.data::text AS "dataText"
+      SELECT sr."dataSourceId", ds.name AS "sourceName", ds."dataType" AS "dataType", sr."rowIndex", sr.data::text AS "dataText"
       FROM "SourceRow" sr
       JOIN "DataSource" ds ON ds.id = sr."dataSourceId"
       WHERE sr."tenantId" = ${ctx.tenantId}
@@ -76,7 +78,7 @@ const sourceSearch: ToolDefinition<SourceSearchParams> = {
       } catch {
         row = {};
       }
-      matches.push({ source: parsed.data.sourceName, row });
+      matches.push({ source: parsed.data.sourceName, type: parsed.data.dataType, row });
     }
 
     await ctx.audit({

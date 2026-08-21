@@ -11,8 +11,10 @@ import { sheetsConfirmSchema, sheetsSourceConfigSchema } from "@/types/sheets";
 import { getGoogleCreds } from "@/lib/google-connect";
 import { replaceSourceRows } from "@/lib/source-rows";
 
-// Step 4: confirm the mapping for a connected Sheet, run the first import,
-// and persist the mapping into DataSource.config.
+// Step 4: confirm the selection for a connected Sheet and run the first
+// import. Only dataType "produk" gets structured product/inventory import
+// (needs mapping + transactional tools). Other types (cabang, staff, ...) are
+// stored as raw rows for source.search — no mapping, no product upsert.
 type ConfirmResponse = { summary: ImportSummary };
 
 export default async function handler(
@@ -32,6 +34,11 @@ export default async function handler(
     return respondError(res, "VALIDATION_ERROR", parsed.error.message);
   }
   const { sourceId, name, mapping } = parsed.data;
+  const dataType = (parsed.data.dataType ?? "produk").trim().toLowerCase();
+  const isProduct = dataType === "produk";
+  if (isProduct && !mapping) {
+    return respondError(res, "VALIDATION_ERROR", "Mapping kolom diperlukan untuk tipe data produk.");
+  }
 
   const source = await prisma.dataSource.findFirst({
     where: { id: sourceId, tenantId, type: "GOOGLE_SHEETS" },
@@ -46,21 +53,29 @@ export default async function handler(
   const config = sheetsSourceConfigSchema.parse(source.config);
   const range = config.range || config.sheetName;
   const sheet = await readSheet(creds, config.spreadsheetId, range);
-  const products = applyMapping(sheet.rows, mapping);
-  const summary = await applyImport(
-    tenantId,
-    products,
-    InventorySource.GOOGLE_SHEETS,
-    config.spreadsheetId
-  );
+
+  let summary: ImportSummary;
+  if (isProduct && mapping) {
+    const products = applyMapping(sheet.rows, mapping);
+    summary = await applyImport(
+      tenantId,
+      products,
+      InventorySource.GOOGLE_SHEETS,
+      config.spreadsheetId
+    );
+  } else {
+    // Non-product reference data: no structured import, just raw rows.
+    summary = { created: 0, updated: 0, errors: [] };
+  }
 
   await prisma.dataSource.update({
     where: { id: sourceId },
     data: {
       name: name ?? source.name,
+      dataType,
       lastSyncAt: new Date(),
       status: "ACTIVE",
-      config: { ...config, mapping },
+      config: { ...config, mapping: mapping ?? null, dataType },
     },
   });
 

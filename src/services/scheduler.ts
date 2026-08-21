@@ -60,6 +60,8 @@ export async function syncOne(
   // Parse the Json config with Zod — never `as`. A corrupt config throws and
   // is surfaced by the caller as a sync error (DataSource.status = ERROR).
   const config = sheetsSourceConfigSchema.parse(rawConfig);
+  const dataType = (config.dataType ?? "produk").trim().toLowerCase();
+  const isProduct = dataType === "produk";
   // OAuth credentials live on the tenant now (lib/google-connect), not in the
   // source config. No creds => treat as a sync error (caller marks ERROR).
   const creds = await getGoogleCreds(tenantId);
@@ -68,13 +70,21 @@ export async function syncOne(
   }
   const range = config.range || config.sheetName;
   const sheet = await readSheet(creds, config.spreadsheetId, range);
-  const products = applyMapping(sheet.rows, config.mapping);
-  const summary = await applyImport(
-    tenantId,
-    products,
-    InventorySource.GOOGLE_SHEETS,
-    config.spreadsheetId
-  );
+
+  // Only "produk" sources get structured product/inventory import. Other types
+  // (cabang, staff, ...) are reference data — just refresh the stored rows.
+  let summary: { created: number; updated: number; errors: string[] };
+  if (isProduct && config.mapping) {
+    const products = applyMapping(sheet.rows, config.mapping);
+    summary = await applyImport(
+      tenantId,
+      products,
+      InventorySource.GOOGLE_SHEETS,
+      config.spreadsheetId
+    );
+  } else {
+    summary = { created: 0, updated: 0, errors: [] };
+  }
 
   await prisma.dataSource.update({
     where: { id: sourceId },

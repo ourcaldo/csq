@@ -373,6 +373,11 @@ model DataSource {
   tenantId   String
   type       DataSourceType
   name       String
+  // What kind of data this source holds, e.g. "produk", "cabang", "staff",
+  // or a free label. Only "produk" gets structured import into Product/
+  // Inventory; everything else is reference data the agent reads via
+  // source.search (all columns). Free string so owners can tag any kind of list.
+  dataType    String           @default("produk")
   config     Json
   status     DataSourceStatus @default(ACTIVE)
   lastSyncAt DateTime?
