@@ -137,6 +137,10 @@ export function ExcelUploadStep({ onDone }: Props) {
         Unggah file Excel (.xlsx) atau CSV berisi daftar produk. Setelah diunggah, Anda memetakan
         kolom ke field produk sebelum diimpor.
       </p>
+      <p className="text-xs text-muted-foreground">
+        Catatan: Excel diimpor sekali. Untuk data yang sering berubah (stok, harga), sambungkan
+        Google Sheets agar tersinkron otomatis.
+      </p>
       <input
         ref={inputRef}
         type="file"

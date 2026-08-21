@@ -25,7 +25,6 @@ import {
   TableCell,
 } from "@/components/ui/table";
 import { AddSourceDialog } from "@/components/dashboard/sources/add-source-dialog";
-import { GoogleSheetsStep } from "@/components/dashboard/sources/google-sheets-step";
 import { SpreadsheetPicker } from "@/components/dashboard/sources/spreadsheet-picker";
 import { Dialog } from "@/components/ui/dialog";
 
@@ -65,6 +64,8 @@ export default function SourcesPage() {
   const [toDelete, setToDelete] = useState<DataSource | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [checkingId, setCheckingId] = useState<string | null>(null);
+  const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [googleBusy, setGoogleBusy] = useState(false);
   const [statusMap, setStatusMap] = useState<Record<string, DataSourceStatusResult>>({});
   const [error, setError] = useState<string | null>(null);
 
@@ -102,6 +103,50 @@ export default function SourcesPage() {
     }
   }
 
+  async function syncNow(source: DataSource) {
+    setSyncingId(source.id);
+    setError(null);
+    try {
+      await apiSend(`/api/import/sheets/sync`, "POST", { sourceId: source.id });
+      refresh();
+      google.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menyinkronkan spreadsheet.");
+    } finally {
+      setSyncingId(null);
+    }
+  }
+
+  async function disconnectGoogle() {
+    setGoogleBusy(true);
+    setError(null);
+    try {
+      await apiSend(`/api/dashboard/sources/google/disconnect`, "POST");
+      google.refresh();
+      refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal memutuskan akun Google.");
+    } finally {
+      setGoogleBusy(false);
+    }
+  }
+
+  async function addSpreadsheet() {
+    setGoogleBusy(true);
+    setError(null);
+    try {
+      const res = await apiSend<{ id: string }>(
+        `/api/dashboard/sources/sheets/create`,
+        "POST"
+      );
+      setPickerSourceId(res.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Gagal menambah spreadsheet.");
+    } finally {
+      setGoogleBusy(false);
+    }
+  }
+
   async function onConfirmDelete() {
     if (!toDelete) return;
     setDeleting(true);
@@ -133,18 +178,27 @@ export default function SourcesPage() {
       title="Sumber Data"
       description="Excel, Google Sheets, dan sumber data lain yang tersambung."
       actions={
-        <Button onClick={() => setAddOpen(true)}>Tambah Sumber Data</Button>
+        <div className="flex items-center gap-2">
+          {googleConnected ? (
+            <>
+              <Badge variant="success">Google: {googleEmail ?? "terhubung"}</Badge>
+              <Button size="sm" variant="outline" onClick={addSpreadsheet} disabled={googleBusy}>
+                Tambah Spreadsheet
+              </Button>
+              <Button size="sm" variant="outline" onClick={disconnectGoogle} disabled={googleBusy}>
+                Disconnect
+              </Button>
+            </>
+          ) : (
+            // eslint-disable-next-line @next/next/no-html-link-for-pages
+            <a href="/api/import/sheets/auth">
+              <Button size="sm" disabled={googleBusy}>Connect Google Account</Button>
+            </a>
+          )}
+          <Button onClick={() => setAddOpen(true)}>Tambah Sumber Data</Button>
+        </div>
       }
     >
-      {/* Google connection banner — the dynamic Connect/Disconnect button. */}
-      <div className="mb-4 rounded-lg border bg-white p-4">
-        <GoogleSheetsStep
-          connected={googleConnected}
-          email={googleEmail}
-          onConnectionChanged={() => google.refresh()}
-          onOpenPicker={(id) => setPickerSourceId(id)}
-        />
-      </div>
 
       {fetchError && <p className="mb-4 text-sm text-destructive">{fetchError}</p>}
       {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
@@ -185,6 +239,16 @@ export default function SourcesPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
+                        {s.type === "GOOGLE_SHEETS" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={syncingId === s.id}
+                            onClick={() => syncNow(s)}
+                          >
+                            {syncingId === s.id ? "Menyinkronkan…" : "Sync Sekarang"}
+                          </Button>
+                        )}
                         <Button
                           variant="outline"
                           size="sm"

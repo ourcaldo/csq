@@ -6,6 +6,7 @@ import { applyMapping } from "@/services/excel";
 import { readSheet } from "@/services/sheets";
 import { sheetsSourceConfigSchema } from "@/types/sheets";
 import { getGoogleCreds } from "@/lib/google-connect";
+import { replaceSourceRows } from "@/lib/source-rows";
 import { startBaileysChannels, startBaileysHeartbeat } from "@/services/baileys";
 
 // In-process periodic sync for Google Sheets sources (PRD §23A — no Redis/queue,
@@ -24,8 +25,10 @@ export function startScheduler(): void {
   // Auto-reconnect Baileys sockets that get killed by the host proxy so
   // inbound messages don't silently drop.
   startBaileysHeartbeat();
-  // Every 15 minutes.
-  cron.schedule("*/15 * * * *", () => {
+  // Every 5 minutes — bounds Sheets data freshness for the agent. The owner
+  // can also force a refresh per source via "Sync Sekarang" on the Sumber Data
+  // page (hits /api/import/sheets/sync, which reuses syncOne below).
+  cron.schedule("*/5 * * * *", () => {
     void syncAllSheetsSources().catch(() => {
       // Errors are recorded per-source below; swallow top-level failures.
     });
@@ -77,6 +80,9 @@ export async function syncOne(
     where: { id: sourceId },
     data: { lastSyncAt: new Date(), status: "ACTIVE" },
   });
+
+  // Refresh the full stored rows so source.search sees the latest sheet content.
+  await replaceSourceRows(tenantId, sourceId, sheet.rows);
 
   return summary;
 }

@@ -4,6 +4,7 @@ import prisma from "@/lib/db";
 import { parseFile, applyMapping } from "@/services/excel";
 import { excelConfirmSchema } from "@/types/import";
 import { apiError, apiOk, type ApiResponse } from "@/types/api";
+import { replaceSourceRows } from "@/lib/source-rows";
 
 type ConfirmResponse = { imported: number; dataSourceId: string };
 
@@ -67,6 +68,10 @@ export default async function handler(
     }
     return { imported, dataSourceId: dataSource.id };
   });
+
+  // Persist the full parsed rows (all columns) so source.search can read
+  // inside the uploaded file — not just the five mapped product fields.
+  await replaceSourceRows(tenantId, result.dataSourceId, rows);
 
   return res.status(201).json(apiOk(result));
 }

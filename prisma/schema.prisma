@@ -153,6 +153,7 @@ model Tenant {
   orderItems          OrderItem[]
   agentCapabilities   AgentCapability[]
   conversationTags    ConversationTag[]
+  sourceRows          SourceRow[]
 }
 
 model User {
@@ -378,9 +379,30 @@ model DataSource {
   createdAt  DateTime         @default(now())
   updatedAt  DateTime         @updatedAt
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sourceRows SourceRow[]
 
   @@index([tenantId])
+}
+
+// Full parsed rows from an Excel/Google Sheets source, stored on import and on
+// each sync so the agent can read inside the sumber data via the `source.search`
+// tool — every column, not just the five mapped product fields. Replaced (delete
+// + re-insert) on every sync so it stays in sync with the source. `data` is the
+// row as { column: value }.
+model SourceRow {
+  id           String   @id @default(uuid())
+  tenantId     String
+  dataSourceId String
+  rowIndex     Int
+  data         Json
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  dataSource DataSource @relation(fields: [dataSourceId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, dataSourceId])
 }
 
 model AgentCapability {

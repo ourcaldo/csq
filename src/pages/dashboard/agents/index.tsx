@@ -68,6 +68,7 @@ const TOOL_GROUPS: { label: string; tools: string[] }[] = [
   { label: "Pengetahuan", tools: ["knowledge.search"] },
   { label: "Percakapan", tools: ["conversation.handoff"] },
   { label: "Ingatan", tools: ["memory.search", "memory.create"] },
+  { label: "Sumber Data", tools: ["source.search"] },
 ];
 
 const ALL_TOOLS: string[] = TOOL_GROUPS.flatMap((g) => g.tools);

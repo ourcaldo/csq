@@ -9,6 +9,7 @@ import { readSheet } from "@/services/sheets";
 import { applyImport, type ImportSummary } from "@/lib/import-apply";
 import { sheetsConfirmSchema, sheetsSourceConfigSchema } from "@/types/sheets";
 import { getGoogleCreds } from "@/lib/google-connect";
+import { replaceSourceRows } from "@/lib/source-rows";
 
 // Step 4: confirm the mapping for a connected Sheet, run the first import,
 // and persist the mapping into DataSource.config.
@@ -62,6 +63,9 @@ export default async function handler(
       config: { ...config, mapping },
     },
   });
+
+  // Persist the full sheet rows (all columns) for source.search.
+  await replaceSourceRows(tenantId, sourceId, sheet.rows);
 
   return res.status(200).json(apiOk({ summary }));
 }
