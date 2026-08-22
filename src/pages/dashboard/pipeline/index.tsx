@@ -4,25 +4,31 @@ import { withAuth } from "@/lib/auth";
 import { apiFetch, apiSend, ApiError } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
 import type { ListResult } from "@/types/dashboard";
-import type { Stage, Tag, ConversationListItem } from "@/types/inbox";
+import type { Stage, Tag } from "@/types/inbox";
+import { DealWithRelations } from "@/lib/pipeline";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StateNotice } from "@/components/dashboard/state-notice";
 import { StageManager } from "@/components/dashboard/pipeline/stage-manager";
 
 // Manajemen Pipeline — kanban + funnel views of every conversation's deal stage.
 // Kanban: columns = stages, cards = deals, drag a card to move stage. Funnel:
-// per-stage counts + conversion rates. Filters by assignee + tag. "Atur Tahap"
-// opens the stage customization dialog.
+// per-stage counts + conversion rates. Filters by assignee + tag + date range.
+// "Atur Tahap" opens the stage customization dialog.
+//
+// A KanbanDeal is the Prisma Deal shape (id = DEAL id, conversationId = the chat,
+// contact/assignee nested under `conversation`). The move PATCH uses
+// `conversationId` (the chat id), not `id` (the deal id) — see bug #3.
 
-type DealItem = ConversationListItem & { stage: Stage };
+type KanbanDeal = DealWithRelations;
 
 type ColumnState = {
   stageId: string;
-  items: DealItem[];
+  items: KanbanDeal[];
   page: number;
   pageSize: number;
   total: number;
@@ -51,6 +57,8 @@ export default function PipelinePage() {
   // Filters.
   const [assignee, setAssignee] = useState("");
   const [tag, setTag] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
   const [team, setTeam] = useState<{ id: string; name: string }[] | null>(null);
   const [tags, setTags] = useState<Tag[] | null>(null);
 
@@ -87,6 +95,8 @@ export default function PipelinePage() {
     const params = new URLSearchParams();
     if (assignee) params.set("assignee", assignee);
     if (tag) params.set("tag", tag);
+    if (from) params.set("from", from);
+    if (to) params.set("to", to);
     return params.toString();
   };
 
@@ -97,7 +107,7 @@ export default function PipelinePage() {
     );
     const fq = filterQuery();
     try {
-      const res = await apiFetch<ListResult<DealItem>>(
+      const res = await apiFetch<ListResult<KanbanDeal>>(
         `/api/dashboard/pipeline/deals?stage=${stageId}${fq ? `&${fq}` : ""}&page=${page}&pageSize=${COLUMN_PAGE_SIZE}`
       );
       setColumns((prev) =>
@@ -159,7 +169,7 @@ export default function PipelinePage() {
       await apiSend(`/api/dashboard/pipeline/deals/${conversationId}`, "PATCH", { stage: stageName });
       // Reload the affected columns (source + destination).
       const fromCol = columns.find((c) =>
-        c.items.some((d) => d.id === conversationId)
+        c.items.some((d) => d.conversationId === conversationId)
       );
       const toCol = columns.find((c) => c.stageId === (stages?.find((s) => s.name === stageName)?.id ?? ""));
       if (fromCol) void loadColumn(fromCol.stageId, 1, true);
@@ -178,6 +188,7 @@ export default function PipelinePage() {
     <DashboardShell
       title="Manajemen Pipeline"
       description="Pantau setiap pelanggan di tahap mana dan pindahkan sesuai alur."
+      flush
       actions={
         <div className="flex items-center gap-2">
           <div className="inline-flex rounded-md border border-slate-200 p-0.5">
@@ -206,8 +217,9 @@ export default function PipelinePage() {
         </div>
       }
     >
+      <div className="flex min-h-0 flex-1 flex-col p-4 md:p-6 gap-4">
       {/* Filters */}
-      <div className="mb-4 flex flex-wrap items-end gap-3">
+      <div className="shrink-0 flex flex-wrap items-end gap-3">
         <div>
           <Label htmlFor="filter-assignee">Penanggung Jawab</Label>
           <Select
@@ -242,12 +254,34 @@ export default function PipelinePage() {
             ))}
           </Select>
         </div>
+        <div>
+          <Label htmlFor="filter-from">Dari</Label>
+          <Input
+            id="filter-from"
+            type="date"
+            value={from}
+            onChange={(e) => setFrom(e.target.value)}
+            disabled={busy}
+            className="w-40"
+          />
+        </div>
+        <div>
+          <Label htmlFor="filter-to">Sampai</Label>
+          <Input
+            id="filter-to"
+            type="date"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+            disabled={busy}
+            className="w-40"
+          />
+        </div>
       </div>
 
       {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
 
       {view === "kanban" && (
-        <div className="flex gap-3 overflow-x-auto">
+        <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto">
           {pipelineApi.loading && !stages && <StateNotice variant="loading" message="Memuat pipeline…" />}
           {(stages ?? []).map((s, idx) => {
             const col = columns.find((c) => c.stageId === s.id);
@@ -256,7 +290,7 @@ export default function PipelinePage() {
             return (
               <div
                 key={s.id}
-                className="w-72 shrink-0 rounded-lg border bg-slate-50/60"
+                className="flex w-72 shrink-0 flex-col rounded-lg border bg-slate-50/60"
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={() => {
                   if (dragConversationId) {
@@ -265,11 +299,11 @@ export default function PipelinePage() {
                   }
                 }}
               >
-                <div className="flex items-center justify-between border-b px-3 py-2">
+                <div className="flex shrink-0 items-center justify-between border-b px-3 py-2">
                   <span className="text-sm font-semibold">{s.name}</span>
                   <Badge variant="outline">{col?.total ?? 0}</Badge>
                 </div>
-                <div className="max-h-[60vh] space-y-2 overflow-y-auto p-2">
+                <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
                   {col?.loading && items.length === 0 && (
                     <p className="px-1 py-2 text-xs text-slate-400">Memuat…</p>
                   )}
@@ -280,18 +314,15 @@ export default function PipelinePage() {
                     <div
                       key={d.id}
                       draggable
-                      onDragStart={() => setDragConversationId(d.id)}
+                      onDragStart={() => setDragConversationId(d.conversationId)}
                       className="cursor-grab rounded-md border bg-white p-2.5 shadow-sm active:cursor-grabbing"
                     >
                       <p className="text-sm font-medium">
-                        {d.contact?.name ?? d.customerPhoneDisplay ?? d.customerPhone}
+                        {d.conversation?.contact?.name ?? d.conversation?.customerPhone ?? ""}
                       </p>
-                      <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">
-                        {d.lastMessage?.body ?? ""}
-                      </p>
-                      {d.assignee && (
+                      {d.conversation?.assignee && (
                         <p className="mt-1 text-[10px] text-slate-400">
-                          {d.assignee.name ?? d.assignee.email}
+                          {d.conversation.assignee.name ?? d.conversation.assignee.email}
                         </p>
                       )}
                     </div>
@@ -313,7 +344,7 @@ export default function PipelinePage() {
       )}
 
       {view === "funnel" && (
-        <div className="rounded-lg border bg-white p-6">
+        <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border bg-white p-6">
           {!funnel && <StateNotice variant="loading" message="Memuat funnel…" />}
           {funnel && funnel.length === 0 && (
             <StateNotice variant="empty" message="Belum ada deal di pipeline." />
@@ -365,6 +396,7 @@ export default function PipelinePage() {
           );
         }}
       />
+      </div>
     </DashboardShell>
   );
 }

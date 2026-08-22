@@ -338,7 +338,7 @@ export function ContactDetails({ conversation, onChanged }: ContactDetailsProps)
                 <button className="inline-flex items-center gap-1 rounded-md border border-dashed border-slate-300 px-2 py-1 text-xs text-slate-500 hover:bg-slate-50">
                   <Plus size={12} /> Tag
                 </button>
-                <div className="invisible absolute right-0 top-7 z-10 w-40 rounded-lg border border-slate-200 bg-white p-1 shadow-lg group-hover:visible">
+                <div className="invisible absolute right-0 top-7 z-50 w-40 rounded-lg border border-slate-200 bg-white p-1 shadow-lg group-hover:visible">
                   {availableTags.map((t) => (
                     <button
                       key={t.id}

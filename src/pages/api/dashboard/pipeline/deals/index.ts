@@ -22,12 +22,16 @@ export default async function handler(
   const stageId = strQuery(req.query, "stage");
   const assigneeUserId = strQuery(req.query, "assignee");
   const tagId = strQuery(req.query, "tag");
+  const from = strQuery(req.query, "from");
+  const to = strQuery(req.query, "to");
 
   const result = await listDealsForKanban({
     tenantId,
     stageId,
     assigneeUserId,
     tagId,
+    from,
+    to,
     page,
     pageSize,
   });

@@ -160,10 +160,12 @@ export async function listDealsForKanban(args: {
   stageId?: string;
   assigneeUserId?: string;
   tagId?: string;
+  from?: string;
+  to?: string;
   page: number;
   pageSize: number;
 }): Promise<{ items: DealWithRelations[]; total: number; page: number; pageSize: number }> {
-  const { tenantId, stageId, assigneeUserId, tagId, page, pageSize } = args;
+  const { tenantId, stageId, assigneeUserId, tagId, from, to, page, pageSize } = args;
   const where: Prisma.DealWhereInput = { tenantId };
   if (stageId) where.stageId = stageId;
   if (assigneeUserId) {
@@ -171,6 +173,17 @@ export async function listDealsForKanban(args: {
   }
   if (tagId) {
     where.conversation = { tags: { some: { tagId } } };
+  }
+  // Date range filters on the conversation's last chat activity (the deal
+  // is tied to a customer chat, so "from/to" means chat activity range).
+  if (from || to) {
+    where.conversation = {
+      ...(where.conversation as Prisma.ConversationWhereInput),
+      lastMessageAt: {
+        ...(from ? { gte: new Date(from) } : {}),
+        ...(to ? { lte: new Date(to) } : {}),
+      },
+    };
   }
 
   const [items, total] = await Promise.all([
