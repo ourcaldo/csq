@@ -1,18 +1,20 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getAuthSession } from "@/lib/auth";
 import prisma from "@/lib/db";
-import { parseFile, applyMapping } from "@/services/excel";
+import { parseFile, applyMappingWithStats } from "@/services/excel";
 import { excelConfirmSchema } from "@/types/import";
 import { apiError, apiOk, type ApiResponse } from "@/types/api";
 import { replaceSourceRows } from "@/lib/source-rows";
+import { applyImport } from "@/lib/import-apply";
 
 type ConfirmResponse = { imported: number; dataSourceId: string };
 
 // Step 2: owner has confirmed. Re-parse the file and record an EXCEL DataSource.
-// Only dataType "produk" gets structured product/inventory import (it needs
-// transactional tools). Any other type (cabang, staff, etc.) is stored as raw
-// rows in SourceRow for source.search — no product upsert, no mapping required.
-// Transactional; tenant from session only.
+// Only dataType "produk" gets structured product/inventory import via applyImport
+// (G8: writes per-source InventorySnapshot + recomputes canonical Inventory by
+// Tenant.settings.sourcePriority, atomically in one transaction). Any other type
+// (cabang, staff, etc.) is stored as raw rows in SourceRow for source.search —
+// no product upsert, no mapping required. Tenant from session only.
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<ApiResponse<ConfirmResponse>>
@@ -38,52 +40,39 @@ export default async function handler(
   }
   const tenantId = session.user.tenantId;
   const { rows } = await parseFile(Buffer.from(base64, "base64"), filename);
-  const products = isProduct && mapping ? applyMapping(rows, mapping) : [];
+  const { products, skipped } = isProduct && mapping ? applyMappingWithStats(rows, mapping) : { products: [], skipped: 0 };
 
-  const result = await prisma.$transaction(async (tx) => {
-    const dataSource = await tx.dataSource.create({
-      data: {
-        tenantId,
-        type: "EXCEL",
-        name: filename,
-        dataType,
-        config: { filename, mapping: mapping ?? null, dataType },
-        status: "ACTIVE",
-        lastSyncAt: new Date(),
-      },
-    });
-
-    let imported = 0;
-    if (isProduct) {
-      for (const p of products) {
-        const existing = p.sku ? await tx.product.findFirst({ where: { tenantId, sku: p.sku } }) : null;
-        const product = existing
-          ? await tx.product.update({
-              where: { id: existing.id },
-              data: { name: p.name, price: p.price, description: p.description },
-            })
-          : await tx.product.create({
-              data: { tenantId, name: p.name, sku: p.sku, price: p.price, description: p.description },
-            });
-
-        if (p.stock != null) {
-          await tx.inventory.upsert({
-            where: { productId: product.id },
-            update: { quantity: p.stock, source: "EXCEL", sourceRef: filename },
-            create: { tenantId, productId: product.id, quantity: p.stock, source: "EXCEL", sourceRef: filename },
-          });
-        }
-        imported++;
-      }
-    } else {
-      imported = rows.length;
-    }
-    return { imported, dataSourceId: dataSource.id };
+  const dataSource = await prisma.dataSource.create({
+    data: {
+      tenantId,
+      type: "EXCEL",
+      name: filename,
+      dataType,
+      config: { filename, mapping: mapping ?? null, dataType },
+      status: "ACTIVE",
+      lastSyncAt: new Date(),
+    },
   });
+
+  let imported = 0;
+  if (isProduct) {
+    // C2: route through applyImport so Excel writes InventorySnapshot + uses
+    // source-priority resolution (G8), matching the Sheets path. The import is
+    // atomic; skipped counts Zod-rejected rows (here) + batch dedup (inside).
+    const summary = await applyImport(tenantId, products, "EXCEL", filename);
+    imported = summary.created + summary.updated;
+    // Surface skipped rows in the server log so the owner can diagnose drops
+    // even though the response shape carries only the imported count.
+    if (skipped > 0 || (summary.skipped ?? 0) > 0) {
+      console.info(`[excel import] ${filename}: imported=${imported}, zod-skipped=${skipped}, dedup-skipped=${summary.skipped ?? 0}, errors=${summary.errors.length}`);
+    }
+  } else {
+    imported = rows.length;
+  }
 
   // Persist the full parsed rows (all columns) so source.search can read
   // inside the uploaded file — not just the five mapped product fields.
-  await replaceSourceRows(tenantId, result.dataSourceId, rows);
+  await replaceSourceRows(tenantId, dataSource.id, rows);
 
-  return res.status(201).json(apiOk(result));
+  return res.status(201).json(apiOk({ imported, dataSourceId: dataSource.id }));
 }

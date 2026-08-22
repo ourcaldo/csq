@@ -30,18 +30,22 @@ export async function replaceSourceRows(
   dataSourceId: string,
   rows: Record<string, unknown>[]
 ): Promise<void> {
-  await prisma.sourceRow.deleteMany({ where: { tenantId, dataSourceId } });
+  // M10: wrap delete + re-insert in a single transaction so a crash mid-replace
+  // can't leave SourceRow empty/partial — the whole replace is atomic.
+  await prisma.$transaction(async (tx) => {
+    await tx.sourceRow.deleteMany({ where: { tenantId, dataSourceId } });
 
-  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
-    const slice = rows.slice(i, i + BATCH_SIZE);
-    const data: CreateRowInput[] = slice.map((row, j) => ({
-      tenantId,
-      dataSourceId,
-      rowIndex: i + j,
-      data: toJson(row),
-    }));
-    if (data.length > 0) {
-      await prisma.sourceRow.createMany({ data });
+    for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+      const slice = rows.slice(i, i + BATCH_SIZE);
+      const data: CreateRowInput[] = slice.map((row, j) => ({
+        tenantId,
+        dataSourceId,
+        rowIndex: i + j,
+        data: toJson(row),
+      }));
+      if (data.length > 0) {
+        await tx.sourceRow.createMany({ data });
+      }
     }
-  }
+  });
 }

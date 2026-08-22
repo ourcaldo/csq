@@ -5,8 +5,8 @@ import { embed, isEmbeddingsConfigured } from "../src/services/embeddings";
 
 // Demo tenant: Toko Kopi Nusantara (PRD §21). Run with `npm run prisma:seed`.
 // Idempotent-ish: upserts by unique keys (tenant slug, user email, inventory
-// productId) and findFirst-or-create for products/knowledge (no unique on
-// (tenantId, sku) by design — only an index).
+// productId) and findFirst-or-create for products/knowledge. (tenantId, sku)
+// is unique as of M13; the seed SKUs below are distinct so re-seeding is safe.
 
 // Seed the demo tenant, owner, products, knowledge, agent + capabilities, and
 // a WhatsApp channel. Exported so prisma/reset-demo.ts can reuse it after

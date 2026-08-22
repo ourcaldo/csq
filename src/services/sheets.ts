@@ -1,5 +1,6 @@
 import { google } from "googleapis";
 import type { ParsedSheet } from "@/services/excel";
+import { MAX_IMPORT_ROWS, ImportTooLargeError } from "@/services/excel";
 import type { OAuthCredentials, SpreadsheetRef } from "@/types/sheets";
 
 // Google Sheets OAuth + read service (PRD §8.3). One module per integration;
@@ -90,6 +91,10 @@ export async function readSheet(
   const res = await sheets.spreadsheets.values.get({ spreadsheetId, range });
   const values = res.data.values ?? [];
   if (values.length === 0) return { headers: [], rows: [] };
+
+  // H6: reject oversized sheets before materializing rows (OOM guard).
+  const dataRowCount = values.length - 1; // exclude header
+  if (dataRowCount > MAX_IMPORT_ROWS) throw new ImportTooLargeError(dataRowCount);
 
   const headerRow = values[0] ?? [];
   const headers = headerRow

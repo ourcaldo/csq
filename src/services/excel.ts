@@ -23,6 +23,22 @@ export type ParsedSheet = {
   rows: Record<string, unknown>[];
 };
 
+// Hard cap on parsed rows (H6): a spreadsheet is fully materialized in memory
+// (base64 buffer ~1.33× file size + every row as a JS object), and on the 4GB
+// VPS an unbounded 50k-row sheet can OOM the process. We reject anything over
+// this cap with a clear owner-facing message rather than silently loading it.
+// 10k rows covers any realistic UMKM product list with large headroom.
+export const MAX_IMPORT_ROWS = 10_000;
+
+export class ImportTooLargeError extends Error {
+  constructor(actual: number) {
+    super(
+      `File terlalu besar: ${actual} baris terdeteksi, maksimum ${MAX_IMPORT_ROWS} baris. Mohon pisahkan file Anda menjadi bagian yang lebih kecil.`
+    );
+    this.name = "ImportTooLargeError";
+  }
+}
+
 export type ColumnMapping = Record<string, string | null>;
 
 export type MappedProduct = {
@@ -59,6 +75,10 @@ export async function parseFile(buffer: Buffer, filename: string): Promise<Parse
 
   const sheet = wb.worksheets[0];
   if (!sheet || sheet.rowCount === 0) return { headers: [], rows: [] };
+
+  // H6: reject oversized sheets before materializing rows (OOM guard).
+  const dataRowCount = sheet.rowCount - 1; // exclude header
+  if (dataRowCount > MAX_IMPORT_ROWS) throw new ImportTooLargeError(dataRowCount);
 
   const headerRow = sheet.getRow(1);
   const headers: string[] = [];
@@ -111,8 +131,23 @@ export function detectColumns(headers: string[]): {
   return { mapping, confidence: total / FIELD_ORDER.length, fieldConfidence };
 }
 
-export function applyMapping(rows: Record<string, unknown>[], mapping: ColumnMapping): MappedProduct[] {
+export type MappingResult = {
+  products: MappedProduct[];
+  // Rows with a non-empty name that failed Zod validation (M12): counted so the
+  // caller can surface "imported: N, skipped: M" to the owner instead of
+  // silently dropping them.
+  skipped: number;
+};
+
+// applyMapping with a skipped count. Rows with no name are still ignored
+// silently (they aren't real product rows); only named rows that fail Zod
+// validation are counted as skipped.
+export function applyMappingWithStats(
+  rows: Record<string, unknown>[],
+  mapping: ColumnMapping
+): MappingResult {
   const products: MappedProduct[] = [];
+  let skipped = 0;
   for (const row of rows) {
     const name = mapping.name ? String(row[mapping.name] ?? "").trim() : "";
     if (!name) continue;
@@ -130,8 +165,17 @@ export function applyMapping(rows: Record<string, unknown>[], mapping: ColumnMap
     const parsed = mappedProductSchema.safeParse(candidate);
     if (parsed.success) {
       products.push(parsed.data);
+    } else {
+      skipped++;
     }
   }
-  return products;
+  return { products, skipped };
+}
+
+// Backward-compatible wrapper: returns only the products (callers that don't
+// need the skipped count, e.g. sheets/confirm, scheduler.syncOne, keep using
+// this). New callers should prefer applyMappingWithStats to surface skips.
+export function applyMapping(rows: Record<string, unknown>[], mapping: ColumnMapping): MappedProduct[] {
+  return applyMappingWithStats(rows, mapping).products;
 }
 

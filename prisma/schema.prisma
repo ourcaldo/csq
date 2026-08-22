@@ -257,7 +257,10 @@ model Product {
   orderItems         OrderItem[]
   inventorySnapshots InventorySnapshot[]
 
-  @@index([tenantId, sku])
+  // M13: (tenantId, sku) is unique so SKU lookups have a uniqueness guarantee
+  // and imports can't create duplicate-SKU products for a tenant. NULL skus are
+  // allowed (Postgres treats NULLs as distinct in a UNIQUE index).
+  @@unique([tenantId, sku])
   @@index([tenantId, name])
 }
 
