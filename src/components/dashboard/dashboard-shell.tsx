@@ -109,7 +109,7 @@ export function DashboardShell({ title, description, actions, flush, children }:
   useEffect(() => {
     if (!menuOpen) return;
     function onDocClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+      if (menuRef.current && (!(e.target instanceof Node) || !menuRef.current.contains(e.target))) {
         setMenuOpen(false);
       }
     }

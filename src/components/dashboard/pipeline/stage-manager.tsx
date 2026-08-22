@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { z } from "zod";
 import { apiFetch, apiSend, ApiError } from "@/lib/api-client";
 import type { Stage, StageKind } from "@/types/inbox";
 import { Dialog } from "@/components/ui/dialog";
@@ -300,7 +301,7 @@ export function StageManager({ open, onClose, onChanged }: Props) {
               <Select
                 id="new-kind"
                 value={newKind}
-                onChange={(e) => setNewKind(e.target.value as StageKind)}
+                onChange={(e) => setNewKind(z.enum(["OPENING", "WON", "LOST", "NORMAL"]).parse(e.target.value))}
                 disabled={busy || kindOptions.length === 0}
               >
                 {kindOptions.map((k) => (

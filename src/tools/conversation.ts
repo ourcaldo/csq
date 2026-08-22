@@ -71,13 +71,25 @@ const conversationHandoff: ToolDefinition<HandoffParams> = {
 
     // Assign to the human owner and clear the AI agent assignment. This mirrors
     // assignConversation's XOR invariant (userId set ⇒ agentId cleared) which
-    // is what stands the AI down in runAgentReply.
-    const after = await ctx.prisma.conversation.update({
-      where: { id: conversationId },
+    // is what stands the AI down in runAgentReply. G9: tenant-gate the mutation
+    // via updateMany + count assert (defense-in-depth alongside the preceding
+    // tenant-scoped findFirst), then re-read for the audit diff.
+    const updateResult = await ctx.prisma.conversation.updateMany({
+      where: { id: conversationId, tenantId: ctx.tenantId },
       data: {
-        assignee: { connect: { id: owner.id } },
-        assignedAgent: { disconnect: true },
+        assigneeUserId: owner.id,
+        assignedAgentId: null,
       },
+    });
+    if (updateResult.count !== 1) {
+      return {
+        success: false,
+        error: "Conversation not found",
+        errorCode: "NOT_FOUND",
+      };
+    }
+    const after = await ctx.prisma.conversation.findFirstOrThrow({
+      where: { id: conversationId, tenantId: ctx.tenantId },
       select: {
         id: true,
         assignedAgentId: true,

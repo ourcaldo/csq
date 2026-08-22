@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Prisma, Product } from "@prisma/client";
-import { getAuthSession } from "@/lib/auth";
+import { getAuthSession, requireRole } from "@/lib/auth";
 import prisma from "@/lib/db";
 import { logHuman } from "@/lib/audit";
 import { paginate, requireTenant, respondError, strQuery } from "@/lib/queries";
@@ -32,6 +32,9 @@ export default async function handler(
   }
 
   if (req.method === "POST") {
+    if (!requireRole(session, "OWNER")) {
+      return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat membuat produk.");
+    }
     const parsed = productCreateSchema.safeParse(req.body);
     if (!parsed.success) {
       return respondError(res, "VALIDATION_ERROR", parsed.error.message);

@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { DataSource } from "@prisma/client";
-import { getAuthSession } from "@/lib/auth";
+import { getAuthSession, requireRole } from "@/lib/auth";
 import prisma from "@/lib/db";
 import { logHuman } from "@/lib/audit";
 import { requireTenant, respondError } from "@/lib/queries";
@@ -26,6 +26,9 @@ export default async function handler(
   }
 
   if (req.method === "DELETE") {
+    if (!requireRole(session, "OWNER")) {
+      return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat menghapus sumber data.");
+    }
     // "Disconnect" a source: hard delete the record. Credentials stored in
     // config Json are removed with it. Phase 4 wires the actual sync teardown.
     const existing = await prisma.dataSource.findFirst({ where: { id, tenantId } });

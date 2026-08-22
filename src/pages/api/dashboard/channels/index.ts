@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { z } from "zod";
 import { getAuthSession } from "@/lib/auth";
 import prisma from "@/lib/db";
 import { requireTenant, respondError } from "@/lib/queries";
@@ -47,8 +48,8 @@ function sanitize(channel: RawChannel): ChannelView {
   }
   return {
     id: channel.id,
-    provider: channel.provider as "CLOUD_API" | "BAILEYS",
-    type: channel.type as "WHATSAPP",
+    provider: z.enum(["CLOUD_API", "BAILEYS"]).parse(channel.provider),
+    type: z.enum(["WHATSAPP"]).parse(channel.type),
     status: channel.status,
     agentId: channel.agentId,
     phoneNumberId,

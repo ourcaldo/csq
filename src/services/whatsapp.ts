@@ -51,13 +51,6 @@ export class CloudApiProvider implements WhatsAppProvider {
     this.config = config;
   }
 
-  // GET webhook verification (hub.mode=subscribe, hub.verify_token matches the
-  // channel's verifyToken). The webhook route looks up the channel by token;
-  // this helper just confirms the match for a known channel.
-  verifyWebhook(mode: string | undefined, verifyToken: string | undefined): boolean {
-    return mode === "subscribe" && !!verifyToken && verifyToken === this.config.verifyToken;
-  }
-
   parseInbound(payload: unknown): ParsedInbound[] {
     return parseCloudApiInbound(payload);
   }

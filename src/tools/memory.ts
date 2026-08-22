@@ -88,6 +88,14 @@ const memoryCreate: ToolDefinition<MemoryCreateParams> = {
   defaultPermission: { allowed: false, requiresApproval: true },
   async handler(ctx): Promise<ToolResult> {
     const p = ctx.params;
+    // Read the existing memory (if any) before the upsert so the audit can
+    // record a beforeValue on the update branch. On the create branch
+    // beforeValue is undefined.
+    const existing = await ctx.prisma.memory.findUnique({
+      where: {
+        tenantId_agentId_key: { tenantId: ctx.tenantId, agentId: ctx.agentId, key: p.key },
+      },
+    });
     // Upsert by (tenant, agent, key) — recalling a key updates it instead of
     // duplicating (relies on the Memory unique index from the gap batch).
     const memory = await ctx.prisma.memory.upsert({
@@ -111,6 +119,7 @@ const memoryCreate: ToolDefinition<MemoryCreateParams> = {
       action: "memory.create",
       entityType: "memory",
       entityId: memory.id,
+      beforeValue: existing ? serializeMemory(existing) : undefined,
       afterValue: serializeMemory(memory),
     });
     return { success: true, data: serializeMemory(memory) };

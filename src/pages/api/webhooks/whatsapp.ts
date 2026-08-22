@@ -106,8 +106,15 @@ export default async function handler(
       return;
     }
 
-    // All messages in one POST share the same phone_number_id (one channel).
+    // All messages in one POST should share the same phone_number_id (one
+    // channel per webhook delivery). If they differ, reject — each POST is
+    // for a single number and routing them under the first channel's tenant
+    // would be incorrect.
     const phoneNumberId = inboundMessages[0].phoneNumberId;
+    if (!inboundMessages.every((m) => m.phoneNumberId === phoneNumberId)) {
+      res.status(400).send("Bad Request");
+      return;
+    }
     const channel = await prisma.channel.findFirst({
       where: {
         provider: "CLOUD_API",

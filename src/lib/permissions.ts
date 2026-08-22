@@ -8,12 +8,12 @@ import type { PermissionResult } from "@/types/tools";
 // [FR-CP-001..008]. Capability is never inferred from conversation content —
 // only from the verified (agentId, toolName) record (prompt-injection defense).
 export async function checkPermission(
-  _tenantId: string,
+  tenantId: string,
   agentId: string,
   toolName: string
 ): Promise<PermissionResult> {
-  const cap = await prisma.agentCapability.findUnique({
-    where: { agentId_tool: { agentId, tool: toolName } },
+  const cap = await prisma.agentCapability.findFirst({
+    where: { agentId, tool: toolName, tenantId },
   });
   if (cap) {
     return { allowed: cap.allowed, requiresApproval: cap.requiresApproval };

@@ -105,6 +105,9 @@ export async function setConversationStage(args: {
   const existing = await prisma.deal.findUnique({
     where: { conversationId },
   });
+  if (existing && existing.tenantId !== tenantId) {
+    throw new HttpError("NOT_FOUND", "Deal tidak ditemukan untuk tenant ini.");
+  }
   const fromStage = existing
     ? pipeline.stages.find((s) => s.id === existing.stageId) ?? null
     : null;
@@ -167,23 +170,24 @@ export async function listDealsForKanban(args: {
 }): Promise<{ items: DealWithRelations[]; total: number; page: number; pageSize: number }> {
   const { tenantId, stageId, assigneeUserId, tagId, from, to, page, pageSize } = args;
   const where: Prisma.DealWhereInput = { tenantId };
+  const conversationWhere: Prisma.ConversationWhereInput = {};
   if (stageId) where.stageId = stageId;
   if (assigneeUserId) {
-    where.conversation = { assigneeUserId };
+    conversationWhere.assigneeUserId = assigneeUserId;
   }
   if (tagId) {
-    where.conversation = { tags: { some: { tagId } } };
+    conversationWhere.tags = { some: { tagId } };
   }
   // Date range filters on the conversation's last chat activity (the deal
   // is tied to a customer chat, so "from/to" means chat activity range).
   if (from || to) {
-    where.conversation = {
-      ...(where.conversation as Prisma.ConversationWhereInput),
-      lastMessageAt: {
-        ...(from ? { gte: new Date(from) } : {}),
-        ...(to ? { lte: new Date(to) } : {}),
-      },
+    conversationWhere.lastMessageAt = {
+      ...(from ? { gte: new Date(from) } : {}),
+      ...(to ? { lte: new Date(to) } : {}),
     };
+  }
+  if (assigneeUserId || tagId || from || to) {
+    where.conversation = conversationWhere;
   }
 
   const [items, total] = await Promise.all([

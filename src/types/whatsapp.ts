@@ -16,10 +16,10 @@ export const cloudApiConfigSchema = z.object({
 });
 export type CloudApiConfig = z.infer<typeof cloudApiConfigSchema>;
 
-// Baileys (bring your own number). Auth state persists per channel on disk
-// (src/services/baileys.ts useMultiFileAuthState under .baileys-auth/<channelId>),
-// so nothing secret is stored in `config`. `tosAcknowledged` is the ToS/ban-risk
-// gate the channels API enforces before enabling a Baileys channel (FR-WA-011).
+// Baileys (bring your own number). Auth state persists per channel in the
+// database (BaileysAuth table, see src/lib/baileys-auth-db.ts), so nothing
+// secret is stored in `config`. `tosAcknowledged` is the ToS/ban-risk gate the
+// channels API enforces before enabling a Baileys channel (FR-WA-011).
 export const baileysConfigSchema = z.object({
   tosAcknowledged: z.boolean().optional(),
 });
@@ -141,11 +141,10 @@ export type SendTemplateInput = z.infer<typeof sendTemplateSchema>;
 // (src/lib/whatsapp-provider.ts) is the single switch point.
 //
 // Baileys has no public HTTP webhook (inbound arrives via socket events), so
-// its `verifyWebhook` returns false and `parseInbound` returns [] — those are
-// Cloud-API-only entry points. `sendText` is common to both.
+// its `parseInbound` returns [] — that is a Cloud-API-only entry point.
+// `sendText` is common to both.
 
 export interface WhatsAppProvider {
-  verifyWebhook(mode: string | undefined, verifyToken: string | undefined): boolean;
   parseInbound(payload: unknown): ParsedInbound[];
   sendText(input: SendTextInput): Promise<SendTextResult>;
   sendTemplate(input: SendTemplateInput): Promise<SendTextResult>;

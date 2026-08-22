@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Knowledge } from "@prisma/client";
-import { getAuthSession } from "@/lib/auth";
+import { getAuthSession, requireRole } from "@/lib/auth";
 import prisma from "@/lib/db";
 import { logHuman } from "@/lib/audit";
 import { requireTenant, respondError } from "@/lib/queries";
@@ -29,6 +29,9 @@ export default async function handler(
   }
 
   if (req.method === "PUT") {
+    if (!requireRole(session, "OWNER")) {
+      return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengubah knowledge.");
+    }
     const parsed = knowledgeUpdateSchema.safeParse(req.body);
     if (!parsed.success) {
       return respondError(res, "VALIDATION_ERROR", parsed.error.message);
@@ -64,6 +67,9 @@ export default async function handler(
   }
 
   if (req.method === "DELETE") {
+    if (!requireRole(session, "OWNER")) {
+      return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat menghapus knowledge.");
+    }
     const existing = await prisma.knowledge.findFirst({ where: { id, tenantId } });
     if (!existing) return respondError(res, "NOT_FOUND", "Knowledge tidak ditemukan.");
     await prisma.knowledge.delete({ where: { id } });

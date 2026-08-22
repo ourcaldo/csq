@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Contact } from "@prisma/client";
-import { getAuthSession } from "@/lib/auth";
+import { getAuthSession, requireRole } from "@/lib/auth";
 import prisma from "@/lib/db";
 import { logHuman } from "@/lib/audit";
 import { requireTenant, respondError } from "@/lib/queries";
@@ -27,6 +27,9 @@ export default async function handler(
   }
 
   if (req.method === "PUT") {
+    if (!requireRole(session, "OWNER")) {
+      return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengubah kontak.");
+    }
     const parsed = contactUpdateSchema.safeParse(req.body);
     if (!parsed.success) {
       return respondError(res, "VALIDATION_ERROR", parsed.error.message);
