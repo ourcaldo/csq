@@ -137,12 +137,15 @@ Write the **least code that fully solves the task**. Boring beats clever.
 - **Conventional commits** (`feat:`, `fix:`, `chore:`, `docs:`) with proper type,
   scope, and description.
 - One logical change per commit. No batching unrelated changes.
-- Commit after completing a verified unit of work — don't let changes sit uncommitted.
+- **Commit automatically after a verified unit of work — do NOT wait for the user
+  to ask.** Once `npm run build` (+ lint) passes, stage the relevant files and
+  commit with a conventional message. Do not say "nothing committed yet" or ask
+  permission to commit. Push if the repo auto-deploys (this one does).
 - Use `git add` (not `-A` blindly) — be aware of what's being staged.
 - **Verification flow** after code changes:
   1. `npm run build` — confirm no errors
   2. Stage changed files
-  3. Commit with conventional message
+  3. Commit with conventional message (end with the Co-Authored-By trailer)
   4. Push
 
 ### 7. Generated Documents
