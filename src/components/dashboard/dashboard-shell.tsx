@@ -266,7 +266,7 @@ export function DashboardShell({ title, description, actions, headerExtra, flush
         <main className={flush ? "flex min-h-0 flex-1 flex-col overflow-hidden" : "scrollbar-slim flex-1 overflow-y-auto"}>
           {!flush && (
             <div className="border-b border-slate-200 bg-white px-4 py-4 md:px-6">
-              <div className="flex flex-wrap items-center justify-between gap-y-3 gap-x-4">
+              <div className={cn("flex flex-wrap justify-between gap-y-3 gap-x-4", headerExtra ? "items-start" : "items-center")}>
                 <div className="min-w-0">
                   <h1 className="text-xl font-bold text-slate-900">{title}</h1>
                   {description && (

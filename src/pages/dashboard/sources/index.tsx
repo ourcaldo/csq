@@ -183,7 +183,10 @@ export default function SourcesPage() {
       actions={
         <>
           {googleConnected && (
-            <Badge variant="success">Google: {googleEmail ?? "terhubung"}</Badge>
+            <Badge variant="success" className="shrink-0">
+              <span className="sm:hidden">Google terhubung</span>
+              <span className="hidden sm:inline">Google: {googleEmail ?? "terhubung"}</span>
+            </Badge>
           )}
           <div className="hidden items-center gap-2 sm:flex">
             {googleConnected ? (
