@@ -266,16 +266,31 @@ export function DashboardShell({ title, description, actions, headerExtra, flush
         <main className={flush ? "flex min-h-0 flex-1 flex-col overflow-hidden" : "scrollbar-slim flex-1 overflow-y-auto"}>
           {!flush && (
             <div className="border-b border-slate-200 bg-white px-4 py-4 md:px-6">
-              <div className={cn("flex flex-wrap justify-between gap-y-3 gap-x-4", headerExtra ? "items-start" : "items-center")}>
-                <div className="min-w-0">
-                  <h1 className="text-xl font-bold text-slate-900">{title}</h1>
+              {headerExtra ? (
+                <div>
+                  {/* Title + status badge locked on one row (no wrap), badge
+                      top-right aligned with the title. Description and the
+                      full-width dropdown sit on their own lines below. */}
+                  <div className="flex items-center justify-between gap-4">
+                    <h1 className="text-xl font-bold text-slate-900">{title}</h1>
+                    {actions && <div className="flex shrink-0 items-center justify-end gap-2">{actions}</div>}
+                  </div>
                   {description && (
                     <p className="mt-0.5 text-sm text-slate-500">{description}</p>
                   )}
+                  <div className="mt-3">{headerExtra}</div>
                 </div>
-                {actions && <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div>}
-              </div>
-              {headerExtra && <div className="mt-3">{headerExtra}</div>}
+              ) : (
+                <div className="flex flex-wrap items-center justify-between gap-y-3 gap-x-4">
+                  <div className="min-w-0">
+                    <h1 className="text-xl font-bold text-slate-900">{title}</h1>
+                    {description && (
+                      <p className="mt-0.5 text-sm text-slate-500">{description}</p>
+                    )}
+                  </div>
+                  {actions && <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div>}
+                </div>
+              )}
             </div>
           )}
 
