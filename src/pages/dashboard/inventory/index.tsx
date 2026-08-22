@@ -100,7 +100,7 @@ export default function InventoryPage() {
                   <TableHead>Produk</TableHead>
                   <TableHead>Jumlah</TableHead>
                   <TableHead>Sumber</TableHead>
-                  <TableHead>Diperbarui</TableHead>
+                  <TableHead className="hidden sm:table-cell">Diperbarui</TableHead>
                   <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
@@ -129,7 +129,7 @@ export default function InventoryPage() {
                     <TableCell>
                       <Badge variant="outline">{SOURCE_LABEL[inv.source]}</Badge>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="hidden text-muted-foreground sm:table-cell">
                       {formatDate(inv.updatedAt)}
                     </TableCell>
                     <TableCell className="text-right">

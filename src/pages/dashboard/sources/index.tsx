@@ -178,7 +178,7 @@ export default function SourcesPage() {
       title="Sumber Data"
       description="Excel, Google Sheets, dan sumber data lain yang tersambung."
       actions={
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {googleConnected ? (
             <>
               <Badge variant="success">Google: {googleEmail ?? "terhubung"}</Badge>
@@ -212,7 +212,7 @@ export default function SourcesPage() {
                   <TableHead>Nama</TableHead>
                   <TableHead>Jenis</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Sinkronisasi Terakhir</TableHead>
+                  <TableHead className="hidden sm:table-cell">Sinkronisasi Terakhir</TableHead>
                   <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
@@ -239,11 +239,11 @@ export default function SourcesPage() {
                       <Badge variant="outline">{TYPE_LABEL[s.type]}</Badge>
                     </TableCell>
                     <TableCell>{statusBadge(statusOf(s))}</TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="hidden text-muted-foreground sm:table-cell">
                       {formatDateTime(lastSyncOf(s))}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
+                      <div className="flex flex-wrap justify-end gap-2">
                         {s.type === "GOOGLE_SHEETS" && s.status === "ACTIVE" && (
                           <Button
                             variant="outline"

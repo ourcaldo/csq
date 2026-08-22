@@ -48,7 +48,7 @@ export function MappingEditor({ headers, initialMapping, busy, onConfirm, onCanc
       </p>
       <div className="space-y-3">
         {FIELDS.map((f) => (
-          <div key={f.key} className="grid grid-cols-2 items-center gap-3">
+          <div key={f.key} className="grid grid-cols-1 items-center gap-3 sm:grid-cols-2">
             <div>
               <Label htmlFor={`map-${f.key}`}>{f.label}</Label>
               {f.hint && <p className="text-xs text-muted-foreground">{f.hint}</p>}

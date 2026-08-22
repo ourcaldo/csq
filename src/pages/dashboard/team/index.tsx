@@ -161,7 +161,7 @@ export default function TeamPage() {
                 <TableHead>Anggota</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Peran</TableHead>
-                <TableHead>Dibergabung</TableHead>
+                <TableHead className="hidden sm:table-cell">Dibergabung</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -199,7 +199,7 @@ export default function TeamPage() {
                         <Badge variant="secondary">Staff</Badge>
                       )}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="hidden text-muted-foreground sm:table-cell">
                       {formatDate(m.createdAt)}
                     </TableCell>
                   </TableRow>

@@ -155,7 +155,7 @@ export default function ProductsPage() {
                   <TableHead>Nama</TableHead>
                   <TableHead>SKU</TableHead>
                   <TableHead>Harga</TableHead>
-                  <TableHead>Dibuat</TableHead>
+                  <TableHead className="hidden sm:table-cell">Dibuat</TableHead>
                   <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
@@ -172,9 +172,9 @@ export default function ProductsPage() {
                     <TableCell className="font-medium">{p.name}</TableCell>
                     <TableCell className="text-muted-foreground">{p.sku ?? "—"}</TableCell>
                     <TableCell>{formatRupiah(p.price)}</TableCell>
-                    <TableCell className="text-muted-foreground">{formatDate(p.createdAt)}</TableCell>
+                    <TableCell className="hidden text-muted-foreground sm:table-cell">{formatDate(p.createdAt)}</TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
+                      <div className="flex flex-wrap justify-end gap-2">
                         <Button variant="outline" size="sm" onClick={() => openEdit(p)}>
                           Edit
                         </Button>

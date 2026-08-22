@@ -128,9 +128,9 @@ export default function MemoryPage() {
                 <TableRow>
                   <TableHead>Kunci</TableHead>
                   <TableHead>Nilai</TableHead>
-                  <TableHead>Agen</TableHead>
+                  <TableHead className="hidden sm:table-cell">Agen</TableHead>
                   <TableHead>Penting</TableHead>
-                  <TableHead>Dibuat</TableHead>
+                  <TableHead className="hidden sm:table-cell">Dibuat</TableHead>
                   <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
@@ -148,7 +148,7 @@ export default function MemoryPage() {
                     <TableCell className="max-w-xs truncate text-muted-foreground">
                       {m.value}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{shortId(m.agentId)}</TableCell>
+                    <TableCell className="hidden text-muted-foreground sm:table-cell">{shortId(m.agentId)}</TableCell>
                     <TableCell>
                       <Select
                         value={m.importance}
@@ -165,7 +165,7 @@ export default function MemoryPage() {
                         ))}
                       </Select>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="hidden text-muted-foreground sm:table-cell">
                       {formatDate(m.createdAt)}
                     </TableCell>
                     <TableCell className="text-right">

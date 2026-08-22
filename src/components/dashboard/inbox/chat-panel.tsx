@@ -15,6 +15,7 @@ import {
   DotsThreeVertical,
   Phone,
   ArrowLeft,
+  UserCircle,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { apiFetch, apiSend } from "@/lib/api-client";
@@ -31,6 +32,8 @@ type ChatPanelProps = {
   humanTakenOver: boolean; // a human staff member has taken over
   /** Mobile back-to-list action. */
   onBack?: () => void;
+  /** Mobile open-contact-details action (opens the slide-over drawer). */
+  onOpenDetails?: () => void;
 };
 
 type ComposerMode = "reply" | "note";
@@ -91,7 +94,7 @@ function MessageBubble({ m }: { m: Message }) {
   );
 }
 
-export function ChatPanel({ conversationId, customerName, customerPhone, aiActive, humanTakenOver, onBack }: ChatPanelProps) {
+export function ChatPanel({ conversationId, customerName, customerPhone, aiActive, humanTakenOver, onBack, onOpenDetails }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -206,31 +209,40 @@ export function ChatPanel({ conversationId, customerName, customerPhone, aiActiv
   return (
     <div className="flex min-w-0 flex-1 flex-col bg-white">
       {/* Header */}
-      <div className="flex h-16 shrink-0 items-center justify-between border-b border-slate-100 px-6">
-        <div className="flex items-center gap-3">
+      <div className="flex h-16 shrink-0 items-center justify-between gap-2 border-b border-slate-100 px-4 md:px-6">
+        <div className="flex min-w-0 items-center gap-3">
           {onBack && (
             <button
               onClick={onBack}
-              className="-ml-1 rounded-md p-1 text-slate-600 hover:bg-slate-100 lg:hidden"
+              className="-ml-1 shrink-0 rounded-md p-1 text-slate-600 hover:bg-slate-100 lg:hidden"
               aria-label="Kembali ke daftar"
             >
               <ArrowLeft size={20} />
             </button>
           )}
-          <h2 className="text-lg font-semibold text-slate-900">{customerName}</h2>
+          <h2 className="truncate text-lg font-semibold text-slate-900">{customerName}</h2>
           {aiActive ? (
-            <span className="inline-flex items-center gap-1 rounded bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+            <span className="inline-flex shrink-0 items-center gap-1 rounded bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
               <Robot size={12} weight="fill" /> AI menangani
             </span>
           ) : humanTakenOver ? (
-            <span className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">Diambil alih tim</span>
+            <span className="shrink-0 rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">Diambil alih tim</span>
           ) : null}
         </div>
-        <div className="flex items-center gap-1 text-slate-400">
-          <button className="rounded-full p-2 hover:bg-slate-50" aria-label="Telepon">
+        <div className="flex shrink-0 items-center gap-1 text-slate-400">
+          {onOpenDetails && (
+            <button
+              onClick={onOpenDetails}
+              className="rounded-full p-2 hover:bg-slate-50 lg:hidden"
+              aria-label="Detail kontak"
+            >
+              <UserCircle size={20} />
+            </button>
+          )}
+          <button className="hidden rounded-full p-2 hover:bg-slate-50 sm:block" aria-label="Telepon">
             <Phone size={18} />
           </button>
-          <button className="rounded-full p-2 hover:bg-slate-50" aria-label="Opsi">
+          <button className="hidden rounded-full p-2 hover:bg-slate-50 sm:block" aria-label="Opsi">
             <DotsThreeVertical size={18} />
           </button>
         </div>
@@ -238,14 +250,14 @@ export function ChatPanel({ conversationId, customerName, customerPhone, aiActiv
 
       {/* AI stand-down banner */}
       {aiActive && (
-        <div className="flex items-center gap-2 border-b border-blue-100 bg-blue-50/60 px-6 py-1.5 text-xs text-blue-700">
+        <div className="flex items-center gap-2 border-b border-blue-100 bg-blue-50/60 px-4 py-1.5 text-xs text-blue-700 md:px-6">
           <Robot size={14} weight="fill" />
           AI sedang menangani percakapan ini. Tugaskan ke tim untuk menghentikan AI.
         </div>
       )}
 
       {/* Messages */}
-      <div ref={scrollRef} className="scrollbar-slim flex flex-1 flex-col overflow-y-auto bg-slate-50/40 p-6">
+      <div ref={scrollRef} className="scrollbar-slim flex flex-1 flex-col overflow-y-auto bg-slate-50/40 p-4 md:p-6">
         {loading && <LoadingSkeleton count={4} />}
         {error && <div className="text-sm text-red-600">{error}</div>}
         {!loading && !error && (messages?.length ?? 0) === 0 && (

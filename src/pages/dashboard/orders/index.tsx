@@ -173,7 +173,7 @@ export default function OrdersPage() {
                   <TableHead>Item</TableHead>
                   <TableHead>Total</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Tanggal</TableHead>
+                  <TableHead className="hidden sm:table-cell">Tanggal</TableHead>
                   <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
@@ -205,9 +205,9 @@ export default function OrdersPage() {
                       </TableCell>
                       <TableCell>{formatRupiah(o.totalAmount)}</TableCell>
                       <TableCell>{statusBadge(o.status)}</TableCell>
-                      <TableCell className="text-muted-foreground">{formatDate(o.createdAt)}</TableCell>
+                      <TableCell className="hidden text-muted-foreground sm:table-cell">{formatDate(o.createdAt)}</TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
+                        <div className="flex flex-wrap justify-end gap-2">
                           {o.status !== "CONFIRMED" && (
                             <Button
                               variant="outline"

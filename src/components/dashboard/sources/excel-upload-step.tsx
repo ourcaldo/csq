@@ -98,7 +98,7 @@ export function ExcelUploadStep({ onDone }: Props) {
             {Math.round(preview.confidence * 100)}%.
           </p>
         </div>
-        <div className="rounded-md border">
+        <div className="overflow-x-auto rounded-md border">
           <table className="w-full text-xs">
             <thead className="bg-muted/50">
               <tr>

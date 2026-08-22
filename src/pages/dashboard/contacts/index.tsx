@@ -99,8 +99,8 @@ export default function ContactsPage() {
                   <TableHead>Nama</TableHead>
                   <TableHead>No. Telepon</TableHead>
                   <TableHead>Email</TableHead>
-                  <TableHead>Catatan</TableHead>
-                  <TableHead>Dibuat</TableHead>
+                  <TableHead className="hidden sm:table-cell">Catatan</TableHead>
+                  <TableHead className="hidden sm:table-cell">Dibuat</TableHead>
                   <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
@@ -119,10 +119,10 @@ export default function ContactsPage() {
                     <TableCell className="text-muted-foreground">
                       {c.email ?? "—"}
                     </TableCell>
-                    <TableCell className="max-w-xs truncate text-muted-foreground">
+                    <TableCell className="hidden max-w-xs truncate text-muted-foreground sm:table-cell">
                       {c.notes ?? "—"}
                     </TableCell>
-                    <TableCell className="text-muted-foreground">
+                    <TableCell className="hidden text-muted-foreground sm:table-cell">
                       {formatDate(c.createdAt)}
                     </TableCell>
                     <TableCell className="text-right">

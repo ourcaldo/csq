@@ -168,7 +168,7 @@ export default function SettingsPage() {
     >
       <div className="mx-auto max-w-3xl space-y-6">
         {/* Prioritas Sumber Data */}
-        <section className="rounded-lg border border-slate-200 bg-white p-6">
+        <section className="rounded-lg border border-slate-200 bg-white p-4 md:p-6">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-3">
               <span className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
@@ -281,7 +281,7 @@ export default function SettingsPage() {
         </section>
 
         {/* Profil Usaha — placeholder, read-only */}
-        <section className="rounded-lg border border-slate-200 bg-white p-6">
+        <section className="rounded-lg border border-slate-200 bg-white p-4 md:p-6">
           <div className="flex items-start gap-3">
             <span className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
               <Storefront size={20} />
@@ -321,7 +321,7 @@ export default function SettingsPage() {
         </section>
 
         {/* Seluran OpenClaw — cell status (PRD §5/§26) */}
-        <section className="rounded-lg border border-slate-200 bg-white p-6">
+        <section className="rounded-lg border border-slate-200 bg-white p-4 md:p-6">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-3">
               <span className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-green-100 text-green-700">

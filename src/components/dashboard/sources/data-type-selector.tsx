@@ -44,7 +44,7 @@ export function DataTypeSelector({ value, onChange, disabled }: Props) {
 
   return (
     <div className="space-y-2">
-      <div className="grid grid-cols-2 items-center gap-3">
+      <div className="grid grid-cols-1 items-center gap-3 sm:grid-cols-2">
         <div>
           <Label htmlFor="data-type">Tipe Data</Label>
           <p className="text-xs text-muted-foreground">Apa isi data ini?</p>

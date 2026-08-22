@@ -25,9 +25,12 @@ import { useSession } from "next-auth/react";
 type ContactDetailsProps = {
   conversation: ConversationListItem;
   onChanged: () => void; // tell parent to refresh conversation metadata
+  /** Mobile slide-over drawer open state (desktop pane is always lg:block). */
+  mobileOpen?: boolean;
+  onCloseMobile?: () => void;
 };
 
-export function ContactDetails({ conversation, onChanged }: ContactDetailsProps) {
+export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMobile }: ContactDetailsProps) {
   const { data: session } = useSession();
   const me = session?.user?.id;
   const [tags, setTags] = useState<Tag[] | null>(null);
@@ -152,8 +155,8 @@ export function ContactDetails({ conversation, onChanged }: ContactDetailsProps)
   const usedTagIds = new Set(conversation.tags.map((t) => t.tag.id));
   const availableTags = (tags ?? []).filter((t) => !usedTagIds.has(t.id));
 
-  return (
-    <div className="hidden w-72 shrink-0 overflow-y-auto border-l border-slate-200 bg-white p-6 lg:block">
+  const detailsContent = (
+    <>
       {/* Contact card */}
       <div className="mb-6 text-center">
         <div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-green-50 text-green-600">
@@ -369,6 +372,42 @@ export function ContactDetails({ conversation, onChanged }: ContactDetailsProps)
           )}
         </div>
       </div>
-    </div>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop pane — unchanged. */}
+      <aside className="hidden w-72 shrink-0 overflow-y-auto border-l border-slate-200 bg-white p-6 lg:block">
+        {detailsContent}
+      </aside>
+
+      {/* Mobile slide-over drawer — gives phones full feature parity
+          (take over / status / tags / stage) that the desktop pane normally
+          provides. Renders only while open; lg:hidden so it never shows on
+          desktop alongside the static pane. */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => onCloseMobile?.()}
+            aria-hidden
+          />
+          <div className="absolute inset-y-0 right-0 flex w-full max-w-xs flex-col bg-white shadow-xl">
+            <div className="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 px-4">
+              <span className="text-sm font-semibold text-slate-900">Detail Kontak</span>
+              <button
+                onClick={() => onCloseMobile?.()}
+                className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100"
+                aria-label="Tutup detail"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="scrollbar-slim flex-1 overflow-y-auto p-6">{detailsContent}</div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

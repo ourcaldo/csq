@@ -166,7 +166,7 @@ export function StageManager({ open, onClose, onChanged }: Props) {
       <div className="space-y-4">
         {error && <p className="text-sm text-destructive">{error}</p>}
 
-        <div className="rounded-lg border">
+        <div className="overflow-x-auto rounded-lg border">
           <table className="w-full text-sm">
             <thead className="bg-muted/50 text-xs uppercase tracking-wider text-slate-500">
               <tr>
@@ -285,7 +285,7 @@ export function StageManager({ open, onClose, onChanged }: Props) {
           <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
             Tambah Tahap
           </h4>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
             <div className="sm:col-span-1">
               <Label htmlFor="new-name">Nama</Label>
               <Input

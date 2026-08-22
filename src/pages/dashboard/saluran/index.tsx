@@ -289,13 +289,13 @@ export default function SaluranPage() {
 
       {/* Stepper */}
       {!loading && (
-        <div className="mb-6 flex items-center gap-1">
+        <div className="mb-6 flex items-center gap-1 overflow-x-auto">
           {STEPS.map((label, i) => {
             const n = i + 1;
             const done = currentStep > n;
             const active = currentStep === n;
             return (
-              <div key={label} className="flex items-center">
+              <div key={label} className="flex shrink-0 items-center">
                 <div className="flex items-center gap-2">
                   <div
                     className={cn(
@@ -323,7 +323,7 @@ export default function SaluranPage() {
                 {i < STEPS.length - 1 && (
                   <div
                     className={cn(
-                      "mx-2 h-px w-6 sm:w-12",
+                      "mx-2 h-px w-6 shrink-0 sm:w-12",
                       done ? "bg-green-300" : "bg-slate-200"
                     )}
                   />
@@ -815,16 +815,17 @@ function TestBox(props: {
       <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
         <PaperPlaneRight size={14} /> Kirim Pesan Test
       </p>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <input
           value={props.testTo[props.id] ?? ""}
           onChange={(e) => props.onTo(e.target.value)}
           disabled={props.disabled}
-          className={inputCls}
+          className={cn(inputCls, "sm:flex-1")}
         />
         <Button
           size="sm"
           variant="outline"
+          className="w-full sm:w-auto"
           disabled={props.disabled || props.testing === props.id}
           onClick={props.onTest}
         >

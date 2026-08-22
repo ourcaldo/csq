@@ -25,6 +25,7 @@ export default function InboxPage() {
   const [tab, setTab] = useState<Tab>("unassigned");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [status, setStatus] = useState("");
   const [tagId, setTagId] = useState("");
 
@@ -65,6 +66,7 @@ export default function InboxPage() {
 
   function onSelect(id: string) {
     setSelectedId(id);
+    setDetailsOpen(false);
   }
 
   // Refresh conversation metadata after a details-pane mutation.
@@ -75,7 +77,7 @@ export default function InboxPage() {
   return (
     <DashboardShell title="Percakapan" flush>
       {/* Filter toolbar — status + tag drive the server-side query. */}
-      <div className="flex shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-4 py-2">
+      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-4 py-2">
         <Select
           value={status}
           onChange={(e: ChangeEvent<HTMLSelectElement>) => setStatus(e.target.value)}
@@ -125,7 +127,11 @@ export default function InboxPage() {
             customerPhone={selected.customerPhoneDisplay}
             aiActive={!selected.assignee && !!selected.assignedAgent}
             humanTakenOver={!!selected.assignee}
-            onBack={() => setSelectedId(null)}
+            onBack={() => {
+              setSelectedId(null);
+              setDetailsOpen(false);
+            }}
+            onOpenDetails={() => setDetailsOpen(true)}
           />
         ) : (
           <div className="hidden flex-1 flex-col items-center justify-center bg-slate-50 text-center lg:flex">
@@ -144,6 +150,8 @@ export default function InboxPage() {
           <ContactDetails
             conversation={selected}
             onChanged={onConversationChanged}
+            mobileOpen={detailsOpen}
+            onCloseMobile={() => setDetailsOpen(false)}
           />
         )}
       </div>

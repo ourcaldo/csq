@@ -207,8 +207,9 @@ export function DashboardShell({ title, description, actions, flush, children }:
             <List size={20} />
           </button>
 
-          {/* Search */}
-          <div className="relative mx-2 w-full max-w-xl">
+          {/* Search — hidden on mobile (decorative; no handler) to keep the
+              header from overflowing on 360px. Visible from sm up. */}
+          <div className="relative mx-2 hidden w-full max-w-xl sm:block">
             <MagnifyingGlass
               size={18}
               className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
@@ -260,15 +261,15 @@ export function DashboardShell({ title, description, actions, flush, children }:
 
         <main className={flush ? "flex min-h-0 flex-1 flex-col overflow-hidden" : "scrollbar-slim flex-1 overflow-y-auto"}>
           {!flush && (
-            <div className="border-b border-slate-200 bg-white px-6 py-4">
-              <div className="flex items-center justify-between gap-4">
-                <div>
+            <div className="border-b border-slate-200 bg-white px-4 py-4 md:px-6">
+              <div className="flex flex-wrap items-center justify-between gap-y-3 gap-x-4">
+                <div className="min-w-0">
                   <h1 className="text-xl font-bold text-slate-900">{title}</h1>
                   {description && (
                     <p className="mt-0.5 text-sm text-slate-500">{description}</p>
                   )}
                 </div>
-                {actions && <div className="flex items-center gap-2">{actions}</div>}
+                {actions && <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div>}
               </div>
             </div>
           )}

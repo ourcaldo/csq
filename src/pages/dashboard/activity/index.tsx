@@ -99,7 +99,7 @@ export default function ActivityPage() {
                     <TableHead>Entitas</TableHead>
                     <TableHead>Aktor</TableHead>
                     <TableHead>Persetujuan</TableHead>
-                    <TableHead>Telepon</TableHead>
+                    <TableHead className="hidden sm:table-cell">Telepon</TableHead>
                     <TableHead>Waktu</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -128,7 +128,7 @@ export default function ActivityPage() {
                           </span>
                         </TableCell>
                         <TableCell>{approvalBadge(item.approvalStatus)}</TableCell>
-                        <TableCell className="text-muted-foreground">
+                        <TableCell className="hidden text-muted-foreground sm:table-cell">
                           {item.customerPhone ?? "—"}
                         </TableCell>
                         <TableCell className="text-muted-foreground">
