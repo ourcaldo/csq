@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import type { ToolDefinition, ToolResult } from "@/types/tools";
+import { events } from "@/lib/events";
 
 // order.* tools. order.read allowed by default. order.create is a write
 // (denied + approval by default): creates an Order + OrderItems and decrements
@@ -194,6 +195,24 @@ const orderCreate: ToolDefinition<OrderCreateParams> = {
       afterValue: serializeOrder(order),
       customerPhone: order.customerPhone ?? undefined,
     });
+
+    // Emit `order.purchased` so active ON_PURCHASE scenarios can start a run
+    // (after-sales survey, etc.). Fire-and-forget; routing context (conversation
+    // + phone) flows from the tool call so the scenario can resolve the
+    // customer thread. No-op if no scenario is subscribed/listening.
+    events.emit("order.purchased", {
+      tenantId: ctx.tenantId,
+      orderId: order.id,
+      conversationId: ctx.conversationId,
+      customerPhone: order.customerPhone ?? ctx.customerPhone ?? undefined,
+      customerName: order.customerName ?? undefined,
+      orderTotal: order.totalAmount.toString(),
+      orderItems: order.items.map((it) => ({
+        productName: it.product.name,
+        quantity: it.quantity,
+      })),
+    });
+
     return { success: true, data: serializeOrder(order) };
   },
   async describeChange(params): Promise<{

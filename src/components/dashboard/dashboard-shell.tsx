@@ -35,6 +35,7 @@ import {
   SignOut,
   List,
   Kanban,
+  FlowArrow,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 
@@ -73,6 +74,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Agent",
     items: [
       { href: "/dashboard/agents", label: "Agent", icon: <Robot size={18} /> },
+      { href: "/dashboard/scenarios", label: "Skenario", icon: <FlowArrow size={18} /> },
       { href: "/dashboard/approvals", label: "Approval", icon: <SealCheck size={18} /> },
       { href: "/dashboard/activity", label: "Aktivitas", icon: <ClockCounterClockwise size={18} /> },
     ],

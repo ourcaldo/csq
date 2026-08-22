@@ -5,6 +5,7 @@ import { getAuthSession, requireRole } from "@/lib/auth";
 import prisma from "@/lib/db";
 import { requireTenant, respondError, strQuery } from "@/lib/queries";
 import { apiOk, type ApiResponse } from "@/types/api";
+import { events } from "@/lib/events";
 
 // Add a tag to a conversation. tagId must belong to the same tenant.
 const addTagSchema = z.object({ tagId: z.string().uuid() });
@@ -59,6 +60,18 @@ export default async function handler(
       update: {},
       create: { tenantId, conversationId: id, tagId: parsed.data.tagId },
     });
+
+    // Emit `conversation.tagged` so active ON_TAG_ADDED scenarios whose
+    // triggerConfig.tagName matches can start a run. Fire-and-forget; only
+    // fired from this manual staff path (the scenario Tag node does NOT emit,
+    // preventing scenario→tag→scenario loops).
+    events.emit("conversation.tagged", {
+      tenantId,
+      conversationId: id,
+      tagName: tag.name,
+      tagId: tag.id,
+    });
+
     return res.status(201).json(apiOk(ct));
   }
 

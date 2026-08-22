@@ -8,6 +8,7 @@ import { sheetsSourceConfigSchema } from "@/types/sheets";
 import { getGoogleCreds } from "@/lib/google-connect";
 import { replaceSourceRows } from "@/lib/source-rows";
 import { startBaileysChannels, startBaileysHeartbeat } from "@/services/baileys";
+import { registerScenarioEngine, resumePausedRuns } from "@/lib/scenario-engine";
 
 // In-process periodic sync for Google Sheets sources (PRD §23A — no Redis/queue,
 // node-cron runs inside the Next.js server). Server-only: callers must invoke
@@ -25,12 +26,24 @@ export function startScheduler(): void {
   // Auto-reconnect Baileys sockets that get killed by the host proxy so
   // inbound messages don't silently drop.
   startBaileysHeartbeat();
+  // Subscribe the scenario engine to the event bus (triggers). Idempotent —
+  // safe to call on every health-check ping.
+  registerScenarioEngine();
   // Every 5 minutes — bounds Sheets data freshness for the agent. The owner
   // can also force a refresh per source via "Sync Sekarang" on the Sumber Data
   // page (hits /api/import/sheets/sync, which reuses syncOne below).
   cron.schedule("*/5 * * * *", () => {
     void syncAllSheetsSources().catch(() => {
       // Errors are recorded per-source below; swallow top-level failures.
+    });
+  });
+  // Every minute — resume scenario runs paused on a Wait node whose resumeAt
+  // has passed, plus runs deferred at the concurrency cap. Bounded per tick
+  // (take 50); remaining picked up next tick. Fire-and-forget, per-run errors
+  // logged inside resumePausedRuns/scheduleAdvance.
+  cron.schedule("* * * * *", () => {
+    void resumePausedRuns().catch(() => {
+      // Per-run errors are logged inside; swallow top-level failures.
     });
   });
 }

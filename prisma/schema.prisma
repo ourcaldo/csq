@@ -123,6 +123,31 @@ enum MessageSenderType {
   CUSTOMER
   AGENT
   HUMAN
+  SCENARIO
+}
+
+// Scenario = owner/staff-built automation flow (visual drag-and-drop builder).
+// A Scenario is the template (graph + trigger); a ScenarioRun is a live
+// execution bound to one conversation. See src/lib/scenario-engine.ts.
+enum ScenarioStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+}
+
+// Live execution state of a scenario on a conversation. WAITING = paused on a
+// Wait node with resumeAt set (node-cron resumes it); COMPLETED/FAILED terminal.
+enum ScenarioRunStatus {
+  RUNNING
+  WAITING
+  COMPLETED
+  FAILED
+}
+
+enum ScenarioTriggerType {
+  ON_NEW_CONVERSATION
+  ON_PURCHASE
+  ON_TAG_ADDED
 }
 
 // ─────────────────────────── Models ───────────────────────────
@@ -168,6 +193,9 @@ model Tenant {
   stages              Stage[]
   deals               Deal[]
   dealStageHistories  DealStageHistory[]
+  scenarios           Scenario[]
+  scenarioRuns        ScenarioRun[]
+  scenarioRunSteps    ScenarioRunStep[]
 }
 
 model User {
@@ -394,14 +422,14 @@ model DataSource {
   // or a free label. Only "produk" gets structured import into Product/
   // Inventory; everything else is reference data the agent reads via
   // source.search (all columns). Free string so owners can tag any kind of list.
-  dataType    String           @default("produk")
+  dataType   String           @default("produk")
   config     Json
   status     DataSourceStatus @default(ACTIVE)
   lastSyncAt DateTime?
   createdAt  DateTime         @default(now())
   updatedAt  DateTime         @updatedAt
 
-  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   sourceRows SourceRow[]
 
   @@index([tenantId])
@@ -514,6 +542,7 @@ model Conversation {
   tags          ConversationTag[]
   approvals     Approval[]        @relation("ApprovalConversation")
   deal          Deal?
+  scenarioRuns  ScenarioRun[]
 
   @@unique([tenantId, channelId, customerPhone])
   @@index([tenantId, status])
@@ -609,20 +638,20 @@ model Pipeline {
 // one WON, one LOST — enforced by a partial unique index in the migration
 // (Prisma schema can't express filtered uniques); the app also enforces it.
 model Stage {
-  id              String    @id @default(uuid())
-  tenantId        String
-  pipelineId      String
-  name            String
-  order           Int
+  id             String    @id @default(uuid())
+  tenantId       String
+  pipelineId     String
+  name           String
+  order          Int
   winProbability Float?
-  expectedDays    Int?
-  kind            StageKind
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  expectedDays   Int?
+  kind           StageKind
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   pipeline Pipeline @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
-  deals   Deal[]
+  deals    Deal[]
 
   @@index([pipelineId, order])
   @@index([pipelineId, kind])
@@ -640,9 +669,9 @@ model Deal {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  stage         Stage         @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  tenant       Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversation Conversation       @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  stage        Stage              @relation(fields: [stageId], references: [id], onDelete: Restrict)
   histories    DealStageHistory[]
 
   @@index([tenantId, stageId])
@@ -651,18 +680,108 @@ model Deal {
 // Audit trail of stage transitions — one row per move. `movedByUserId` for a
 // human move, `movedByAgentId` for an AI auto-move; at least one is set.
 model DealStageHistory {
-  id             String    @id @default(uuid())
+  id             String   @id @default(uuid())
   tenantId       String
   dealId         String
-  fromStageId     String
-  toStageId       String
-  movedByUserId   String?
-  movedByAgentId  String?
+  fromStageId    String
+  toStageId      String
+  movedByUserId  String?
+  movedByAgentId String?
   reason         String?
-  createdAt       DateTime @default(now())
+  createdAt      DateTime @default(now())
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   deal   Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, dealId, createdAt])
+}
+
+// ─────────────────────────── Scenarios ───────────────────────────
+// Scenario automation: a visual drag-and-drop flow the owner/staff builds.
+// Fire-and-forget outbound sequences (surveys, after-sales) — the scenario
+// injects messages at trigger times and never owns the conversation; the AI
+// agent handles any reply as normal. Channel-agnostic; on Cloud API no send
+// may land past the 24h customer-service window (enforced at runtime +
+// warned at validate time). See src/lib/scenario-engine.ts.
+
+// The template: a graph (nodes + edges, React Flow shape) + trigger contract.
+// triggerType is a column so the engine can find active scenarios for an event
+// without parsing the JSON graph. triggerConfig holds type-specific bits
+// (e.g. { tagName } for ON_TAG_ADDED), Zod-validated at the API boundary.
+model Scenario {
+  id            String              @id @default(uuid())
+  tenantId      String
+  name          String
+  description   String?
+  status        ScenarioStatus      @default(DRAFT)
+  triggerType   ScenarioTriggerType
+  triggerConfig Json                @default("{}")
+  // { nodes: ScenarioNode[], edges: ScenarioEdge[] } — validated by Zod in
+  // src/types/scenario.ts, never trusted raw. Stored as Json so the builder
+  // can evolve node shapes without a migration.
+  graph         Json                @default("{}")
+  version       Int                 @default(1)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  tenant Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  runs   ScenarioRun[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, triggerType, status])
+}
+
+// A live execution of a Scenario bound to one conversation. `context` is the
+// variable payload from the trigger event (customer_name, order_id, ...) that
+// `{{variable}}` interpolation in Send nodes resolves against. `currentNodeId`
+// is the next node to execute. `resumeAt` is set when WAITING on a Wait node;
+// node-cron resumes due runs. `dedupKey` (+ scenarioId) makes trigger firing
+// idempotent — a redelivered webhook or double-fire cannot start a duplicate.
+model ScenarioRun {
+  id             String            @id @default(uuid())
+  tenantId       String
+  scenarioId     String
+  conversationId String
+  status         ScenarioRunStatus @default(RUNNING)
+  currentNodeId  String?
+  context        Json              @default("{}")
+  resumeAt       DateTime?
+  // Idempotency: scenarioId + dedupKey unique. dedupKey is the trigger ref
+  // (order id, conversation id, message id) so the same event never starts two
+  // runs of the same scenario.
+  dedupKey       String            @default("")
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  tenant       Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  scenario     Scenario          @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+  conversation Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  steps        ScenarioRunStep[]
+
+  @@unique([scenarioId, dedupKey])
+  @@index([tenantId, status])
+  @@index([status, resumeAt])
+  @@index([conversationId])
+}
+
+// Per-node execution audit: one row per node the run executes. Append-only
+// (the engine only creates). `result` carries node-specific output (sent
+// message id, branch taken, tag applied) for traceability.
+model ScenarioRunStep {
+  id          String            @id @default(uuid())
+  tenantId    String
+  runId       String
+  nodeId      String
+  nodeType    String
+  status      ScenarioRunStatus
+  result      Json?
+  error       String?
+  startedAt   DateTime          @default(now())
+  completedAt DateTime?
+
+  tenant Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  run    ScenarioRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, runId, startedAt])
 }

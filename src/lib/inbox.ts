@@ -5,6 +5,7 @@ import { HttpError } from "@/lib/queries";
 import { logAction } from "@/lib/audit";
 import { getProvider } from "@/lib/whatsapp-provider";
 import type { InboundMessage } from "@/types/whatsapp";
+import { events } from "@/lib/events";
 
 // Inbox domain logic shared by the dashboard routes and the webhook ingest
 // path (SDD §4.9). Tenant is always passed explicitly — never inferred from
@@ -16,44 +17,79 @@ export const CLOUD_API_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 // Upsert Contact (tenantId+phone unique) and Conversation
 // (tenantId+channelId+phone unique), then stamp lastMessageAt. Returns the
-// conversation row. Used by the webhook for inbound and by sendHumanReply for
-// outbound (both bump lastMessageAt).
+// conversation row + whether it was newly created (so callers can fire a
+// `conversation.new` scenario trigger only on the first inbound, not on every
+// subsequent message to an existing thread). Race-safe: if two first-messages
+// arrive concurrently, the unique constraint makes one create fail P2002 and
+// fall through to an update as existing. Used by the webhook for inbound and
+// by sendHumanReply for outbound (both bump lastMessageAt).
 export async function findOrCreateConversation(
   tenantId: string,
   channelId: string,
   customerPhone: string
-): Promise<Conversation> {
+): Promise<{ conversation: Conversation; created: boolean }> {
   const contact = await prisma.contact.upsert({
     where: { tenantId_phone: { tenantId, phone: customerPhone } },
     update: {},
     create: { tenantId, phone: customerPhone },
   });
 
-  return prisma.conversation.upsert({
+  const existing = await prisma.conversation.findUnique({
     where: {
       tenantId_channelId_customerPhone: { tenantId, channelId, customerPhone },
     },
-    update: { lastMessageAt: new Date(), contactId: contact.id },
-    create: {
-      tenantId,
-      channelId,
-      customerPhone,
-      contactId: contact.id,
-      lastMessageAt: new Date(),
-    },
   });
+  if (existing) {
+    const conversation = await prisma.conversation.update({
+      where: { id: existing.id },
+      data: { lastMessageAt: new Date(), contactId: contact.id },
+    });
+    return { conversation, created: false };
+  }
+
+  try {
+    const conversation = await prisma.conversation.create({
+      data: {
+        tenantId,
+        channelId,
+        customerPhone,
+        contactId: contact.id,
+        lastMessageAt: new Date(),
+      },
+    });
+    return { conversation, created: true };
+  } catch (err) {
+    // Raced with another first-message for the same customer+channel: the
+    // unique constraint fired. Treat as existing — update and report created=false.
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === "P2002"
+    ) {
+      const conversation = await prisma.conversation.update({
+        where: {
+          tenantId_channelId_customerPhone: { tenantId, channelId, customerPhone },
+        },
+        data: { lastMessageAt: new Date(), contactId: contact.id },
+      });
+      return { conversation, created: false };
+    }
+    throw err;
+  }
 }
 
 // Shared inbound ingest path (SDD §4.9 / phase 7.4). Both the Cloud API
 // webhook and the Baileys socket call this. channelId/tenantId come from the
-// resolved channel — never from message content.
+// resolved channel — never from message content. On a brand-new conversation
+// (first inbound from this customer) it emits `conversation.new` so any active
+// ON_NEW_CONVERSATION scenarios can start a run — fire-and-forget, never
+// blocks the ingest/ACK path.
 export async function ingestInboundMessage(msg: InboundMessage): Promise<Message> {
-  const conversation = await findOrCreateConversation(
+  const { conversation, created } = await findOrCreateConversation(
     msg.tenantId,
     msg.channelId,
     msg.from
   );
-  return recordInboundMessage({
+  const message = await recordInboundMessage({
     tenantId: msg.tenantId,
     conversationId: conversation.id,
     from: msg.from,
@@ -62,6 +98,18 @@ export async function ingestInboundMessage(msg: InboundMessage): Promise<Message
     receivedAt: msg.receivedAt,
     customerName: msg.customerName,
   });
+
+  if (created) {
+    events.emit("conversation.new", {
+      tenantId: msg.tenantId,
+      conversationId: conversation.id,
+      channelId: msg.channelId,
+      customerPhone: msg.from,
+      customerName: msg.customerName,
+    });
+  }
+
+  return message;
 }
 
 // Persist an inbound customer message. direction=INBOUND, senderType=CUSTOMER.
