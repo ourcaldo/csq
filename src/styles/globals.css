@@ -64,6 +64,20 @@
   .msg-note {
     @apply rounded-lg bg-amber-50 text-amber-900 border border-amber-200 border-dashed;
   }
+  /* Scenario-sent outbound — distinct from human/AI so staff can see automated outreach. */
+  .msg-scenario {
+    @apply rounded-[1rem_1rem_1rem_0.25rem] bg-violet-50 text-violet-900 border border-violet-100;
+  }
+}
+
+/* Scenario builder: show the edge delete button on hover (n8n-style). */
+.scn-edge-del {
+  opacity: 0;
+  transition: opacity 0.12s ease-in-out;
+}
+.react-flow__edge:hover .scn-edge-del,
+.scn-edge-del:hover {
+  opacity: 1;
 }
 
 @layer utilities {

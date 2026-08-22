@@ -70,6 +70,7 @@ function MessageBubble({ m }: { m: Message }) {
     );
   }
   const isAi = m.senderType === "AGENT";
+  const isScenario = m.senderType === "SCENARIO";
   return (
     <div className="my-1 flex max-w-[80%] items-end justify-end gap-2 self-end">
       <div>
@@ -78,10 +79,15 @@ function MessageBubble({ m }: { m: Message }) {
             <Robot size={12} weight="fill" /> AI
           </span>
         )}
+        {isScenario && (
+          <span className="mb-1 ml-1 inline-flex items-center rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700">
+            Skenario
+          </span>
+        )}
         <div
           className={cn(
             "px-3 py-2 text-sm shadow-sm",
-            isAi ? "msg-ai" : "msg-sent"
+            isScenario ? "msg-scenario" : isAi ? "msg-ai" : "msg-sent"
           )}
         >
           {m.body}

@@ -167,7 +167,9 @@ export function ConversationList({
                         ? "AI: "
                         : c.lastMessage.senderType === "HUMAN"
                           ? "Anda: "
-                          : ""}
+                          : c.lastMessage.senderType === "SCENARIO"
+                            ? "Skenario: "
+                            : ""}
                       {c.lastMessage.body}
                     </p>
                   )}

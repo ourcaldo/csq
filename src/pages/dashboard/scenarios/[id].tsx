@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { FormEvent, DragEvent } from "react";
+import type { FormEvent, DragEvent, MouseEvent as ReactMouseEvent } from "react";
 import type { GetServerSideProps, GetServerSidePropsContext } from "next";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -31,6 +31,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { nodeTypes } from "@/components/dashboard/scenario/nodes";
+import { edgeTypes } from "@/components/dashboard/scenario/edge";
 
 // Scenario visual builder (React Flow). Drag nodes from the palette onto the
 // canvas, connect them, edit each node's config in the right panel, then Save
@@ -62,6 +63,22 @@ const PALETTE: { type: string; label: string }[] = [
   { type: "tag", label: "Tag" },
   { type: "end", label: "Selesai" },
 ];
+
+// Node types insertable into the middle of an existing edge (splice). Excludes
+// condition (needs true/false handles, not a single in/out) and end (no output).
+const INSERTABLE: { type: string; label: string }[] = [
+  { type: "send", label: "Kirim Pesan" },
+  { type: "wait", label: "Tunggu" },
+  { type: "tag", label: "Tag" },
+];
+
+// Right-click context menu state. `flowX/flowY` are canvas coords for placing a
+// new node; `clientX/clientY` are viewport coords for positioning the menu.
+type MenuState =
+  | { kind: "pane"; clientX: number; clientY: number; flowX: number; flowY: number }
+  | { kind: "node"; clientX: number; clientY: number; nodeId: string }
+  | { kind: "edge"; clientX: number; clientY: number; edgeId: string }
+  | null;
 
 function str(v: unknown): string {
   return typeof v === "string" ? v : v === undefined || v === null ? "" : String(v);
@@ -115,6 +132,7 @@ function Builder({ id }: { id: string }) {
   const [formInfo, setFormInfo] = useState<string | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition } = useReactFlow();
+  const [menu, setMenu] = useState<MenuState>(null);
 
   // Hydrate canvas + form once the scenario loads.
   useEffect(() => {
@@ -138,18 +156,94 @@ function Builder({ id }: { id: string }) {
     [setEdges]
   );
 
+  function defaultDataFor(type: string): Record<string, unknown> {
+    if (type === "send") return { body: "" };
+    if (type === "wait") return { durationMs: 60 * 60 * 1000 };
+    if (type === "condition") return { field: "", operator: "equals", value: "" };
+    if (type === "tag") return { tagName: "" };
+    return {};
+  }
+
   function addNode(type: string, position: { x: number; y: number }): void {
     const idNew = newId(type);
-    let data: Record<string, unknown> = {};
-    if (type === "send") data = { body: "" };
-    else if (type === "wait") data = { durationMs: 60 * 60 * 1000 };
-    else if (type === "condition") data = { field: "", operator: "equals", value: "" };
-    else if (type === "tag") data = { tagName: "" };
     setNodes((nds) => [
       ...nds,
-      { id: idNew, type, position, data },
+      { id: idNew, type, position, data: defaultDataFor(type) },
     ]);
     setSelectedId(idNew);
+  }
+
+  // Delete a node and any edges touching it. The trigger is protected (the
+  // graph must keep exactly one); other nodes are removable — validation at
+  // activate time catches any resulting dangling/terminal-less graph.
+  function deleteNode(nodeId: string): void {
+    const node = nodes.find((n) => n.id === nodeId);
+    if (!node || node.type === "trigger") return;
+    setNodes((nds) => nds.filter((n) => n.id !== nodeId));
+    setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
+    if (selectedId === nodeId) setSelectedId(null);
+  }
+
+  function duplicateNode(nodeId: string): void {
+    const node = nodes.find((n) => n.id === nodeId);
+    if (!node) return;
+    const idNew = newId(node.type ?? "node");
+    setNodes((nds) => [
+      ...nds,
+      {
+        id: idNew,
+        type: node.type,
+        position: { x: node.position.x + 48, y: node.position.y + 48 },
+        data: { ...node.data },
+      },
+    ]);
+    setSelectedId(idNew);
+  }
+
+  function deleteEdge(edgeId: string): void {
+    setEdges((eds) => eds.filter((e) => e.id !== edgeId));
+  }
+
+  // Splice a new node into an existing edge: remove the edge, place the new
+  // node at the midpoint, and wire source→new→target. This is the n8n-style
+  // "insert module in the middle of the flow" action.
+  function spliceEdge(edgeId: string, type: string): void {
+    const edge = edges.find((e) => e.id === edgeId);
+    if (!edge) return;
+    const src = nodes.find((n) => n.id === edge.source);
+    const tgt = nodes.find((n) => n.id === edge.target);
+    if (!src || !tgt) return;
+    const idNew = newId(type);
+    const mid = {
+      x: (src.position.x + tgt.position.x) / 2,
+      y: (src.position.y + tgt.position.y) / 2,
+    };
+    setNodes((nds) => [...nds, { id: idNew, type, position: mid, data: defaultDataFor(type) }]);
+    setEdges((eds) => [
+      ...eds.filter((e) => e.id !== edgeId),
+      { id: `e-${edge.source}-${idNew}`, source: edge.source, target: idNew },
+      { id: `e-${idNew}-${edge.target}`, source: idNew, target: edge.target },
+    ]);
+    setSelectedId(idNew);
+  }
+
+  // ── Context menu openers (right-click). Custom menu only when editing;
+  // otherwise let the browser show its default menu. ──
+  function onPaneContextMenu(e: MouseEvent | ReactMouseEvent): void {
+    if (!canEdit) return;
+    e.preventDefault();
+    const p = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+    setMenu({ kind: "pane", clientX: e.clientX, clientY: e.clientY, flowX: p.x, flowY: p.y });
+  }
+  function onNodeContextMenu(e: MouseEvent | ReactMouseEvent, node: Node): void {
+    if (!canEdit) return;
+    e.preventDefault();
+    setMenu({ kind: "node", clientX: e.clientX, clientY: e.clientY, nodeId: node.id });
+  }
+  function onEdgeContextMenu(e: MouseEvent | ReactMouseEvent, edge: Edge): void {
+    if (!canEdit) return;
+    e.preventDefault();
+    setMenu({ kind: "edge", clientX: e.clientX, clientY: e.clientY, edgeId: edge.id });
   }
 
   function onDragStart(e: DragEvent, type: string): void {
@@ -366,8 +460,19 @@ function Builder({ id }: { id: string }) {
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
-            onNodeClick={(_, n) => setSelectedId(n.id)}
+            onNodeClick={(_, n) => {
+              setSelectedId(n.id);
+              setMenu(null);
+            }}
+            onPaneClick={() => setMenu(null)}
+            onPaneContextMenu={onPaneContextMenu}
+            onNodeContextMenu={onNodeContextMenu}
+            onEdgeContextMenu={onEdgeContextMenu}
+            onMove={() => setMenu(null)}
             nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
+            defaultEdgeOptions={{ type: "default" }}
+            deleteKeyCode={canEdit ? ["Backspace", "Delete"] : []}
             fitView
             nodesDraggable={canEdit}
             nodesConnectable={canEdit}
@@ -416,7 +521,134 @@ function Builder({ id }: { id: string }) {
           <p className="text-sm text-slate-500">Belum ada run.</p>
         )}
       </div>
+
+      {menu && (
+        <ScenarioContextMenu
+          menu={menu}
+          isTrigger={
+            menu.kind === "node"
+              ? nodes.find((n) => n.id === menu.nodeId)?.type === "trigger"
+              : false
+          }
+          onAdd={(type) => {
+            if (menu.kind === "pane") addNode(type, { x: menu.flowX, y: menu.flowY });
+            setMenu(null);
+          }}
+          onDuplicate={() => {
+            if (menu.kind === "node") duplicateNode(menu.nodeId);
+            setMenu(null);
+          }}
+          onDeleteNode={() => {
+            if (menu.kind === "node") deleteNode(menu.nodeId);
+            setMenu(null);
+          }}
+          onSplice={(type) => {
+            if (menu.kind === "edge") spliceEdge(menu.edgeId, type);
+            setMenu(null);
+          }}
+          onDeleteEdge={() => {
+            if (menu.kind === "edge") deleteEdge(menu.edgeId);
+            setMenu(null);
+          }}
+          onClose={() => setMenu(null)}
+        />
+      )}
     </DashboardShell>
+  );
+}
+
+function ScenarioContextMenu({
+  menu,
+  isTrigger,
+  onAdd,
+  onDuplicate,
+  onDeleteNode,
+  onSplice,
+  onDeleteEdge,
+  onClose,
+}: {
+  menu: NonNullable<MenuState>;
+  isTrigger: boolean;
+  onAdd: (type: string) => void;
+  onDuplicate: () => void;
+  onDeleteNode: () => void;
+  onSplice: (type: string) => void;
+  onDeleteEdge: () => void;
+  onClose: () => void;
+}) {
+  // Fixed-positioned at the cursor (viewport coords from the contextmenu event).
+  const style = { left: menu.clientX, top: menu.clientY };
+  return (
+    <>
+      {/* Click-away backdrop so any click outside the menu closes it. */}
+      <div className="fixed inset-0 z-40" onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose(); }} />
+      <div
+        className="fixed z-50 w-48 rounded-lg border border-slate-200 bg-white py-1 text-sm shadow-lg"
+        style={style}
+        onClick={(e) => e.stopPropagation()}
+        onContextMenu={(e) => e.preventDefault()}
+      >
+        {menu.kind === "pane" && (
+          <>
+            <p className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              Tambah modul
+            </p>
+            {PALETTE.map((p) => (
+              <button
+                key={p.type}
+                className="block w-full px-3 py-1.5 text-left text-slate-700 hover:bg-slate-50"
+                onClick={() => onAdd(p.type)}
+              >
+                {p.label}
+              </button>
+            ))}
+          </>
+        )}
+
+        {menu.kind === "node" && (
+          <>
+            <button
+              className="block w-full px-3 py-1.5 text-left text-slate-700 hover:bg-slate-50"
+              onClick={onDuplicate}
+            >
+              Duplikat
+            </button>
+            <button
+              className="block w-full px-3 py-1.5 text-left text-red-600 hover:bg-red-50 disabled:text-slate-300 disabled:hover:bg-transparent"
+              onClick={onDeleteNode}
+              disabled={isTrigger}
+              title={isTrigger ? "Node pemicu tidak dapat dihapus" : undefined}
+            >
+              Hapus{isTrigger ? " (terkunci)" : ""}
+            </button>
+          </>
+        )}
+
+        {menu.kind === "edge" && (
+          <>
+            <p className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+              Sisipkan modul
+            </p>
+            {INSERTABLE.map((p) => (
+              <button
+                key={p.type}
+                className="block w-full px-3 py-1.5 text-left text-slate-700 hover:bg-slate-50"
+                onClick={() => onSplice(p.type)}
+              >
+                {p.label}
+              </button>
+            ))}
+            <div className="my-1 border-t border-slate-100" />
+            <button
+              className="block w-full px-3 py-1.5 text-left text-red-600 hover:bg-red-50"
+              onClick={onDeleteEdge}
+            >
+              Hapus koneksi
+            </button>
+          </>
+        )}
+      </div>
+    </>
   );
 }
 
