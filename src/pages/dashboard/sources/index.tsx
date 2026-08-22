@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import type { GetServerSideProps } from "next";
 import { useRouter } from "next/router";
+import { CaretDown } from "@phosphor-icons/react";
 import { withAuth } from "@/lib/auth";
+import { cn } from "@/lib/utils";
 import { apiFetch, apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
 import type {
@@ -71,6 +73,7 @@ export default function SourcesPage() {
 
   const [addOpen, setAddOpen] = useState(false);
   const [pickerSourceId, setPickerSourceId] = useState<string | null>(null);
+  const [actionsOpen, setActionsOpen] = useState(false);
 
   const url = `/api/dashboard/sources?page=${page}&pageSize=${PAGE_SIZE}`;
   const { data, loading, error: fetchError, refresh } = useApi<ListResult<DataSource>>(url);
@@ -178,24 +181,87 @@ export default function SourcesPage() {
       title="Sumber Data"
       description="Excel, Google Sheets, dan sumber data lain yang tersambung."
       actions={
-        <div className="flex flex-wrap items-center gap-2">
-          {googleConnected ? (
-            <>
-              <Badge variant="success">Google: {googleEmail ?? "terhubung"}</Badge>
-              <Button size="sm" variant="outline" onClick={addSpreadsheet} disabled={googleBusy}>
-                Tambah Spreadsheet
-              </Button>
-              <Button size="sm" variant="outline" onClick={disconnectGoogle} disabled={googleBusy}>
-                Disconnect
-              </Button>
-            </>
-          ) : (
-            // eslint-disable-next-line @next/next/no-html-link-for-pages
-            <a href="/api/import/sheets/auth">
-              <Button size="sm" disabled={googleBusy}>Connect Google Account</Button>
-            </a>
+        <>
+          {googleConnected && (
+            <Badge variant="success">Google: {googleEmail ?? "terhubung"}</Badge>
           )}
-          <Button onClick={() => setAddOpen(true)}>Tambah Sumber Data</Button>
+          <div className="hidden items-center gap-2 sm:flex">
+            {googleConnected ? (
+              <>
+                <Button size="sm" variant="outline" onClick={addSpreadsheet} disabled={googleBusy}>
+                  Tambah Spreadsheet
+                </Button>
+                <Button size="sm" variant="outline" onClick={disconnectGoogle} disabled={googleBusy}>
+                  Disconnect
+                </Button>
+              </>
+            ) : (
+              // eslint-disable-next-line @next/next/no-html-link-for-pages
+              <a href="/api/import/sheets/auth">
+                <Button size="sm" disabled={googleBusy}>Connect Google Account</Button>
+              </a>
+            )}
+            <Button onClick={() => setAddOpen(true)}>Tambah Sumber Data</Button>
+          </div>
+        </>
+      }
+      headerExtra={
+        <div className="relative sm:hidden">
+          {actionsOpen && (
+            <div
+              className="fixed inset-0 z-10"
+              onClick={() => setActionsOpen(false)}
+              aria-hidden
+            />
+          )}
+          <button
+            type="button"
+            onClick={() => setActionsOpen((o) => !o)}
+            className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            aria-expanded={actionsOpen}
+          >
+            Kelola Sumber Data
+            <CaretDown size={16} className={cn("transition-transform", actionsOpen && "rotate-180")} />
+          </button>
+          {actionsOpen && (
+            <div className="absolute left-0 right-0 top-full z-20 mt-1 rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
+              {googleConnected ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => { setActionsOpen(false); void addSpreadsheet(); }}
+                    disabled={googleBusy}
+                    className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    Tambah Spreadsheet
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setActionsOpen(false); void disconnectGoogle(); }}
+                    disabled={googleBusy}
+                    className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    Disconnect Google
+                  </button>
+                </>
+              ) : (
+                // eslint-disable-next-line @next/next/no-html-link-for-pages
+                <a
+                  href="/api/import/sheets/auth"
+                  className="flex w-full items-center rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                >
+                  Connect Google Account
+                </a>
+              )}
+              <button
+                type="button"
+                onClick={() => { setActionsOpen(false); setAddOpen(true); }}
+                className="flex w-full items-center rounded-md px-3 py-2 text-left text-sm font-medium text-slate-900 hover:bg-slate-50"
+              >
+                Tambah Sumber Data
+              </button>
+            </div>
+          )}
         </div>
       }
     >

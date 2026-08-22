@@ -88,12 +88,16 @@ type DashboardShellProps = {
   title: string;
   description?: string;
   actions?: ReactNode;
+  /** Full-width content rendered below the title/actions row, inside the page
+      header. Used for things like a mobile action dropdown that should span
+      the header edge-to-edge. Ignored in flush mode. */
+  headerExtra?: ReactNode;
   /** Flush mode: full-bleed content (no page header/padding). For the inbox. */
   flush?: boolean;
   children: ReactNode;
 };
 
-export function DashboardShell({ title, description, actions, flush, children }: DashboardShellProps) {
+export function DashboardShell({ title, description, actions, headerExtra, flush, children }: DashboardShellProps) {
   const router = useRouter();
   const { data: session } = useSession();
   const [navOpen, setNavOpen] = useState(false);
@@ -271,6 +275,7 @@ export function DashboardShell({ title, description, actions, flush, children }:
                 </div>
                 {actions && <div className="flex flex-wrap items-center justify-end gap-2">{actions}</div>}
               </div>
+              {headerExtra && <div className="mt-3">{headerExtra}</div>}
             </div>
           )}
 
