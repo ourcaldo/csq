@@ -11,11 +11,13 @@ import {
   BackgroundVariant,
   Controls,
   addEdge,
+  applyNodeChanges,
+  applyEdgeChanges,
   useNodesState,
   useEdgesState,
   useReactFlow,
 } from "@xyflow/react";
-import type { Node, Edge, Connection } from "@xyflow/react";
+import type { Node, Edge, Connection, NodeChange, EdgeChange } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { withAuth } from "@/lib/auth";
 import { apiSend } from "@/lib/api-client";
@@ -121,8 +123,8 @@ function Builder({ id }: { id: string }) {
     `/api/dashboard/scenarios/${id}/runs?pageSize=5`
   );
 
-  const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  const [nodes, setNodes, onNodesChangeRaw] = useNodesState<Node>([]);
+  const [edges, setEdges, onEdgesChangeRaw] = useEdgesState<Edge>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -149,13 +151,111 @@ function Builder({ id }: { id: string }) {
     [nodes, selectedId]
   );
 
+  // ── Undo / redo ──
+  // Snapshots of {nodes, edges} taken BEFORE a change is applied. past holds
+  // prior states (Ctrl+Z restores the last), future holds redos (Ctrl+Y).
+  // stateRef always holds the latest committed state so takeSnapshot (called
+  // inside change handlers, before applying) captures the pre-change state.
+  type Snap = { nodes: Node[]; edges: Edge[] };
+  const [past, setPast] = useState<Snap[]>([]);
+  const [future, setFuture] = useState<Snap[]>([]);
+  const stateRef = useRef<Snap>({ nodes: [], edges: [] });
+  const lastSnapRef = useRef(0);
+  useEffect(() => {
+    stateRef.current = { nodes, edges };
+  }, [nodes, edges]);
+
+  const takeSnapshot = useCallback(() => {
+    setPast((p) => [...p.slice(-49), stateRef.current]);
+    setFuture([]);
+    lastSnapRef.current = Date.now();
+  }, []);
+
+  // Throttled snapshot for high-frequency edits (property text inputs) so one
+  // burst of typing collapses into a single undo entry.
+  const takeSnapshotThrottled = useCallback(() => {
+    if (Date.now() - lastSnapRef.current < 500) return;
+    takeSnapshot();
+  }, [takeSnapshot]);
+
+  const undo = useCallback(() => {
+    setPast((p) => {
+      if (p.length === 0) return p;
+      const prev = p[p.length - 1];
+      setFuture((f) => [stateRef.current, ...f]);
+      setNodes(prev.nodes);
+      setEdges(prev.edges);
+      stateRef.current = prev;
+      setSelectedId(null);
+      return p.slice(0, -1);
+    });
+  }, [setNodes, setEdges]);
+
+  const redo = useCallback(() => {
+    setFuture((f) => {
+      if (f.length === 0) return f;
+      const next = f[0];
+      setPast((p) => [...p, stateRef.current]);
+      setNodes(next.nodes);
+      setEdges(next.edges);
+      stateRef.current = next;
+      setSelectedId(null);
+      return f.slice(1);
+    });
+  }, [setNodes, setEdges]);
+
+  // Wrap the change handlers: snapshot only on 'remove' (deletions), not on
+  // every position/select tick (those would flood the history). Drags and
+  // connects snapshot at their start events instead.
+  const onNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      if (changes.some((c) => c.type === "remove")) takeSnapshot();
+      setNodes((nds) => applyNodeChanges(changes, nds));
+    },
+    [setNodes, takeSnapshot]
+  );
+  const onEdgesChange = useCallback(
+    (changes: EdgeChange[]) => {
+      if (changes.some((c) => c.type === "remove")) takeSnapshot();
+      setEdges((eds) => applyEdgeChanges(changes, eds));
+    },
+    [setEdges, takeSnapshot]
+  );
+
   const onConnect = useCallback(
     (params: Connection) => {
+      takeSnapshot();
       const id = `e-${params.source}-${params.sourceHandle ?? "x"}-${params.target}`;
       setEdges((eds) => addEdge({ ...params, id }, eds));
     },
-    [setEdges]
+    [setEdges, takeSnapshot]
   );
+
+  // Ctrl+Z / Ctrl+Y (or Ctrl+Shift+Z) for undo/redo. Ignored while focus is in
+  // a text field so native text undo keeps working.
+  useEffect(() => {
+    if (!canEdit) return;
+    function onKey(e: KeyboardEvent) {
+      const el = document.activeElement;
+      if (
+        el &&
+        (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT")
+      ) {
+        return;
+      }
+      const z = e.key.toLowerCase() === "z";
+      const y = e.key.toLowerCase() === "y";
+      if ((e.ctrlKey || e.metaKey) && z && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      } else if ((e.ctrlKey || e.metaKey) && ((z && e.shiftKey) || y)) {
+        e.preventDefault();
+        redo();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [canEdit, undo, redo]);
 
   function defaultDataFor(type: string): Record<string, unknown> {
     if (type === "send") return { body: "" };
@@ -166,6 +266,7 @@ function Builder({ id }: { id: string }) {
   }
 
   function addNode(type: string, position: { x: number; y: number }): void {
+    takeSnapshot();
     const idNew = newId(type);
     setNodes((nds) => [
       ...nds,
@@ -180,6 +281,7 @@ function Builder({ id }: { id: string }) {
   function deleteNode(nodeId: string): void {
     const node = nodes.find((n) => n.id === nodeId);
     if (!node || node.type === "trigger") return;
+    takeSnapshot();
     setNodes((nds) => nds.filter((n) => n.id !== nodeId));
     setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
     if (selectedId === nodeId) setSelectedId(null);
@@ -188,6 +290,7 @@ function Builder({ id }: { id: string }) {
   function duplicateNode(nodeId: string): void {
     const node = nodes.find((n) => n.id === nodeId);
     if (!node) return;
+    takeSnapshot();
     const idNew = newId(node.type ?? "node");
     setNodes((nds) => [
       ...nds,
@@ -202,6 +305,7 @@ function Builder({ id }: { id: string }) {
   }
 
   function deleteEdge(edgeId: string): void {
+    takeSnapshot();
     setEdges((eds) => eds.filter((e) => e.id !== edgeId));
   }
 
@@ -211,6 +315,7 @@ function Builder({ id }: { id: string }) {
   function spliceEdge(edgeId: string, type: string): void {
     const edge = edges.find((e) => e.id === edgeId);
     if (!edge) return;
+    takeSnapshot();
     const src = nodes.find((n) => n.id === edge.source);
     const tgt = nodes.find((n) => n.id === edge.target);
     if (!src || !tgt) return;
@@ -348,6 +453,7 @@ function Builder({ id }: { id: string }) {
   // Update one field on the selected node's data.
   function patchSelected(patch: Record<string, unknown>): void {
     if (!selectedId) return;
+    takeSnapshotThrottled();
     setNodes((nds) =>
       nds.map((n) =>
         n.id === selectedId ? { ...n, data: { ...n.data, ...patch } } : n
@@ -475,6 +581,8 @@ function Builder({ id }: { id: string }) {
       onNodesChange={onNodesChange}
       onEdgesChange={onEdgesChange}
       onConnect={onConnect}
+      onConnectStart={() => takeSnapshot()}
+      onNodeDragStart={() => takeSnapshot()}
       onNodeClick={(_, n) => {
         setSelectedId(n.id);
         setMenu(null);
@@ -509,6 +617,28 @@ function Builder({ id }: { id: string }) {
       description="Susun alur dengan drag-and-drop, lalu simpan atau aktifkan."
       actions={
         <div className="flex items-center gap-2">
+          {canEdit && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={undo}
+                disabled={past.length === 0}
+                title="Undo (Ctrl+Z)"
+              >
+                Undo
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={redo}
+                disabled={future.length === 0}
+                title="Redo (Ctrl+Y)"
+              >
+                Redo
+              </Button>
+            </>
+          )}
           <Button variant="outline" size="sm" onClick={() => setFullscreen(true)}>
             Layar Penuh
           </Button>
@@ -535,6 +665,22 @@ function Builder({ id }: { id: string }) {
         </div>
       }
     >
+      {/* Mobile notice — the builder canvas is desktop-only. */}
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-6 md:hidden">
+        <div className="max-w-sm rounded-lg bg-white p-6 text-center shadow-xl">
+          <p className="text-base font-semibold text-slate-900">
+            Tidak dapat diakses dari perangkat mobile
+          </p>
+          <p className="mt-2 text-sm text-slate-600">
+            Builder skenario dirancang untuk layar besar dengan drag-and-drop.
+            Silakan akses dari perangkat desktop.
+          </p>
+          <Link href="/dashboard/scenarios" className="mt-4 inline-block">
+            <Button variant="outline">Kembali ke daftar skenario</Button>
+          </Link>
+        </div>
+      </div>
+
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <BadgeStatus tone={STATUS_TONE[scenario.status]}>
           {STATUS_LABEL[scenario.status]}
@@ -582,6 +728,28 @@ function Builder({ id }: { id: string }) {
 
             {/* Floating toolbar */}
             <div className="absolute left-3 top-3 z-20 flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm">
+              {canEdit && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={undo}
+                    disabled={past.length === 0}
+                    title="Undo (Ctrl+Z)"
+                  >
+                    Undo
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={redo}
+                    disabled={future.length === 0}
+                    title="Redo (Ctrl+Y)"
+                  >
+                    Redo
+                  </Button>
+                </>
+              )}
               <Input
                 className="h-8 w-44"
                 value={name}
