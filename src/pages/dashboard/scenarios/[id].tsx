@@ -133,6 +133,7 @@ function Builder({ id }: { id: string }) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const { screenToFlowPosition } = useReactFlow();
   const [menu, setMenu] = useState<MenuState>(null);
+  const [fullscreen, setFullscreen] = useState(false);
 
   // Hydrate canvas + form once the scenario loads.
   useEffect(() => {
@@ -244,6 +245,86 @@ function Builder({ id }: { id: string }) {
     if (!canEdit) return;
     e.preventDefault();
     setMenu({ kind: "edge", clientX: e.clientX, clientY: e.clientY, edgeId: edge.id });
+  }
+
+  // Auto-connect on drag: when a node is dropped with one of its handles very
+  // close to another node's opposite handle, create the edge automatically
+  // (n8n-style). Picks the closest valid pair within AUTO_CONNECT_PX. For a
+  // condition source, uses the first free branch (true then false). Skips
+  // duplicates and incompatible endpoints (trigger has no input, end no output).
+  const AUTO_CONNECT_PX = 80;
+  function canSource(t: string | undefined): boolean {
+    return t !== "end";
+  }
+  function canTarget(t: string | undefined): boolean {
+    return t !== "trigger";
+  }
+  function pickConditionHandle(sourceId: string): "true" | "false" | null {
+    const hasTrue = edges.some((e) => e.source === sourceId && e.sourceHandle === "true");
+    const hasFalse = edges.some((e) => e.source === sourceId && e.sourceHandle === "false");
+    if (!hasTrue) return "true";
+    if (!hasFalse) return "false";
+    return null;
+  }
+
+  function onNodeDragStop(_event: MouseEvent | TouchEvent, dragged: Node): void {
+    if (!canEdit) return;
+    const dW = dragged.measured?.width ?? 224;
+    const dH = dragged.measured?.height ?? 56;
+    const dIn = { x: dragged.position.x, y: dragged.position.y + dH / 2 };
+    const dOut = { x: dragged.position.x + dW, y: dragged.position.y + dH / 2 };
+
+    let best:
+      | { source: string; target: string; sourceHandle: string | undefined; dist: number }
+      | null = null;
+
+    for (const other of nodes) {
+      if (other.id === dragged.id) continue;
+      const oW = other.measured?.width ?? 224;
+      const oH = other.measured?.height ?? 56;
+      const oOut = { x: other.position.x + oW, y: other.position.y + oH / 2 };
+      const oIn = { x: other.position.x, y: other.position.y + oH / 2 };
+
+      // other.output → dragged.input (dragged dropped to the right of other)
+      if (canSource(other.type) && canTarget(dragged.type)) {
+        const dist = Math.hypot(dIn.x - oOut.x, dIn.y - oOut.y);
+        if (dist < AUTO_CONNECT_PX && (!best || dist < best.dist)) {
+          const handle =
+            other.type === "condition" ? pickConditionHandle(other.id) : undefined;
+          if (handle !== null) best = { source: other.id, target: dragged.id, sourceHandle: handle ?? undefined, dist };
+        }
+      }
+      // dragged.output → other.input (dragged dropped to the left of other)
+      if (canSource(dragged.type) && canTarget(other.type)) {
+        const dist = Math.hypot(dOut.x - oIn.x, dOut.y - oIn.y);
+        if (dist < AUTO_CONNECT_PX && (!best || dist < best.dist)) {
+          const handle =
+            dragged.type === "condition" ? pickConditionHandle(dragged.id) : undefined;
+          if (handle !== null) best = { source: dragged.id, target: other.id, sourceHandle: handle ?? undefined, dist };
+        }
+      }
+    }
+
+    if (!best) return;
+    const b = best;
+    setEdges((eds) => {
+      const exists = eds.some(
+        (e) =>
+          e.source === b.source &&
+          e.target === b.target &&
+          (e.sourceHandle ?? undefined) === (b.sourceHandle ?? undefined)
+      );
+      if (exists) return eds;
+      return addEdge(
+        {
+          source: b.source,
+          target: b.target,
+          sourceHandle: b.sourceHandle,
+          id: `e-${b.source}-${b.sourceHandle ?? "x"}-${b.target}`,
+        },
+        eds
+      );
+    });
   }
 
   function onDragStart(e: DragEvent, type: string): void {
@@ -363,12 +444,74 @@ function Builder({ id }: { id: string }) {
     );
   }
 
+  // Shared pieces rendered in either the normal grid or the fullscreen overlay.
+  const paletteInner = (
+    <>
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        Modul
+      </p>
+      <div className="space-y-2">
+        {PALETTE.map((p) => (
+          <div
+            key={p.type}
+            draggable={canEdit}
+            onDragStart={(e) => onDragStart(e, p.type)}
+            className="cursor-grab rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
+          >
+            {p.label}
+          </div>
+        ))}
+      </div>
+      <p className="mt-3 text-[11px] text-slate-400">
+        Seret modul ke kanvas. Dekatkan ke node lain untuk auto-connect.
+      </p>
+    </>
+  );
+
+  const canvasInner = (
+    <ReactFlow
+      nodes={nodes}
+      edges={edges}
+      onNodesChange={onNodesChange}
+      onEdgesChange={onEdgesChange}
+      onConnect={onConnect}
+      onNodeClick={(_, n) => {
+        setSelectedId(n.id);
+        setMenu(null);
+      }}
+      onNodeDragStop={onNodeDragStop}
+      onPaneClick={() => setMenu(null)}
+      onPaneContextMenu={onPaneContextMenu}
+      onNodeContextMenu={onNodeContextMenu}
+      onEdgeContextMenu={onEdgeContextMenu}
+      onMove={() => setMenu(null)}
+      nodeTypes={nodeTypes}
+      edgeTypes={edgeTypes}
+      defaultEdgeOptions={{ type: "default" }}
+      deleteKeyCode={canEdit ? ["Backspace", "Delete"] : []}
+      fitView
+      nodesDraggable={canEdit}
+      nodesConnectable={canEdit}
+      elementsSelectable={canEdit}
+    >
+      <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
+      <Controls showInteractive={false} />
+    </ReactFlow>
+  );
+
+  const propertiesInner = (
+    <PropertiesPanel node={selectedNode} canEdit={canEdit} onPatch={patchSelected} />
+  );
+
   return (
     <DashboardShell
       title={scenario.name || "Skenario"}
       description="Susun alur dengan drag-and-drop, lalu simpan atau aktifkan."
       actions={
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setFullscreen(true)}>
+            Layar Penuh
+          </Button>
           <Link href="/dashboard/scenarios">
             <Button variant="outline" size="sm">
               Kembali
@@ -424,72 +567,78 @@ function Builder({ id }: { id: string }) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[180px_1fr_280px]">
-        {/* Palette */}
-        <div className="rounded-lg border bg-white p-3">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Modul
-          </p>
-          <div className="space-y-2">
-            {PALETTE.map((p) => (
-              <div
-                key={p.type}
-                draggable={canEdit}
-                onDragStart={(e) => onDragStart(e, p.type)}
-                className="cursor-grab rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
-              >
-                {p.label}
-              </div>
-            ))}
+      {fullscreen ? (
+        <div className="fixed inset-0 z-50 bg-white">
+          <div className="relative h-full w-full">
+            {/* Canvas fills the overlay */}
+            <div
+              ref={wrapperRef}
+              className="absolute inset-0"
+              onDragOver={onDragOver}
+              onDrop={onDrop}
+            >
+              {canvasInner}
+            </div>
+
+            {/* Floating toolbar */}
+            <div className="absolute left-3 top-3 z-20 flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm">
+              <Input
+                className="h-8 w-44"
+                value={name}
+                disabled={!canEdit}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Nama skenario"
+              />
+              {canEdit && (
+                <Button size="sm" onClick={onSave} disabled={saving}>
+                  {saving ? "Menyimpan…" : "Simpan"}
+                </Button>
+              )}
+              {isOwner && (
+                <Button
+                  size="sm"
+                  variant={scenario.status === "ACTIVE" ? "outline" : "default"}
+                  onClick={onToggleActive}
+                  disabled={busy}
+                >
+                  {busy ? "…" : scenario.status === "ACTIVE" ? "Jeda" : "Aktifkan"}
+                </Button>
+              )}
+              <Button size="sm" variant="outline" onClick={() => setFullscreen(false)}>
+                Keluar Layar Penuh
+              </Button>
+            </div>
+
+            {/* Floating palette (left, inside the canvas) */}
+            <div className="absolute left-3 top-20 z-10 w-44 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+              {paletteInner}
+            </div>
+
+            {/* Floating properties (right) */}
+            <div className="absolute right-3 top-3 z-10 max-h-[85vh] w-72 overflow-auto rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+              {propertiesInner}
+            </div>
           </div>
-          <p className="mt-3 text-[11px] text-slate-400">
-            Seret modul ke kanvas. Hubungkan dengan menarik dari titik node.
-          </p>
         </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[180px_1fr_280px]">
+          {/* Palette */}
+          <div className="rounded-lg border bg-white p-3">{paletteInner}</div>
 
-        {/* Canvas */}
-        <div
-          ref={wrapperRef}
-          className="h-[520px] rounded-lg border bg-white"
-          onDragOver={onDragOver}
-          onDrop={onDrop}
-        >
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            onNodeClick={(_, n) => {
-              setSelectedId(n.id);
-              setMenu(null);
-            }}
-            onPaneClick={() => setMenu(null)}
-            onPaneContextMenu={onPaneContextMenu}
-            onNodeContextMenu={onNodeContextMenu}
-            onEdgeContextMenu={onEdgeContextMenu}
-            onMove={() => setMenu(null)}
-            nodeTypes={nodeTypes}
-            edgeTypes={edgeTypes}
-            defaultEdgeOptions={{ type: "default" }}
-            deleteKeyCode={canEdit ? ["Backspace", "Delete"] : []}
-            fitView
-            nodesDraggable={canEdit}
-            nodesConnectable={canEdit}
-            elementsSelectable={canEdit}
+          {/* Canvas */}
+          <div
+            ref={wrapperRef}
+            className="h-[520px] rounded-lg border bg-white"
+            onDragOver={onDragOver}
+            onDrop={onDrop}
           >
-            <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
-            <Controls showInteractive={false} />
-          </ReactFlow>
-        </div>
+            {canvasInner}
+          </div>
 
-        {/* Properties */}
-        <PropertiesPanel
-          node={selectedNode}
-          canEdit={canEdit}
-          onPatch={patchSelected}
-        />
-      </div>
+          {/* Properties */}
+          {propertiesInner}
+        </div>
+      )}
 
       {/* Run history */}
       <div className="mt-6">
