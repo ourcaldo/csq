@@ -3,15 +3,17 @@
 // Owner/staff see all tenant conversations; selecting one opens the chat.
 // Handoff (take over / release) and tag/status actions live in the details pane.
 import { useState } from "react";
+import type { ChangeEvent } from "react";
 import type { GetServerSideProps } from "next";
 import { withAuth } from "@/lib/auth";
 import { useApi } from "@/hooks/use-api";
-import type { ListResult } from "@/types/dashboard";
+import type { ListResult, Tag } from "@/types/dashboard";
 import type { ConversationListItem } from "@/types/inbox";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { ConversationList } from "@/components/dashboard/inbox/conversation-list";
 import { ChatPanel } from "@/components/dashboard/inbox/chat-panel";
 import { ContactDetails } from "@/components/dashboard/inbox/contact-details";
+import { Select } from "@/components/ui/select";
 
 type Tab = "assigned" | "unassigned";
 
@@ -23,11 +25,22 @@ export default function InboxPage() {
   const [tab, setTab] = useState<Tab>("unassigned");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [status, setStatus] = useState("");
+  const [tagId, setTagId] = useState("");
 
-  // Fetch all tenant conversations; tab/search filter client-side for MVP.
+  // Server-side filters (status + tag) are appended to the API URL so the
+  // list reflects them directly; tab/search still filter client-side on top.
+  const conversationsUrl =
+    `/api/dashboard/inbox/conversations?pageSize=100` +
+    (status ? `&status=${status}` : "") +
+    (tagId ? `&tagId=${tagId}` : "");
   const { data, loading, error, refresh } = useApi<ListResult<ConversationListItem>>(
-    `/api/dashboard/inbox/conversations?pageSize=100`
+    conversationsUrl
   );
+
+  // Tenant tags for the tag filter dropdown.
+  const { data: tagsData } = useApi<ListResult<Tag>>(`/api/dashboard/tags?pageSize=100`);
+  const tags = tagsData?.items ?? [];
 
   const all = data?.items ?? [];
   const filtered = all.filter((c) => {
@@ -61,6 +74,32 @@ export default function InboxPage() {
 
   return (
     <DashboardShell title="Percakapan" flush>
+      {/* Filter toolbar — status + tag drive the server-side query. */}
+      <div className="flex shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-4 py-2">
+        <Select
+          value={status}
+          onChange={(e: ChangeEvent<HTMLSelectElement>) => setStatus(e.target.value)}
+          className="h-8 w-auto text-xs"
+          aria-label="Filter status"
+        >
+          <option value="">Semua status</option>
+          <option value="OPEN">Open</option>
+          <option value="PENDING">Pending</option>
+          <option value="RESOLVED">Selesai</option>
+        </Select>
+        <Select
+          value={tagId}
+          onChange={(e: ChangeEvent<HTMLSelectElement>) => setTagId(e.target.value)}
+          className="h-8 w-auto text-xs"
+          aria-label="Filter tag"
+        >
+          <option value="">Semua tag</option>
+          {tags.map((t) => (
+            <option key={t.id} value={t.id}>{t.name}</option>
+          ))}
+        </Select>
+      </div>
+
       <div className="flex min-h-0 flex-1">
         <ConversationList
           items={filtered}

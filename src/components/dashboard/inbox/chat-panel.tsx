@@ -21,6 +21,7 @@ import { apiFetch, apiSend } from "@/lib/api-client";
 import type { Message } from "@/types/inbox";
 import { LoadingSkeleton } from "@/components/dashboard/loading-skeleton";
 import { EmptyState } from "@/components/dashboard/empty-state";
+import { Dialog } from "@/components/ui/dialog";
 
 type ChatPanelProps = {
   conversationId: string;
@@ -98,6 +99,11 @@ export function ChatPanel({ conversationId, customerName, customerPhone, aiActiv
   const [mode, setMode] = useState<ComposerMode>("reply");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [templateOpen, setTemplateOpen] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [templateLang, setTemplateLang] = useState("id");
+  const [templateSending, setTemplateSending] = useState(false);
+  const [templateError, setTemplateError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   async function loadMessages() {
@@ -169,6 +175,31 @@ export function ChatPanel({ conversationId, customerName, customerPhone, aiActiv
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       send();
+    }
+  }
+
+  // Send an approved WhatsApp template — used to reach a customer outside the
+  // 24h Cloud API window. The template must be pre-approved in Meta Business
+  // Manager; the operator supplies its name + language code.
+  async function sendTemplate() {
+    const name = templateName.trim();
+    if (!name || templateSending) return;
+    setTemplateSending(true);
+    setTemplateError(null);
+    try {
+      const created = await apiSend<Message>(
+        `/api/dashboard/inbox/conversations/${conversationId}/template`,
+        "POST",
+        { templateName: name, language: templateLang }
+      );
+      setMessages((prev) => [...(prev ?? []), created]);
+      setTemplateOpen(false);
+      setTemplateName("");
+      setTemplateLang("id");
+    } catch (err) {
+      setTemplateError(err instanceof Error ? err.message : "Gagal mengirim template.");
+    } finally {
+      setTemplateSending(false);
     }
   }
 
@@ -253,7 +284,10 @@ export function ChatPanel({ conversationId, customerName, customerPhone, aiActiv
           >
             <NotePencil size={14} /> Catatan Tim
           </button>
-          <button className="flex items-center gap-1 rounded-md bg-slate-100 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200">
+          <button
+            onClick={() => { setTemplateOpen(true); setTemplateError(null); }}
+            className="flex items-center gap-1 rounded-md bg-slate-100 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200"
+          >
             <FileText size={14} /> Template
           </button>
         </div>
@@ -300,6 +334,51 @@ export function ChatPanel({ conversationId, customerName, customerPhone, aiActiv
           </div>
         </div>
       </div>
+
+      {/* Template send dialog — for messaging outside the 24h window. */}
+      <Dialog
+        open={templateOpen}
+        onClose={() => setTemplateOpen(false)}
+        title="Kirim Template"
+        description="Pesan template disetujui untuk mengirim di luar jendela 24 jam."
+      >
+        {templateError && <p className="mb-2 text-xs text-red-600">{templateError}</p>}
+        <div className="space-y-3">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Nama Template</label>
+            <input
+              value={templateName}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setTemplateName(e.target.value)}
+              placeholder="contoh: order_confirmation"
+              className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Bahasa</label>
+            <input
+              value={templateLang}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setTemplateLang(e.target.value)}
+              placeholder="id"
+              className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200"
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={() => setTemplateOpen(false)}
+              className="rounded-md px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100"
+            >
+              Batal
+            </button>
+            <button
+              onClick={sendTemplate}
+              disabled={templateSending || !templateName.trim()}
+              className="rounded-md bg-slate-900 px-3 py-1.5 text-sm text-white hover:bg-slate-800 disabled:opacity-50"
+            >
+              {templateSending ? "Mengirim…" : "Kirim Template"}
+            </button>
+          </div>
+        </div>
+      </Dialog>
     </div>
   );
 }

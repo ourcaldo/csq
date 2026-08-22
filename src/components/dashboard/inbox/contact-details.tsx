@@ -39,6 +39,7 @@ export function ContactDetails({ conversation, onChanged }: ContactDetailsProps)
   const [editEmail, setEditEmail] = useState("");
   const [editNotes, setEditNotes] = useState("");
   const [savingContact, setSavingContact] = useState(false);
+  const [showTagPicker, setShowTagPicker] = useState(false);
 
   async function loadTags() {
     try {
@@ -334,24 +335,38 @@ export function ContactDetails({ conversation, onChanged }: ContactDetailsProps)
               </span>
             ))}
             {availableTags.length > 0 && (
-              <div className="group relative inline-flex">
-                <button className="inline-flex items-center gap-1 rounded-md border border-dashed border-slate-300 px-2 py-1 text-xs text-slate-500 hover:bg-slate-50">
-                  <Plus size={12} /> Tag
-                </button>
-                <div className="invisible absolute right-0 top-7 z-50 w-40 rounded-lg border border-slate-200 bg-white p-1 shadow-lg group-hover:visible">
-                  {availableTags.map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => addTag(t.id)}
-                      className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
-                    >
-                      <TagIcon size={11} className="text-slate-400" /> {t.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <button
+                onClick={() => setShowTagPicker((v) => !v)}
+                disabled={busy}
+                className="inline-flex items-center gap-1 rounded-md border border-dashed border-slate-300 px-2 py-1 text-xs text-slate-500 hover:bg-slate-50 disabled:opacity-50"
+              >
+                <Plus size={12} /> Tag
+              </button>
             )}
           </div>
+          {/* Inline picker: rendered in normal flow (not absolute) so the right
+              panel's overflow-y-auto can't clip it, and kept open so multiple
+              tags can be added in a row. Available tags recompute after each add. */}
+          {showTagPicker && availableTags.length > 0 && (
+            <div className="mt-2 w-44 rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
+              {availableTags.map((t) => (
+                <button
+                  key={t.id}
+                  disabled={busy}
+                  onClick={() => addTag(t.id)}
+                  className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  <TagIcon size={11} className="text-slate-400" /> {t.name}
+                </button>
+              ))}
+              <button
+                onClick={() => setShowTagPicker(false)}
+                className="mt-1 w-full rounded-md border-t border-slate-100 px-2 py-1 text-xs text-slate-400 hover:bg-slate-50"
+              >
+                Selesai
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

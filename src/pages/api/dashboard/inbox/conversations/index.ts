@@ -55,6 +55,7 @@ export default async function handler(
     const assignedAgentId = strQuery(req.query, "assignedAgentId");
     const assigneeUserId = strQuery(req.query, "assigneeUserId");
     const search = strQuery(req.query, "search");
+    const tagId = strQuery(req.query, "tagId");
 
     const where: Prisma.ConversationWhereInput = {
       tenantId,
@@ -62,6 +63,7 @@ export default async function handler(
       ...(assignedAgentId ? { assignedAgentId } : {}),
       ...(assigneeUserId ? { assigneeUserId } : {}),
       ...(search ? { customerPhone: { contains: search } } : {}),
+      ...(tagId ? { tags: { some: { tagId } } } : {}),
     };
 
     const [items, total] = await Promise.all([
