@@ -1,6 +1,6 @@
 import type { Agent, Tenant } from "@prisma/client";
+import { MemoryImportance } from "@prisma/client";
 import prisma from "@/lib/db";
-import type { MemoryImportance } from "@prisma/client";
 import { getOrCreatePipeline } from "@/lib/pipeline";
 
 // Per-conversation pipeline context passed in by the agent loop so the AI is
@@ -51,7 +51,7 @@ export async function buildSystemPrompt(args: {
     // G4/G10: inject HIGH-importance agent memories as the continuity layer
     // beyond the chat-history window. Bounded so the prompt stays small.
     prisma.memory.findMany({
-      where: { tenantId: args.tenant.id, agentId: args.agent.id, importance: "HIGH" as MemoryImportance },
+      where: { tenantId: args.tenant.id, agentId: args.agent.id, importance: MemoryImportance.HIGH },
       orderBy: { createdAt: "desc" },
       take: MAX_MEMORIES_IN_PROMPT,
     }),
@@ -154,16 +154,27 @@ export async function buildSystemPrompt(args: {
 }
 
 // Convert stored DB messages to OpenAI chat history for runConversation.
-// INBOUND → user, OUTBOUND from AGENT → assistant. Human and tool messages are
-// omitted from the replayed history (kept simple for MVP; the conversation
-// context window is bounded by the caller via a limit).
+// INBOUND → user; OUTBOUND from AGENT/HUMAN/STAFF → assistant. WHY include
+// HUMAN/STAFF outbound: after an AI→human→AI handoff, the AI must see the full
+// continuous thread — including the staff/owner replies that happened while it
+// stood down — or its context is discontinuous and it may repeat or contradict
+// what staff said. Mapping staff/owner outbound to `assistant` is correct
+// because it is the business's side of the conversation, same as the AI's own
+// replies. Ordering (oldest→newest) and the 30-message limit are preserved.
 export function toChatHistory(
   messages: { direction: string; senderType: string; body: string }[],
   limit = 30
 ): { role: string; content: string }[] {
   return messages
     .slice(-limit)
-    .filter((m) => m.direction === "INBOUND" || (m.direction === "OUTBOUND" && m.senderType === "AGENT"))
+    .filter(
+      (m) =>
+        m.direction === "INBOUND" ||
+        (m.direction === "OUTBOUND" &&
+          (m.senderType === "AGENT" ||
+            m.senderType === "HUMAN" ||
+            m.senderType === "STAFF"))
+    )
     .map((m) => ({
       role: m.direction === "INBOUND" ? "user" : "assistant",
       content: m.body,

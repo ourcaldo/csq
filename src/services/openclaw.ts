@@ -165,7 +165,23 @@ export async function runConversation(args: RunConversationArgs): Promise<RunRes
     }
 
     for (const tc of msg.tool_calls) {
-      const params: Record<string, unknown> = JSON.parse(tc.function.arguments);
+      // H5: guard the model's tool-call arguments parse. If the model emits
+      // malformed JSON, do NOT throw (that would abort the whole turn and the
+      // outer catch would only send a canned fallback). Instead surface a
+      // `role:"tool"` error to the model and continue the loop so it can
+      // self-correct within the existing iteration budget.
+      let params: Record<string, unknown>;
+      try {
+        params = JSON.parse(tc.function.arguments);
+      } catch {
+        messages.push({
+          role: "tool",
+          tool_call_id: tc.id,
+          content:
+            "Invalid JSON arguments; please retry with valid JSON.",
+        });
+        continue;
+      }
       const outcome = await executeTool({
         toolName: tc.function.name,
         tenantId: args.tenantId,

@@ -49,12 +49,25 @@ export default async function handler(
     return respondError(res, "NOT_FOUND", "Percakapan tidak ditemukan.");
   }
 
-  const turn = await runAgentReply({
-    tenantId,
-    conversationId: conversation.id,
-    customerPhone: conversation.customerPhone,
-    body: parsed.data.body,
-  });
+  // M4: serialize against the webhook path. runAgentReply executes tool side
+  // effects (stock/order mutations) and must not run concurrently with a
+  // customer inbound on the same conversation. The webhook path
+  // (agent-loop.ts) wraps its turn in `pg_advisory_xact_lock(hashtext(
+  // conversationId)::bigint)`; we acquire the SAME lock key here so the two
+  // paths serialize against each other. Without this, a dashboard test turn
+  // racing a customer inbound could produce duplicate tool side effects.
+  const turn = await prisma.$transaction(
+    async () => {
+      await prisma.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${conversation.id})::bigint)`;
+      return runAgentReply({
+        tenantId,
+        conversationId: conversation.id,
+        customerPhone: conversation.customerPhone,
+        body: parsed.data.body,
+      });
+    },
+    { timeout: 120_000, maxWait: 10_000 }
+  );
 
   return res.status(200).json(apiOk(turn));
 }
