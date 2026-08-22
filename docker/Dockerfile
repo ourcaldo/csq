@@ -24,19 +24,29 @@ RUN npm run build
 # recreate the wrapper against the runner's node.
 FROM ghcr.io/openclaw/openclaw:slim AS openclaw-cli
 
+# ── docker CLI stage (copied from the official docker image; CLI only) ──
+# The app needs the `docker` binary to run `docker exec <cell>` against the
+# host Docker daemon via /var/run/docker.sock. We copy just the CLI binary
+# from the official docker:cli image instead of installing the docker.io apt
+# metapackage (which pulls the full Docker engine and adds ~200 MB).
+FROM docker:24-cli AS docker-cli
+
 # ── runner ──
 FROM node:20-bookworm-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# docker CLI: lets the app talk to the host Docker daemon through the mounted
-# /var/run/docker.sock (manage cell containers). docker.io is the engine pkg on
-# Debian; only the CLI is needed here, but installing the metapackage is the
-# simplest reliable path on slim.
+# ca-certificates is needed for HTTPS calls the app makes to external APIs
+# (WhatsApp Graph API, Google Sheets, Fireworks). No other apt packages are
+# required — the docker CLI binary is copied from the stage above.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      docker.io ca-certificates \
+      ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+
+# docker CLI — lets the app talk to the host Docker daemon through the mounted
+# /var/run/docker.sock (manage cell containers via `docker exec <cell>`).
+COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
 
 # OpenClaw CLI.
 COPY --from=openclaw-cli /app /opt/openclaw

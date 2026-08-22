@@ -1,6 +1,11 @@
 # Production stack for CSQ on the HackFest VPS
 # (4 vCPU / 4GB RAM / 20GB SSD Ubuntu). Run from the docker/ directory:
-#   docker compose --env-file ../.env.production up -d --build
+#   docker compose --env-file ../.env.production up -d
+#
+# ⚠️  Do NOT run `up -d --build` on the 4GB VPS — the Next.js build will OOM.
+# Prebuild the image elsewhere/CI, push to a registry, set CSQ_APP_IMAGE +
+# CSQ_NGINX_IMAGE in .env.production, then `docker compose pull && docker
+# compose up -d`. (docker/setup-vps.sh does this for you.)
 #
 # Per-tenant OpenClaw cells (PRD §5/§26): there is NO single shared openclaw
 # service here. CSQ provisions one isolated OpenClaw container per store via
@@ -9,22 +14,24 @@
 # /var/run/docker.sock and has the `openclaw` + `docker` CLIs baked in (see
 # Dockerfile). Cell containers run as siblings on the host, not in this compose.
 # TLS is terminated by Nginx; Certbot renews certificates.
+#
+# Resource limits (H7): total container budget ~2.4 GB to leave headroom for
+# the OS (~400 MB) and per-tenant OpenClaw cell containers spawned at runtime
+# on the 4 GB host. Adjust only if you understand the headroom trade-off.
 
 services:
   app:
+    image: ${CSQ_APP_IMAGE:-csq/app:latest}
     build:
       context: ..
       dockerfile: docker/Dockerfile
+    mem_limit: 1280m
+    cpus: 2.0
     environment:
       DATABASE_URL: ${DATABASE_URL}
       NEXTAUTH_URL: ${NEXTAUTH_URL}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
-      WHATSAPP_TOKEN: ${WHATSAPP_TOKEN}
-      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID}
-      WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN}
       WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET}
-      WHATSAPP_BUSINESS_ACCOUNT_ID: ${WHATSAPP_BUSINESS_ACCOUNT_ID}
-      WHATSAPP_API_VERSION: ${WHATSAPP_API_VERSION:-v25.0}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI}
@@ -35,9 +42,17 @@ services:
       OPENCLAW_BASE_URL: ${OPENCLAW_BASE_URL:-http://127.0.0.1:18789}
       OPENCLAW_API_KEY: ${OPENCLAW_API_KEY:-}
     volumes:
-      # Required for `openclaw fleet create` + `docker exec <cell>` to manage
-      # per-tenant cell containers on the host daemon. Keep this; without it,
-      # provisioning and agent creation cannot work in fleet mode.
+      # ⚠️  SECURITY — CONTAINER ESCAPE RISK: mounting the host Docker socket
+      # gives the app container full root-equivalent control over the host
+      # Docker daemon. Any code running in the app container can create/kill
+      # containers, mount arbitrary host paths, and effectively escape to the
+      # host. This mount is required for `openclaw fleet create <slug>` to
+      # provision per-tenant cell containers as siblings on the host (PRD
+      # §5/§26). Mitigation path: replace this direct mount with a Docker
+      # socket proxy (e.g. tecnativa/docker-socket-proxy) that exposes only
+      # the minimal API surface needed (container create/inspect/exec) and
+      # blocks the rest. Do NOT remove this mount without an equivalent
+      # provisioning path.
       - /var/run/docker.sock:/var/run/docker.sock
       # Persist Baileys auth state (bring-your-own-number WhatsApp sessions)
       # across app restarts so owners don't re-scan the QR.
@@ -60,6 +75,14 @@ services:
 
   postgres:
     image: pgvector/pgvector:pg16
+    mem_limit: 1024m
+    cpus: 1.5
+    shm_size: 256mb
+    # Tuned for a 1 GB memory limit on a 4 GB host (H7). shared_buffers is
+    # ~25% of the container limit; work_mem is conservative for concurrent
+    # connections; effective_cache_size hints the planner about available
+    # OS cache outside the container's own memory.
+    command: ["postgres", "-c", "shared_buffers=256MB", "-c", "work_mem=4MB", "-c", "effective_cache_size=768MB"]
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-umkm_prod}
       POSTGRES_USER: ${POSTGRES_USER:-umkm}
@@ -76,8 +99,13 @@ services:
       - "127.0.0.1:5432:5432"
 
   nginx:
+    image: ${CSQ_NGINX_IMAGE:-csq/nginx:latest}
     build: ./nginx
-    depends_on: [app]
+    mem_limit: 64m
+    cpus: 0.25
+    depends_on:
+      app:
+        condition: service_healthy
     ports:
       - "80:80"
       - "443:443"
@@ -92,6 +120,8 @@ services:
 
   certbot:
     image: certbot/certbot
+    mem_limit: 64m
+    cpus: 0.25
     volumes:
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot

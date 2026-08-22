@@ -3,8 +3,22 @@
 # (HackFest: 4 vCPU / 4GB RAM / 20GB SSD). Idempotent. Run as root:
 #   bash docker/setup-vps.sh
 #
+# ⚠️  PREREQUISITE — PREBUILT IMAGES: this script does NOT build on the 4GB
+# VPS (the Next.js build will OOM; see docker/Dockerfile header). You must
+# prebuild the app + nginx images elsewhere (CI or a beefier machine), push
+# them to a registry, and set the image names in .env.production:
+#   CSQ_APP_IMAGE=ghcr.io/yourorg/csq-app:latest
+#   CSQ_NGINX_IMAGE=ghcr.io/yourorg/csq-nginx:latest
+# This script runs `docker compose pull` to fetch them.
+#
+# ⚠️  PREREQUISITE — TLS CERT: you MUST run init-certbot.sh BEFORE this script
+# (or at least before the first successful `up`). Nginx requires the cert files
+# to exist at startup, and the certbot compose service only renews — it does
+# not issue the initial certificate. This script checks for the cert and will
+# exit with instructions if it is missing.
+#
 # Production model (PRD §5/§26): per-tenant OpenClaw cells. The app container
-# builds the `openclaw` + `docker` CLIs (see Dockerfile) and provisions one
+# has the `openclaw` + `docker` CLIs (see Dockerfile) and provisions one
 # isolated OpenClaw container per store via `openclaw fleet create <slug>`
 # against the host Docker daemon (socket mounted in docker-compose.yml).
 # Postgres runs on the VPS (pgvector image), not Neon.
@@ -39,10 +53,31 @@ else
   exit 1
 fi
 
+# ── TLS gate: Nginx will fail to start without a cert for CERT_DOMAIN. ──
+# init-certbot.sh issues the initial certificate using a standalone certbot
+# container (does not need compose running). The certbot service in compose
+# only renews existing certs — it does not issue the first one, and will
+# restart-loop until init-certbot.sh has been run.
+if [ -z "${CERT_DOMAIN:-}" ]; then
+  echo "CERT_DOMAIN is not set in .env.production — set it and re-run." >&2
+  exit 1
+fi
+CERT_DIR="$REPO_DIR/docker/certbot/conf/live/${CERT_DOMAIN}"
+if [ ! -d "$CERT_DIR" ]; then
+  echo "==> TLS certificate not found for CERT_DOMAIN=${CERT_DOMAIN}" >&2
+  echo "    Run init-certbot.sh FIRST to issue the initial cert:" >&2
+  echo "      CERT_DOMAIN=${CERT_DOMAIN} EMAIL=you@example.com ./docker/certbot/init-certbot.sh" >&2
+  echo "    Then re-run this script." >&2
+  exit 1
+fi
+
 cd "$REPO_DIR/docker"
 
-echo "==> Building and starting app + postgres + nginx (OpenClaw cells spawn on demand)"
-docker compose --env-file "$REPO_DIR/.env.production" up -d --build
+echo "==> Pulling prebuilt images (app=${CSQ_APP_IMAGE:-csq/app:latest}, nginx=${CSQ_NGINX_IMAGE:-csq/nginx:latest})"
+docker compose --env-file "$REPO_DIR/.env.production" pull
+
+echo "==> Starting app + postgres + nginx + certbot (OpenClaw cells spawn on demand)"
+docker compose --env-file "$REPO_DIR/.env.production" up -d
 
 echo "==> Waiting for postgres health"
 sleep 5
@@ -55,6 +90,5 @@ sleep 5
 #   npx prisma db seed || true
 
 echo "==> Done."
-echo "    Obtain TLS certs with: CERT_DOMAIN=... EMAIL=... ./certbot/init-certbot.sh"
-echo "    then restart nginx: docker compose --env-file ../.env.production restart nginx"
 echo "    OpenClaw cells are provisioned automatically when owners register + deploy agents."
+echo "    Health check: curl -sf https://${CERT_DOMAIN}/api/health"
