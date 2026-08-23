@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630" role="img" aria-label="CSQ — Agen AI WhatsApp untuk UMKM Indonesia">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f2a1d"/>
+      <stop offset="1" stop-color="#14532d"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <!-- mark -->
+  <rect x="80" y="80" width="84" height="84" rx="20" fill="#16a34a"/>
+  <path d="M122 104c-20 0-36 13-36 29 0 9 5 17 12 22-1 4-3 10-4 11-.1 1 .4.6.4.6s11-4 15-6c4 1 8 2 13 2 20 0 36-13 36-29s-16-29-36-29Z" fill="#fff"/>
+  <circle cx="106" cy="133" r="4" fill="#16a34a"/>
+  <circle cx="122" cy="133" r="4" fill="#16a34a"/>
+  <circle cx="138" cy="133" r="4" fill="#16a34a"/>
+  <text x="184" y="140" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="52" font-weight="800" fill="#ffffff">CSQ</text>
+
+  <text x="80" y="300" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="74" font-weight="800" fill="#ffffff">Agen AI WhatsApp</text>
+  <text x="80" y="384" font-family="Plus Jakarta Sans, Inter, sans-serif" font-size="74" font-weight="800" fill="#bbf7d0">untuk UMKM Indonesia.</text>
+
+  <text x="80" y="470" font-family="Inter, sans-serif" font-size="30" font-weight="400" fill="#cbd5e1">Baca secara default. Tulis dengan izin. Bertindak sesuai aturan.</text>
+
+  <rect x="80" y="520" width="290" height="6" rx="3" fill="#e2b50a"/>
+  <text x="80" y="568" font-family="JetBrains Mono, monospace" font-size="22" font-weight="500" fill="#e2b50a" letter-spacing="2">SELF-HOSTED · MULTI-TENANT</text>
+</svg>

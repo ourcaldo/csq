@@ -4,6 +4,7 @@
 // product: AI customer service for Indonesian UMKM, on WhatsApp.
 import type { ReactNode } from "react";
 import { ChatCircleDots, Sparkle, ShieldCheck, WhatsappLogo } from "@phosphor-icons/react";
+import { Seo } from "@/components/seo";
 
 type AuthShellProps = {
   title: string;
@@ -15,6 +16,7 @@ type AuthShellProps = {
 export function AuthShell({ title, subtitle, children, footer }: AuthShellProps) {
   return (
     <div className="flex min-h-screen bg-slate-50">
+      <Seo title={title} noindex />
       {/* Brand panel */}
       <div className="relative hidden w-1/2 flex-col justify-between overflow-hidden bg-green-700 p-12 text-white lg:flex">
         <div className="flex items-center gap-2 text-xl font-bold tracking-tight">
