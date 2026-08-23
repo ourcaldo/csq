@@ -3,13 +3,14 @@
 // Design read: B2B SaaS landing for Indonesian UMKM + tech audience, premium
 // editorial-grotesk language. Plus Jakarta Sans display, Inter body, JetBrains
 // Mono labels. One locked accent (green-700). One deliberate dark color-block
-// section (the principle). Real photography (picsum placeholders until real
-// screenshots are supplied), double-bezel cards, asymmetric bento, fluid
-// IntersectionObserver fade-up+blur reveals. No div-based fake UI, no icon-in-
-// rounded-square chips, no em-dashes, eyebrows rationed to ~1 per 3 sections.
+// section (the principle). No stock photography, no div-based fake UI: the
+// hero is a kinetic-typography manifesto whose right column animates the
+// product's real agent loop (Understand, Retrieve, Check Permission,
+// Act/Refuse, Record). Double-bezel cards, asymmetric bento, fluid
+// IntersectionObserver fade-up+blur reveals. No icon-in-rounded-square chips,
+// no em-dashes, eyebrows rationed to ~1 per 3 sections.
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { Check, Plus, Minus, ArrowRight } from "@phosphor-icons/react";
 import { Seo, SITE_NAME, SITE_TAGLINE, DEFAULT_DESCRIPTION } from "@/components/seo";
 import { Reveal } from "@/components/landing/reveal";
@@ -32,12 +33,19 @@ const STEPS = [
   },
 ];
 
+const AGENT_LOOP = [
+  "Understand pesan pelanggan",
+  "Retrieve dari data bisnis",
+  "Check permission per tool",
+  "Act, atau tolak dan eskalasi",
+  "Record ke audit log",
+];
+
 const FEATURES = [
   {
     cell: "a" as const,
     title: "Inbox bersama: tim dan AI satu layar",
     body: "Owner dan staff bekerja berdampingan dengan agent di inbox CRM. Beri tag, tugaskan, dan ambil alih dari AI. Agent berdiri sementara, lalu kembali saat dilepas.",
-    image: "https://picsum.photos/seed/csq-inbox-customer-service/900/680",
   },
   {
     cell: "b" as const,
@@ -56,12 +64,7 @@ const FEATURES = [
   },
 ];
 
-const PRINCIPLE_POINTS = [
-  "Izin per-tool",
-  "Approval owner",
-  "Audit sebelum dan sesudah",
-  "Ambil alih kapan saja",
-];
+const PRINCIPLE_POINTS = ["Izin per-tool", "Approval owner", "Audit sebelum dan sesudah", "Ambil alih kapan saja"];
 
 const FAQS: { q: string; a: string }[] = [
   { q: "Apakah saya butuh coding?", a: "Tidak. CSQ dirancang untuk owner UMKM. Hubungkan data, ajarkan aturan, dan atur izin lewat dashboard, tanpa kode." },
@@ -88,6 +91,20 @@ const jsonLd = [
     "@type": "FAQPage",
     mainEntity: FAQS.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })),
   },
+];
+
+const HEADLINE_WORDS = [
+  { text: "Agen", accent: false },
+  { text: "AI", accent: false },
+  { text: "yang", accent: false },
+  { text: "mengenal", accent: true },
+  { text: "data", accent: true },
+  { text: "bisnis", accent: true },
+  { text: "Anda,", accent: true },
+  { text: "melayani", accent: false },
+  { text: "pelanggan", accent: false },
+  { text: "di", accent: false },
+  { text: "WhatsApp.", accent: false },
 ];
 
 export default function Home() {
@@ -180,43 +197,62 @@ function Navbar() {
 function Hero() {
   return (
     <section className="relative overflow-hidden">
-      <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 pb-20 pt-20 sm:px-8 lg:grid-cols-2 lg:gap-14 lg:pb-28 lg:pt-24">
+      <div className="mx-auto grid max-w-6xl items-center gap-12 px-5 pb-20 pt-20 sm:px-8 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14 lg:pb-28 lg:pt-24">
         <div className="max-w-xl">
-          <h1 className="rise-in font-display text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:text-[3.4rem]">
-            Agen AI yang{" "}
-            <span className="text-green-700">mengenal data bisnis Anda</span>,
-            melayani pelanggan di WhatsApp.
+          <h1 className="font-display text-4xl font-extrabold leading-[1.06] tracking-tight sm:text-5xl lg:text-[3.4rem]">
+            {HEADLINE_WORDS.map((w, i) => (
+              <span
+                key={i}
+                className={"rise-inline inline-block " + (w.accent ? "text-green-700" : "")}
+                style={{ animationDelay: `${i * 55}ms` }}
+              >
+                {w.text}&nbsp;
+              </span>
+            ))}
           </h1>
-          <p className="rise-in mt-6 max-w-[34rem] text-base leading-relaxed text-[#141A17]/65 sm:text-lg" style={{ animationDelay: "90ms" }}>
+          <p className="rise-in mt-6 max-w-[34rem] text-base leading-relaxed text-[#141A17]/65 sm:text-lg" style={{ animationDelay: "420ms" }}>
             CSQ membaca stok, harga, dan kebijakan dari data yang sudah Anda
             punya. Membaca secara default, menulis dengan izin Anda.
           </p>
-          <div className="rise-in mt-8 flex flex-wrap items-center gap-3" style={{ animationDelay: "170ms" }}>
+          <div className="rise-in mt-8 flex flex-wrap items-center gap-3" style={{ animationDelay: "520ms" }}>
             <PrimaryButton href="/register">Coba gratis</PrimaryButton>
             <GhostButton href="#cara-kerja">Pelajari cara kerja</GhostButton>
           </div>
         </div>
 
-        {/* Real editorial visual in a double-bezel frame. Placeholder photo
-            until a real product screenshot is supplied. */}
-        <div className="rise-in lg:pl-6" style={{ animationDelay: "120ms" }}>
-          <div className="rounded-[2rem] bg-[#141A17]/[0.04] p-1.5 ring-1 ring-[#141A17]/[0.06]">
-            <div className="overflow-hidden rounded-[1.65rem] bg-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.85),0_40px_90px_-50px_rgba(20,26,23,0.35)]">
-              {/* TODO: replace placeholder with a real CSQ inbox screenshot, 1200x1400. */}
-              <Image
-                src="https://picsum.photos/seed/csq-customer-service-whatsapp/1200/1400"
-                alt="CSQ inbox percakapan pelanggan di WhatsApp"
-                width={1200}
-                height={1400}
-                priority
-                unoptimized
-                className="h-auto w-full"
-              />
-            </div>
-          </div>
-        </div>
+        <HeroLoop />
       </div>
     </section>
+  );
+}
+
+/* Kinetic agent-loop panel: the product's real core loop as animated typography.
+   No stock photo, no fake phone. Reveal staggered on load, caret on the last line. */
+function HeroLoop() {
+  return (
+    <div className="rise-in lg:pl-6" style={{ animationDelay: "240ms" }}>
+      <div className="rounded-[2rem] bg-[#0B1F14] p-8 ring-1 ring-white/10 shadow-[0_40px_90px_-50px_rgba(11,31,20,0.5)]">
+        <div className="flex items-center justify-between">
+          <span className="font-mono-data text-[11px] uppercase tracking-[0.18em] text-green-400/80">agent loop</span>
+          <span className="flex items-center gap-1.5 font-mono-data text-[10px] text-[#EDEFEA]/50">
+            <span className="h-1.5 w-1.5 rounded-full bg-green-400" /> live
+          </span>
+        </div>
+        <ul className="mt-7 space-y-4 font-mono-data text-sm text-[#EDEFEA]/85">
+          {AGENT_LOOP.map((line, i) => (
+            <li
+              key={line}
+              className="rise-in flex items-center gap-3"
+              style={{ animationDelay: `${360 + i * 130}ms` }}
+            >
+              <span className="text-green-400">›</span>
+              <span>{line}</span>
+              {i === AGENT_LOOP.length - 1 && <span className="caret h-[0.95em] align-middle text-green-400" />}
+            </li>
+          ))}
+        </ul>
+      </div>
+    </div>
   );
 }
 
@@ -278,24 +314,19 @@ function Features() {
         </Reveal>
 
         <div className="mt-14 grid auto-rows-[minmax(0,1fr)] gap-4 lg:grid-cols-3">
-          {/* Cell A: big, with real image */}
+          {/* Cell A: dark branded tile (bento background diversity, no stock photo) */}
           <Reveal className="lg:col-span-2 lg:row-span-2">
-            <div className="h-full rounded-[2rem] bg-[#141A17]/[0.04] p-1.5 ring-1 ring-[#141A17]/[0.06]">
-              <div className="flex h-full flex-col overflow-hidden rounded-[1.65rem] bg-white shadow-[inset_0_1px_1px_rgba(255,255,255,0.85),0_30px_80px_-40px_rgba(20,26,23,0.28)]">
-                <div className="p-7">
-                  <h3 className="font-display text-2xl font-bold tracking-tight">{FEATURES[0].title}</h3>
-                  <p className="mt-3 max-w-md text-base leading-relaxed text-[#141A17]/65">{FEATURES[0].body}</p>
-                </div>
-                <div className="mt-auto px-3 pb-3">
-                  {/* TODO: replace placeholder with a real CSQ inbox screenshot, 900x680. */}
-                  <Image
-                    src={FEATURES[0].image ?? ""}
-                    alt="Inbox bersama CSQ dengan tim dan AI"
-                    width={900}
-                    height={680}
-                    unoptimized
-                    className="h-auto w-full rounded-[1.2rem]"
-                  />
+            <div className="relative h-full overflow-hidden rounded-[2rem] bg-[#0B1F14] p-8 text-[#EDEFEA] ring-1 ring-white/10">
+              <div
+                className="pointer-events-none absolute -right-16 -top-16 h-56 w-56 rounded-full opacity-40 blur-3xl"
+                style={{ background: "radial-gradient(circle, rgba(34,197,94,0.35), transparent 70%)" }}
+              />
+              <div className="relative">
+                <span className="flex h-10 w-10 items-center justify-center rounded-[0.8rem] bg-green-600 font-display text-base font-extrabold text-white">C</span>
+                <h3 className="mt-6 max-w-md font-display text-2xl font-bold tracking-tight">{FEATURES[0].title}</h3>
+                <p className="mt-3 max-w-md text-base leading-relaxed text-[#EDEFEA]/70">{FEATURES[0].body}</p>
+                <div className="mt-7 flex items-center gap-2 font-mono-data text-[11px] text-green-400/80">
+                  <span className="h-1.5 w-1.5 rounded-full bg-green-400" /> AI menangani, ambil alih kapan saja
                 </div>
               </div>
             </div>
@@ -328,7 +359,7 @@ function Features() {
             </div>
           </Reveal>
 
-          {/* Cell D: full-width */}
+          {/* Cell D: full-width audit strip */}
           <Reveal className="lg:col-span-3" delay={60}>
             <div className="rounded-[2rem] bg-[#141A17]/[0.04] p-1.5 ring-1 ring-[#141A17]/[0.06]">
               <div className="flex flex-col gap-6 rounded-[1.65rem] bg-white p-7 shadow-[inset_0_1px_1px_rgba(255,255,255,0.85),0_30px_80px_-40px_rgba(20,26,23,0.28)] md:flex-row md:items-center md:justify-between">

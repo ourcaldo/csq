@@ -142,6 +142,40 @@
   animation: rise-in 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/* Per-word headline reveal (kinetic typography). */
+@keyframes rise-inline {
+  from {
+    opacity: 0;
+    transform: translateY(0.5em) rotate(2deg);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rise-inline {
+  animation: rise-inline 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Blinking caret for the live agent-loop line. */
+@keyframes caret-blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  50.01%,
+  100% {
+    opacity: 0;
+  }
+}
+.caret {
+  display: inline-block;
+  width: 2px;
+  margin-left: 2px;
+  background: currentColor;
+  animation: caret-blink 1.1s steps(2, start) infinite;
+}
+
 /* Nested-arrow hover physics for primary CTAs (button-in-button). */
 .group-cta .cta-arrow {
   transition: transform 0.5s cubic-bezier(0.32, 0.72, 0, 1);
@@ -159,6 +193,13 @@
   }
   .rise-in {
     animation: none;
+  }
+  .rise-inline {
+    animation: none;
+  }
+  .caret {
+    animation: none;
+    opacity: 1;
   }
   .group-cta .cta-arrow {
     transition: none;
