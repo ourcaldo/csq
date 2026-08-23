@@ -97,3 +97,126 @@
     background: #94a3b8;
   }
 }
+
+/* ============================================================
+   Landing page — type, scroll-reveal, parallax, marquee, caret.
+   All motion is disabled under prefers-reduced-motion.
+   ============================================================ */
+
+.font-display {
+  font-family: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: "ss01";
+}
+.font-mono-data {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Scroll-reveal: elements start faint + low, ease up when observed. */
+.reveal {
+  opacity: 0;
+  transform: translateY(26px);
+  transition: opacity 0.75s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.75s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* Parallax target: JS sets --parallax (a translateY in px). */
+.parallax {
+  transform: translateY(var(--parallax, 0px));
+  will-change: transform;
+}
+
+/* Principle ticker marquee. Duplicated content for a seamless loop. */
+.marquee {
+  display: inline-flex;
+  white-space: nowrap;
+  animation: marquee 38s linear infinite;
+}
+.marquee:hover {
+  animation-play-state: paused;
+}
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* Typewriter caret (hero chat). */
+.caret {
+  display: inline-block;
+  width: 2px;
+  margin-left: 1px;
+  background: currentColor;
+  animation: caret-blink 1s steps(2, start) infinite;
+}
+@keyframes caret-blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  50.01%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* Slow ambient float for the hero chat card. */
+.float-soft {
+  animation: float-soft 7s ease-in-out infinite;
+}
+@keyframes float-soft {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+/* Subtle entrance for hero content on load. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rise-in {
+  animation: rise-in 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+  .parallax {
+    transform: none;
+  }
+  .marquee {
+    animation: none;
+  }
+  .caret {
+    animation: none;
+    opacity: 1;
+  }
+  .float-soft {
+    animation: none;
+  }
+  .rise-in {
+    animation: none;
+  }
+}
+

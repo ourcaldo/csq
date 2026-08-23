@@ -38,6 +38,7 @@ import {
   FlowArrow,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
+import { Seo } from "@/components/seo";
 
 type NavItem = { href: string; label: string; icon: ReactNode };
 type NavGroup = { label: string; items: NavItem[] };
@@ -129,6 +130,9 @@ export function DashboardShell({ title, description, actions, headerExtra, flush
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-800">
+      {/* Document title + meta for this dashboard route. Auth-gated pages are
+          noindex; the title prop becomes the browser-tab title ("… · CSQ"). */}
+      <Seo title={title} description={description} path={router.pathname} noindex />
       {/* Sidebar */}
       <aside
         className={cn(
