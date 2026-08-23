@@ -2,9 +2,10 @@
 // chat panel, and contact details. Full-bleed inside the shell (flush mode).
 // Owner/staff see all tenant conversations; selecting one opens the chat.
 // Handoff (take over / release) and tag/status actions live in the details pane.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ChangeEvent } from "react";
 import type { GetServerSideProps } from "next";
+import { useRouter } from "next/router";
 import { withAuth } from "@/lib/auth";
 import { useApi } from "@/hooks/use-api";
 import type { ListResult, Tag } from "@/types/dashboard";
@@ -22,12 +23,22 @@ function isHumanAssigned(c: ConversationListItem): boolean {
 }
 
 export default function InboxPage() {
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>("unassigned");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsHidden, setDetailsHidden] = useState(false);
   const [status, setStatus] = useState("");
   const [tagId, setTagId] = useState("");
+
+  // Allow deep-linking to a specific conversation via ?c=<id> (used by the
+  // pipeline "Buka Chat" action). Only applied once, on mount.
+  useEffect(() => {
+    const c = router.query.c;
+    if (typeof c === "string" && c) setSelectedId(c);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.query.c]);
 
   // Server-side filters (status + tag) are appended to the API URL so the
   // list reflects them directly; tab/search still filter client-side on top.
@@ -152,6 +163,8 @@ export default function InboxPage() {
             onChanged={onConversationChanged}
             mobileOpen={detailsOpen}
             onCloseMobile={() => setDetailsOpen(false)}
+            hidden={detailsHidden}
+            onToggleHide={() => setDetailsHidden((v) => !v)}
           />
         )}
       </div>

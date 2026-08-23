@@ -15,9 +15,12 @@ import {
   WhatsappLogo,
   PencilSimple,
   FloppyDisk,
+  CaretLeft,
+  CaretRight,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { apiFetch, apiSend } from "@/lib/api-client";
+import { readableTextColor } from "@/lib/tag-color";
 import { Select } from "@/components/ui/select";
 import type { ConversationListItem, Stage, Tag } from "@/types/inbox";
 import { useSession } from "next-auth/react";
@@ -28,9 +31,12 @@ type ContactDetailsProps = {
   /** Mobile slide-over drawer open state (desktop pane is always lg:block). */
   mobileOpen?: boolean;
   onCloseMobile?: () => void;
+  /** Desktop collapsible state — true hides the right panel to give chat room. */
+  hidden?: boolean;
+  onToggleHide?: () => void;
 };
 
-export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMobile }: ContactDetailsProps) {
+export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMobile, hidden, onToggleHide }: ContactDetailsProps) {
   const { data: session } = useSession();
   const me = session?.user?.id;
   const [tags, setTags] = useState<Tag[] | null>(null);
@@ -329,10 +335,23 @@ export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMob
             {conversation.tags.map(({ tag }) => (
               <span
                 key={tag.id}
-                className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700"
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium",
+                  // Fall back to the default blue when no hex is set.
+                  !tag.color && "bg-blue-50 text-blue-700"
+                )}
+                style={
+                  tag.color
+                    ? { backgroundColor: tag.color, color: readableTextColor(tag.color) ?? undefined }
+                    : undefined
+                }
               >
                 <TagIcon size={11} /> {tag.name}
-                <button onClick={() => removeTag(tag.id)} className="hover:text-blue-900" aria-label="Hapus tag">
+                <button
+                  onClick={() => removeTag(tag.id)}
+                  className="hover:opacity-70"
+                  aria-label="Hapus tag"
+                >
                   <X size={12} />
                 </button>
               </span>
@@ -359,7 +378,12 @@ export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMob
                   onClick={() => addTag(t.id)}
                   className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-xs text-slate-700 hover:bg-slate-50 disabled:opacity-50"
                 >
-                  <TagIcon size={11} className="text-slate-400" /> {t.name}
+                  <span
+                    className="h-3 w-3 shrink-0 rounded-full border border-black/5"
+                    style={{ backgroundColor: t.color ?? "#cbd5e1" }}
+                    aria-hidden
+                  />
+                  {t.name}
                 </button>
               ))}
               <button
@@ -377,10 +401,28 @@ export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMob
 
   return (
     <>
-      {/* Desktop pane — unchanged. */}
-      <aside className="hidden w-72 shrink-0 overflow-y-auto border-l border-slate-200 bg-white p-6 lg:block">
-        {detailsContent}
-      </aside>
+      {/* Desktop pane — collapsible. The arrow strip on its left edge toggles
+          visibility: click CaretRight to collapse (chat expands), CaretLeft to
+          bring the panel back. Width transitions so it slides, not jumps. */}
+      <div className="hidden shrink-0 lg:flex">
+        <button
+          type="button"
+          onClick={() => onToggleHide?.()}
+          className="flex w-6 items-center justify-center border-l border-slate-200 bg-white text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-600"
+          aria-label={hidden ? "Tampilkan detail kontak" : "Sembunyikan detail kontak"}
+          aria-expanded={!hidden}
+        >
+          {hidden ? <CaretLeft size={16} /> : <CaretRight size={16} />}
+        </button>
+        <aside
+          className={cn(
+            "overflow-y-auto bg-white transition-all duration-200",
+            hidden ? "w-0 overflow-hidden" : "w-72 p-6"
+          )}
+        >
+          {detailsContent}
+        </aside>
+      </div>
 
       {/* Mobile slide-over drawer — gives phones full feature parity
           (take over / status / tags / stage) that the desktop pane normally
