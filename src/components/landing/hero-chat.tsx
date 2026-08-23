@@ -34,7 +34,7 @@ const LOOP_MS = 4400;
 
 type Phase = "indicator" | "typing";
 
-export function HeroChat() {
+export function HeroChat({ bare = false }: { bare?: boolean }) {
   const [done, setDone] = useState<Msg[]>([]);
   const [current, setCurrent] = useState<Msg | null>(null);
   const [typed, setTyped] = useState(0);
@@ -104,55 +104,71 @@ export function HeroChat() {
   const visible = animated ? done : SCRIPT;
   const liveCurrent = animated ? current : null;
 
+  const content = (
+    <>
+      {/* Phone-style header */}
+      <div className="flex items-center gap-3 bg-green-700 px-4 py-3 text-white">
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15">
+          <Robot size={20} weight="fill" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold leading-tight">CSQ Agent · Toko Kopi Nusantara</p>
+          <p className="text-[11px] leading-tight text-green-100">AI menangani percakapan</p>
+        </div>
+        <DotsThree size={20} weight="bold" className="text-white/80" />
+      </div>
+
+      {/* Chat body */}
+      <div className={bare ? "min-h-0 flex-1 space-y-2.5 bg-green-50/50 p-3" : "min-h-[340px] space-y-2.5 bg-green-50/50 p-4"}>
+        {visible.map((m, i) => (
+          <Bubble key={i} msg={m} />
+        ))}
+        {liveCurrent && (
+          <Bubble
+            msg={liveCurrent}
+            typing={phase === "typing"}
+            typed={typed}
+            indicator={phase === "indicator"}
+          />
+        )}
+      </div>
+
+      {/* Fake composer */}
+      <div className="flex items-center gap-2 border-t border-slate-100 bg-white px-3 py-2.5">
+        <div className="flex-1 rounded-full bg-slate-100 px-3 py-1.5 text-xs text-slate-400">Ketik pesan…</div>
+        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-600 text-white">
+          <PaperPlaneRight size={16} weight="fill" />
+        </div>
+      </div>
+    </>
+  );
+
+  const srOnly = (
+    <p className="sr-only">
+      Demo percakapan: pelanggan bertanya ketersediaan kopi arabika. Agen AI
+      menjawab dari data stok bisnis — masih ada 12 pack, harga Rp85.000.
+      Pelanggan meminta diskon menjadi Rp50.000. Agen menolak mengubah harga
+      karena di luar kebijakannya, dan meneruskan permintaan diskon ke pemilik
+      untuk disetujui. Pelanggan menunggu kabar. Agen akan mengabari setelah
+      owner menyetujui.
+    </p>
+  );
+
+  if (bare) {
+    return (
+      <div className="flex h-full flex-col">
+        {content}
+        {srOnly}
+      </div>
+    );
+  }
+
   return (
     <div className="float-soft w-full max-w-sm">
       <div className="overflow-hidden rounded-[1.75rem] border border-black/5 bg-white shadow-2xl shadow-green-900/10">
-        {/* Phone-style header */}
-        <div className="flex items-center gap-3 bg-green-700 px-4 py-3 text-white">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15">
-            <Robot size={20} weight="fill" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold leading-tight">CSQ Agent · Toko Kopi Nusantara</p>
-            <p className="text-[11px] leading-tight text-green-100">AI menangani percakapan</p>
-          </div>
-          <DotsThree size={20} weight="bold" className="text-white/80" />
-        </div>
-
-        {/* Chat body */}
-        <div className="min-h-[340px] space-y-2.5 bg-green-50/50 p-4">
-          {visible.map((m, i) => (
-            <Bubble key={i} msg={m} />
-          ))}
-          {liveCurrent && (
-            <Bubble
-              msg={liveCurrent}
-              typing={phase === "typing"}
-              typed={typed}
-              indicator={phase === "indicator"}
-            />
-          )}
-        </div>
-
-        {/* Fake composer */}
-        <div className="flex items-center gap-2 border-t border-slate-100 bg-white px-3 py-2.5">
-          <div className="flex-1 rounded-full bg-slate-100 px-3 py-1.5 text-xs text-slate-400">Ketik pesan…</div>
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-green-600 text-white">
-            <PaperPlaneRight size={16} weight="fill" />
-          </div>
-        </div>
+        {content}
       </div>
-
-      {/* Screen-reader + crawler record of the full exchange, independent of
-          animation state. */}
-      <p className="sr-only">
-        Demo percakapan: pelanggan bertanya ketersediaan kopi arabika. Agen AI
-        menjawab dari data stok bisnis — masih ada 12 pack, harga Rp85.000.
-        Pelanggan meminta diskon menjadi Rp50.000. Agen menolak mengubah harga
-        karena di luar kebijakannya, dan meneruskan permintaan diskon ke pemilik
-        untuk disetujui. Pelanggan menunggu kabar. Agen akan mengabari setelah
-        owner menyetujui.
-      </p>
+      {srOnly}
     </div>
   );
 }

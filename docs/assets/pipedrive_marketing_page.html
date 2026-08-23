@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pipedrive CRM - Landing Page</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            dark: '#022417',
+                            card: '#03301f',
+                            lime: '#d4ff00',
+                            limeHover: '#c2eb00',
+                            gray: '#f7f9f8',
+                            border: '#e5e7eb'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .hero-bg {
+            background: radial-gradient(100% 100% at 50% 0%, rgba(212, 255, 0, 0.15) 0%, rgba(2, 36, 23, 1) 60%);
+            background-color: #022417;
+        }
+        .dark-section-bg {
+            background: radial-gradient(50% 50% at 50% 50%, rgba(212, 255, 0, 0.1) 0%, #022417 100%);
+            background-color: #022417;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body class="font-sans text-gray-800 antialiased bg-white selection:bg-brand-lime selection:text-brand-dark">
+
+    <header class="hero-bg text-white relative pt-4 pb-24 overflow-hidden">
+        <nav class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between relative z-20">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-full bg-brand-lime flex items-center justify-center text-brand-dark font-black text-lg">p</div>
+                <span class="text-xl font-bold tracking-tight">pipedrive</span>
+            </div>
+            <a href="#pricing" class="bg-brand-lime text-brand-dark px-5 py-2 rounded-full font-semibold text-sm hover:bg-brand-limeHover transition duration-300">
+                Price
+            </a>
+        </nav>
+
+        <div class="max-w-4xl mx-auto px-6 text-center mt-12 relative z-20">
+            <h1 class="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight leading-tight mb-6">
+                Pipedrive Efficiently Organizes Sales <br class="hidden md:block" /> Streamlining Your Processes
+            </h1>
+            <p class="text-gray-300 max-w-2xl mx-auto mb-10 text-sm md:text-base font-medium">
+                Our intuitive CRM platform is designed to help you organize workflows, track leads, and close deals faster with automated tools.
+            </p>
+            
+            <div class="max-w-md mx-auto relative flex items-center glass-panel rounded-full p-1.5 shadow-2xl">
+                <input type="email" placeholder="Enter your business email" class="w-full bg-transparent text-white placeholder-gray-400 pl-4 pr-32 py-2 focus:outline-none text-sm" />
+                <button class="absolute right-1.5 bg-brand-lime text-brand-dark px-5 py-2 rounded-full font-bold text-sm flex items-center gap-2 hover:bg-brand-limeHover transition">
+                    Try Free <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="max-w-5xl mx-auto px-6 relative mt-16 flex justify-center items-center h-64 md:h-80 z-10">
+            <!-- Left Floating Card -->
+            <div class="hidden md:block absolute left-4 lg:left-12 top-10 glass-panel rounded-2xl p-4 w-56 transform -rotate-2 hover:rotate-0 transition duration-500 shadow-2xl">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="w-8 h-8 rounded-full bg-brand-lime/20 flex items-center justify-center text-brand-lime">
+                        <i data-lucide="bar-chart-2" class="w-4 h-4"></i>
+                    </div>
+                    <span class="text-[10px] text-gray-400 border border-gray-600 rounded-full px-2 py-0.5">Today</span>
+                </div>
+                <div class="text-xs text-gray-400 mb-1">Total Revenue</div>
+                <div class="text-lg font-bold text-white mb-2">$84,500.00</div>
+                <div class="w-full bg-white/10 h-1.5 rounded-full overflow-hidden">
+                    <div class="bg-brand-lime w-3/4 h-full rounded-full"></div>
+                </div>
+            </div>
+
+            <!-- Center Phone Mockup -->
+            <div class="w-64 md:w-72 bg-gray-900 border-[6px] border-gray-800 rounded-[2.5rem] p-3 shadow-2xl absolute bottom-[-100px] md:bottom-[-150px] z-20 h-[450px] overflow-hidden flex flex-col">
+                <!-- Notch -->
+                <div class="w-24 h-5 bg-gray-800 rounded-b-xl mx-auto absolute top-0 left-1/2 transform -translate-x-1/2 z-30"></div>
+                <!-- Screen content -->
+                <div class="bg-white flex-1 rounded-[2rem] overflow-hidden p-4 relative pt-8">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-1">
+                            <div class="w-5 h-5 rounded-full bg-brand-dark flex items-center justify-center text-white text-[10px] font-bold">p</div>
+                            <span class="text-xs font-bold text-gray-900">pipedrive</span>
+                        </div>
+                        <i data-lucide="menu" class="w-4 h-4 text-gray-500"></i>
+                    </div>
+                    
+                    <div class="bg-brand-gray p-3 rounded-xl mb-3 border border-brand-border">
+                        <div class="text-[10px] text-gray-500 font-semibold mb-1 uppercase">Active Deals</div>
+                        <div class="text-xl font-bold text-gray-900">$124,500</div>
+                        <div class="text-[10px] text-green-600 mt-1 flex items-center gap-1">
+                            <i data-lucide="trending-up" class="w-3 h-3"></i> +12.5% this week
+                        </div>
+                    </div>
+
+                    <div class="space-y-2">
+                        <div class="p-2 border border-brand-border rounded-lg flex justify-between items-center bg-white shadow-sm">
+                            <div>
+                                <div class="text-[11px] font-bold text-gray-900">Acme Corp Redesign</div>
+                                <div class="text-[9px] text-gray-500">Contact made</div>
+                            </div>
+                            <div class="text-[11px] font-bold text-brand-dark bg-brand-lime/20 px-2 py-0.5 rounded-full">Stage 2</div>
+                        </div>
+                        <div class="p-2 border border-brand-border rounded-lg flex justify-between items-center bg-white shadow-sm">
+                            <div>
+                                <div class="text-[11px] font-bold text-gray-900">Global Tech Server</div>
+                                <div class="text-[9px] text-gray-500">Proposal Sent</div>
+                            </div>
+                            <div class="text-[11px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full">Stage 4</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Floating Card -->
+            <div class="hidden md:block absolute right-4 lg:right-12 top-20 glass-panel rounded-2xl p-4 w-56 transform rotate-2 hover:rotate-0 transition duration-500 shadow-2xl">
+                <div class="flex items-center gap-3 mb-3 border-b border-white/10 pb-3">
+                    <img src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&auto=format&fit=crop&q=80" alt="User" class="w-8 h-8 rounded-full border border-white/20">
+                    <div>
+                        <div class="text-xs font-bold text-white">Mark Stevens</div>
+                        <div class="text-[10px] text-brand-lime">Deal Closed!</div>
+                    </div>
+                </div>
+                <div class="flex justify-between items-end">
+                    <div>
+                        <div class="text-[10px] text-gray-400 mb-0.5">Value</div>
+                        <div class="text-sm font-bold text-white">$12,400.00</div>
+                    </div>
+                    <div class="w-6 h-6 rounded-full bg-brand-lime flex items-center justify-center text-brand-dark">
+                        <i data-lucide="check" class="w-3 h-3 font-bold"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <section class="pt-32 pb-16 bg-white border-b border-gray-100 text-center">
+        <p class="text-sm font-bold text-gray-900 mb-8 tracking-wide">Trusted By More Than +10,000 Users</p>
+        <div class="flex flex-wrap justify-center items-center gap-8 md:gap-16 opacity-60 grayscale hover:grayscale-0 transition duration-500 px-6">
+            <div class="flex items-center gap-1.5 font-bold text-lg text-blue-600"><i data-lucide="compass" class="w-6 h-6"></i> Explore</div>
+            <div class="flex items-center gap-1.5 font-bold text-lg text-pink-600"><i data-lucide="slack" class="w-6 h-6"></i> slack</div>
+            <div class="flex items-center gap-1.5 font-bold text-lg text-blue-400"><i data-lucide="send" class="w-6 h-6"></i> Telegram</div>
+            <div class="flex items-center gap-1.5 font-bold text-lg text-rose-500"><i data-lucide="check-circle-2" class="w-6 h-6"></i> asana</div>
+            <div class="flex items-center gap-1.5 font-bold text-lg text-blue-600"><i data-lucide="compass" class="w-6 h-6"></i> Explore</div>
+            <div class="flex items-center gap-1.5 font-bold text-lg text-pink-600"><i data-lucide="slack" class="w-6 h-6"></i> slack</div>
+        </div>
+    </section>
+
+    <section class="py-24 bg-brand-gray">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center max-w-2xl mx-auto mb-16">
+                <span class="inline-block px-3 py-1 bg-brand-lime/20 text-green-800 text-[10px] font-bold rounded-full uppercase tracking-wider mb-3">How it works</span>
+                <h2 class="text-3xl md:text-4xl font-extrabold text-gray-900 mb-4 tracking-tight">How to Set Up Your Pipeline Stages</h2>
+                <p class="text-gray-500 text-sm">Visualize your sales process, customize stages to fit your workflow, and move deals forward systematically for maximum efficiency.</p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-10 items-center">
+                <!-- Left Steps -->
+                <div class="space-y-6">
+                    <div class="flex items-start gap-4 p-4 rounded-2xl bg-white border border-brand-border shadow-sm hover:border-brand-lime transition">
+                        <div class="w-8 h-8 rounded-full bg-brand-lime/20 flex items-center justify-center flex-shrink-0 text-green-700">
+                            <i data-lucide="check" class="w-4 h-4 font-bold"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-sm text-gray-900 mb-1">New Leads Arrive</h3>
+                            <p class="text-xs text-gray-500 leading-relaxed">Automatically capture leads from web forms and direct emails into your inbox.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-4 p-4 rounded-2xl bg-white border border-brand-border shadow-sm hover:border-brand-lime transition">
+                        <div class="w-8 h-8 rounded-full bg-brand-lime/20 flex items-center justify-center flex-shrink-0 text-green-700">
+                            <i data-lucide="check" class="w-4 h-4 font-bold"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-sm text-gray-900 mb-1">Contact Made</h3>
+                            <p class="text-xs text-gray-500 leading-relaxed">Log calls, schedule meetings, and send follow-up emails directly from the deal view.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-4 p-4 rounded-2xl bg-white border border-brand-border shadow-sm hover:border-brand-lime transition">
+                        <div class="w-8 h-8 rounded-full bg-brand-lime/20 flex items-center justify-center flex-shrink-0 text-green-700">
+                            <i data-lucide="check" class="w-4 h-4 font-bold"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-sm text-gray-900 mb-1">Needs Defined</h3>
+                            <p class="text-xs text-gray-500 leading-relaxed">Qualify your prospects and clearly define their requirements and budget constraints.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Center Phone (Different variation) -->
+                <div class="flex justify-center relative">
+                    <div class="w-64 h-[420px] bg-brand-lime rounded-[2.5rem] p-2 shadow-2xl relative z-10">
+                        <div class="w-full h-full bg-white rounded-[2rem] overflow-hidden border-4 border-white relative pt-6 flex flex-col">
+                            <div class="w-16 h-1 bg-gray-300 rounded-full mx-auto mb-4"></div>
+                            <div class="px-4 pb-3 border-b border-gray-100 flex justify-between items-center">
+                                <span class="font-bold text-sm text-gray-900">My Pipeline</span>
+                                <i data-lucide="plus" class="w-4 h-4 text-gray-600"></i>
+                            </div>
+                            <div class="flex-1 bg-gray-50 p-3 space-y-3 overflow-y-auto">
+                                <!-- Pipeline columns mock -->
+                                <div class="bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+                                    <div class="text-[10px] font-bold text-gray-500 uppercase tracking-wide mb-2">Qualified (3)</div>
+                                    <div class="p-2 border border-brand-lime rounded-lg mb-2 relative overflow-hidden">
+                                        <div class="absolute left-0 top-0 bottom-0 w-1 bg-brand-lime"></div>
+                                        <div class="text-xs font-bold text-gray-900">Tech Solutions Inc</div>
+                                        <div class="text-[10px] text-gray-500">$15,000</div>
+                                    </div>
+                                    <div class="p-2 border border-gray-100 rounded-lg">
+                                        <div class="text-xs font-bold text-gray-900">Alpha Group</div>
+                                        <div class="text-[10px] text-gray-500">$8,200</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Steps -->
+                <div class="space-y-6">
+                    <div class="flex items-start gap-4 p-4 rounded-2xl bg-white border border-brand-border shadow-sm hover:border-brand-lime transition">
+                        <div class="w-8 h-8 rounded-full bg-brand-lime/20 flex items-center justify-center flex-shrink-0 text-green-700">
+                            <i data-lucide="check" class="w-4 h-4 font-bold"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-sm text-gray-900 mb-1">Proposal Made</h3>
+                            <p class="text-xs text-gray-500 leading-relaxed">Send customized proposals and track when clients open and sign your documents.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-4 p-4 rounded-2xl bg-white border border-brand-border shadow-sm hover:border-brand-lime transition">
+                        <div class="w-8 h-8 rounded-full bg-brand-lime/20 flex items-center justify-center flex-shrink-0 text-green-700">
+                            <i data-lucide="check" class="w-4 h-4 font-bold"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-sm text-gray-900 mb-1">Negotiations</h3>
+                            <p class="text-xs text-gray-500 leading-relaxed">Handle objections, update deal values in real-time, and align on final terms.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-4 p-4 rounded-2xl bg-white border border-brand-border shadow-sm hover:border-brand-lime transition">
+                        <div class="w-8 h-8 rounded-full bg-brand-lime/20 flex items-center justify-center flex-shrink-0 text-green-700">
+                            <i data-lucide="check" class="w-4 h-4 font-bold"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-sm text-gray-900 mb-1">Deal Won / Lost</h3>
+                            <p class="text-xs text-gray-500 leading-relaxed">Mark outcomes, trigger onboarding workflows, or set reminders to re-engage later.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="py-24 bg-white overflow-hidden">
+        <div class="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            
+            <!-- Left Side UI Cards -->
+            <div class="relative h-[400px]">
+                <!-- Back Card -->
+                <div class="absolute left-0 top-12 w-4/5 bg-white border border-gray-200 rounded-2xl p-5 shadow-lg transform -rotate-3">
+                    <div class="flex justify-between items-center mb-4 pb-2 border-b border-gray-100">
+                        <span class="text-xs font-bold text-gray-500 uppercase">Activity Stream</span>
+                        <i data-lucide="more-horizontal" class="w-4 h-4 text-gray-400"></i>
+                    </div>
+                    <div class="space-y-3 opacity-60">
+                        <div class="flex items-center gap-3">
+                            <div class="w-6 h-6 rounded bg-gray-100"></div>
+                            <div class="flex-1 h-3 bg-gray-100 rounded"></div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="w-6 h-6 rounded bg-gray-100"></div>
+                            <div class="flex-1 h-3 bg-gray-100 rounded"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Front Main Card -->
+                <div class="absolute right-0 lg:right-4 top-0 w-4/5 bg-white border-2 border-brand-lime rounded-2xl p-6 shadow-2xl z-10">
+                    <div class="flex justify-between items-center mb-6">
+                        <h4 class="font-bold text-gray-900 text-sm">Target vs Achieved</h4>
+                        <span class="text-[10px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded">Q3 2026</span>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <div class="flex justify-between text-xs mb-1.5">
+                                <span class="font-semibold text-gray-700">Revenue Goal</span>
+                                <span class="font-bold text-gray-900">$45,000 / $50k</span>
+                            </div>
+                            <div class="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                                <div class="bg-brand-lime w-[90%] h-full rounded-full"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1.5">
+                                <span class="font-semibold text-gray-700">Meetings Booked</span>
+                                <span class="font-bold text-gray-900">24 / 30</span>
+                            </div>
+                            <div class="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                                <div class="bg-brand-dark w-[80%] h-full rounded-full"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1.5">
+                                <span class="font-semibold text-gray-700">New Leads</span>
+                                <span class="font-bold text-gray-900">112 / 100</span>
+                            </div>
+                            <div class="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
+                                <div class="bg-green-500 w-[100%] h-full rounded-full"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Side Content -->
+            <div>
+                <span class="inline-block px-3 py-1 bg-brand-lime/20 text-green-800 text-[10px] font-bold rounded-full uppercase tracking-wider mb-3">Key Features</span>
+                <h2 class="text-3xl md:text-4xl font-extrabold text-gray-900 mb-5 tracking-tight">Focus Key Sales Actions for Exceptional Results</h2>
+                <p class="text-gray-500 text-sm mb-8 leading-relaxed">
+                    Prioritize activities that actually drive revenue. Our smart dashboard highlights deals that need attention and automates the rest, allowing your team to focus strictly on selling.
+                </p>
+
+                <div class="grid grid-cols-2 gap-y-4 gap-x-6 mb-8">
+                    <div class="flex items-center gap-2 text-sm text-gray-800 font-semibold">
+                        <div class="w-5 h-5 rounded-full bg-brand-lime flex items-center justify-center text-brand-dark flex-shrink-0">
+                            <i data-lucide="check" class="w-3 h-3 font-bold"></i>
+                        </div>
+                        Smart Deal Scoring
+                    </div>
+                    <div class="flex items-center gap-2 text-sm text-gray-800 font-semibold">
+                        <div class="w-5 h-5 rounded-full bg-brand-lime flex items-center justify-center text-brand-dark flex-shrink-0">
+                            <i data-lucide="check" class="w-3 h-3 font-bold"></i>
+                        </div>
+                        Automated Reminders
+                    </div>
+                    <div class="flex items-center gap-2 text-sm text-gray-800 font-semibold">
+                        <div class="w-5 h-5 rounded-full bg-brand-lime flex items-center justify-center text-brand-dark flex-shrink-0">
+                            <i data-lucide="check" class="w-3 h-3 font-bold"></i>
+                        </div>
+                        Email Tracking & Sync
+                    </div>
+                    <div class="flex items-center gap-2 text-sm text-gray-800 font-semibold">
+                        <div class="w-5 h-5 rounded-full bg-brand-lime flex items-center justify-center text-brand-dark flex-shrink-0">
+                            <i data-lucide="check" class="w-3 h-3 font-bold"></i>
+                        </div>
+                        Custom Reporting
+                    </div>
+                </div>
+
+                <button class="bg-brand-lime text-brand-dark px-6 py-3 rounded-full font-bold text-sm hover:bg-brand-limeHover transition shadow-sm">
+                    Learn More
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <section class="dark-section-bg py-24 text-white relative">
+        <div class="max-w-5xl mx-auto px-6 text-center">
+            <span class="inline-block px-3 py-1 bg-white/10 text-brand-lime border border-brand-lime/30 text-[10px] font-bold rounded-full uppercase tracking-wider mb-4">Team Management</span>
+            <h2 class="text-3xl md:text-4xl font-extrabold mb-4 tracking-tight">Optimize and Grow Your Business</h2>
+            <p class="text-gray-400 text-sm max-w-2xl mx-auto mb-16">
+                Manage your entire sales team from a single view. Set goals, track individual performance, and ensure everyone is aligned toward revenue growth.
+            </p>
+
+            <!-- Org Chart Layout -->
+            <div class="relative max-w-3xl mx-auto flex flex-col items-center">
+                
+                <!-- Top Node (Manager) -->
+                <div class="bg-brand-card border border-white/10 p-3 rounded-2xl flex items-center gap-4 shadow-xl relative z-10 min-w-[200px]">
+                    <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&auto=format&fit=crop&q=80" alt="Sarah" class="w-10 h-10 rounded-full border-2 border-brand-lime">
+                    <div class="text-left">
+                        <div class="text-xs font-bold">Sarah Jenkins</div>
+                        <div class="text-[10px] text-gray-400">VP of Sales</div>
+                    </div>
+                </div>
+
+                <!-- Vertical Line -->
+                <div class="w-px h-8 bg-brand-lime/50"></div>
+
+                <!-- Center Large Metrics Card -->
+                <div class="bg-white text-gray-900 rounded-3xl p-6 sm:p-8 shadow-2xl relative z-10 w-full max-w-lg border border-brand-lime/30">
+                    <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Total Team Revenue (Q3)</h3>
+                    <div class="text-4xl font-extrabold text-brand-dark mb-6">$90,000.00 <span class="text-sm text-green-600 font-bold bg-green-50 px-2 py-1 rounded align-middle ml-2">+15%</span></div>
+                    
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-brand-gray p-4 rounded-2xl border border-gray-100 flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-brand-lime/20 flex items-center justify-center text-green-800">
+                                <i data-lucide="target" class="w-5 h-5"></i>
+                            </div>
+                            <div class="text-left">
+                                <div class="text-lg font-bold text-gray-900">142</div>
+                                <div class="text-[10px] text-gray-500 font-semibold">Deals Won</div>
+                            </div>
+                        </div>
+                        <div class="bg-brand-gray p-4 rounded-2xl border border-gray-100 flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-brand-lime/20 flex items-center justify-center text-green-800">
+                                <i data-lucide="users" class="w-5 h-5"></i>
+                            </div>
+                            <div class="text-left">
+                                <div class="text-lg font-bold text-gray-900">4,820</div>
+                                <div class="text-[10px] text-gray-500 font-semibold">New Contacts</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lines splitting to bottom nodes -->
+                <div class="w-px h-8 bg-brand-lime/50"></div>
+                <div class="w-full max-w-md h-px bg-brand-lime/50 relative">
+                    <!-- Left and Right vertical drops -->
+                    <div class="absolute left-0 top-0 w-px h-8 bg-brand-lime/50"></div>
+                    <div class="absolute right-0 top-0 w-px h-8 bg-brand-lime/50"></div>
+                </div>
+
+                <!-- Bottom Nodes (Reps) -->
+                <div class="w-full max-w-[500px] flex justify-between mt-8 relative z-10">
+                    <div class="bg-brand-card border border-white/10 p-2.5 rounded-xl flex items-center gap-3 shadow-lg min-w-[160px]">
+                        <img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80" alt="Mike" class="w-8 h-8 rounded-full border border-gray-500">
+                        <div class="text-left">
+                            <div class="text-[11px] font-bold">Mike Ross</div>
+                            <div class="text-[9px] text-gray-400">Account Exec</div>
+                        </div>
+                    </div>
+                    <div class="bg-brand-card border border-white/10 p-2.5 rounded-xl flex items-center gap-3 shadow-lg min-w-[160px]">
+                        <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&auto=format&fit=crop&q=80" alt="Jessica" class="w-8 h-8 rounded-full border border-gray-500">
+                        <div class="text-left">
+                            <div class="text-[11px] font-bold">Jessica Pearson</div>
+                            <div class="text-[9px] text-gray-400">SDR Leader</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <section class="py-24 bg-brand-gray">
+        <div class="max-w-7xl mx-auto px-6">
+            <div class="text-center max-w-2xl mx-auto mb-16">
+                <span class="inline-block px-3 py-1 bg-brand-lime/20 text-green-800 text-[10px] font-bold rounded-full uppercase tracking-wider mb-3">Capabilities</span>
+                <h2 class="text-3xl md:text-4xl font-extrabold text-gray-900 mb-4 tracking-tight">Features to Help You Focus</h2>
+                <p class="text-gray-500 text-sm">Everything you need to turn potential leads into successful long-term customers, packaged in a beautifully simple interface.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Card 1 (Active/Highlighted) -->
+                <div class="bg-white p-6 rounded-2xl border-2 border-brand-lime shadow-md hover:-translate-y-1 transition duration-300">
+                    <div class="w-10 h-10 rounded-xl bg-brand-lime/20 flex items-center justify-center text-green-800 mb-4">
+                        <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+                    </div>
+                    <h3 class="font-bold text-gray-900 mb-2">Visual Sales Pipeline</h3>
+                    <p class="text-xs text-gray-500 leading-relaxed">See exactly where every deal stands in a customizable kanban-style board. Drag, drop, and win.</p>
+                </div>
+                <!-- Card 2 -->
+                <div class="bg-white p-6 rounded-2xl border border-brand-border shadow-sm hover:border-brand-lime transition duration-300">
+                    <div class="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center text-green-700 mb-4">
+                        <i data-lucide="activity" class="w-5 h-5"></i>
+                    </div>
+                    <h3 class="font-bold text-gray-900 mb-2">Activity Reminders</h3>
+                    <p class="text-xs text-gray-500 leading-relaxed">Never forget to follow up. Set calls, emails, and meetings that sync directly to your calendar.</p>
+                </div>
+                <!-- Card 3 -->
+                <div class="bg-white p-6 rounded-2xl border border-brand-border shadow-sm hover:border-brand-lime transition duration-300">
+                    <div class="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center text-green-700 mb-4">
+                        <i data-lucide="mail" class="w-5 h-5"></i>
+                    </div>
+                    <h3 class="font-bold text-gray-900 mb-2">Email Integration</h3>
+                    <p class="text-xs text-gray-500 leading-relaxed">Send and receive emails right from Pipedrive. Get notifications when prospects open your messages.</p>
+                </div>
+                <!-- Card 4 -->
+                <div class="bg-white p-6 rounded-2xl border border-brand-border shadow-sm hover:border-brand-lime transition duration-300">
+                    <div class="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center text-green-700 mb-4">
+                        <i data-lucide="bar-chart" class="w-5 h-5"></i>
+                    </div>
+                    <h3 class="font-bold text-gray-900 mb-2">Insightful Reports</h3>
+                    <p class="text-xs text-gray-500 leading-relaxed">Understand why you are winning or losing deals with visual dashboards and revenue forecasting.</p>
+                </div>
+                <!-- Card 5 -->
+                <div class="bg-white p-6 rounded-2xl border border-brand-border shadow-sm hover:border-brand-lime transition duration-300">
+                    <div class="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center text-green-700 mb-4">
+                        <i data-lucide="settings" class="w-5 h-5"></i>
+                    </div>
+                    <h3 class="font-bold text-gray-900 mb-2">Workflow Automation</h3>
+                    <p class="text-xs text-gray-500 leading-relaxed">Eliminate repetitive tasks. Automate admin work so your reps spend more time talking to prospects.</p>
+                </div>
+                <!-- Card 6 -->
+                <div class="bg-white p-6 rounded-2xl border border-brand-border shadow-sm hover:border-brand-lime transition duration-300">
+                    <div class="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center text-green-700 mb-4">
+                        <i data-lucide="smartphone" class="w-5 h-5"></i>
+                    </div>
+                    <h3 class="font-bold text-gray-900 mb-2">Mobile Apps</h3>
+                    <p class="text-xs text-gray-500 leading-relaxed">Take your sales pipeline anywhere. Access contacts, add meeting notes, and move deals on iOS or Android.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="py-24 bg-white">
+        <div class="max-w-6xl mx-auto px-6">
+            <div class="text-center max-w-2xl mx-auto mb-16">
+                <span class="inline-block px-3 py-1 bg-brand-lime/20 text-green-800 text-[10px] font-bold rounded-full uppercase tracking-wider mb-3">Testimonials</span>
+                <h2 class="text-3xl md:text-4xl font-extrabold text-gray-900 mb-4 tracking-tight">What Our Customers Are Saying</h2>
+                <p class="text-gray-500 text-sm">Join thousands of high-performing teams who have revolutionized their sales process with us.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Review 1 -->
+                <div class="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm flex gap-5">
+                    <img src="https://images.unsplash.com/photo-1560250097-0b93528c311a?w=150&auto=format&fit=crop&q=80" alt="Reviewer" class="w-20 h-24 object-cover rounded-xl flex-shrink-0">
+                    <div class="flex flex-col justify-between">
+                        <p class="text-xs text-gray-600 italic font-medium leading-relaxed mb-3">"We have tried several CRM solutions in the past, but none offered the clarity and ease of use that this platform provides. It changed everything."</p>
+                        <div class="flex justify-between items-end">
+                            <div>
+                                <div class="text-[11px] font-bold text-gray-900">David G.</div>
+                                <div class="text-[9px] text-gray-500">Sales Director</div>
+                            </div>
+                            <div class="w-6 h-6 rounded-full bg-brand-lime flex items-center justify-center text-brand-dark">
+                                <i data-lucide="quote" class="w-3 h-3 font-bold"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Review 2 -->
+                <div class="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm flex gap-5">
+                    <img src="https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=150&auto=format&fit=crop&q=80" alt="Reviewer" class="w-20 h-24 object-cover rounded-xl flex-shrink-0">
+                    <div class="flex flex-col justify-between">
+                        <p class="text-xs text-gray-600 italic font-medium leading-relaxed mb-3">"The visual pipeline makes it incredibly simple to see where we need to focus our efforts. Our conversion rate jumped 20% in the first quarter."</p>
+                        <div class="flex justify-between items-end">
+                            <div>
+                                <div class="text-[11px] font-bold text-gray-900">Marcus T.</div>
+                                <div class="text-[9px] text-gray-500">CEO, TechFlow</div>
+                            </div>
+                            <div class="w-6 h-6 rounded-full bg-brand-lime flex items-center justify-center text-brand-dark">
+                                <i data-lucide="quote" class="w-3 h-3 font-bold"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Review 3 -->
+                <div class="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm flex gap-5">
+                    <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80" alt="Reviewer" class="w-20 h-24 object-cover rounded-xl flex-shrink-0">
+                    <div class="flex flex-col justify-between">
+                        <p class="text-xs text-gray-600 italic font-medium leading-relaxed mb-3">"I love the mobile app. Being able to update deal stages and log call notes immediately after a meeting while on the road is a huge timesaver."</p>
+                        <div class="flex justify-between items-end">
+                            <div>
+                                <div class="text-[11px] font-bold text-gray-900">James L.</div>
+                                <div class="text-[9px] text-gray-500">Field Sales</div>
+                            </div>
+                            <div class="w-6 h-6 rounded-full bg-brand-lime flex items-center justify-center text-brand-dark">
+                                <i data-lucide="quote" class="w-3 h-3 font-bold"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Review 4 -->
+                <div class="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm flex gap-5">
+                    <img src="https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=150&auto=format&fit=crop&q=80" alt="Reviewer" class="w-20 h-24 object-cover rounded-xl flex-shrink-0">
+                    <div class="flex flex-col justify-between">
+                        <p class="text-xs text-gray-600 italic font-medium leading-relaxed mb-3">"Automation is the killer feature here. It completely eliminated our manual data entry and email follow-ups. Highly recommended."</p>
+                        <div class="flex justify-between items-end">
+                            <div>
+                                <div class="text-[11px] font-bold text-gray-900">Amanda R.</div>
+                                <div class="text-[9px] text-gray-500">Operations Mgr</div>
+                            </div>
+                            <div class="w-6 h-6 rounded-full bg-brand-lime flex items-center justify-center text-brand-dark">
+                                <i data-lucide="quote" class="w-3 h-3 font-bold"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="py-16 bg-white">
+        <div class="max-w-5xl mx-auto px-6">
+            <h3 class="text-center font-extrabold text-xl mb-6">Company Testimonials</h3>
+            
+            <!-- Tabs -->
+            <div class="flex flex-wrap justify-center gap-3 mb-8">
+                <button class="bg-brand-lime text-brand-dark font-bold text-xs px-5 py-2 rounded-full shadow-sm">Acme Corp</button>
+                <button class="bg-white border border-gray-200 text-gray-600 font-semibold text-xs px-5 py-2 rounded-full hover:bg-gray-50 transition">Klipfolio</button>
+                <button class="bg-white border border-gray-200 text-gray-600 font-semibold text-xs px-5 py-2 rounded-full hover:bg-gray-50 transition">Leadfeeder</button>
+                <button class="bg-white border border-gray-200 text-gray-600 font-semibold text-xs px-5 py-2 rounded-full hover:bg-gray-50 transition">Automate.io</button>
+            </div>
+
+            <!-- Case Study Card -->
+            <div class="bg-white border border-gray-200 rounded-3xl p-6 md:p-8 shadow-sm flex flex-col md:flex-row gap-8 items-center">
+                <div class="w-full md:w-2/5">
+                    <img src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=600&auto=format&fit=crop&q=80" alt="Office" class="w-full h-48 object-cover rounded-2xl shadow-sm">
+                </div>
+                <div class="w-full md:w-3/5">
+                    <p class="text-sm text-gray-700 italic font-medium leading-relaxed mb-6">"Implementing this CRM was a turning point for Acme Corp. Not only did we gain total visibility into our sales pipeline, but the automation features allowed our reps to close deals 30% faster than the previous year."</p>
+                    
+                    <div class="flex items-center gap-4 mb-6 pb-6 border-b border-gray-100">
+                        <img src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&auto=format&fit=crop&q=80" alt="CEO" class="w-10 h-10 rounded-full object-cover">
+                        <div>
+                            <div class="text-xs font-bold text-gray-900">Thomas Bradley</div>
+                            <div class="text-[10px] text-gray-500">CEO, Acme Corp</div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-4">
+                        <div>
+                            <div class="text-xl font-extrabold text-brand-dark mb-1">+140%</div>
+                            <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Revenue Growth</div>
+                        </div>
+                        <div>
+                            <div class="text-xl font-extrabold text-brand-dark mb-1">3.5x</div>
+                            <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Sales Velocity</div>
+                        </div>
+                        <div>
+                            <div class="text-xl font-extrabold text-brand-dark mb-1">99.8%</div>
+                            <div class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Team Adoption</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="py-16 bg-white">
+        <div class="max-w-5xl mx-auto px-6">
+            <div class="hero-bg rounded-[2.5rem] p-12 text-center text-white relative overflow-hidden shadow-2xl border border-brand-lime/20">
+                <h2 class="text-3xl md:text-4xl font-extrabold mb-4 tracking-tight">Inevitable Sales Success with Pipedrive</h2>
+                <p class="text-gray-300 text-sm max-w-lg mx-auto mb-10">Start your free 14-day trial today. No credit card required, instant setup, and full access to all features.</p>
+                
+                <div class="max-w-md mx-auto relative flex items-center glass-panel rounded-full p-1.5 shadow-xl">
+                    <input type="email" placeholder="Enter your business email" class="w-full bg-transparent text-white placeholder-gray-400 pl-4 pr-32 py-2 focus:outline-none text-sm" />
+                    <button class="absolute right-1.5 bg-brand-lime text-brand-dark px-5 py-2 rounded-full font-bold text-sm flex items-center gap-2 hover:bg-brand-limeHover transition">
+                        Try Free <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="bg-white border-t border-gray-100 pt-16 pb-8 text-sm">
+        <div class="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-5 gap-8 mb-12">
+            <!-- Brand -->
+            <div class="col-span-2 md:col-span-2">
+                <div class="flex items-center gap-2 mb-4">
+                    <div class="w-8 h-8 rounded-full bg-brand-dark flex items-center justify-center text-brand-lime font-black text-lg">p</div>
+                    <span class="text-xl font-bold tracking-tight text-gray-900">pipedrive</span>
+                </div>
+                <p class="text-gray-500 text-xs leading-relaxed max-w-xs mb-6">
+                    The first CRM designed by salespeople, for salespeople. Do more to grow your business.
+                </p>
+                <div class="flex items-center gap-3">
+                    <a href="#" class="w-8 h-8 rounded-full bg-brand-gray border border-brand-border flex items-center justify-center text-gray-600 hover:text-brand-dark hover:border-brand-dark transition"><i data-lucide="twitter" class="w-4 h-4"></i></a>
+                    <a href="#" class="w-8 h-8 rounded-full bg-brand-gray border border-brand-border flex items-center justify-center text-gray-600 hover:text-brand-dark hover:border-brand-dark transition"><i data-lucide="linkedin" class="w-4 h-4"></i></a>
+                    <a href="#" class="w-8 h-8 rounded-full bg-brand-gray border border-brand-border flex items-center justify-center text-gray-600 hover:text-brand-dark hover:border-brand-dark transition"><i data-lucide="facebook" class="w-4 h-4"></i></a>
+                </div>
+            </div>
+
+            <!-- Links -->
+            <div>
+                <h4 class="font-bold text-gray-900 text-xs uppercase tracking-wider mb-4">Product</h4>
+                <ul class="space-y-3 text-xs text-gray-500">
+                    <li><a href="#" class="hover:text-brand-dark transition">Features</a></li>
+                    <li><a href="#" class="hover:text-brand-dark transition">Pricing</a></li>
+                    <li><a href="#" class="hover:text-brand-dark transition">Integrations</a></li>
+                    <li><a href="#" class="hover:text-brand-dark transition">Case Studies</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="font-bold text-gray-900 text-xs uppercase tracking-wider mb-4">Company</h4>
+                <ul class="space-y-3 text-xs text-gray-500">
+                    <li><a href="#" class="hover:text-brand-dark transition">About Us</a></li>
+                    <li><a href="#" class="hover:text-brand-dark transition">Careers</a></li>
+                    <li><a href="#" class="hover:text-brand-dark transition">Blog</a></li>
+                    <li><a href="#" class="hover:text-brand-dark transition">Contact</a></li>
+                </ul>
+            </div>
+            <div>
+                <h4 class="font-bold text-gray-900 text-xs uppercase tracking-wider mb-4">Legal</h4>
+                <ul class="space-y-3 text-xs text-gray-500">
+                    <li><a href="#" class="hover:text-brand-dark transition">Terms of Service</a></li>
+                    <li><a href="#" class="hover:text-brand-dark transition">Privacy Policy</a></li>
+                    <li><a href="#" class="hover:text-brand-dark transition">Security</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="max-w-7xl mx-auto px-6 pt-6 border-t border-gray-100 flex flex-col md:flex-row items-center justify-between gap-4 text-[11px] text-gray-400">
+            <div>© 2026 Pipedrive Inc. All rights reserved.</div>
+            <div class="flex gap-4">
+                <span>English (US)</span>
+                <span>USD ($)</span>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        lucide.createIcons();
+    </script>
+</body>
+</html>

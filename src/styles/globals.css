@@ -171,6 +171,12 @@
 .float-soft {
   animation: float-soft 7s ease-in-out infinite;
 }
+.float-soft-2 {
+  animation: float-soft 9s ease-in-out infinite;
+}
+.float-soft-3 {
+  animation: float-soft 11s ease-in-out infinite;
+}
 @keyframes float-soft {
   0%,
   100% {
@@ -179,6 +185,28 @@
   50% {
     transform: translateY(-10px);
   }
+}
+
+/* Landing surface treatments (Pipedrive-style dark green + lime). */
+.hero-bg {
+  background-color: #022417;
+  background-image: radial-gradient(100% 100% at 50% 0%, rgba(212, 255, 0, 0.14) 0%, rgba(2, 36, 23, 1) 60%);
+}
+.dark-section-bg {
+  background-color: #022417;
+  background-image: radial-gradient(50% 50% at 50% 50%, rgba(212, 255, 0, 0.1) 0%, #022417 100%);
+}
+.glass-panel {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Scroll parallax target: JS sets --py. */
+.parallax-y {
+  transform: translateY(var(--py, 0px));
+  will-change: transform;
 }
 
 /* Subtle entrance for hero content on load. */
@@ -202,7 +230,7 @@
     transform: none;
     transition: none;
   }
-  .parallax {
+  .parallax-y {
     transform: none;
   }
   .marquee {
@@ -212,7 +240,9 @@
     animation: none;
     opacity: 1;
   }
-  .float-soft {
+  .float-soft,
+  .float-soft-2,
+  .float-soft-3 {
     animation: none;
   }
   .rise-in {
