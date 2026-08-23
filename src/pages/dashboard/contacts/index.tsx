@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import type { GetServerSideProps } from "next";
+import { useRouter } from "next/router";
 import { withAuth } from "@/lib/auth";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
@@ -24,9 +25,22 @@ function formatDate(iso: string): string {
 }
 
 export default function ContactsPage() {
+  const router = useRouter();
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+
+  // Allow deep-linking with a pre-filled search via ?search=<term> (used by the
+  // pipeline "Buka Kontak" action).
+  useEffect(() => {
+    const s = router.query.search;
+    if (typeof s === "string" && s) {
+      setSearch(s);
+      setQuery(s);
+      setPage(1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.query.search]);
 
   const [editing, setEditing] = useState<Contact | null>(null);
   const [name, setName] = useState("");

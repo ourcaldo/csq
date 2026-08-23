@@ -6,6 +6,7 @@ import { logHuman } from "@/lib/audit";
 import { requireTenant, respondError } from "@/lib/queries";
 import { apiOk, type ApiResponse } from "@/types/api";
 import { tagUpdateSchema } from "@/types/tag";
+import { normalizeHex, randomHex } from "@/lib/tag-color";
 
 export default async function handler(
   req: NextApiRequest,
@@ -31,7 +32,15 @@ export default async function handler(
     }
     const existing = await prisma.tag.findFirst({ where: { id, tenantId } });
     if (!existing) return respondError(res, "NOT_FOUND", "Tag tidak ditemukan.");
-    const tag = await prisma.tag.update({ where: { id }, data: parsed.data });
+    // Build the update payload explicitly so an absent `color` means "leave
+    // as-is", while an empty/invalid `color` means "give me a fresh random
+    // one" — matching the create behavior.
+    const data: { name?: string; color?: string } = {};
+    if (parsed.data.name !== undefined) data.name = parsed.data.name;
+    if (parsed.data.color !== undefined) {
+      data.color = normalizeHex(parsed.data.color) ?? randomHex();
+    }
+    const tag = await prisma.tag.update({ where: { id }, data });
     await logHuman({
       tenantId,
       action: "tag.update",

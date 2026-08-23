@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { GetServerSideProps } from "next";
+import { useRouter } from "next/router";
 import { withAuth } from "@/lib/auth";
 import { apiFetch, apiSend, ApiError } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
@@ -14,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StateNotice } from "@/components/dashboard/state-notice";
 import { StageManager } from "@/components/dashboard/pipeline/stage-manager";
+import { Dialog } from "@/components/ui/dialog";
 
 // Manajemen Pipeline — kanban + funnel views of every conversation's deal stage.
 // Kanban: columns = stages, cards = deals, drag a card to move stage. Funnel:
@@ -46,6 +48,7 @@ type FunnelStage = {
 const COLUMN_PAGE_SIZE = 30;
 
 export default function PipelinePage() {
+  const router = useRouter();
   const [view, setView] = useState<"kanban" | "funnel">("kanban");
   const [stages, setStages] = useState<Stage[] | null>(null);
   const [columns, setColumns] = useState<ColumnState[]>([]);
@@ -53,6 +56,11 @@ export default function PipelinePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [manageOpen, setManageOpen] = useState(false);
+  // Card the user clicked (vs dragged) — shown in the info popup.
+  const [popupDeal, setPopupDeal] = useState<KanbanDeal | null>(null);
+  // Records the pointer position at mousedown so a click after a drag (which
+  // moved beyond a small threshold) is ignored and doesn't open the popup.
+  const dragStart = useRef<{ x: number; y: number } | null>(null);
 
   // Filters.
   const [assignee, setAssignee] = useState("");
@@ -180,6 +188,18 @@ export default function PipelinePage() {
     } finally {
       setBusy(false);
     }
+  }
+
+  // From the card info popup: jump to this conversation's chat, or to the
+  // contacts list pre-filtered by the customer's phone.
+  function openChat(deal: KanbanDeal) {
+    void router.push({ pathname: "/dashboard/inbox", query: { c: deal.conversationId } });
+    setPopupDeal(null);
+  }
+  function openContact(deal: KanbanDeal) {
+    const phone = deal.conversation?.customerPhone ?? "";
+    void router.push({ pathname: "/dashboard/contacts", query: phone ? { search: phone } : {} });
+    setPopupDeal(null);
   }
 
   const maxFunnelCount = Math.max(1, ...(funnel ?? []).map((s) => s.count));
@@ -315,11 +335,24 @@ export default function PipelinePage() {
                       key={d.id}
                       draggable
                       onDragStart={() => setDragConversationId(d.conversationId)}
-                      className="cursor-grab rounded-md border bg-white p-2.5 shadow-sm active:cursor-grabbing"
+                      onDragEnd={() => setDragConversationId(null)}
+                      className="cursor-grab rounded-md border bg-white p-2.5 shadow-sm transition-colors hover:border-slate-300 active:cursor-grabbing"
                     >
-                      <p className="text-sm font-medium">
+                      <button
+                        type="button"
+                        onMouseDown={(e) => (dragStart.current = { x: e.clientX, y: e.clientY })}
+                        onClick={(e) => {
+                          const s = dragStart.current;
+                          // Ignore "clicks" that followed a drag (pointer moved
+                          // beyond a small threshold) so dragging still works.
+                          if (s && (Math.abs(e.clientX - s.x) > 5 || Math.abs(e.clientY - s.y) > 5)) return;
+                          setPopupDeal(d);
+                        }}
+                        className="-mx-1 -my-0.5 block w-full cursor-pointer rounded px-1 py-0.5 text-left text-sm font-medium text-slate-900 hover:bg-slate-50 hover:text-green-600"
+                        title="Klik untuk detail pelanggan"
+                      >
                         {d.conversation?.contact?.name ?? d.conversation?.customerPhone ?? ""}
-                      </p>
+                      </button>
                       {d.conversation?.assignee && (
                         <p className="mt-1 text-[10px] text-slate-400">
                           {d.conversation.assignee.name ?? d.conversation.assignee.email}
@@ -377,6 +410,49 @@ export default function PipelinePage() {
           )}
         </div>
       )}
+
+      <Dialog
+        open={popupDeal !== null}
+        onClose={() => setPopupDeal(null)}
+        title="Detail Pelanggan"
+        description="Informasi percakapan dan kontak pelanggan."
+      >
+        {popupDeal && (
+          <div className="space-y-4">
+            <div className="space-y-1.5 text-sm">
+              <p className="text-base font-semibold text-slate-900">
+                {popupDeal.conversation?.contact?.name ?? popupDeal.conversation?.customerPhone ?? "Pelanggan"}
+              </p>
+              <p className="text-slate-600">
+                <span className="text-slate-400">Telepon: </span>
+                {popupDeal.conversation?.customerPhone ?? "—"}
+              </p>
+              {popupDeal.conversation?.contact?.email && (
+                <p className="text-slate-600">
+                  <span className="text-slate-400">Email: </span>
+                  {popupDeal.conversation.contact.email}
+                </p>
+              )}
+              {popupDeal.conversation?.assignee && (
+                <p className="text-slate-600">
+                  <span className="text-slate-400">Penanggung Jawab: </span>
+                  {popupDeal.conversation.assignee.name ?? popupDeal.conversation.assignee.email}
+                </p>
+              )}
+              <p className="text-slate-600">
+                <span className="text-slate-400">Tahap: </span>
+                {popupDeal.stage?.name ?? "—"}
+              </p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => openContact(popupDeal)}>
+                Buka Kontak
+              </Button>
+              <Button onClick={() => openChat(popupDeal)}>Buka Chat</Button>
+            </div>
+          </div>
+        )}
+      </Dialog>
 
       <StageManager
         open={manageOpen}

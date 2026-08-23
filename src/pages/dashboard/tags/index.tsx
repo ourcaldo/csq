@@ -14,8 +14,8 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { readableTextColor } from "@/lib/tag-color";
 
 const PAGE_SIZE = 20;
 
@@ -142,9 +142,27 @@ export default function TagsPage() {
                 {data?.items.map((t) => (
                   <TableRow key={t.id}>
                     <TableCell>
-                      <Badge variant="secondary">{t.name}</Badge>
+                      <span
+                        className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium"
+                        style={
+                          t.color
+                            ? { backgroundColor: t.color, color: readableTextColor(t.color) ?? undefined }
+                            : undefined
+                        }
+                      >
+                        {t.name}
+                      </span>
                     </TableCell>
-                    <TableCell className="text-muted-foreground">{t.color ?? "—"}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      <span className="inline-flex items-center gap-1.5">
+                        <span
+                          className="h-3.5 w-3.5 rounded-full border border-black/10"
+                          style={{ backgroundColor: t.color ?? "#cbd5e1" }}
+                          aria-hidden
+                        />
+                        <span className="font-mono text-[11px]">{t.color ?? "—"}</span>
+                      </span>
+                    </TableCell>
                     <TableCell className="text-right">
                       {isOwner ? (
                         <div className="flex justify-end gap-2">
@@ -191,9 +209,11 @@ export default function TagsPage() {
             <Label htmlFor="tag-color">Warna (opsional)</Label>
             <Input
               id="tag-color"
-              placeholder="mis. #ef4444"
+              placeholder="mis. #ef4444 — kosongkan untuk acak"
               value={color}
               onChange={(e) => setColor(e.target.value)}
+              pattern="^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})?$"
+              title="Kode hex, contoh: #ef4444 atau #fff"
             />
           </div>
           <div className="flex justify-end gap-2">

@@ -6,6 +6,7 @@ import { logHuman } from "@/lib/audit";
 import { paginate, requireTenant, respondError } from "@/lib/queries";
 import { apiOk, type ApiResponse } from "@/types/api";
 import { tagCreateSchema } from "@/types/tag";
+import { normalizeHex, randomHex } from "@/lib/tag-color";
 
 type ListResult = { items: Tag[]; total: number; page: number; pageSize: number };
 
@@ -35,7 +36,12 @@ export default async function handler(
     if (!parsed.success) {
       return respondError(res, "VALIDATION_ERROR", parsed.error.message);
     }
-    const tag = await prisma.tag.create({ data: { ...parsed.data, tenantId } });
+    // Color is optional: normalize a valid hex, or auto-assign a random one so
+    // every tag always renders with a distinct color.
+    const color = normalizeHex(parsed.data.color) ?? randomHex();
+    const tag = await prisma.tag.create({
+      data: { name: parsed.data.name, color, tenantId },
+    });
     await logHuman({
       tenantId,
       action: "tag.create",
