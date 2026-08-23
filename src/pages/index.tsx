@@ -14,27 +14,27 @@ import { Seo, SITE_NAME, SITE_TAGLINE, DEFAULT_DESCRIPTION } from "@/components/
 import { Reveal } from "@/components/landing/reveal";
 
 const STEPS = [
-  { n: "01", title: "Sambungin data", body: "Masukin Excel atau CSV, sambungkan Google Sheets, atau ketik manual. Agent langsung baca stok, produk, harga, dan aturan dari data yang sudah ada." },
-  { n: "02", title: "Atur izin dan ajarin", body: "Pilih apa yang boleh dibaca dan diubah per tool. Tambah FAQ dan aturan. Aksi sensitif butuh persetujuan Anda. Default-nya: baca doang." },
-  { n: "03", title: "Deploy ke WhatsApp", body: "Pilih Cloud API resmi atau nomor WA sendiri. Agent bantu pelanggan, sementara Anda pantau dan ambil alih dari inbox kapan saja." },
+  { n: "01", title: "Sambungkan data", body: "Masukkan Excel atau CSV, sambungkan Google Sheets, atau mengetik manual. Agent langsung membaca stok, produk, harga, dan aturan dari data yang sudah ada." },
+  { n: "02", title: "Atur izin dan ajarkan", body: "Pilih apa yang boleh dibaca dan diubah per tool. Tambahkan FAQ dan aturan. Aksi sensitif butuh persetujuan Anda. Default-nya: hanya membaca." },
+  { n: "03", title: "Deploy ke WhatsApp", body: "Pilih Cloud API resmi atau nomor WhatsApp sendiri. Agent membantu pelanggan, sementara Anda memantau dan mengambil alih dari inbox kapan saja." },
 ];
 
 const FEATURES = [
-  { cell: "a" as const, title: "Inbox bersama: tim dan AI satu layar", body: "Owner dan staff kerja bareng agent di satu inbox. Tag, tugasin, dan ambil alih dari AI. Agent diem sebentar, balik lagi kalau udah dilepas.", live: true },
-  { cell: "b" as const, title: "Baca data yang sudah ada", body: "Excel, CSV, Google Sheets, ketik manual, dan dokumen disatukan lewat Business Context Layer. Agent bacanya sepertti staf Anda.", sources: ["Excel / CSV", "Google Sheets", "Input manual", "PDF"] },
-  { cell: "c" as const, title: "Izin per-aksi", body: "Baca default. Nulis cuma kalau dapat izin per tool.", perms: ["Baca default", "Tulis per tool", "Approval owner"] },
-  { cell: "d" as const, title: "Audit penuh", body: "Tiap aksi tercatat bareng status persetujuannya.", log: "09:02  permit  product.update  DENIED" },
+  { cell: "a" as const, title: "Inbox bersama: tim dan AI satu layar", body: "Owner dan staf bekerja sama dengan agent di satu inbox. Beri tag, menugaskan, dan mengambil alih dari AI. Agent berhenti sebentar, kembali lagi kalau sudah dilepas.", live: true },
+  { cell: "b" as const, title: "Baca data yang sudah ada", body: "Excel, CSV, Google Sheets, ketik manual, dan dokumen disatukan lewat Business Context Layer. Membacanya seperti staf Anda.", sources: ["Excel / CSV", "Google Sheets", "Input manual", "PDF"] },
+  { cell: "c" as const, title: "Izin per-aksi", body: "Membaca secara default. Menulis hanya jika mendapat izin per tool; aksi sensitif butuh persetujuan owner.", perms: ["Baca default", "Tulis per tool", "Approval owner"] },
+  { cell: "d" as const, title: "Audit penuh", body: "Tiap aksi tercatat beserta status persetujuannya. Anda tahu persis apa yang dibaca agent dan apa yang diubah.", log: "09:02  permit  product.update  DENIED" },
 ];
 
 const PRINCIPLE = ["Baca", "default.", "Tulis", "dengan", "izin.", "Bertindak", "sesuai", "aturan."];
 const PRINCIPLE_POINTS = ["Izin per-tool", "Approval owner", "Audit sebelum dan sesudah", "Ambil alih kapan saja"];
 
 const FAQS: { q: string; a: string }[] = [
-  { q: "Apakah saya butuh coding?", a: "Nggak. CSQ dibikin buat owner UMKM. Sambungin data, ajarin aturan, atur izin dari dashboard, tanpa kode." },
-  { q: "Apakah datanya aman?", a: "CSQ self-host: pasang di server sendiri pakai Docker Compose. Data usaha dan pelanggan tetap di tangan Anda, terpisah per tenant." },
-  { q: "Bisa pakai nomor WhatsApp sendiri?", a: "Bisa. Pilih Cloud API resmi Meta atau Baileys pakai nomor sendiri lewat QR. Anda milih pas onboarding, dua-duanya ada." },
-  { q: "Kalau AI salah jawab atau ngapa-ngapa di luar batas?", a: "Agent baca default dan nulis cuma kalau dapat izin per tool. Aksi sensitif butuh persetujuan owner. Tiap aksi tercatat buat audit, dan Anda bisa ambil alih kapan saja." },
-  { q: "Berapa harganya?", a: "CSQ open buat dihosting sendiri. Anda cuma bayar server, VPS kecil udah cukup, plus biaya WhatsApp Cloud API sesuai pemakaian." },
+  { q: "Apakah saya butuh coding?", a: "Tidak. CSQ dibuat untuk owner UMKM. Sambungkan data, ajarkan aturan, atur izin dari dashboard, tanpa kode." },
+  { q: "Apakah datanya aman?", a: "CSQ self-host: dipasang di server sendiri dengan Docker Compose. Data usaha dan pelanggan tetap di tangan Anda, terpisah per tenant." },
+  { q: "Bisa pakai nomor WhatsApp sendiri?", a: "Bisa. Pilih Cloud API resmi Meta atau Baileys menggunakan nomor sendiri lewat QR. Anda memilih saat onboarding, keduanya tersedia." },
+  { q: "Kalau AI salah jawab atau melakukan hal di luar batas?", a: "Agent membaca secara default dan menulis hanya dengan izin per tool. Aksi sensitif butuh persetujuan owner. Tiap aksi tercatat untuk audit, dan Anda bisa mengambil alih kapan saja." },
+  { q: "Berapa harganya?", a: "CSQ bersifat open untuk dihosting sendiri. Anda hanya perlu membayar server, VPS kecil sudah cukup, plus biaya WhatsApp Cloud API sesuai penggunaan." },
 ];
 
 const HEADLINE = [
@@ -144,8 +144,8 @@ function Hero() {
           ))}
         </h1>
         <p className="rise-in mx-auto mt-7 max-w-2xl text-base leading-relaxed text-white/75 sm:text-lg" style={{ animationDelay: "440ms" }}>
-          CSQ baca data usaha Anda, dari stok sampai kebijakan.
-          Membaca default, menulis hanya kalau Anda izinkan.
+          CSQ membaca data usaha Anda, dari stok sampai kebijakan.
+          Membaca secara default, menulis hanya jika Anda izinkan.
         </p>
         <div className="rise-in mt-9 flex flex-wrap items-center justify-center gap-3" style={{ animationDelay: "540ms" }}>
           <Link
@@ -192,7 +192,7 @@ function HowItWorks() {
       <Reveal>
         <p className="font-mono-data text-[11px] font-medium uppercase tracking-[0.18em] text-green-700">Cara kerja</p>
         <h2 className="mt-4 max-w-3xl font-display text-3xl font-extrabold tracking-tight sm:text-4xl md:text-5xl">
-          Dari data ke AI yang bantu layani pelanggan, tiga langkah.
+          Dari data ke AI yang membantu melayani pelanggan, tiga langkah.
         </h2>
       </Reveal>
 
@@ -226,7 +226,7 @@ function Bento() {
         <Reveal>
           <p className="font-mono-data text-[11px] font-medium uppercase tracking-[0.18em] text-green-700">Fitur</p>
           <h2 className="mt-4 max-w-3xl font-display text-3xl font-extrabold tracking-tight sm:text-4xl md:text-5xl">
-            Apa yang agent butuh buat melayani, dan apa yang Anda butuh buat ngontrol.
+            Apa yang agent butuh untuk melayani, dan apa yang Anda butuh untuk mengontrol.
           </h2>
         </Reveal>
 
@@ -308,9 +308,9 @@ function Principle() {
         </h2>
         <Reveal>
           <p className="mx-auto mt-9 max-w-2xl text-base leading-relaxed text-[#EDEFEA]/70 sm:text-lg">
-            Agent cuma baca dan jawab. Tiap aksi yang ubah data butuh izin
-            terpisah, sebagian butuh persetujuan Anda. Anda yang pegang
-            kendali, agent yang kerja.
+            Agent hanya membaca dan menjawab. Tiap aksi yang mengubah data butuh izin
+            terpisah, sebagian butuh persetujuan Anda. Anda yang memegang
+            kendali, agent yang bekerja.
           </p>
           <div className="mt-11 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-[#EDEFEA]/85">
             {PRINCIPLE_POINTS.map((p) => (
@@ -362,10 +362,10 @@ function Cta() {
         <div className="rounded-[2.5rem] bg-green-700/[0.07] p-2 ring-1 ring-green-700/15">
           <div className="rounded-[2rem] bg-[#F4FBF7] px-6 py-16 text-center sm:px-12">
             <h2 className="font-display text-3xl font-extrabold tracking-tight text-green-900 sm:text-4xl md:text-5xl">
-              Siap bikin AI kerja buat usaha Anda?
+              Siap membuat AI bekerja untuk usaha Anda?
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-base text-green-900/70">
-              Sambungin data, ajarin aturan, atur izin, lalu deploy agent ke WhatsApp sebentar.
+              Sambungkan data, ajarkan aturan, atur izin, lalu deploy agent ke WhatsApp dengan cepat.
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link
