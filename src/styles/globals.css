@@ -111,17 +111,20 @@
   font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
-/* Scroll-reveal: elements start faint + low, ease up when observed. */
+/* Scroll-reveal: elements enter with a heavy fade-up + blur resolve. */
 .reveal {
   opacity: 0;
-  transform: translateY(20px);
-  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateY(28px);
+  filter: blur(6px);
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.8s cubic-bezier(0.16, 1, 0.3, 1),
+    filter 0.8s cubic-bezier(0.16, 1, 0.3, 1);
   will-change: opacity, transform;
 }
 .reveal.is-visible {
   opacity: 1;
   transform: none;
+  filter: blur(0);
 }
 
 /* Subtle entrance for hero content on load. */
@@ -136,17 +139,29 @@
   }
 }
 .rise-in {
-  animation: rise-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: rise-in 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Nested-arrow hover physics for primary CTAs (button-in-button). */
+.group-cta .cta-arrow {
+  transition: transform 0.5s cubic-bezier(0.32, 0.72, 0, 1);
+}
+.group-cta:hover .cta-arrow {
+  transform: translate(3px, -1px) scale(1.06);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .reveal {
     opacity: 1;
     transform: none;
+    filter: none;
     transition: none;
   }
   .rise-in {
     animation: none;
+  }
+  .group-cta .cta-arrow {
+    transition: none;
   }
 }
 
