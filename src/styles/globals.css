@@ -99,8 +99,8 @@
 }
 
 /* ============================================================
-   Landing page — type, scroll-reveal, parallax, marquee, caret.
-   All motion is disabled under prefers-reduced-motion.
+   Landing page — type + subtle scroll-reveal.
+   Motion is disabled under prefers-reduced-motion.
    ============================================================ */
 
 .font-display {
@@ -114,9 +114,9 @@
 /* Scroll-reveal: elements start faint + low, ease up when observed. */
 .reveal {
   opacity: 0;
-  transform: translateY(26px);
-  transition: opacity 0.75s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 0.75s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateY(20px);
+  transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
   will-change: opacity, transform;
 }
 .reveal.is-visible {
@@ -124,96 +124,11 @@
   transform: none;
 }
 
-/* Parallax target: JS sets --parallax (a translateY in px). */
-.parallax {
-  transform: translateY(var(--parallax, 0px));
-  will-change: transform;
-}
-
-/* Principle ticker marquee. Duplicated content for a seamless loop. */
-.marquee {
-  display: inline-flex;
-  white-space: nowrap;
-  animation: marquee 38s linear infinite;
-}
-.marquee:hover {
-  animation-play-state: paused;
-}
-@keyframes marquee {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
-}
-
-/* Typewriter caret (hero chat). */
-.caret {
-  display: inline-block;
-  width: 2px;
-  margin-left: 1px;
-  background: currentColor;
-  animation: caret-blink 1s steps(2, start) infinite;
-}
-@keyframes caret-blink {
-  0%,
-  50% {
-    opacity: 1;
-  }
-  50.01%,
-  100% {
-    opacity: 0;
-  }
-}
-
-/* Slow ambient float for the hero chat card. */
-.float-soft {
-  animation: float-soft 7s ease-in-out infinite;
-}
-.float-soft-2 {
-  animation: float-soft 9s ease-in-out infinite;
-}
-.float-soft-3 {
-  animation: float-soft 11s ease-in-out infinite;
-}
-@keyframes float-soft {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-}
-
-/* Landing surface treatments (Pipedrive-style dark green + lime). */
-.hero-bg {
-  background-color: #022417;
-  background-image: radial-gradient(100% 100% at 50% 0%, rgba(212, 255, 0, 0.14) 0%, rgba(2, 36, 23, 1) 60%);
-}
-.dark-section-bg {
-  background-color: #022417;
-  background-image: radial-gradient(50% 50% at 50% 50%, rgba(212, 255, 0, 0.1) 0%, #022417 100%);
-}
-.glass-panel {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-/* Scroll parallax target: JS sets --py. */
-.parallax-y {
-  transform: translateY(var(--py, 0px));
-  will-change: transform;
-}
-
 /* Subtle entrance for hero content on load. */
 @keyframes rise-in {
   from {
     opacity: 0;
-    transform: translateY(18px);
+    transform: translateY(16px);
   }
   to {
     opacity: 1;
@@ -221,7 +136,7 @@
   }
 }
 .rise-in {
-  animation: rise-in 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: rise-in 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -229,21 +144,6 @@
     opacity: 1;
     transform: none;
     transition: none;
-  }
-  .parallax-y {
-    transform: none;
-  }
-  .marquee {
-    animation: none;
-  }
-  .caret {
-    animation: none;
-    opacity: 1;
-  }
-  .float-soft,
-  .float-soft-2,
-  .float-soft-3 {
-    animation: none;
   }
   .rise-in {
     animation: none;
