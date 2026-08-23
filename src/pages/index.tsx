@@ -1,22 +1,12 @@
 // CSQ marketing landing page, public front door at /.
 //
-// Synthesized direction across the loaded taste skills:
-// - design-taste-frontend / v1: anti-slop, one accent, eyebrow restraint,
-//   no em-dashes, no icon-in-square, no nested boxes, no fake UI, hero fits viewport.
-// - high-end-visual-design: double-bezel, button-in-button, tinted shadows,
-//   custom cubic-bezier, py-24+ whitespace.
-// - gpt-taste: AIDA, gapless bento (grid-flow-dense), cinematic chapter spacing,
-//   no meta-labels, hover physics, overflow-x-hidden, wide hero container.
-// - imagegen-frontend-web / image-to-code: composition variety per section,
-//   hero cleanliness, section rhythm, image-first (no stock photos here -> type-led).
-// - stitch-design-taste: semantic tokens, spring physics, staggered reveals.
-// - brandkit: CSQ = AI customer service for UMKM WhatsApp; metaphor
-//   conversation + permission; emerald/forest palette, "C" monogram.
-//
-// Motion is optimized: scroll reveals run on a single IntersectionObserver
-// (transform/opacity only); the principle headline uses native CSS
-// animation-timeline: view() (zero JS, GPU-composited) where supported.
-// All disabled under prefers-reduced-motion. No window.scroll listeners.
+// Direction across the loaded taste skills (design-taste-frontend, v1,
+// high-end-visual-design, gpt-taste, imagegen-frontend-web,
+// image-to-code, stitch-design-taste, brandkit): emerald solid hero,
+// gapless bento, one dark scrub-reveal principle. Copy is conversational
+// Indonesian with common words (no stiff formalism). Motion is optimized:
+// single IntersectionObserver reveals; native CSS animation-timeline
+// for the principle scrub; reduced-motion safe; no window.scroll listeners.
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Check, Plus, Minus, ArrowRight } from "@phosphor-icons/react";
@@ -24,27 +14,27 @@ import { Seo, SITE_NAME, SITE_TAGLINE, DEFAULT_DESCRIPTION } from "@/components/
 import { Reveal } from "@/components/landing/reveal";
 
 const STEPS = [
-  { n: "01", title: "Sambungkan data", body: "Impor Excel atau CSV, hubungkan Google Sheets, atau input manual. Agent membaca stok, produk, harga, dan kebijakan dari sumber yang sudah Anda pakai." },
-  { n: "02", title: "Atur izin dan ajarkan", body: "Pilih apa yang boleh dibaca dan diubah per tool. Tambahkan FAQ dan aturan. Aksi sensitif butuh persetujuan Anda. Default: baca saja." },
-  { n: "03", title: "Deploy ke WhatsApp", body: "Pilih Cloud API resmi atau nomor Anda sendiri. Agent melayani pelanggan, sementara Anda memantau dan mengambil alih dari inbox bersama kapan saja." },
+  { n: "01", title: "Sambungin data", body: "Masukin Excel atau CSV, sambungkan Google Sheets, atau ketik manual. Agent langsung baca stok, produk, harga, dan aturan dari data yang sudah ada." },
+  { n: "02", title: "Atur izin dan ajarin", body: "Pilih apa yang boleh dibaca dan diubah per tool. Tambah FAQ dan aturan. Aksi sensitif butuh persetujuan Anda. Default-nya: baca doang." },
+  { n: "03", title: "Deploy ke WhatsApp", body: "Pilih Cloud API resmi atau nomor WA sendiri. Agent bantu pelanggan, sementara Anda pantau dan ambil alih dari inbox kapan saja." },
 ];
 
 const FEATURES = [
-  { cell: "a" as const, title: "Inbox bersama: tim dan AI satu layar", body: "Owner dan staff bekerja berdampingan dengan agent di inbox CRM. Beri tag, tugaskan, dan ambil alih dari AI. Agent berdiri sementara, lalu kembali saat dilepas.", live: true },
-  { cell: "b" as const, title: "Membaca data yang sudah Anda punya", body: "Excel, CSV, Google Sheets, input manual, dan dokumen dinormalisasi lewat Business Context Layer. Agent membacanya seperti staf Anda.", sources: ["Excel / CSV", "Google Sheets", "Input manual", "PDF"] },
-  { cell: "c" as const, title: "Izin per-aksi", body: "Membaca secara default. Menulis adalah izin terpisah per tool, dan aksi sensitif butuh persetujuan owner.", perms: ["Baca default", "Tulis per tool", "Approval owner"] },
-  { cell: "d" as const, title: "Audit penuh", body: "Setiap aksi tercatat dengan status persetujuan. Anda tahu persis apa yang dibaca agent dan apa yang diubah.", log: "09:02  permit  product.update  DENIED" },
+  { cell: "a" as const, title: "Inbox bersama: tim dan AI satu layar", body: "Owner dan staff kerja bareng agent di satu inbox. Tag, tugasin, dan ambil alih dari AI. Agent diem sebentar, balik lagi kalau udah dilepas.", live: true },
+  { cell: "b" as const, title: "Baca data yang sudah ada", body: "Excel, CSV, Google Sheets, ketik manual, dan dokumen disatukan lewat Business Context Layer. Agent bacanya sepertti staf Anda.", sources: ["Excel / CSV", "Google Sheets", "Input manual", "PDF"] },
+  { cell: "c" as const, title: "Izin per-aksi", body: "Baca default. Nulis cuma kalau dapat izin per tool.", perms: ["Baca default", "Tulis per tool", "Approval owner"] },
+  { cell: "d" as const, title: "Audit penuh", body: "Tiap aksi tercatat bareng status persetujuannya.", log: "09:02  permit  product.update  DENIED" },
 ];
 
-const PRINCIPLE = ["Baca", "secara", "default.", "Tulis", "dengan", "izin.", "Bertindak", "sesuai", "aturan."];
+const PRINCIPLE = ["Baca", "default.", "Tulis", "dengan", "izin.", "Bertindak", "sesuai", "aturan."];
 const PRINCIPLE_POINTS = ["Izin per-tool", "Approval owner", "Audit sebelum dan sesudah", "Ambil alih kapan saja"];
 
 const FAQS: { q: string; a: string }[] = [
-  { q: "Apakah saya butuh coding?", a: "Tidak. CSQ dirancang untuk owner UMKM. Hubungkan data, ajarkan aturan, dan atur izin lewat dashboard, tanpa kode." },
-  { q: "Apakah datanya aman?", a: "CSQ self-host: deploy di server Anda sendiri dengan Docker Compose. Data bisnis dan pelanggan tetap di kendali Anda, terisolasi per tenant." },
-  { q: "Bisa pakai nomor WhatsApp saya sendiri?", a: "Bisa. Pilih Cloud API resmi Meta atau Baileys dengan nomor Anda sendiri via QR. Owner memilih saat onboarding, keduanya tersedia." },
-  { q: "Bagaimana kalau AI salah jawab atau berbuat di luar batas?", a: "Agent baca secara default dan hanya menulis dengan izin per tool. Aksi sensitif butuh persetujuan owner. Setiap aksi tercatat untuk audit, dan Anda bisa ambil alih kapan saja." },
-  { q: "Berapa harganya?", a: "CSQ open untuk dihosting sendiri. Anda hanya menanggung server, VPS kecil sudah cukup, dan biaya WhatsApp Cloud API sesuai pemakaian." },
+  { q: "Apakah saya butuh coding?", a: "Nggak. CSQ dibikin buat owner UMKM. Sambungin data, ajarin aturan, atur izin dari dashboard, tanpa kode." },
+  { q: "Apakah datanya aman?", a: "CSQ self-host: pasang di server sendiri pakai Docker Compose. Data usaha dan pelanggan tetap di tangan Anda, terpisah per tenant." },
+  { q: "Bisa pakai nomor WhatsApp sendiri?", a: "Bisa. Pilih Cloud API resmi Meta atau Baileys pakai nomor sendiri lewat QR. Anda milih pas onboarding, dua-duanya ada." },
+  { q: "Kalau AI salah jawab atau ngapa-ngapa di luar batas?", a: "Agent baca default dan nulis cuma kalau dapat izin per tool. Aksi sensitif butuh persetujuan owner. Tiap aksi tercatat buat audit, dan Anda bisa ambil alih kapan saja." },
+  { q: "Berapa harganya?", a: "CSQ open buat dihosting sendiri. Anda cuma bayar server, VPS kecil udah cukup, plus biaya WhatsApp Cloud API sesuai pemakaian." },
 ];
 
 const HEADLINE = [
@@ -128,13 +118,12 @@ function Navbar() {
 }
 
 /* -------------------------------- Hero -------------------------------- */
-/* Emerald solid color-field hero (Bold Studio Solid). Centered cinematic
-   statement, per-word kinetic reveal, one primary + one ghost CTA. */
+/* Emerald solid color-field hero. Centered cinematic statement,
+   per-word kinetic reveal, one primary + one ghost CTA. */
 
 function Hero() {
   return (
     <section className="relative overflow-hidden bg-green-700 text-[#F4FBF7]">
-      {/* ambient tonal glow (low-chroma, palette-matched) */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{ backgroundImage: "radial-gradient(60% 55% at 50% 0%, rgba(220,252,231,0.22), transparent 70%)" }}
@@ -155,8 +144,8 @@ function Hero() {
           ))}
         </h1>
         <p className="rise-in mx-auto mt-7 max-w-2xl text-base leading-relaxed text-white/75 sm:text-lg" style={{ animationDelay: "440ms" }}>
-          CSQ membaca stok, harga, dan kebijakan dari data yang sudah Anda
-          punya. Membaca secara default, menulis dengan izin Anda.
+          CSQ baca data usaha Anda, dari stok sampai kebijakan.
+          Membaca default, menulis hanya kalau Anda izinkan.
         </p>
         <div className="rise-in mt-9 flex flex-wrap items-center justify-center gap-3" style={{ animationDelay: "540ms" }}>
           <Link
@@ -203,7 +192,7 @@ function HowItWorks() {
       <Reveal>
         <p className="font-mono-data text-[11px] font-medium uppercase tracking-[0.18em] text-green-700">Cara kerja</p>
         <h2 className="mt-4 max-w-3xl font-display text-3xl font-extrabold tracking-tight sm:text-4xl md:text-5xl">
-          Dari data ke AI yang melayani, dalam tiga langkah.
+          Dari data ke AI yang bantu layani pelanggan, tiga langkah.
         </h2>
       </Reveal>
 
@@ -225,10 +214,9 @@ function HowItWorks() {
 }
 
 /* ------------------------------ Bento ------------------------------ */
-/* Gapless bento, grid-flow-dense, 4 interlocking cells, hover physics.
-   Math: lg:grid-cols-4, auto-rows-[15rem]; A col-span-2 row-span-2, C
-   col-span-1, D col-span-1 fill row 1; A continues + B col-span-2 fill row 2.
-   Zero empty cells. Mobile: grid-cols-1, all spans reset. */
+/* Gapless bento, grid-flow-dense, 4 interlocking cells. Rows
+   auto-size to content (no fixed height -> no vertical overflow), min-h for
+   visual weight. Audit log wraps (no horizontal scroll). Hover scale. */
 
 function Bento() {
   const f = FEATURES;
@@ -238,28 +226,26 @@ function Bento() {
         <Reveal>
           <p className="font-mono-data text-[11px] font-medium uppercase tracking-[0.18em] text-green-700">Fitur</p>
           <h2 className="mt-4 max-w-3xl font-display text-3xl font-extrabold tracking-tight sm:text-4xl md:text-5xl">
-            Yang agent butuh untuk melayani, Anda butuh untuk mengontrol.
+            Apa yang agent butuh buat melayani, dan apa yang Anda butuh buat ngontrol.
           </h2>
         </Reveal>
 
-        <div className="mt-14 grid grid-cols-1 gap-4 lg:auto-rows-[15rem] lg:grid-cols-4 lg:grid-flow-dense">
+        <div className="mt-14 grid grid-cols-1 gap-4 lg:grid-cols-4 lg:grid-flow-dense">
           {/* A: big emerald cell, live indicator (real semantic state) */}
           <Reveal className="lg:col-span-2 lg:row-span-2">
-            <div className="group h-full overflow-hidden rounded-[2rem] bg-green-700 p-8 text-[#F4FBF7] ring-1 ring-white/10 transition-transform duration-700 ease-out group-hover:scale-[1.02]">
-              <div className="flex h-full flex-col">
-                <div className="flex items-center gap-2 font-mono-data text-[11px] text-[#F4FBF7]/70">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#9DEACE]" /> AI menangani
-                </div>
-                <h3 className="mt-6 max-w-md font-display text-2xl font-bold tracking-tight sm:text-3xl">{f[0].title}</h3>
-                <p className="mt-3 max-w-md text-base leading-relaxed text-white/75">{f[0].body}</p>
-                <p className="mt-auto font-mono-data text-xs text-white/55">Ambil alih kapan saja.</p>
+            <div className="group flex min-h-[13rem] flex-col overflow-hidden rounded-[2rem] bg-green-700 p-8 text-[#F4FBF7] ring-1 ring-white/10 transition-transform duration-700 ease-out group-hover:scale-[1.02]">
+              <div className="flex items-center gap-2 font-mono-data text-[11px] text-[#F4FBF7]/70">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#9DEACE]" /> AI menangani
               </div>
+              <h3 className="mt-6 max-w-md font-display text-2xl font-bold tracking-tight sm:text-3xl">{f[0].title}</h3>
+              <p className="mt-3 max-w-md text-base leading-relaxed text-white/75">{f[0].body}</p>
+              <p className="mt-auto font-mono-data text-xs text-white/55">Ambil alih kapan saja.</p>
             </div>
           </Reveal>
 
           {/* C: tinted, permission list */}
           <Reveal delay={70}>
-            <div className="group h-full overflow-hidden rounded-[2rem] bg-green-700/[0.07] p-1.5 ring-1 ring-green-700/15 transition-transform duration-700 ease-out group-hover:scale-[1.02]">
+            <div className="group flex min-h-[13rem] flex-col overflow-hidden rounded-[2rem] bg-green-700/[0.07] p-1.5 ring-1 ring-green-700/15 transition-transform duration-700 ease-out group-hover:scale-[1.02]">
               <div className="flex h-full flex-col rounded-[1.65rem] bg-green-50/50 p-7">
                 <h3 className="font-display text-lg font-bold tracking-tight">{f[2].title}</h3>
                 <p className="mt-2.5 text-sm leading-relaxed text-[#141A17]/70">{f[2].body}</p>
@@ -274,13 +260,13 @@ function Bento() {
             </div>
           </Reveal>
 
-          {/* D: white, audit snippet */}
+          {/* D: white, audit snippet (wraps, no horizontal scroll) */}
           <Reveal delay={140}>
-            <div className="group h-full overflow-hidden rounded-[2rem] bg-[#141A17]/[0.04] p-1.5 ring-1 ring-[#141A17]/[0.06] transition-transform duration-700 ease-out group-hover:scale-[1.02]">
+            <div className="group flex min-h-[13rem] flex-col overflow-hidden rounded-[2rem] bg-[#141A17]/[0.04] p-1.5 ring-1 ring-[#141A17]/[0.06] transition-transform duration-700 ease-out group-hover:scale-[1.02]">
               <div className="flex h-full flex-col rounded-[1.65rem] bg-white p-7 shadow-[inset_0_1px_1px_rgba(255,255,255,0.85),0_24px_70px_-34px_rgba(20,26,23,0.22)]">
                 <h3 className="font-display text-lg font-bold tracking-tight">{f[3].title}</h3>
                 <p className="mt-2.5 text-sm leading-relaxed text-[#141A17]/70">{f[3].body}</p>
-                <pre className="mt-auto overflow-x-auto rounded-lg bg-[#0B1F14] px-3 py-2 font-mono-data text-[11px] text-[#9DEACE]">
+                <pre className="mt-auto overflow-hidden whitespace-pre-wrap break-words rounded-lg bg-[#0B1F14] px-3 py-2 font-mono-data text-[11px] leading-relaxed text-[#9DEACE]">
                   {f[3].log}
                 </pre>
               </div>
@@ -289,7 +275,7 @@ function Bento() {
 
           {/* B: wide, sources */}
           <Reveal className="lg:col-span-2" delay={70}>
-            <div className="group h-full overflow-hidden rounded-[2rem] bg-white p-7 ring-1 ring-[#141A17]/[0.06] transition-transform duration-700 ease-out group-hover:scale-[1.02]">
+            <div className="group flex min-h-[13rem] flex-col overflow-hidden rounded-[2rem] bg-white p-7 ring-1 ring-[#141A17]/[0.06] transition-transform duration-700 ease-out group-hover:scale-[1.02]">
               <h3 className="font-display text-lg font-bold tracking-tight">{f[1].title}</h3>
               <p className="mt-2.5 max-w-md text-sm leading-relaxed text-[#141A17]/70">{f[1].body}</p>
               <div className="mt-5 flex flex-wrap gap-2">
@@ -322,9 +308,9 @@ function Principle() {
         </h2>
         <Reveal>
           <p className="mx-auto mt-9 max-w-2xl text-base leading-relaxed text-[#EDEFEA]/70 sm:text-lg">
-            Agent dirancang untuk membaca dan menjawab. Setiap aksi yang
-            mengubah data adalah izin terpisah, dan sebagian butuh persetujuan
-            Anda. Anda yang memegang kendali, agent yang bekerja.
+            Agent cuma baca dan jawab. Tiap aksi yang ubah data butuh izin
+            terpisah, sebagian butuh persetujuan Anda. Anda yang pegang
+            kendali, agent yang kerja.
           </p>
           <div className="mt-11 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-[#EDEFEA]/85">
             {PRINCIPLE_POINTS.map((p) => (
@@ -376,10 +362,10 @@ function Cta() {
         <div className="rounded-[2.5rem] bg-green-700/[0.07] p-2 ring-1 ring-green-700/15">
           <div className="rounded-[2rem] bg-[#F4FBF7] px-6 py-16 text-center sm:px-12">
             <h2 className="font-display text-3xl font-extrabold tracking-tight text-green-900 sm:text-4xl md:text-5xl">
-              Siap membuat AI bekerja untuk usaha Anda?
+              Siap bikin AI kerja buat usaha Anda?
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-base text-green-900/70">
-              Hubungkan data, ajarkan aturan, atur izin, lalu deploy agent ke WhatsApp dalam hitungan menit.
+              Sambungin data, ajarin aturan, atur izin, lalu deploy agent ke WhatsApp sebentar.
             </p>
             <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
               <Link
