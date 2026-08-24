@@ -64,7 +64,6 @@ export default function Home() {
     <>
       <Seo description={DEFAULT_DESCRIPTION} path="/" jsonLd={jsonLd} />
       <main className="w-full max-w-full overflow-x-hidden bg-[#FAFAF8] text-slate-900">
-        <Navbar />
         <Hero />
         <Channels />
         <Triptych />
@@ -109,9 +108,8 @@ function Navbar() {
 
 function Hero() {
   return (
-    <section className="relative -mt-16 h-[calc(100dvh+4rem)] overflow-hidden">
-      {/* Background video (per hero spec). Atmospheric, muted autoplay loop.
-         z-0 so it sits above the page background; the wash + content layer above it. */}
+    <section className="relative h-[100dvh] overflow-hidden flex flex-col">
+      {/* Background video (per hero spec). Atmospheric, muted autoplay loop. */}
       <video
         autoPlay
         loop
@@ -126,13 +124,20 @@ function Hero() {
           type="video/mp4"
         />
       </video>
-      {/* Legibility wash so text stays readable over the video. */}
+      {/* Legibility wash for the content area only - starts below the navbar
+          so the video shows through the transparent header (0-64px). */}
       <div
-        className="absolute inset-0 z-10"
-        style={{ background: "linear-gradient(to bottom, rgba(250,250,248,0.5), rgba(250,250,248,0.55) 55%, rgba(250,250,248,0.85))" }}
+        className="absolute inset-x-0 bottom-0 top-16 z-10"
+        style={{ background: "linear-gradient(to bottom, rgba(250,250,248,0.72), rgba(250,250,248,0.6) 60%, rgba(250,250,248,0.85))" }}
       />
 
-      <div className="relative z-20 mx-auto flex h-full max-w-6xl flex-col items-center justify-start px-6 pt-40 text-center md:px-12">
+      {/* Navbar + hero share one 100dvh flex column: navbar on top,
+          content fills the remaining space below it (auto space, no padding guesswork). */}
+      <div className="relative z-40">
+        <Navbar />
+      </div>
+
+      <div className="relative z-20 flex flex-1 flex-col items-center justify-center px-6 text-center md:px-12">
         <div className="flex flex-col items-center">
           <span className="animate-fade-rise inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/80 px-4 py-1.5 text-sm text-slate-600 backdrop-blur">
             <Check size={14} weight="bold" className="text-green-700" /> Self-host, data milik Anda
