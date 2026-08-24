@@ -1,7 +1,8 @@
 // CSQ self-host cost estimator (adapted from the project-estimation calculator spec).
-// Dark section, 2-column: left = dark form (conversation volume slider,
-// add-ons, host tier), right = cost cards (VPS, Cloud API, Total with a
-// green gradient). Native range input (no shadcn Slider in the project),
+// Light section (CSQ does not use dark color blocks), 2-column: left = soft
+// form panel (conversation volume slider, add-ons, host tier),
+// right = cost cards (Server, WhatsApp Cloud API, Total with a green
+// gradient). Native range input (no shadcn Slider in the project),
 // Phosphor checks, cn, useState. All figures in Rupiah, .toLocaleString.
 import { useState } from "react";
 import { Check } from "@phosphor-icons/react";
@@ -56,21 +57,21 @@ export function Calculator() {
   const total = hostCost + waCost;
 
   return (
-    <section id="biaya" className="bg-[#0D0D0D] py-16 text-white md:py-28">
+    <section id="biaya" className="bg-[#F4FBF7] py-16 text-slate-900 md:py-28">
       <div className="mx-auto max-w-7xl px-4 md:px-16">
         <div className="mb-12 text-center">
-          <p className="font-mono-data text-xs uppercase tracking-[0.2em] text-white/50">Estimasi biaya self-host</p>
-          <h2 className="mt-3 font-display text-3xl font-normal tracking-tight md:text-4xl lg:text-5xl">
+          <p className="font-mono-data text-xs uppercase tracking-[0.2em] text-slate-400">Estimasi biaya self-host</p>
+          <h2 className="mt-3 font-display text-3xl font-extrabold tracking-tight md:text-4xl lg:text-5xl">
             Hitung biaya CSQ untuk usaha Anda
           </h2>
         </div>
 
         <div className="grid grid-cols-1 overflow-hidden rounded-2xl lg:grid-cols-2">
           {/* Left: form */}
-          <div className="divide-y divide-[#1E1E1E] bg-[#0D0D0D] p-8 lg:p-12">
+          <div className="divide-y divide-slate-100 bg-white p-8 lg:p-12">
             {/* Conversation volume */}
             <div className="pb-8">
-              <h3 className="text-sm font-semibold">Berapa percakapan per bulan?</h3>
+              <h3 className="text-sm font-semibold text-slate-900">Berapa percakapan per bulan?</h3>
               <div className="mt-4 flex items-center gap-4">
                 <input
                   type="range"
@@ -79,12 +80,12 @@ export function Calculator() {
                   step={1}
                   value={conversations}
                   onChange={(e) => setConversations(Number(e.target.value))}
-                  className="h-2 w-full cursor-pointer appearance-none rounded-full bg-white/10 accent-[#FF5656]"
+                  className="h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-100 accent-green-600"
                   aria-label="Jumlah percakapan"
                 />
-                <span className="w-10 shrink-0 text-right font-mono-data text-lg font-bold text-[#FF5656]">{conversations}</span>
+                <span className="w-10 shrink-0 text-right font-mono-data text-lg font-bold text-green-700">{conversations}</span>
               </div>
-              <div className="mt-2 flex justify-between text-xs text-white/40">
+              <div className="mt-2 flex justify-between text-xs text-slate-400">
                 <span>1</span>
                 <span>30</span>
               </div>
@@ -92,7 +93,7 @@ export function Calculator() {
 
             {/* Host tier */}
             <div className="py-8">
-              <h3 className="text-sm font-semibold">Di mana CSQ dihosting?</h3>
+              <h3 className="text-sm font-semibold text-slate-900">Di mana CSQ dihosting?</h3>
               <div className="mt-4 space-y-2.5">
                 {HOSTS.map((h) => (
                   <button
@@ -103,12 +104,12 @@ export function Calculator() {
                     <span
                       className={cn(
                         "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors",
-                        host === h.tier ? "border-[#FF5656]" : "border-white/30"
+                        host === h.tier ? "border-green-600" : "border-slate-300"
                       )}
                     >
-                      {host === h.tier && <span className="h-2 w-2 rounded-full bg-[#FF5656]" />}
+                      {host === h.tier && <span className="h-2 w-2 rounded-full bg-green-600" />}
                     </span>
-                    <span className="text-sm">{h.label}</span>
+                    <span className="text-sm text-slate-700">{h.label}</span>
                   </button>
                 ))}
               </div>
@@ -116,7 +117,7 @@ export function Calculator() {
 
             {/* Add-ons */}
             <div className="pt-8">
-              <h3 className="text-sm font-semibold">Tambahan</h3>
+              <h3 className="text-sm font-semibold text-slate-900">Tambahan</h3>
               <div className="mt-4 space-y-3">
                 {ADDONS.map((a) => (
                   <button
@@ -128,14 +129,14 @@ export function Calculator() {
                       <span
                         className={cn(
                           "flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 transition-colors",
-                          addons[a.key] ? "border-[#FF5656] bg-[#FF5656] text-white" : "border-white/30"
+                          addons[a.key] ? "border-green-600 bg-green-600 text-white" : "border-slate-300"
                         )}
                       >
                         {addons[a.key] && <Check size={12} weight="bold" />}
                       </span>
-                      <span className="text-sm">{a.label}</span>
+                      <span className="text-sm text-slate-700">{a.label}</span>
                     </span>
-                    <span className="font-mono-data text-xs text-[#FF5656]">{a.price}</span>
+                    <span className="font-mono-data text-xs text-green-700">{a.price}</span>
                   </button>
                 ))}
               </div>
@@ -143,9 +144,9 @@ export function Calculator() {
           </div>
 
           {/* Right: cost cards */}
-          <div className="min-h-[717px] rounded-r-2xl border border-white/10 p-8 lg:p-12">
-            <h3 className="text-sm font-semibold text-white/80">Estimasi biaya per bulan</h3>
-            <p className="mt-2 text-xs text-white/40">
+          <div className="min-h-[717px] rounded-r-2xl border border-slate-200 bg-[#FAFAF8] p-8 lg:p-12">
+            <h3 className="text-sm font-semibold text-slate-900">Estimasi biaya per bulan</h3>
+            <p className="mt-2 text-xs text-slate-400">
               Angka kasar untuk {conversations} percakapan, host {HOSTS.find((h) => h.tier === host)?.label.toLowerCase()}.
             </p>
 
@@ -171,12 +172,12 @@ function CostCard({ title, subtitle, price, highlight = false }: { title: string
     <div
       className={cn(
         "rounded-2xl p-6",
-        highlight ? "bg-gradient-to-r from-green-600 to-emerald-500 text-white" : "bg-white/5 text-white"
+        highlight ? "bg-gradient-to-r from-green-600 to-emerald-500 text-white shadow-[0_20px_50px_-20px_rgba(21,128,61,0.5)]" : "border border-slate-200 bg-white text-slate-900"
       )}
     >
-      <p className={cn("text-xs", highlight ? "text-white/80" : "text-white/50")}>{title}</p>
+      <p className={cn("text-xs", highlight ? "text-white/80" : "text-slate-400")}>{title}</p>
       <p className="mt-3 text-4xl font-bold tracking-tight">{formatRp(price)}</p>
-      <p className={cn("mt-1 text-xs", highlight ? "text-white/80" : "text-white/40")}>{subtitle}</p>
+      <p className={cn("mt-1 text-xs", highlight ? "text-white/80" : "text-slate-400")}>{subtitle}</p>
     </div>
   );
 }

@@ -109,10 +109,31 @@ function Navbar() {
 
 function Hero() {
   return (
-    <section className="relative overflow-hidden bg-[#FAFAF8]">
-      <div className="mx-auto max-w-6xl px-6 pt-20 pb-10 md:px-12 md:pt-28 md:pb-16">
-        <div className="flex flex-col items-center text-center">
-          <span className="animate-fade-rise inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-4 py-1.5 text-sm text-slate-600">
+    <section className="relative min-h-[100dvh] overflow-hidden bg-[#FAFAF8]">
+      {/* Background video (per hero spec). Atmospheric, muted autoplay loop. */}
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        preload="auto"
+        className="absolute inset-0 -z-10 h-full w-full object-cover"
+        aria-hidden
+      >
+        <source
+          src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260319_015952_e1deeb12-8fb7-4071-a42a-60779fc64ab6.mp4"
+          type="video/mp4"
+        />
+      </video>
+      {/* Legibility wash so text stays readable over the video. */}
+      <div
+        className="absolute inset-0 -z-10"
+        style={{ background: "linear-gradient(to bottom, rgba(250,250,248,0.72), rgba(250,250,248,0.6) 60%, rgba(250,250,248,0.85))" }}
+      />
+
+      <div className="relative z-10 mx-auto flex min-h-[100dvh] max-w-6xl flex-col items-center justify-center px-6 text-center md:px-12">
+        <div className="flex flex-col items-center">
+          <span className="animate-fade-rise inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/80 px-4 py-1.5 text-sm text-slate-600 backdrop-blur">
             <Check size={14} weight="bold" className="text-green-700" /> Self-host, data milik Anda
           </span>
 
@@ -130,13 +151,14 @@ function Hero() {
             <Link href="/register" className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-6 py-3.5 text-sm font-medium text-white transition-colors hover:bg-slate-800">
               Coba gratis <ArrowRight size={15} weight="bold" />
             </Link>
-            <a href="#cara-kerja" className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-6 py-3.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50">
+            <a href="#cara-kerja" className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-6 py-3.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 backdrop-blur">
               Pelajari cara kerja
             </a>
           </div>
         </div>
 
-        <div className="animate-fade-rise-delay-2 mt-12">
+        {/* Dashboard preview overflows toward the bottom and is clipped (per spec). */}
+        <div className="animate-fade-rise-delay-2 mt-14 w-full">
           <DashboardPreview />
         </div>
       </div>
