@@ -109,7 +109,7 @@ function Navbar() {
 
 function Hero() {
   return (
-    <section className="relative min-h-[100dvh] overflow-hidden bg-[#FAFAF8]">
+    <section className="relative h-[100dvh] overflow-hidden bg-[#FAFAF8]">
       {/* Background video (per hero spec). Atmospheric, muted autoplay loop. */}
       <video
         autoPlay
@@ -131,7 +131,7 @@ function Hero() {
         style={{ background: "linear-gradient(to bottom, rgba(250,250,248,0.72), rgba(250,250,248,0.6) 60%, rgba(250,250,248,0.85))" }}
       />
 
-      <div className="relative z-10 mx-auto flex min-h-[100dvh] max-w-6xl flex-col items-center justify-center px-6 text-center md:px-12">
+      <div className="relative z-10 mx-auto flex h-full max-w-6xl flex-col items-center justify-center px-6 text-center md:px-12">
         <div className="flex flex-col items-center">
           <span className="animate-fade-rise inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/80 px-4 py-1.5 text-sm text-slate-600 backdrop-blur">
             <Check size={14} weight="bold" className="text-green-700" /> Self-host, data milik Anda
@@ -189,13 +189,16 @@ function Triptych() {
   return (
     <section id="fitur" className="bg-[#F4FBF7] py-24 md:py-32">
       <div className="mx-auto max-w-6xl px-6 md:px-12">
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-6 md:h-[30rem] md:grid-cols-3">
           {TRIPTYCH.map((card, i) => (
-            <Reveal key={card.title} delay={i * 90}>
+            <Reveal key={card.title} delay={i === 1 ? 0 : i === 0 ? 120 : 240}>
               <article
                 className={
-                  "relative overflow-hidden rounded-2xl border bg-white p-7 shadow-[0_25px_60px_-24px_rgba(20,26,23,0.12)] " +
-                  (card.anchor ? "border-green-200 ring-1 ring-green-700/15" : "border-slate-200")
+                  "relative flex h-full flex-col overflow-hidden rounded-2xl border bg-white p-7 shadow-[0_25px_60px_-24px_rgba(20,26,23,0.12)] " +
+                  (card.anchor
+                    ? "border-green-200 ring-2 ring-green-700/20 shadow-[0_30px_70px_-24px_rgba(21,128,61,0.25)]"
+                    : "border-slate-200") +
+                  (i === TRIPTYCH.length - 1 ? " md:h-[calc(100%-3rem)] md:mt-6" : "")
                 }
               >
                 <TriptychVisual kind={card.visual} />
