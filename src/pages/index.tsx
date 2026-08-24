@@ -108,7 +108,7 @@ function Navbar() {
 
 function Hero() {
   return (
-    <section className="relative h-[600px] overflow-hidden flex flex-col md:h-[780px]">
+    <section className="relative h-[820px] overflow-hidden flex flex-col">
       {/* Background video (per hero spec). Atmospheric, muted autoplay loop. */}
       <video
         autoPlay
