@@ -129,10 +129,10 @@ function Hero() {
       {/* Legibility wash so text stays readable over the video. */}
       <div
         className="absolute inset-0 z-10"
-        style={{ background: "linear-gradient(to bottom, rgba(250,250,248,0.72), rgba(250,250,248,0.6) 60%, rgba(250,250,248,0.85))" }}
+        style={{ background: "linear-gradient(to bottom, rgba(250,250,248,0.5), rgba(250,250,248,0.55) 55%, rgba(250,250,248,0.85))" }}
       />
 
-      <div className="relative z-20 mx-auto flex h-full max-w-6xl flex-col items-center justify-center px-6 pt-32 text-center md:px-12">
+      <div className="relative z-20 mx-auto flex h-full max-w-6xl flex-col items-center justify-start px-6 pt-40 text-center md:px-12">
         <div className="flex flex-col items-center">
           <span className="animate-fade-rise inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/80 px-4 py-1.5 text-sm text-slate-600 backdrop-blur">
             <Check size={14} weight="bold" className="text-green-700" /> Self-host, data milik Anda
