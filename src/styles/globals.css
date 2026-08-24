@@ -200,6 +200,66 @@
   }
 }
 
+/* Landing surface treatments (frosted glass, dashboard shadow). */
+.liquid-glass {
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 24px 70px -30px rgba(20, 26, 23, 0.25);
+}
+.shadow-dashboard {
+  box-shadow: 0 25px 80px -12px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  scrollbar-width: none;
+}
+
+/* Hero entrance (fade up). */
+@keyframes fade-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-rise {
+  animation: fade-rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.animate-fade-rise-delay {
+  animation: fade-rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
+}
+.animate-fade-rise-delay-2 {
+  animation: fade-rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
+}
+
+/* CTA parallax: native scroll-driven translate on the dashboard + foreground.
+   Scoped to @supports; reduced-motion safe. */
+.cta-parallax {
+  transform: translateY(0);
+}
+@supports (animation-timeline: view()) {
+  .cta-parallax {
+    animation: cta-parallax linear both;
+    animation-timeline: view();
+    animation-range: cover 0% exit 100%;
+  }
+}
+@keyframes cta-parallax {
+  from {
+    transform: translateY(80px);
+  }
+  to {
+    transform: translateY(-80px);
+  }
+}
+
 /* Nested-arrow hover physics for primary CTAs (button-in-button). */
 .group-cta .cta-arrow {
   transition: transform 0.5s cubic-bezier(0.32, 0.72, 0, 1);
