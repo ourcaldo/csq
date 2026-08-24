@@ -109,7 +109,7 @@ function Navbar() {
 
 function Hero() {
   return (
-    <section className="relative h-[100dvh] overflow-hidden">
+    <section className="relative -mt-16 h-[calc(100dvh+4rem)] overflow-hidden">
       {/* Background video (per hero spec). Atmospheric, muted autoplay loop.
          z-0 so it sits above the page background; the wash + content layer above it. */}
       <video
@@ -132,7 +132,7 @@ function Hero() {
         style={{ background: "linear-gradient(to bottom, rgba(250,250,248,0.72), rgba(250,250,248,0.6) 60%, rgba(250,250,248,0.85))" }}
       />
 
-      <div className="relative z-20 mx-auto flex h-full max-w-6xl flex-col items-center justify-center px-6 pt-20 text-center md:px-12">
+      <div className="relative z-20 mx-auto flex h-full max-w-6xl flex-col items-center justify-center px-6 pt-32 text-center md:px-12">
         <div className="flex flex-col items-center">
           <span className="animate-fade-rise inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/80 px-4 py-1.5 text-sm text-slate-600 backdrop-blur">
             <Check size={14} weight="bold" className="text-green-700" /> Self-host, data milik Anda
