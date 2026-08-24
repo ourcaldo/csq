@@ -108,7 +108,7 @@ function Navbar() {
 
 function Hero() {
   return (
-    <section className="relative h-[100vh] overflow-hidden flex flex-col">
+    <section className="relative h-[760px] overflow-hidden flex flex-col">
       {/* Background video (per hero spec). Atmospheric, muted autoplay loop. */}
       <video
         autoPlay
@@ -131,19 +131,19 @@ function Hero() {
         style={{ background: "linear-gradient(to bottom, rgba(250,250,248,0.72), rgba(250,250,248,0.6) 60%, rgba(250,250,248,0.85))" }}
       />
 
-      {/* Navbar + hero share one 100dvh flex column: navbar on top,
+      {/* Navbar + hero share one 760px flex column: navbar on top,
           content fills the remaining space below it (auto space, no padding guesswork). */}
       <div className="relative z-40">
         <Navbar />
       </div>
 
-      <div className="relative z-20 flex flex-1 flex-col items-center px-6 pt-10 text-center md:px-12 md:pt-16">
+      <div className="relative z-20 flex flex-1 flex-col items-center justify-center px-6 pt-8 text-center md:px-12 md:pt-12">
         <div className="flex flex-col items-center">
           <span className="animate-fade-rise inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/80 px-4 py-1.5 text-sm text-slate-600 backdrop-blur">
             <Check size={14} weight="bold" className="text-green-700" /> Self-host, data milik Anda
           </span>
 
-          <h1 className="animate-fade-rise-delay mt-6 max-w-3xl font-display text-5xl font-extrabold leading-[0.95] tracking-tight text-slate-900 md:text-6xl lg:text-[5rem]">
+          <h1 className="animate-fade-rise-delay mt-6 max-w-3xl font-display text-5xl font-extrabold leading-[0.95] tracking-tight text-slate-900 md:text-6xl">
             Layani pelanggan di WhatsApp dengan agen AI yang{" "}
             <em className="not-italic font-display italic text-green-700">mengenal data bisnis Anda</em>.
           </h1>
