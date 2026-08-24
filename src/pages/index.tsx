@@ -108,7 +108,7 @@ function Navbar() {
 
 function Hero() {
   return (
-    <section className="relative h-[760px] overflow-hidden flex flex-col">
+    <section className="relative h-[600px] overflow-hidden flex flex-col md:h-[780px]">
       {/* Background video (per hero spec). Atmospheric, muted autoplay loop. */}
       <video
         autoPlay
@@ -137,7 +137,7 @@ function Hero() {
         <Navbar />
       </div>
 
-      <div className="relative z-20 flex flex-1 flex-col items-center justify-center px-6 pt-8 text-center md:px-12 md:pt-12">
+      <div className="relative z-20 flex flex-1 flex-col items-center px-6 pt-8 text-center md:px-12 md:pt-12">
         <div className="flex flex-col items-center">
           <span className="animate-fade-rise inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/80 px-4 py-1.5 text-sm text-slate-600 backdrop-blur">
             <Check size={14} weight="bold" className="text-green-700" /> Self-host, data milik Anda
