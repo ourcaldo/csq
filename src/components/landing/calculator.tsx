@@ -1,26 +1,23 @@
-// CSQ self-host cost estimator (adapted from the project-estimation calculator spec).
-// Light section (CSQ does not use dark color blocks), 2-column: left = soft
-// form panel (conversation volume slider, add-ons, host tier),
-// right = cost cards (Server, WhatsApp Cloud API, Total with a green
-// gradient). Native range input (no shadcn Slider in the project),
-// Phosphor checks, cn, useState. All figures in Rupiah, .toLocaleString.
+// CSQ cost estimator. Host options: Self-host and Cloud (coming soon).
+// All add-ons are free. Conversation volume up to 100. Subtitle is
+// "Estimasi biaya CSQ" (not self-host only). Native range input,
+// Phosphor checks, cn, useState. Rupiah formatting.
 import { useState } from "react";
 import { Check } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 
-type HostTier = "vps" | "render" | "dedicated";
+type HostTier = "vps" | "cloud";
 type AddonKey = "sheets" | "baileys" | "staff";
 
-const ADDONS: { key: AddonKey; label: string; price: string }[] = [
-  { key: "sheets", label: "Sinkronisasi Google Sheets", price: "+Rp200 / percakapan" },
-  { key: "baileys", label: "Nomor WA sendiri (Baileys)", price: "+Rp25.000 flat" },
-  { key: "staff", label: "Multi-staff (tim)", price: "+Rp1.000 / percakapan" },
+const ADDONS: { key: AddonKey; label: string }[] = [
+  { key: "sheets", label: "Sinkronisasi Google Sheets" },
+  { key: "baileys", label: "Nomor WA sendiri (Baileys)" },
+  { key: "staff", label: "Multi-staff (tim)" },
 ];
 
 const HOSTS: { tier: HostTier; label: string }[] = [
-  { tier: "vps", label: "Self-host VPS" },
-  { tier: "render", label: "Render (terkelola)" },
-  { tier: "dedicated", label: "Server dedicated" },
+  { tier: "vps", label: "Self-host" },
+  { tier: "cloud", label: "Cloud (coming soon)" },
 ];
 
 function formatRp(n: number): string {
@@ -28,19 +25,17 @@ function formatRp(n: number): string {
 }
 
 function calculateHost(tier: HostTier, conversations: number): number {
-  const base = tier === "vps" ? 75000 : tier === "render" ? 90000 : 250000;
-  return base + (conversations - 1) * 5000;
+  if (tier === "cloud") return -1; // coming soon sentinel
+  return 75000 + (conversations - 1) * 5000;
 }
 
-function calculateWhatsApp(conversations: number, addons: Record<AddonKey, boolean>): number {
-  let cloud = conversations * 1500;
-  if (addons.sheets) cloud += conversations * 200;
-  if (addons.staff) cloud += conversations * 1000;
-  return cloud;
+function calculateWhatsApp(conversations: number): number {
+  // All add-ons are free, so only the per-conversation Cloud API cost.
+  return conversations * 1500;
 }
 
 export function Calculator() {
-  const [conversations, setConversations] = useState(5);
+  const [conversations, setConversations] = useState(10);
   const [addons, setAddons] = useState<Record<AddonKey, boolean>>({
     sheets: false,
     baileys: false,
@@ -48,19 +43,20 @@ export function Calculator() {
   });
   const [host, setHost] = useState<HostTier>("vps");
 
+  const cloudComingSoon = host === "cloud";
+  const hostCost = calculateHost(host, conversations);
+  const waCost = calculateWhatsApp(conversations);
+  const total = hostCost + waCost;
+
   function toggle(key: AddonKey) {
     setAddons((prev) => ({ ...prev, [key]: !prev[key] }));
   }
-
-  const hostCost = calculateHost(host, conversations);
-  const waCost = calculateWhatsApp(conversations, addons) + (addons.baileys ? 25000 : 0);
-  const total = hostCost + waCost;
 
   return (
     <section id="biaya" className="bg-[#F4FBF7] py-16 text-slate-900 md:py-28">
       <div className="mx-auto max-w-7xl px-4 md:px-16">
         <div className="mb-12 text-center">
-          <p className="font-mono-data text-xs uppercase tracking-[0.2em] text-slate-400">Estimasi biaya self-host</p>
+          <p className="font-mono-data text-xs uppercase tracking-[0.2em] text-slate-400">Estimasi biaya CSQ</p>
           <h2 className="mt-3 font-display text-3xl font-extrabold tracking-tight md:text-4xl lg:text-5xl">
             Hitung biaya CSQ untuk usaha Anda
           </h2>
@@ -76,7 +72,7 @@ export function Calculator() {
                 <input
                   type="range"
                   min={1}
-                  max={30}
+                  max={100}
                   step={1}
                   value={conversations}
                   onChange={(e) => setConversations(Number(e.target.value))}
@@ -87,7 +83,7 @@ export function Calculator() {
               </div>
               <div className="mt-2 flex justify-between text-xs text-slate-400">
                 <span>1</span>
-                <span>30</span>
+                <span>100</span>
               </div>
             </div>
 
@@ -115,9 +111,9 @@ export function Calculator() {
               </div>
             </div>
 
-            {/* Add-ons */}
+            {/* Add-ons (all free) */}
             <div className="pt-8">
-              <h3 className="text-sm font-semibold text-slate-900">Tambahan</h3>
+              <h3 className="text-sm font-semibold text-slate-900">Tambahan (gratis)</h3>
               <div className="mt-4 space-y-3">
                 {ADDONS.map((a) => (
                   <button
@@ -136,7 +132,7 @@ export function Calculator() {
                       </span>
                       <span className="text-sm text-slate-700">{a.label}</span>
                     </span>
-                    <span className="font-mono-data text-xs text-green-700">{a.price}</span>
+                    <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-[10px] font-semibold text-green-700">Gratis</span>
                   </button>
                 ))}
               </div>
@@ -147,16 +143,20 @@ export function Calculator() {
           <div className="min-h-[717px] rounded-r-2xl border border-slate-200 bg-[#FAFAF8] p-8 lg:p-12">
             <h3 className="text-sm font-semibold text-slate-900">Estimasi biaya per bulan</h3>
             <p className="mt-2 text-xs text-slate-400">
-              Angka kasar untuk {conversations} percakapan, host {HOSTS.find((h) => h.tier === host)?.label.toLowerCase()}.
+              Angka kasar untuk {conversations} percakapan{cloudComingSoon ? ", host Cloud (coming soon)" : ""}.
             </p>
 
             <div className="mt-6 space-y-3">
-              <CostCard title="Server (VPS / host)" subtitle="Self-host, data milik Anda" price={hostCost} />
+              <CostCard
+                title="Server (host)"
+                subtitle={cloudComingSoon ? "Opsi Cloud segera hadir" : "Self-host, data milik Anda"}
+                price={cloudComingSoon ? undefined : hostCost}
+              />
               <CostCard title="WhatsApp Cloud API" subtitle="Biaya pesan Meta" price={waCost} />
               <CostCard
                 title="Total per bulan"
                 subtitle="Hemat vs agency atau freelancer"
-                price={total}
+                price={cloudComingSoon ? undefined : total}
                 highlight
               />
             </div>
@@ -167,7 +167,7 @@ export function Calculator() {
   );
 }
 
-function CostCard({ title, subtitle, price, highlight = false }: { title: string; subtitle: string; price: number; highlight?: boolean }) {
+function CostCard({ title, subtitle, price, highlight = false }: { title: string; subtitle: string; price?: number; highlight?: boolean }) {
   return (
     <div
       className={cn(
@@ -176,7 +176,11 @@ function CostCard({ title, subtitle, price, highlight = false }: { title: string
       )}
     >
       <p className={cn("text-xs", highlight ? "text-white/80" : "text-slate-400")}>{title}</p>
-      <p className="mt-3 text-4xl font-bold tracking-tight">{formatRp(price)}</p>
+      {price === undefined ? (
+        <p className="mt-3 text-3xl font-bold tracking-tight">Coming soon</p>
+      ) : (
+        <p className="mt-3 text-4xl font-bold tracking-tight">{formatRp(price)}</p>
+      )}
       <p className={cn("mt-1 text-xs", highlight ? "text-white/80" : "text-slate-400")}>{subtitle}</p>
     </div>
   );
