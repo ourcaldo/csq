@@ -65,7 +65,6 @@ export default function Home() {
       <Seo description={DEFAULT_DESCRIPTION} path="/" jsonLd={jsonLd} />
       <main className="w-full max-w-full overflow-x-hidden bg-[#FAFAF8] text-slate-900">
         <Hero />
-        <DashboardSection />
         <Channels />
         <Triptych />
         <HowItWorks />
@@ -109,7 +108,7 @@ function Navbar() {
 
 function Hero() {
   return (
-    <section className="relative min-h-[100vh] overflow-hidden flex flex-col">
+    <section className="relative h-[100vh] overflow-hidden flex flex-col">
       {/* Background video (per hero spec). Atmospheric, muted autoplay loop. */}
       <video
         autoPlay
@@ -138,7 +137,7 @@ function Hero() {
         <Navbar />
       </div>
 
-      <div className="relative z-20 flex flex-1 flex-col items-center justify-center px-6 pt-32 pb-40 text-center md:px-12">
+      <div className="relative z-20 flex flex-1 flex-col items-center px-6 pt-10 text-center md:px-12 md:pt-16">
         <div className="flex flex-col items-center">
           <span className="animate-fade-rise inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/80 px-4 py-1.5 text-sm text-slate-600 backdrop-blur">
             <Check size={14} weight="bold" className="text-green-700" /> Self-host, data milik Anda
@@ -163,19 +162,10 @@ function Hero() {
             </a>
           </div>
         </div>
-      </div>
-    </section>
-  );
-}
 
-/* Coded dashboard preview on its own section, below the hero, so the hero
-   (headline + CTAs) has breathing room and nothing overflows into the
-   next section on shorter viewports. */
-function DashboardSection() {
-  return (
-    <section className="bg-[#FAFAF8] pb-20 pt-24 md:pb-28">
-      <div className="mx-auto max-w-5xl px-6 md:px-12">
-        <div className="animate-fade-rise">
+        {/* Coded dashboard preview on the hero, on top of the video. Overflows
+            toward the bottom and is clipped by overflow-hidden (per spec). */}
+        <div className="animate-fade-rise-delay-2 mt-8 w-full max-w-5xl">
           <DashboardPreview />
         </div>
       </div>
