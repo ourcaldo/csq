@@ -124,10 +124,10 @@ function Hero() {
           type="video/mp4"
         />
       </video>
-      {/* Legibility wash for the content area only - starts below the navbar
-          so the video shows through the transparent header (0-64px). */}
+      {/* Legibility wash covering the full video, including behind the header,
+          so the whole hero has a consistent cloudy white cover. */}
       <div
-        className="absolute inset-x-0 bottom-0 top-16 z-10"
+        className="absolute inset-0 z-10"
         style={{ background: "linear-gradient(to bottom, rgba(250,250,248,0.72), rgba(250,250,248,0.6) 60%, rgba(250,250,248,0.85))" }}
       />
 
