@@ -109,15 +109,16 @@ function Navbar() {
 
 function Hero() {
   return (
-    <section className="relative h-[100dvh] overflow-hidden bg-[#FAFAF8]">
-      {/* Background video (per hero spec). Atmospheric, muted autoplay loop. */}
+    <section className="relative h-[100dvh] overflow-hidden">
+      {/* Background video (per hero spec). Atmospheric, muted autoplay loop.
+         z-0 so it sits above the page background; the wash + content layer above it. */}
       <video
         autoPlay
         loop
         muted
         playsInline
         preload="auto"
-        className="absolute inset-0 -z-10 h-full w-full object-cover"
+        className="absolute inset-0 z-0 h-full w-full object-cover"
         aria-hidden
       >
         <source
@@ -127,11 +128,11 @@ function Hero() {
       </video>
       {/* Legibility wash so text stays readable over the video. */}
       <div
-        className="absolute inset-0 -z-10"
+        className="absolute inset-0 z-10"
         style={{ background: "linear-gradient(to bottom, rgba(250,250,248,0.72), rgba(250,250,248,0.6) 60%, rgba(250,250,248,0.85))" }}
       />
 
-      <div className="relative z-10 mx-auto flex h-full max-w-6xl flex-col items-center justify-center px-6 text-center md:px-12">
+      <div className="relative z-20 mx-auto flex h-full max-w-6xl flex-col items-center justify-center px-6 text-center md:px-12">
         <div className="flex flex-col items-center">
           <span className="animate-fade-rise inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/80 px-4 py-1.5 text-sm text-slate-600 backdrop-blur">
             <Check size={14} weight="bold" className="text-green-700" /> Self-host, data milik Anda
@@ -189,16 +190,16 @@ function Triptych() {
   return (
     <section id="fitur" className="bg-[#F4FBF7] py-24 md:py-32">
       <div className="mx-auto max-w-6xl px-6 md:px-12">
-        <div className="grid grid-cols-1 gap-6 md:h-[30rem] md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3 md:items-stretch">
           {TRIPTYCH.map((card, i) => (
             <Reveal key={card.title} delay={i === 1 ? 0 : i === 0 ? 120 : 240}>
               <article
                 className={
-                  "relative flex h-full flex-col overflow-hidden rounded-2xl border bg-white p-7 shadow-[0_25px_60px_-24px_rgba(20,26,23,0.12)] " +
+                  "relative flex flex-col overflow-hidden rounded-2xl border bg-white p-7 shadow-[0_25px_60px_-24px_rgba(20,26,23,0.12)] " +
                   (card.anchor
                     ? "border-green-200 ring-2 ring-green-700/20 shadow-[0_30px_70px_-24px_rgba(21,128,61,0.25)]"
                     : "border-slate-200") +
-                  (i === TRIPTYCH.length - 1 ? " md:h-[calc(100%-3rem)] md:mt-6" : "")
+                  (i === TRIPTYCH.length - 1 ? " md:mt-6 md:h-[calc(100%-1.5rem)]" : " h-full")
                 }
               >
                 <TriptychVisual kind={card.visual} />
@@ -214,9 +215,12 @@ function Triptych() {
 }
 
 function TriptychVisual({ kind }: { kind: "inbox" | "agent" | "perms" }) {
+  // Consistent min-height across all three so the titles sit at the
+  // same y (the middle agent visual is smaller and centers in this area).
+  const wrap = "flex min-h-[7.5rem] items-center justify-center rounded-xl bg-slate-50 p-4";
   if (kind === "inbox") {
     return (
-      <div className="space-y-2 rounded-xl bg-slate-50 p-4">
+      <div className={wrap + " flex-col items-stretch justify-center gap-2"}>
         <div className="ml-auto w-2/3 rounded-2xl rounded-[1rem_1rem_1rem_0.25rem] bg-slate-200 px-3 py-2 text-[10px] text-slate-700">Ada kopi arabika?</div>
         <div className="mr-auto w-2/3 rounded-2xl rounded-[1rem_1rem_0.25rem_1rem] bg-green-100 px-3 py-2 text-[10px] text-green-800">Masih, stok 12.</div>
         <div className="ml-auto w-1/2 rounded-2xl rounded-[1rem_1rem_1rem_0.25rem] bg-amber-50 px-3 py-2 text-[10px] text-amber-700">Perlu izin</div>
@@ -225,23 +229,25 @@ function TriptychVisual({ kind }: { kind: "inbox" | "agent" | "perms" }) {
   }
   if (kind === "agent") {
     return (
-      <div className="flex items-center gap-3 rounded-xl bg-slate-50 p-4">
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-green-600 text-white font-display text-sm font-extrabold">C</span>
-        <div>
-          <p className="text-xs font-semibold text-slate-900">CSQ Agent</p>
-          <p className="text-[10px] text-green-600">AI menangani 24/7</p>
+      <div className={wrap}>
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-green-600 text-white font-display text-sm font-extrabold">C</span>
+          <div>
+            <p className="text-xs font-semibold text-slate-900">CSQ Agent</p>
+            <p className="text-[10px] text-green-600">AI menangani 24/7</p>
+          </div>
         </div>
       </div>
     );
   }
   return (
-    <div className="space-y-2.5 rounded-xl bg-slate-50 p-4">
+    <div className={wrap + " flex-col justify-center gap-2.5"}>
       {[
         { l: "Baca produk & stok", s: "Boleh", c: "bg-green-100 text-green-700" },
         { l: "Membuat pesanan", s: "Boleh", c: "bg-green-100 text-green-700" },
         { l: "Mengubah harga", s: "Perlu izin", c: "bg-amber-100 text-amber-700" },
       ].map((r) => (
-        <div key={r.l} className="flex items-center justify-between">
+        <div key={r.l} className="flex items-center justify-between gap-3">
           <span className="text-[11px] text-slate-600">{r.l}</span>
           <span className={"rounded-full px-2.5 py-0.5 text-[10px] font-semibold " + r.c}>{r.s}</span>
         </div>
