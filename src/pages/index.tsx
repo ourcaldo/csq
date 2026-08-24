@@ -65,6 +65,7 @@ export default function Home() {
       <Seo description={DEFAULT_DESCRIPTION} path="/" jsonLd={jsonLd} />
       <main className="w-full max-w-full overflow-x-hidden bg-[#FAFAF8] text-slate-900">
         <Hero />
+        <DashboardSection />
         <Channels />
         <Triptych />
         <HowItWorks />
@@ -108,7 +109,7 @@ function Navbar() {
 
 function Hero() {
   return (
-    <section className="relative h-[100dvh] overflow-hidden flex flex-col">
+    <section className="relative min-h-[100dvh] overflow-hidden flex flex-col">
       {/* Background video (per hero spec). Atmospheric, muted autoplay loop. */}
       <video
         autoPlay
@@ -162,9 +163,19 @@ function Hero() {
             </a>
           </div>
         </div>
+      </div>
+    </section>
+  );
+}
 
-        {/* Dashboard preview overflows toward the bottom and is clipped (per spec). */}
-        <div className="animate-fade-rise-delay-2 mt-14 w-full">
+/* Coded dashboard preview on its own section, below the hero, so the hero
+   (headline + CTAs) has breathing room and nothing overflows into the
+   next section on shorter viewports. */
+function DashboardSection() {
+  return (
+    <section className="bg-[#FAFAF8] pb-20 pt-24 md:pb-28">
+      <div className="mx-auto max-w-5xl px-6 md:px-12">
+        <div className="animate-fade-rise">
           <DashboardPreview />
         </div>
       </div>
