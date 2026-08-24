@@ -83,7 +83,7 @@ export default function Home() {
 
 function Navbar() {
   return (
-    <header className="sticky top-0 z-40 bg-[#FAFAF8]/80 backdrop-blur">
+    <header className="sticky top-0 z-40 bg-transparent">
       <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6 md:px-12 lg:px-20">
         <Link href="/" className="flex items-center gap-2">
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-700 text-white font-display text-sm font-extrabold">C</span>
@@ -132,7 +132,7 @@ function Hero() {
         style={{ background: "linear-gradient(to bottom, rgba(250,250,248,0.72), rgba(250,250,248,0.6) 60%, rgba(250,250,248,0.85))" }}
       />
 
-      <div className="relative z-20 mx-auto flex h-full max-w-6xl flex-col items-center justify-center px-6 text-center md:px-12">
+      <div className="relative z-20 mx-auto flex h-full max-w-6xl flex-col items-center justify-center px-6 pt-20 text-center md:px-12">
         <div className="flex flex-col items-center">
           <span className="animate-fade-rise inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/80 px-4 py-1.5 text-sm text-slate-600 backdrop-blur">
             <Check size={14} weight="bold" className="text-green-700" /> Self-host, data milik Anda
