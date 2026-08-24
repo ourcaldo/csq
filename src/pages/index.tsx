@@ -9,7 +9,7 @@
 // dashboard preview, audit/permission, self-host cost estimator.
 // Semiformal copy, one accent, zero em-dashes, reduced-motion safe.
 import Link from "next/link";
-import { Check, Plus, Minus, ArrowRight } from "@phosphor-icons/react";
+import { Check, Plus, Minus, ArrowRight, ChatCircleDots } from "@phosphor-icons/react";
 import { Seo, SITE_NAME, SITE_TAGLINE, DEFAULT_DESCRIPTION } from "@/components/seo";
 import { Reveal } from "@/components/landing/reveal";
 import { DashboardPreview } from "@/components/landing/dashboard-preview";
@@ -85,7 +85,9 @@ function Navbar() {
     <header className="sticky top-0 z-40 bg-transparent">
       <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6 md:px-12 lg:px-20">
         <Link href="/" className="flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-700 text-white font-display text-sm font-extrabold">C</span>
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-700 text-white">
+            <ChatCircleDots size={18} weight="fill" />
+          </span>
           <span className="font-display text-lg font-extrabold tracking-tight">CSQ</span>
         </Link>
         <div className="hidden items-center gap-8 text-sm text-slate-500 md:flex">
@@ -237,7 +239,9 @@ function TriptychVisual({ kind }: { kind: "inbox" | "agent" | "perms" }) {
     return (
       <div className={wrap}>
         <div className="flex items-center gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-green-600 text-white font-display text-sm font-extrabold">C</span>
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-green-600 text-white">
+            <ChatCircleDots size={20} weight="fill" />
+          </span>
           <div>
             <p className="text-xs font-semibold text-slate-900">CSQ Agent</p>
             <p className="text-[10px] text-green-600">AI menangani 24/7</p>
@@ -360,7 +364,9 @@ function Footer() {
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div className="sm:col-span-2 lg:col-span-1">
             <Link href="/" className="flex items-center gap-2">
-              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-700 text-white font-display text-sm font-extrabold">C</span>
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-700 text-white">
+                <ChatCircleDots size={18} weight="fill" />
+              </span>
               <span className="font-display text-lg font-extrabold tracking-tight">CSQ</span>
             </Link>
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-slate-500">

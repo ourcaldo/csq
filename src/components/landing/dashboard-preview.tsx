@@ -20,7 +20,9 @@ export function DashboardPreview() {
       <div className="flex h-[240px] overflow-hidden rounded-xl bg-white md:h-[360px]">
         {/* Mini sidebar */}
         <aside className="hidden w-12 shrink-0 flex-col items-center gap-3 border-r border-slate-200 bg-white py-4 sm:flex">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-600 text-white font-display text-sm font-extrabold">C</span>
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-600 text-white">
+            <ChatCircleDots size={18} weight="fill" />
+          </span>
           <NavIcon icon={ChatCircleDots} active />
           <NavIcon icon={Kanban} />
           <NavIcon icon={Package} />
