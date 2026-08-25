@@ -224,7 +224,7 @@ function Triptych() {
 function TriptychVisual({ kind }: { kind: "inbox" | "agent" | "perms" }) {
   // Consistent min-height across all three so the titles sit at the
   // same y (the middle agent visual is smaller and centers in this area).
-  const wrap = "flex min-h-[7.5rem] items-center justify-center rounded-xl bg-slate-50 p-4";
+  const wrap = "flex min-h-[7.5rem] items-center justify-center rounded-xl bg-slate-50 p-4 select-none pointer-events-none";
   if (kind === "inbox") {
     return (
       <div className={wrap + " flex-col items-stretch justify-center gap-2"}>
