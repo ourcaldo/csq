@@ -359,7 +359,7 @@ function Footer() {
           <div>
             <h4 className="mb-5 text-[0.95rem] font-semibold text-neutral-900">Newsletter</h4>
             <p className="mb-[15px] text-[0.85rem] text-[#888]">Dapatkan pembaruan CSQ di email Anda.</p>
-            <div className="flex gap-[10px]">
+            <div className="flex flex-col gap-[10px] sm:flex-row">
               <input
                 type="email"
                 placeholder="Masukkan email..."
@@ -367,7 +367,7 @@ function Footer() {
                 style={{ padding: "12px 16px", borderRadius: "10px", boxShadow: "inset 0 1px 3px rgba(0,0,0,0.02)" }}
               />
               <button
-                className="bg-neutral-900 text-white border-none font-semibold cursor-pointer text-[0.9rem] transition-all duration-200 hover:-translate-y-0.5"
+                className="bg-neutral-900 text-white border-none font-semibold cursor-pointer text-[0.9rem] transition-all duration-200 hover:-translate-y-0.5 w-full sm:w-auto"
                 style={{ padding: "12px 28px", borderRadius: "10px", boxShadow: "0 12px 24px rgba(0,0,0,0.4)" }}
               >
                 Subscribe
