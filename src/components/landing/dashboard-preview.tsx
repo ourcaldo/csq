@@ -16,7 +16,7 @@ import {
 
 export function DashboardPreview() {
   return (
-    <div className="liquid-glass w-full max-w-5xl overflow-hidden rounded-2xl p-2 sm:p-3">
+    <div className="liquid-glass w-full max-w-5xl overflow-hidden rounded-2xl p-2 sm:p-3 select-none pointer-events-none">
       <div className="flex h-[240px] overflow-hidden rounded-xl bg-white md:h-[360px]">
         {/* Mini sidebar */}
         <aside className="hidden w-12 shrink-0 flex-col items-center gap-3 border-r border-slate-200 bg-white py-4 sm:flex">
