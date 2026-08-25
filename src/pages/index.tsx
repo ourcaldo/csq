@@ -9,12 +9,12 @@
 // dashboard preview, audit/permission, self-host cost estimator.
 // Semiformal copy, one accent, zero em-dashes, reduced-motion safe.
 import Link from "next/link";
-import { Check, Plus, Minus, ArrowRight, ChatCircleDots } from "@phosphor-icons/react";
+import { Check, ArrowRight, ChatCircleDots } from "@phosphor-icons/react";
 import { Seo, SITE_NAME, SITE_TAGLINE, DEFAULT_DESCRIPTION } from "@/components/seo";
 import { Reveal } from "@/components/landing/reveal";
 import { DashboardPreview } from "@/components/landing/dashboard-preview";
 import { Calculator } from "@/components/landing/calculator";
-import { Cta } from "@/components/landing/cta";
+import { FaqCta } from "@/components/landing/faq-cta";
 
 const STEPS = [
   { n: "01", title: "Sambungkan data", body: "Masukkan Excel atau CSV, sambungkan Google Sheets, atau mengetik manual. Agent langsung membaca stok, produk, harga, dan aturan dari data yang sudah ada." },
@@ -70,8 +70,7 @@ export default function Home() {
         <HowItWorks />
         <Calculator />
         <Principle />
-        <Faq />
-        <Cta />
+        <FaqCta />
         <Footer />
       </main>
     </>
@@ -327,64 +326,58 @@ function Principle() {
   );
 }
 
-/* -------------------------------- FAQ -------------------------------- */
-
-function Faq() {
-  return (
-    <section id="faq" className="mx-auto max-w-3xl px-6 py-24 md:px-12 md:py-32">
-      <Reveal>
-        <h2 className="font-display text-3xl font-extrabold tracking-tight md:text-4xl lg:text-5xl">Pertanyaan yang sering muncul.</h2>
-      </Reveal>
-      <div className="mt-10 divide-y divide-slate-100 border-t border-slate-100">
-        {FAQS.map((f, i) => (
-          <Reveal key={f.q} delay={i * 50}>
-            <details className="group py-5">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
-                <span className="font-display text-base font-semibold md:text-lg">{f.q}</span>
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-open:rotate-180">
-                  <Plus size={15} className="block group-open:hidden" />
-                  <Minus size={15} className="hidden group-open:block" />
-                </span>
-              </summary>
-              <p className="mt-3 max-w-2xl text-base leading-relaxed text-slate-600">{f.a}</p>
-            </details>
-          </Reveal>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 /* ------------------------------- Footer ------------------------------- */
 
 function Footer() {
   return (
-    <footer className="border-t border-slate-100 bg-white">
-      <div className="mx-auto max-w-6xl px-6 py-14 md:px-12">
-        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="sm:col-span-2 lg:col-span-1">
-            <Link href="/" className="flex items-center gap-2">
+    <footer className="bg-[#fafafa] pt-20 pb-5 md:pt-24">
+      <div className="mx-auto max-w-[1100px] w-full px-5">
+        <div className="mb-[50px] grid gap-10 md:grid-cols-[2fr_1fr_1fr_2fr] max-[900px]:grid-cols-2 max-[480px]:grid-cols-1">
+          {/* Logo */}
+          <div>
+            <Link href="/" className="mb-[15px] flex items-center gap-2">
               <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-700 text-white">
                 <ChatCircleDots size={18} weight="fill" />
               </span>
               <span className="font-display text-lg font-extrabold tracking-tight">CSQ</span>
             </Link>
-            <p className="mt-4 max-w-xs text-sm leading-relaxed text-slate-500">
-              {SITE_TAGLINE}. Self-host, multi-tenant, data tetap milik Anda.
+            <p className="max-w-[220px] text-[0.85rem] leading-[1.6] text-[#888]">
+              Layanan pelanggan AI untuk UMKM Indonesia, di WhatsApp.
             </p>
           </div>
-          <FooterCol title="Produk" links={[{ label: "Fitur", href: "#fitur" }, { label: "Cara Kerja", href: "#cara-kerja" }, { label: "Biaya", href: "#biaya" }, { label: "FAQ", href: "#faq" }]} />
-          <FooterCol title="Mulai" links={[{ label: "Daftar", href: "/register" }, { label: "Masuk", href: "/login" }, { label: "Dashboard", href: "/dashboard" }]} />
+          {/* Navigation */}
+          <FooterCol
+            title="Navigasi"
+            links={[{ label: "Fitur", href: "#fitur" }, { label: "Cara Kerja", href: "#cara-kerja" }, { label: "Biaya", href: "#biaya" }, { label: "FAQ", href: "#faq" }]}
+          />
+          {/* Pages */}
+          <FooterCol
+            title="Halaman"
+            links={[{ label: "Home", href: "/" }, { label: "Masuk", href: "/login" }, { label: "Daftar", href: "/register" }]}
+          />
+          {/* Newsletter */}
           <div>
-            <p className="font-mono-data text-xs font-bold uppercase tracking-wider text-slate-900">Prinsip</p>
-            <p className="mt-4 text-sm leading-relaxed text-slate-500">
-              Baca secara default.<br />Tulis dengan izin.<br />Bertindak sesuai aturan.
-            </p>
+            <h4 className="mb-5 text-[0.95rem] font-semibold text-neutral-900">Newsletter</h4>
+            <p className="mb-[15px] text-[0.85rem] text-[#888]">Dapatkan pembaruan CSQ di email Anda.</p>
+            <div className="flex gap-[10px]">
+              <input
+                type="email"
+                placeholder="Masukkan email..."
+                className="flex-grow border border-[#f0f0f0] bg-white text-[0.9rem] outline-none transition-colors duration-200 focus:border-[#ccc]"
+                style={{ padding: "12px 16px", borderRadius: "10px", boxShadow: "inset 0 1px 3px rgba(0,0,0,0.02)" }}
+              />
+              <button
+                className="bg-neutral-900 text-white border-none font-semibold cursor-pointer text-[0.9rem] transition-all duration-200 hover:-translate-y-0.5"
+                style={{ padding: "12px 28px", borderRadius: "10px", boxShadow: "0 12px 24px rgba(0,0,0,0.4)" }}
+              >
+                Subscribe
+              </button>
+            </div>
           </div>
         </div>
-        <div className="mt-10 flex flex-col items-start justify-between gap-3 border-t border-slate-100 pt-6 text-xs text-slate-400 sm:flex-row sm:items-center">
-          <p>&copy; {new Date().getFullYear()} {SITE_NAME}. Dibuat untuk UMKM Indonesia.</p>
-          <p className="font-mono-data uppercase tracking-wider">Self-hosted</p>
+        <div className="flex justify-between border-t border-[#f0f0f0] pt-[25px] pb-[10px] text-[0.85rem] text-[#888] max-[480px]:flex-col max-[480px]:gap-[15px] max-[480px]:items-center">
+          <p>Semua hak dilindungi. &copy; {new Date().getFullYear()} {SITE_NAME}.</p>
+          <p>Self-host untuk UMKM Indonesia.</p>
         </div>
       </div>
     </footer>
@@ -394,11 +387,11 @@ function Footer() {
 function FooterCol({ title, links }: { title: string; links: { label: string; href: string }[] }) {
   return (
     <div>
-      <p className="font-mono-data text-xs font-bold uppercase tracking-wider text-slate-900">{title}</p>
-      <ul className="mt-4 space-y-2.5 text-sm">
+      <h4 className="mb-5 text-[0.95rem] font-semibold text-neutral-900">{title}</h4>
+      <ul>
         {links.map((l) => (
-          <li key={l.label}>
-            <Link href={l.href} className="text-slate-500 transition-colors hover:text-slate-900">{l.label}</Link>
+          <li key={l.label} className="mb-3">
+            <Link href={l.href} className="text-[0.85rem] text-[#888] no-underline transition-colors duration-200 hover:text-neutral-900">{l.label}</Link>
           </li>
         ))}
       </ul>
