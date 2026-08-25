@@ -1,7 +1,9 @@
 // CSQ cost estimator. Host options: Self-host and Cloud (coming soon).
-// All add-ons are free. Conversation volume up to 100. Subtitle is
-// "Estimasi biaya CSQ" (not self-host only). Native range input,
-// Phosphor checks, cn, useState. Rupiah formatting.
+// Server/host cost is a flat monthly fee per tier (only the WhatsApp
+// Cloud API scales per conversation). All add-ons are free. Conversation
+// volume up to 100. CSQ-green design (not plain): soft green gradient
+// section, white form panel with a green border, total card with a green
+// gradient + glow. Native range input, Phosphor checks, cn, useState.
 import { useState } from "react";
 import { Check } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
@@ -24,14 +26,15 @@ function formatRp(n: number): string {
   return "Rp" + Math.round(n).toLocaleString("id-ID");
 }
 
-function calculateHost(tier: HostTier, conversations: number): number {
+// Server/host cost is a flat monthly fee per tier - it does NOT scale with
+// conversation volume. Only the WhatsApp Cloud API cost scales.
+function calculateHost(tier: HostTier): number {
   if (tier === "cloud") return -1; // coming soon sentinel
-  return 75000 + (conversations - 1) * 5000;
+  return 75000;
 }
 
 function calculateWhatsApp(conversations: number): number {
-  // All add-ons are free, so only the per-conversation Cloud API cost.
-  return conversations * 1500;
+  return conversations * 1500; // all add-ons are free
 }
 
 export function Calculator() {
@@ -44,7 +47,7 @@ export function Calculator() {
   const [host, setHost] = useState<HostTier>("vps");
 
   const cloudComingSoon = host === "cloud";
-  const hostCost = calculateHost(host, conversations);
+  const hostCost = calculateHost(host);
   const waCost = calculateWhatsApp(conversations);
   const total = hostCost + waCost;
 
@@ -53,18 +56,21 @@ export function Calculator() {
   }
 
   return (
-    <section id="biaya" className="bg-[#F4FBF7] py-16 text-slate-900 md:py-28">
+    <section id="biaya" className="bg-gradient-to-b from-green-50/70 via-[#F4FBF7] to-white py-16 text-slate-900 md:py-28">
       <div className="mx-auto max-w-7xl px-4 md:px-16">
         <div className="mb-12 text-center">
-          <p className="font-mono-data text-xs uppercase tracking-[0.2em] text-slate-400">Estimasi biaya CSQ</p>
+          <p className="font-mono-data text-xs uppercase tracking-[0.2em] text-green-700">Estimasi biaya CSQ</p>
           <h2 className="mt-3 font-display text-3xl font-extrabold tracking-tight md:text-4xl lg:text-5xl">
             Hitung biaya CSQ untuk usaha Anda
           </h2>
+          <p className="mt-4 max-w-xl mx-auto text-base leading-relaxed text-slate-600">
+            Self-host gratis; Anda hanya membayar server dan biaya pesan WhatsApp.
+          </p>
         </div>
 
-        <div className="grid grid-cols-1 overflow-hidden rounded-2xl lg:grid-cols-2">
+        <div className="grid grid-cols-1 overflow-hidden rounded-2xl shadow-[0_30px_90px_-40px_rgba(21,128,61,0.25)] lg:grid-cols-2">
           {/* Left: form */}
-          <div className="divide-y divide-slate-100 bg-white p-8 lg:p-12">
+          <div className="divide-y divide-slate-100 border border-green-200/60 bg-white p-8 lg:p-12">
             {/* Conversation volume */}
             <div className="pb-8">
               <h3 className="text-sm font-semibold text-slate-900">Berapa percakapan per bulan?</h3>
@@ -76,7 +82,7 @@ export function Calculator() {
                   step={1}
                   value={conversations}
                   onChange={(e) => setConversations(Number(e.target.value))}
-                  className="h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-100 accent-green-600"
+                  className="h-2 w-full cursor-pointer appearance-none rounded-full bg-green-100 accent-green-600"
                   aria-label="Jumlah percakapan"
                 />
                 <span className="w-10 shrink-0 text-right font-mono-data text-lg font-bold text-green-700">{conversations}</span>
@@ -140,7 +146,7 @@ export function Calculator() {
           </div>
 
           {/* Right: cost cards */}
-          <div className="min-h-[717px] rounded-r-2xl border border-slate-200 bg-[#FAFAF8] p-8 lg:p-12">
+          <div className="min-h-[717px] border border-green-200/60 bg-gradient-to-b from-white to-green-50/40 p-8 lg:p-12">
             <h3 className="text-sm font-semibold text-slate-900">Estimasi biaya per bulan</h3>
             <p className="mt-2 text-xs text-slate-400">
               Angka kasar untuk {conversations} percakapan{cloudComingSoon ? ", host Cloud (coming soon)" : ""}.
@@ -149,10 +155,10 @@ export function Calculator() {
             <div className="mt-6 space-y-3">
               <CostCard
                 title="Server (host)"
-                subtitle={cloudComingSoon ? "Opsi Cloud segera hadir" : "Self-host, data milik Anda"}
+                subtitle={cloudComingSoon ? "Opsi Cloud segera hadir" : "Biaya tetap per bulan, tidak naik dengan volume"}
                 price={cloudComingSoon ? undefined : hostCost}
               />
-              <CostCard title="WhatsApp Cloud API" subtitle="Biaya pesan Meta" price={waCost} />
+              <CostCard title="WhatsApp Cloud API" subtitle="Biaya pesan Meta per percakapan" price={waCost} />
               <CostCard
                 title="Total per bulan"
                 subtitle="Hemat vs agency atau freelancer"
@@ -172,10 +178,12 @@ function CostCard({ title, subtitle, price, highlight = false }: { title: string
     <div
       className={cn(
         "rounded-2xl p-6",
-        highlight ? "bg-gradient-to-r from-green-600 to-emerald-500 text-white shadow-[0_20px_50px_-20px_rgba(21,128,61,0.5)]" : "border border-slate-200 bg-white text-slate-900"
+        highlight
+          ? "bg-gradient-to-r from-green-600 to-emerald-500 text-white shadow-[0_20px_50px_-20px_rgba(21,128,61,0.55)]"
+          : "border border-green-100 bg-white text-slate-900 shadow-sm"
       )}
     >
-      <p className={cn("text-xs", highlight ? "text-white/80" : "text-slate-400")}>{title}</p>
+      <p className={cn("text-xs", highlight ? "text-white/80" : "text-green-700/70")}>{title}</p>
       {price === undefined ? (
         <p className="mt-3 text-3xl font-bold tracking-tight">Coming soon</p>
       ) : (
