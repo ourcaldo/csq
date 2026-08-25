@@ -1,17 +1,20 @@
 // CSQ marketing landing page, public front door at /.
 //
-// Direction across the loaded taste skills (design-taste-frontend, v1,
-// high-end-visual-design, gpt-taste, imagegen-frontend-web,
-// image-to-code, stitch-design-taste, brandkit): emerald solid hero,
-// gapless bento, one dark scrub-reveal principle. Copy is conversational
-// Indonesian with common words (no stiff formalism). Motion is optimized:
-// single IntersectionObserver reveals; native CSS animation-timeline
-// for the principle scrub; reduced-motion safe; no window.scroll listeners.
-import { useEffect, useState } from "react";
+// Recreated from the four docs/demo specs (hero with coded dashboard preview,
+// triptych feature cards, cost calculator, parallax CTA) adapted to CSQ's
+// real stack and content: Phosphor icons (not Lucide), cn + Tailwind,
+// IntersectionObserver reveals (not Framer), native range input (not shadcn
+// Slider), CSS scroll-driven parallax (not useScroll). Plus Jakarta with
+// italic same-family emphasis (no serif injection). CSQ content: inbox
+// dashboard preview, audit/permission, self-host cost estimator.
+// Semiformal copy, one accent, zero em-dashes, reduced-motion safe.
 import Link from "next/link";
-import { Check, Plus, Minus, ArrowRight } from "@phosphor-icons/react";
+import { Check, ArrowRight, ChatCircleDots } from "@phosphor-icons/react";
 import { Seo, SITE_NAME, SITE_TAGLINE, DEFAULT_DESCRIPTION } from "@/components/seo";
 import { Reveal } from "@/components/landing/reveal";
+import { DashboardPreview } from "@/components/landing/dashboard-preview";
+import { Calculator } from "@/components/landing/calculator";
+import { FaqCta } from "@/components/landing/faq-cta";
 
 const STEPS = [
   { n: "01", title: "Sambungkan data", body: "Masukkan Excel atau CSV, sambungkan Google Sheets, atau mengetik manual. Agent langsung membaca stok, produk, harga, dan aturan dari data yang sudah ada." },
@@ -19,15 +22,24 @@ const STEPS = [
   { n: "03", title: "Deploy ke WhatsApp", body: "Pilih Cloud API resmi atau nomor WhatsApp sendiri. Agent membantu pelanggan, sementara Anda memantau dan mengambil alih dari inbox kapan saja." },
 ];
 
-const FEATURES = [
-  { cell: "a" as const, title: "Inbox bersama: tim dan AI satu layar", body: "Owner dan staf bekerja sama dengan agent di satu inbox. Beri tag, menugaskan, dan mengambil alih dari AI. Agent berhenti sebentar, kembali lagi kalau sudah dilepas.", live: true },
-  { cell: "b" as const, title: "Baca data yang sudah ada", body: "Excel, CSV, Google Sheets, ketik manual, dan dokumen disatukan lewat Business Context Layer. Membacanya seperti staf Anda.", sources: ["Excel / CSV", "Google Sheets", "Input manual", "PDF"] },
-  { cell: "c" as const, title: "Izin per-aksi", body: "Membaca secara default. Menulis hanya jika mendapat izin per tool; aksi sensitif butuh persetujuan owner.", perms: ["Baca default", "Tulis per tool", "Approval owner"] },
-  { cell: "d" as const, title: "Audit penuh", body: "Tiap aksi tercatat beserta status persetujuannya. Anda tahu persis apa yang dibaca agent dan apa yang diubah.", log: "09:02  permit  product.update  DENIED" },
+const TRIPTYCH = [
+  {
+    title: "Inbox bersama",
+    body: "Owner dan staf bekerja sama dengan agent di satu inbox. Tag, menugaskan, dan ambil alih dari AI.",
+    visual: "inbox" as const,
+  },
+  {
+    title: "Agent CS di WhatsApp",
+    body: "Membaca stok, harga, dan kebijakan dari data usaha Anda. Menjawab pelanggan 24/7 di dalam jendela balas WhatsApp.",
+    visual: "agent" as const,
+    anchor: true,
+  },
+  {
+    title: "Izin per-aksi",
+    body: "Membaca secara default. Menulis hanya dengan izin per tool, aksi sensitif butuh persetujuan owner.",
+    visual: "perms" as const,
+  },
 ];
-
-const PRINCIPLE = ["Baca", "default.", "Tulis", "dengan", "izin.", "Bertindak", "sesuai", "aturan."];
-const PRINCIPLE_POINTS = ["Izin per-tool", "Approval owner", "Audit sebelum dan sesudah", "Ambil alih kapan saja"];
 
 const FAQS: { q: string; a: string }[] = [
   { q: "Apakah saya butuh coding?", a: "Tidak. CSQ dibuat untuk owner UMKM. Sambungkan data, ajarkan aturan, atur izin dari dashboard, tanpa kode." },
@@ -37,20 +49,8 @@ const FAQS: { q: string; a: string }[] = [
   { q: "Berapa harganya?", a: "CSQ bersifat open untuk dihosting sendiri. Anda hanya perlu membayar server, VPS kecil sudah cukup, plus biaya WhatsApp Cloud API sesuai penggunaan." },
 ];
 
-const HEADLINE = [
-  { t: "Layani", a: false },
-  { t: "pelanggan", a: false },
-  { t: "di", a: false },
-  { t: "WhatsApp", a: false },
-  { t: "dengan", a: false },
-  { t: "agen", a: false },
-  { t: "AI", a: false },
-  { t: "yang", a: false },
-  { t: "mengenal", a: true },
-  { t: "data", a: true },
-  { t: "bisnis", a: true },
-  { t: "Anda.", a: true },
-];
+const PRINCIPLE = ["Baca", "default.", "Tulis", "dengan", "izin.", "Bertindak", "sesuai", "aturan."];
+const PRINCIPLE_POINTS = ["Izin per-tool", "Approval owner", "Audit sebelum dan sesudah", "Ambil alih kapan saja"];
 
 const jsonLd = [
   { "@context": "https://schema.org", "@type": "Organization", name: SITE_NAME, description: DEFAULT_DESCRIPTION, logo: "/icon.svg" },
@@ -63,15 +63,14 @@ export default function Home() {
   return (
     <>
       <Seo description={DEFAULT_DESCRIPTION} path="/" jsonLd={jsonLd} />
-      <main className="w-full max-w-full overflow-x-hidden bg-[#FAFAF8] text-[#141A17]">
-        <Navbar />
+      <main className="w-full max-w-full overflow-x-hidden bg-[#FAFAF8] text-slate-900">
         <Hero />
-        <TrustBar />
+        <Channels />
+        <Triptych />
         <HowItWorks />
-        <Bento />
+        <Calculator />
         <Principle />
-        <Faq />
-        <Cta />
+        <FaqCta />
         <Footer />
       </main>
     </>
@@ -81,106 +80,188 @@ export default function Home() {
 /* ------------------------------- Navbar ------------------------------- */
 
 function Navbar() {
-  const [scrolled, setScrolled] = useState(false);
-  useEffect(() => {
-    function onScroll() {
-      setScrolled(window.scrollY > 8);
-    }
-    window.addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
   return (
-    <header className={"sticky top-0 z-40 transition-shadow " + (scrolled ? "shadow-[0_10px_40px_-24px_rgba(20,26,23,0.3)]" : "")}>
-      <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 sm:px-8">
+    <header className="sticky top-0 z-40 bg-transparent">
+      <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6 md:px-12 lg:px-20">
         <Link href="/" className="flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-[0.6rem] bg-green-700 text-white">
-            <span className="font-display text-sm font-extrabold">C</span>
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-700 text-white">
+            <ChatCircleDots size={18} weight="fill" />
           </span>
           <span className="font-display text-lg font-extrabold tracking-tight">CSQ</span>
         </Link>
-        <div className="hidden items-center gap-8 text-sm text-[#141A17]/70 md:flex">
-          <a href="#cara-kerja" className="hover:text-[#141A17]">Cara Kerja</a>
-          <a href="#fitur" className="hover:text-[#141A17]">Fitur</a>
-          <a href="#prinsip" className="hover:text-[#141A17]">Keamanan</a>
-          <a href="#faq" className="hover:text-[#141A17]">FAQ</a>
+        <div className="hidden items-center gap-8 text-sm text-slate-500 md:flex">
+          <a href="#fitur" className="hover:text-slate-900">Fitur</a>
+          <a href="#cara-kerja" className="hover:text-slate-900">Cara Kerja</a>
+          <a href="#biaya" className="hover:text-slate-900">Biaya</a>
+          <a href="#faq" className="hover:text-slate-900">FAQ</a>
         </div>
-        <div className="flex items-center gap-3">
-          <Link href="/login" className="hidden text-sm font-medium text-[#141A17]/70 hover:text-[#141A17] sm:block">Masuk</Link>
-          <Link href="/register" className="inline-flex items-center gap-1.5 rounded-full bg-green-700 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-800">
-            Coba gratis <ArrowRight size={13} weight="bold" />
-          </Link>
-        </div>
+        <Link href="/register" className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-800">
+          Coba gratis <ArrowRight size={14} weight="bold" />
+        </Link>
       </nav>
     </header>
   );
 }
 
 /* -------------------------------- Hero -------------------------------- */
-/* Emerald solid color-field hero. Centered cinematic statement,
-   per-word kinetic reveal, one primary + one ghost CTA. */
+/* Light hero: badge, headline with italic emphasis, subheadline,
+   primary + ghost CTA, coded dashboard preview (frosted glass). */
 
 function Hero() {
   return (
-    <section className="relative overflow-hidden bg-green-700 text-[#F4FBF7]">
+    <section className="relative h-[820px] overflow-hidden flex flex-col">
+      {/* Background video (per hero spec). Atmospheric, muted autoplay loop. */}
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        preload="auto"
+        className="absolute inset-0 z-0 h-full w-full object-cover"
+        aria-hidden
+      >
+        <source
+          src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260319_015952_e1deeb12-8fb7-4071-a42a-60779fc64ab6.mp4"
+          type="video/mp4"
+        />
+      </video>
+      {/* Legibility wash covering the full video, including behind the header,
+          so the whole hero has a consistent cloudy white cover. */}
       <div
-        className="pointer-events-none absolute inset-0"
-        style={{ backgroundImage: "radial-gradient(60% 55% at 50% 0%, rgba(220,252,231,0.22), transparent 70%)" }}
+        className="absolute inset-0 z-10"
+        style={{ background: "linear-gradient(to bottom, rgba(250,250,248,0.72), rgba(250,250,248,0.6) 60%, rgba(250,250,248,0.85))" }}
       />
-      <div className="relative mx-auto max-w-5xl px-5 py-32 text-center sm:px-8 md:py-48">
-        <h1
-          className="font-display font-extrabold leading-[1.06] tracking-tight"
-          style={{ fontSize: "clamp(2.5rem, 5.2vw, 4.5rem)" }}
-        >
-          {HEADLINE.map((w, i) => (
-            <span
-              key={i}
-              className={"rise-inline inline-block " + (w.a ? "text-[#F4FBF7]" : "text-white/80")}
-              style={{ animationDelay: `${i * 55}ms` }}
-            >
-              {w.t}&nbsp;
-            </span>
-          ))}
-        </h1>
-        <p className="rise-in mx-auto mt-7 max-w-2xl text-base leading-relaxed text-white/75 sm:text-lg" style={{ animationDelay: "440ms" }}>
-          CSQ membaca data usaha Anda, dari stok sampai kebijakan.
-          Membaca secara default, menulis hanya jika Anda izinkan.
-        </p>
-        <div className="rise-in mt-9 flex flex-wrap items-center justify-center gap-3" style={{ animationDelay: "540ms" }}>
-          <Link
-            href="/register"
-            className="group group-cta inline-flex items-center gap-2.5 rounded-full bg-white px-6 py-3.5 text-sm font-semibold text-green-800 shadow-[0_14px_34px_-14px_rgba(0,0,0,0.25)] transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-[#F4FBF7] active:scale-[0.98]"
-          >
-            Coba gratis
-            <span className="cta-arrow flex h-7 w-7 items-center justify-center rounded-full bg-green-800/10">
-              <ArrowRight size={14} weight="bold" />
-            </span>
-          </Link>
-          <a
-            href="#cara-kerja"
-            className="inline-flex items-center gap-2 rounded-full border border-white/30 px-6 py-3.5 text-sm font-semibold text-white transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-white/10 active:scale-[0.98]"
-          >
-            Pelajari cara kerja
-          </a>
+
+      {/* Navbar + hero share one 760px flex column: navbar on top,
+          content fills the remaining space below it (auto space, no padding guesswork). */}
+      <div className="relative z-40">
+        <Navbar />
+      </div>
+
+      <div className="relative z-20 flex flex-1 flex-col items-center px-6 pt-8 text-center md:px-12 md:pt-12">
+        <div className="flex flex-col items-center">
+          <span className="animate-fade-rise inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/80 px-4 py-1.5 text-sm text-slate-600 backdrop-blur">
+            <Check size={14} weight="bold" className="text-green-700" /> Self-host, data milik Anda
+          </span>
+
+          <h1 className="animate-fade-rise-delay mt-6 max-w-3xl font-display text-5xl font-extrabold leading-[0.95] tracking-tight text-slate-900 md:text-6xl">
+            Layani pelanggan di WhatsApp dengan agen AI yang{" "}
+            <em className="not-italic font-display italic text-green-700">mengenal data bisnis Anda</em>.
+          </h1>
+
+          <p className="animate-fade-rise-delay-2 mt-5 max-w-[650px] text-base leading-relaxed text-slate-600 md:text-lg">
+            CSQ membaca stok, harga, dan kebijakan dari data yang sudah Anda
+            punya. Membaca secara default, menulis hanya jika Anda izinkan.
+          </p>
+
+          <div className="mt-7 flex items-center justify-center gap-3">
+            <Link href="/register" className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-6 py-3.5 text-sm font-medium text-white transition-colors hover:bg-slate-800">
+              Coba gratis <ArrowRight size={15} weight="bold" />
+            </Link>
+            <a href="#cara-kerja" className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-6 py-3.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 backdrop-blur">
+              Pelajari cara kerja
+            </a>
+          </div>
+        </div>
+
+        {/* Coded dashboard preview on the hero, on top of the video. Overflows
+            toward the bottom and is clipped by overflow-hidden (per spec). */}
+        <div className="animate-fade-rise-delay-2 mt-8 w-full max-w-5xl">
+          <DashboardPreview />
         </div>
       </div>
     </section>
   );
 }
 
-/* ------------------------------ TrustBar ------------------------------ */
+/* ------------------------------ Channels ------------------------------ */
 
-function TrustBar() {
+function Channels() {
   return (
-    <section className="border-y border-[#141A17]/[0.07] bg-white/60 py-7">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-5 gap-y-2 px-5 text-center sm:px-8">
-        <span className="font-mono-data text-xs font-medium uppercase tracking-[0.14em] text-[#141A17]/40">Terhubung ke</span>
+    <section className="border-y border-slate-100 bg-white/60 py-7">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-6 gap-y-2 px-6 text-center">
+        <span className="font-mono-data text-xs font-medium uppercase tracking-[0.14em] text-slate-400">Terhubung ke</span>
         {["WhatsApp", "Google Sheets", "Excel / CSV", "PDF", "Input manual"].map((c) => (
-          <span key={c} className="text-sm font-medium text-[#141A17]/55">{c}</span>
+          <span key={c} className="text-sm font-medium text-slate-500">{c}</span>
         ))}
       </div>
     </section>
+  );
+}
+
+/* ------------------------------ Triptych ------------------------------ */
+/* Three peer feature cards, light theme, soft green-tinted borders, warm
+   shadows. Centre card is the product anchor. CSS visuals (no canvas). */
+
+function Triptych() {
+  return (
+    <section id="fitur" className="bg-[#F4FBF7] py-24 md:py-32">
+      <div className="mx-auto max-w-6xl px-6 md:px-12">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3 md:items-stretch">
+          {TRIPTYCH.map((card, i) => (
+            <Reveal key={card.title} delay={i === 1 ? 0 : i === 0 ? 120 : 240}>
+              <article
+                className={
+                  "relative flex flex-col overflow-hidden rounded-2xl border bg-white p-7 shadow-[0_25px_60px_-24px_rgba(20,26,23,0.12)] " +
+                  (card.anchor
+                    ? "border-green-200 ring-2 ring-green-700/20 shadow-[0_30px_70px_-24px_rgba(21,128,61,0.25)]"
+                    : "border-slate-200") +
+                  (i === TRIPTYCH.length - 1 ? " md:mt-6 md:h-[calc(100%-1.5rem)]" : " h-full")
+                }
+              >
+                <TriptychVisual kind={card.visual} />
+                <h3 className="mt-5 font-display text-lg font-bold tracking-tight text-slate-900">{card.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-slate-600">{card.body}</p>
+              </article>
+            </Reveal>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function TriptychVisual({ kind }: { kind: "inbox" | "agent" | "perms" }) {
+  // Consistent min-height across all three so the titles sit at the
+  // same y (the middle agent visual is smaller and centers in this area).
+  const wrap = "flex min-h-[7.5rem] items-center justify-center rounded-xl bg-slate-50 p-4";
+  if (kind === "inbox") {
+    return (
+      <div className={wrap + " flex-col items-stretch justify-center gap-2"}>
+        <div className="ml-auto w-2/3 rounded-2xl rounded-[1rem_1rem_1rem_0.25rem] bg-slate-200 px-3 py-2 text-[10px] text-slate-700">Ada kopi arabika?</div>
+        <div className="mr-auto w-2/3 rounded-2xl rounded-[1rem_1rem_0.25rem_1rem] bg-green-100 px-3 py-2 text-[10px] text-green-800">Masih, stok 12.</div>
+        <div className="ml-auto w-1/2 rounded-2xl rounded-[1rem_1rem_1rem_0.25rem] bg-amber-50 px-3 py-2 text-[10px] text-amber-700">Perlu izin</div>
+      </div>
+    );
+  }
+  if (kind === "agent") {
+    return (
+      <div className={wrap}>
+        <div className="flex items-center gap-3">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-green-600 text-white">
+            <ChatCircleDots size={20} weight="fill" />
+          </span>
+          <div>
+            <p className="text-xs font-semibold text-slate-900">CSQ Agent</p>
+            <p className="text-[10px] text-green-600">AI menangani 24/7</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className={wrap + " flex-col justify-center gap-2.5"}>
+      {[
+        { l: "Baca produk & stok", s: "Boleh", c: "bg-green-100 text-green-700" },
+        { l: "Membuat pesanan", s: "Boleh", c: "bg-green-100 text-green-700" },
+        { l: "Mengubah harga", s: "Perlu izin", c: "bg-amber-100 text-amber-700" },
+      ].map((r) => (
+        <div key={r.l} className="flex items-center justify-between gap-3">
+          <span className="text-[11px] text-slate-600">{r.l}</span>
+          <span className={"rounded-full px-2.5 py-0.5 text-[10px] font-semibold " + r.c}>{r.s}</span>
+        </div>
+      ))}
+    </div>
   );
 }
 
@@ -188,22 +269,21 @@ function TrustBar() {
 
 function HowItWorks() {
   return (
-    <section id="cara-kerja" className="mx-auto max-w-6xl px-5 py-32 sm:px-8 md:py-48">
+    <section id="cara-kerja" className="mx-auto max-w-6xl px-6 py-24 md:px-12 md:py-32">
       <Reveal>
-        <p className="font-mono-data text-[11px] font-medium uppercase tracking-[0.18em] text-green-700">Cara kerja</p>
-        <h2 className="mt-4 max-w-3xl font-display text-3xl font-extrabold tracking-tight sm:text-4xl md:text-5xl">
+        <p className="font-mono-data text-xs font-medium uppercase tracking-[0.2em] text-green-700">Cara kerja</p>
+        <h2 className="mt-4 max-w-3xl font-display text-3xl font-extrabold tracking-tight md:text-4xl lg:text-5xl">
           Dari data ke AI yang membantu melayani pelanggan, tiga langkah.
         </h2>
       </Reveal>
-
-      <div className="mt-16 divide-y divide-[#141A17]/[0.08] border-t border-[#141A17]/[0.08]">
+      <div className="mt-14 divide-y divide-slate-100 border-t border-slate-100">
         {STEPS.map((s, i) => (
           <Reveal key={s.n} delay={i * 90}>
-            <div className="grid gap-5 py-10 md:grid-cols-[auto_1fr] md:gap-12 md:py-12">
+            <div className="grid gap-5 py-8 md:grid-cols-[auto_1fr] md:gap-12 md:py-10">
               <p className="font-display text-4xl font-extrabold tracking-tight text-green-700/25">{s.n}</p>
               <div className="max-w-xl">
-                <h3 className="font-display text-xl font-bold tracking-tight sm:text-2xl">{s.title}</h3>
-                <p className="mt-3 text-base leading-relaxed text-[#141A17]/65 sm:text-lg">{s.body}</p>
+                <h3 className="font-display text-xl font-bold tracking-tight md:text-2xl">{s.title}</h3>
+                <p className="mt-3 text-base leading-relaxed text-slate-600 md:text-lg">{s.body}</p>
               </div>
             </div>
           </Reveal>
@@ -213,93 +293,14 @@ function HowItWorks() {
   );
 }
 
-/* ------------------------------ Bento ------------------------------ */
-/* Gapless bento, grid-flow-dense, 4 interlocking cells. Rows
-   auto-size to content (no fixed height -> no vertical overflow), min-h for
-   visual weight. Audit log wraps (no horizontal scroll). Hover scale. */
-
-function Bento() {
-  const f = FEATURES;
-  return (
-    <section id="fitur" className="bg-[#141A17]/[0.025] py-32 md:py-48">
-      <div className="mx-auto max-w-6xl px-5 sm:px-8">
-        <Reveal>
-          <p className="font-mono-data text-[11px] font-medium uppercase tracking-[0.18em] text-green-700">Fitur</p>
-          <h2 className="mt-4 max-w-3xl font-display text-3xl font-extrabold tracking-tight sm:text-4xl md:text-5xl">
-            Apa yang agent butuh untuk melayani, dan apa yang Anda butuh untuk mengontrol.
-          </h2>
-        </Reveal>
-
-        <div className="mt-14 grid grid-cols-1 gap-4 lg:grid-cols-4 lg:grid-flow-dense">
-          {/* A: big emerald cell, live indicator (real semantic state) */}
-          <Reveal className="lg:col-span-2 lg:row-span-2">
-            <div className="group flex min-h-[13rem] flex-col overflow-hidden rounded-[2rem] bg-green-700 p-8 text-[#F4FBF7] ring-1 ring-white/10 transition-transform duration-700 ease-out group-hover:scale-[1.02]">
-              <div className="flex items-center gap-2 font-mono-data text-[11px] text-[#F4FBF7]/70">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#9DEACE]" /> AI menangani
-              </div>
-              <h3 className="mt-6 max-w-md font-display text-2xl font-bold tracking-tight sm:text-3xl">{f[0].title}</h3>
-              <p className="mt-3 max-w-md text-base leading-relaxed text-white/75">{f[0].body}</p>
-              <p className="mt-auto font-mono-data text-xs text-white/55">Ambil alih kapan saja.</p>
-            </div>
-          </Reveal>
-
-          {/* C: tinted, permission list */}
-          <Reveal delay={70}>
-            <div className="group flex min-h-[13rem] flex-col overflow-hidden rounded-[2rem] bg-green-700/[0.07] p-1.5 ring-1 ring-green-700/15 transition-transform duration-700 ease-out group-hover:scale-[1.02]">
-              <div className="flex h-full flex-col rounded-[1.65rem] bg-green-50/50 p-7">
-                <h3 className="font-display text-lg font-bold tracking-tight">{f[2].title}</h3>
-                <p className="mt-2.5 text-sm leading-relaxed text-[#141A17]/70">{f[2].body}</p>
-                <ul className="mt-auto space-y-2 pt-4 text-xs text-[#141A17]/65">
-                  {f[2].perms?.map((p) => (
-                    <li key={p} className="flex items-center gap-2">
-                      <Check size={12} weight="bold" className="text-green-700" /> {p}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </Reveal>
-
-          {/* D: white, audit snippet (wraps, no horizontal scroll) */}
-          <Reveal delay={140}>
-            <div className="group flex min-h-[13rem] flex-col overflow-hidden rounded-[2rem] bg-[#141A17]/[0.04] p-1.5 ring-1 ring-[#141A17]/[0.06] transition-transform duration-700 ease-out group-hover:scale-[1.02]">
-              <div className="flex h-full flex-col rounded-[1.65rem] bg-white p-7 shadow-[inset_0_1px_1px_rgba(255,255,255,0.85),0_24px_70px_-34px_rgba(20,26,23,0.22)]">
-                <h3 className="font-display text-lg font-bold tracking-tight">{f[3].title}</h3>
-                <p className="mt-2.5 text-sm leading-relaxed text-[#141A17]/70">{f[3].body}</p>
-                <pre className="mt-auto overflow-hidden whitespace-pre-wrap break-words rounded-lg bg-[#0B1F14] px-3 py-2 font-mono-data text-[11px] leading-relaxed text-[#9DEACE]">
-                  {f[3].log}
-                </pre>
-              </div>
-            </div>
-          </Reveal>
-
-          {/* B: wide, sources */}
-          <Reveal className="lg:col-span-2" delay={70}>
-            <div className="group flex min-h-[13rem] flex-col overflow-hidden rounded-[2rem] bg-white p-7 ring-1 ring-[#141A17]/[0.06] transition-transform duration-700 ease-out group-hover:scale-[1.02]">
-              <h3 className="font-display text-lg font-bold tracking-tight">{f[1].title}</h3>
-              <p className="mt-2.5 max-w-md text-sm leading-relaxed text-[#141A17]/70">{f[1].body}</p>
-              <div className="mt-5 flex flex-wrap gap-2">
-                {f[1].sources?.map((s) => (
-                  <span key={s} className="rounded-full bg-[#141A17]/[0.05] px-3 py-1 text-xs font-medium text-[#141A17]/70">{s}</span>
-                ))}
-              </div>
-            </div>
-          </Reveal>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 /* ----------------------------- Principle ----------------------------- */
-/* One dark color-block. Native CSS scroll-driven scrub on the
-   headline words (zero JS, GPU composited) where supported. */
+/* One emerald color-block. Native CSS scrub on the headline words. */
 
 function Principle() {
   return (
-    <section id="prinsip" className="bg-[#0B1F14] py-32 text-[#EDEFEA] md:py-48">
-      <div className="mx-auto max-w-4xl px-5 text-center sm:px-8">
-        <h2 className="font-display font-extrabold leading-[1.12] tracking-tight" style={{ fontSize: "clamp(2.25rem, 6vw, 5rem)" }}>
+    <section id="prinsip" className="bg-green-700 py-24 text-white md:py-32">
+      <div className="mx-auto max-w-4xl px-6 text-center md:px-12">
+        <h2 className="font-display font-extrabold leading-[1.1] tracking-tight" style={{ fontSize: "clamp(2.25rem, 6vw, 5rem)" }}>
           {PRINCIPLE.map((w, i) => (
             <span key={i} className="scrub-word inline-block">
               {w}&nbsp;
@@ -307,15 +308,15 @@ function Principle() {
           ))}
         </h2>
         <Reveal>
-          <p className="mx-auto mt-9 max-w-2xl text-base leading-relaxed text-[#EDEFEA]/70 sm:text-lg">
-            Agent hanya membaca dan menjawab. Tiap aksi yang mengubah data butuh izin
-            terpisah, sebagian butuh persetujuan Anda. Anda yang memegang
-            kendali, agent yang bekerja.
+          <p className="mx-auto mt-8 max-w-2xl text-base leading-relaxed text-white/80 md:text-lg">
+            Agent hanya membaca dan menjawab. Tiap aksi yang mengubah data
+            butuh izin terpisah, sebagian butuh persetujuan Anda. Anda yang
+            memegang kendali, agent yang bekerja.
           </p>
-          <div className="mt-11 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-[#EDEFEA]/85">
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-white/90">
             {PRINCIPLE_POINTS.map((p) => (
               <span key={p} className="inline-flex items-center gap-2">
-                <Check size={15} weight="bold" className="text-[#9DEACE]" /> {p}
+                <Check size={15} weight="bold" className="text-white" /> {p}
               </span>
             ))}
           </div>
@@ -325,102 +326,58 @@ function Principle() {
   );
 }
 
-/* -------------------------------- FAQ -------------------------------- */
-
-function Faq() {
-  return (
-    <section id="faq" className="mx-auto max-w-3xl px-5 py-32 sm:px-8 md:py-48">
-      <Reveal>
-        <h2 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl md:text-5xl">Pertanyaan yang sering muncul.</h2>
-      </Reveal>
-      <div className="mt-12 divide-y divide-[#141A17]/[0.1] border-t border-[#141A17]/[0.1]">
-        {FAQS.map((f, i) => (
-          <Reveal key={f.q} delay={i * 50}>
-            <details className="group py-6">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-4">
-                <span className="font-display text-base font-semibold sm:text-lg">{f.q}</span>
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#141A17]/15 text-[#141A17]/60 transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] group-open:rotate-180">
-                  <Plus size={15} className="block group-open:hidden" />
-                  <Minus size={15} className="hidden group-open:block" />
-                </span>
-              </summary>
-              <p className="mt-3 max-w-2xl text-base leading-relaxed text-[#141A17]/65">{f.a}</p>
-            </details>
-          </Reveal>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/* -------------------------------- CTA -------------------------------- */
-
-function Cta() {
-  return (
-    <section className="mx-auto max-w-6xl px-5 pb-32 sm:px-8 md:pb-48">
-      <Reveal>
-        <div className="rounded-[2.5rem] bg-green-700/[0.07] p-2 ring-1 ring-green-700/15">
-          <div className="rounded-[2rem] bg-[#F4FBF7] px-6 py-16 text-center sm:px-12">
-            <h2 className="font-display text-3xl font-extrabold tracking-tight text-green-900 sm:text-4xl md:text-5xl">
-              Siap membuat AI bekerja untuk usaha Anda?
-            </h2>
-            <p className="mx-auto mt-4 max-w-xl text-base text-green-900/70">
-              Sambungkan data, ajarkan aturan, atur izin, lalu deploy agent ke WhatsApp dengan cepat.
-            </p>
-            <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-              <Link
-                href="/register"
-                className="group group-cta inline-flex items-center gap-2.5 rounded-full bg-green-700 px-6 py-3.5 text-sm font-semibold text-white shadow-[0_14px_34px_-14px_rgba(21,128,61,0.55)] transition-all duration-700 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-green-800 active:scale-[0.98]"
-              >
-                Coba gratis
-                <span className="cta-arrow flex h-7 w-7 items-center justify-center rounded-full bg-white/15">
-                  <ArrowRight size={14} weight="bold" />
-                </span>
-              </Link>
-              <Link
-                href="/login"
-                className="inline-flex items-center gap-2 rounded-full border border-green-900/15 px-6 py-3.5 text-sm font-semibold text-green-900 transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-green-900/[0.04] active:scale-[0.98]"
-              >
-                Masuk dashboard
-              </Link>
-            </div>
-          </div>
-        </div>
-      </Reveal>
-    </section>
-  );
-}
-
 /* ------------------------------- Footer ------------------------------- */
 
 function Footer() {
   return (
-    <footer className="border-t border-[#141A17]/[0.08] bg-white">
-      <div className="mx-auto max-w-6xl px-5 py-14 sm:px-8">
-        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="sm:col-span-2 lg:col-span-1">
-            <Link href="/" className="flex items-center gap-2">
-              <span className="flex h-8 w-8 items-center justify-center rounded-[0.6rem] bg-green-700 text-white">
-                <span className="font-display text-sm font-extrabold">C</span>
+    <footer className="bg-[#fafafa] pt-20 pb-5 md:pt-24">
+      <div className="mx-auto max-w-[1100px] w-full px-5">
+        <div className="mb-[50px] grid gap-10 md:grid-cols-[2fr_1fr_1fr_2fr] max-[900px]:grid-cols-2 max-[480px]:grid-cols-1">
+          {/* Logo */}
+          <div>
+            <Link href="/" className="mb-[15px] flex items-center gap-2">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-700 text-white">
+                <ChatCircleDots size={18} weight="fill" />
               </span>
               <span className="font-display text-lg font-extrabold tracking-tight">CSQ</span>
             </Link>
-            <p className="mt-4 max-w-xs text-sm leading-relaxed text-[#141A17]/55">
-              {SITE_TAGLINE}. Self-host, multi-tenant, data tetap milik Anda.
+            <p className="max-w-[220px] text-[0.85rem] leading-[1.6] text-[#888]">
+              Layanan pelanggan AI untuk UMKM Indonesia, di WhatsApp.
             </p>
           </div>
-          <FooterCol title="Produk" links={[{ label: "Cara Kerja", href: "#cara-kerja" }, { label: "Fitur", href: "#fitur" }, { label: "Keamanan", href: "#prinsip" }, { label: "FAQ", href: "#faq" }]} />
-          <FooterCol title="Mulai" links={[{ label: "Daftar", href: "/register" }, { label: "Masuk", href: "/login" }, { label: "Dashboard", href: "/dashboard" }]} />
+          {/* Navigation */}
+          <FooterCol
+            title="Navigasi"
+            links={[{ label: "Fitur", href: "#fitur" }, { label: "Cara Kerja", href: "#cara-kerja" }, { label: "Biaya", href: "#biaya" }, { label: "FAQ", href: "#faq" }]}
+          />
+          {/* Pages */}
+          <FooterCol
+            title="Halaman"
+            links={[{ label: "Home", href: "/" }, { label: "Masuk", href: "/login" }, { label: "Daftar", href: "/register" }]}
+          />
+          {/* Newsletter */}
           <div>
-            <p className="font-mono-data text-xs font-bold uppercase tracking-wider text-[#141A17]">Prinsip</p>
-            <p className="mt-4 text-sm leading-relaxed text-[#141A17]/55">
-              Baca secara default.<br />Tulis dengan izin.<br />Bertindak sesuai aturan.
-            </p>
+            <h4 className="mb-5 text-[0.95rem] font-semibold text-neutral-900">Newsletter</h4>
+            <p className="mb-[15px] text-[0.85rem] text-[#888]">Dapatkan pembaruan CSQ di email Anda.</p>
+            <div className="flex flex-col gap-[10px] sm:flex-row">
+              <input
+                type="email"
+                placeholder="Masukkan email..."
+                className="flex-grow border border-[#f0f0f0] bg-white text-[0.9rem] outline-none transition-colors duration-200 focus:border-[#ccc]"
+                style={{ padding: "12px 16px", borderRadius: "10px", boxShadow: "inset 0 1px 3px rgba(0,0,0,0.02)" }}
+              />
+              <button
+                className="bg-neutral-900 text-white border-none font-semibold cursor-pointer text-[0.9rem] transition-all duration-200 hover:-translate-y-0.5 w-full sm:w-auto"
+                style={{ padding: "12px 28px", borderRadius: "10px", boxShadow: "0 12px 24px rgba(0,0,0,0.4)" }}
+              >
+                Subscribe
+              </button>
+            </div>
           </div>
         </div>
-        <div className="mt-10 flex flex-col items-start justify-between gap-3 border-t border-[#141A17]/[0.08] pt-6 text-xs text-[#141A17]/45 sm:flex-row sm:items-center">
-          <p>&copy; {new Date().getFullYear()} {SITE_NAME}. Dibuat untuk UMKM Indonesia.</p>
-          <p className="font-mono-data uppercase tracking-wider">Self-hosted</p>
+        <div className="flex justify-between border-t border-[#f0f0f0] pt-[25px] pb-[10px] text-[0.85rem] text-[#888] max-[480px]:flex-col max-[480px]:gap-[15px] max-[480px]:items-center">
+          <p>Semua hak dilindungi. &copy; {new Date().getFullYear()} {SITE_NAME}.</p>
+          <p>Self-host untuk UMKM Indonesia.</p>
         </div>
       </div>
     </footer>
@@ -430,11 +387,11 @@ function Footer() {
 function FooterCol({ title, links }: { title: string; links: { label: string; href: string }[] }) {
   return (
     <div>
-      <p className="font-mono-data text-xs font-bold uppercase tracking-wider text-[#141A17]">{title}</p>
-      <ul className="mt-4 space-y-2.5 text-sm">
+      <h4 className="mb-5 text-[0.95rem] font-semibold text-neutral-900">{title}</h4>
+      <ul>
         {links.map((l) => (
-          <li key={l.label}>
-            <Link href={l.href} className="text-[#141A17]/60 transition-colors hover:text-[#141A17]">{l.label}</Link>
+          <li key={l.label} className="mb-3">
+            <Link href={l.href} className="text-[0.85rem] text-[#888] no-underline transition-colors duration-200 hover:text-neutral-900">{l.label}</Link>
           </li>
         ))}
       </ul>

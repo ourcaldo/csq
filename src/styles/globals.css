@@ -2,6 +2,84 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Animated gradient CTA (CSQ-green). Five radial-gradient blobs drift across
+   wide paths AND pulse in size, via CSS @property (GPU-friendly custom-property
+   interpolation - no JS, no canvas). Respects prefers-reduced-motion. */
+@property --csq-x1 { syntax: '<percentage>'; inherits: false; initial-value: 10%; }
+@property --csq-y1 { syntax: '<percentage>'; inherits: false; initial-value: 10%; }
+@property --csq-x2 { syntax: '<percentage>'; inherits: false; initial-value: 90%; }
+@property --csq-y2 { syntax: '<percentage>'; inherits: false; initial-value: 10%; }
+@property --csq-x3 { syntax: '<percentage>'; inherits: false; initial-value: 10%; }
+@property --csq-y3 { syntax: '<percentage>'; inherits: false; initial-value: 90%; }
+@property --csq-x4 { syntax: '<percentage>'; inherits: false; initial-value: 90%; }
+@property --csq-y4 { syntax: '<percentage>'; inherits: false; initial-value: 90%; }
+@property --csq-x5 { syntax: '<percentage>'; inherits: false; initial-value: 50%; }
+@property --csq-y5 { syntax: '<percentage>'; inherits: false; initial-value: 50%; }
+@property --csq-s1 { syntax: '<percentage>'; inherits: false; initial-value: 55%; }
+@property --csq-s2 { syntax: '<percentage>'; inherits: false; initial-value: 55%; }
+@property --csq-s3 { syntax: '<percentage>'; inherits: false; initial-value: 55%; }
+@property --csq-s4 { syntax: '<percentage>'; inherits: false; initial-value: 55%; }
+@property --csq-s5 { syntax: '<percentage>'; inherits: false; initial-value: 65%; }
+
+.csq-animated-gradient {
+  background-color: #14532d;
+  background-image:
+    radial-gradient(circle at var(--csq-x1) var(--csq-y1), #dcfce7 0px, transparent var(--csq-s1)),
+    radial-gradient(circle at var(--csq-x2) var(--csq-y2), #15803d 0px, transparent var(--csq-s2)),
+    radial-gradient(circle at var(--csq-x3) var(--csq-y3), #86efac 0px, transparent var(--csq-s3)),
+    radial-gradient(circle at var(--csq-x4) var(--csq-y4), #bbf7d0 0px, transparent var(--csq-s4)),
+    radial-gradient(circle at var(--csq-x5) var(--csq-y5), #22c55e 0px, transparent var(--csq-s5));
+  animation:
+    csq-blob1 5s ease-in-out infinite,
+    csq-blob2 6s ease-in-out infinite,
+    csq-blob3 5.5s ease-in-out infinite,
+    csq-blob4 6.5s ease-in-out infinite,
+    csq-blob5 4s ease-in-out infinite,
+    csq-size1 3.5s ease-in-out infinite,
+    csq-size2 4.2s ease-in-out infinite,
+    csq-size3 3.8s ease-in-out infinite,
+    csq-size4 4.6s ease-in-out infinite,
+    csq-size5 3s ease-in-out infinite;
+}
+
+@keyframes csq-blob1 {
+  0%,100% { --csq-x1: 5%;  --csq-y1: 5%;  }
+  25%     { --csq-x1: 45%; --csq-y1: 20%; }
+  50%     { --csq-x1: 30%; --csq-y1: 55%; }
+  75%     { --csq-x1: 0%;  --csq-y1: 30%; }
+}
+@keyframes csq-blob2 {
+  0%,100% { --csq-x2: 95%; --csq-y2: 5%;  }
+  33%     { --csq-x2: 55%; --csq-y2: 35%; }
+  66%     { --csq-x2: 80%; --csq-y2: 65%; }
+}
+@keyframes csq-blob3 {
+  0%,100% { --csq-x3: 5%;  --csq-y3: 95%; }
+  40%     { --csq-x3: 45%; --csq-y3: 65%; }
+  70%     { --csq-x3: 25%; --csq-y3: 100%; }
+}
+@keyframes csq-blob4 {
+  0%,100% { --csq-x4: 95%; --csq-y4: 95%; }
+  30%     { --csq-x4: 60%; --csq-y4: 70%; }
+  60%     { --csq-x4: 100%; --csq-y4: 50%; }
+}
+@keyframes csq-blob5 {
+  0%,100% { --csq-x5: 50%; --csq-y5: 50%; }
+  25%     { --csq-x5: 70%; --csq-y5: 30%; }
+  50%     { --csq-x5: 40%; --csq-y5: 70%; }
+  75%     { --csq-x5: 30%; --csq-y5: 40%; }
+}
+
+@keyframes csq-size1 { 0%,100% { --csq-s1: 45%; } 50% { --csq-s1: 80%; } }
+@keyframes csq-size2 { 0%,100% { --csq-s2: 45%; } 50% { --csq-s2: 85%; } }
+@keyframes csq-size3 { 0%,100% { --csq-s3: 45%; } 50% { --csq-s3: 78%; } }
+@keyframes csq-size4 { 0%,100% { --csq-s4: 45%; } 50% { --csq-s4: 82%; } }
+@keyframes csq-size5 { 0%,100% { --csq-s5: 50%; } 50% { --csq-s5: 85%; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .csq-animated-gradient { animation: none; }
+}
+
 @layer base {
   :root {
     /* CSQ light theme — clean CRM look (slate surfaces, green brand). */
@@ -197,6 +275,66 @@
     animation: scrub-in linear both;
     animation-timeline: view();
     animation-range: entry 15% cover 35%;
+  }
+}
+
+/* Landing surface treatments (frosted glass, dashboard shadow). */
+.liquid-glass {
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 24px 70px -30px rgba(20, 26, 23, 0.25);
+}
+.shadow-dashboard {
+  box-shadow: 0 25px 80px -12px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  scrollbar-width: none;
+}
+
+/* Hero entrance (fade up). */
+@keyframes fade-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-rise {
+  animation: fade-rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.animate-fade-rise-delay {
+  animation: fade-rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.15s both;
+}
+.animate-fade-rise-delay-2 {
+  animation: fade-rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.3s both;
+}
+
+/* CTA parallax: native scroll-driven translate on the dashboard + foreground.
+   Scoped to @supports; reduced-motion safe. */
+.cta-parallax {
+  transform: translateY(0);
+}
+@supports (animation-timeline: view()) {
+  .cta-parallax {
+    animation: cta-parallax linear both;
+    animation-timeline: view();
+    animation-range: cover 0% exit 100%;
+  }
+}
+@keyframes cta-parallax {
+  from {
+    transform: translateY(80px);
+  }
+  to {
+    transform: translateY(-80px);
   }
 }
 
