@@ -5,9 +5,10 @@ import { z } from "zod";
 // graph that enters the system (API POST/PUT, runtime load) is parsed with
 // these schemas — no `as` narrowing, no trusting raw JSON.
 //
-// Node set (v1): trigger, send, wait, condition, tag, end. Fire-and-forget:
-// the scenario injects outbound messages at trigger times and never owns the
-// conversation; the AI agent handles any customer reply as normal.
+// Node set (v2): trigger, send, wait, condition, tag, end, ai, setStage,
+// assign, email. Fire-and-forget: the scenario injects outbound messages at
+// trigger times and never owns the conversation; the AI agent handles any
+// customer reply as normal.
 
 // ─────────────────────────── Enums ───────────────────────────
 
@@ -15,6 +16,8 @@ export const triggerTypeSchema = z.enum([
   "ON_NEW_CONVERSATION",
   "ON_PURCHASE",
   "ON_TAG_ADDED",
+  "ON_SCHEDULE",
+  "ON_NO_REPLY",
 ]);
 export type ScenarioTriggerType = z.infer<typeof triggerTypeSchema>;
 
@@ -42,13 +45,35 @@ export type ConditionOperator = z.infer<typeof conditionOperatorSchema>;
 
 // ─────────────────────────── Node data ───────────────────────────
 
+// HH:MM (24h) schedule time for ON_SCHEDULE.
+export const scheduleTimeSchema = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Gunakan format HH:MM (24 jam).");
+export type ScheduleTime = z.infer<typeof scheduleTimeSchema>;
+
+// Weekday selection for ON_SCHEDULE: 0 = Sunday … 6 = Saturday. An empty/absent
+// array means every day.
+export const scheduleDaysSchema = z
+  .array(z.number().int().min(0).max(6))
+  .max(7)
+  .optional();
+export type ScheduleDays = z.infer<typeof scheduleDaysSchema>;
+
+// Minutes of customer silence (after our last outbound message) before an
+// ON_NO_REPLY run starts. 1 minute … 30 days.
+export const noReplyAfterMinutesSchema = z.number().int().min(1).max(30 * 24 * 60);
+
 // Trigger node (exactly one per graph, the start). triggerType drives which
-// event starts a run; tagName is required when triggerType = ON_TAG_ADDED
-// (enforced in validateScenarioGraph, not the schema, so the discriminated
-// union stays clean).
+// event starts a run; per-type extra fields are enforced in
+// validateScenarioGraph (not the schema) so the object union stays clean:
+// ON_TAG_ADDED → tagName, ON_SCHEDULE → scheduleTime, ON_NO_REPLY →
+// noReplyAfterMinutes.
 export const triggerNodeDataSchema = z.object({
   triggerType: triggerTypeSchema,
   tagName: z.string().min(1).optional(),
+  scheduleTime: scheduleTimeSchema.optional(),
+  scheduleDays: scheduleDaysSchema,
+  noReplyAfterMinutes: noReplyAfterMinutesSchema.optional(),
 });
 
 // Send a WhatsApp message (free text + {{variable}} interpolation). On Cloud
@@ -78,6 +103,43 @@ export const tagNodeDataSchema = z.object({
 });
 
 export const endNodeDataSchema = z.object({});
+
+// AI-generated WhatsApp message. The prompt is interpolated with the run
+// context, the tenant's text LLM (services/llm.ts) generates the body, and it
+// is sent through the same window-checked path as a Send node. When the LLM is
+// not configured or generation fails, the send is skipped + audited (never a
+// silent drop, never a run failure).
+export const aiNodeDataSchema = z.object({
+  prompt: z.string().min(1).max(2000),
+});
+
+// Move the conversation's deal to a pipeline stage. The stage is resolved by
+// name within the tenant's pipeline at runtime (same resolution as the
+// deal.setStage agent tool). Reuses setConversationStage, which records deal
+// history + its own audit row.
+export const setStageNodeDataSchema = z.object({
+  stageName: z.string().min(1).max(100),
+});
+
+// Assign the conversation to a human team member; the AI agent stands down
+// (the same assignedAgentId XOR assigneeUserId invariant as the inbox).
+// `userName` is a display-only label captured at config time so the node card
+// can render a name instead of a UUID; the engine resolves `userId` fresh at
+// runtime and skips + audits if the member no longer exists.
+export const assignNodeDataSchema = z.object({
+  userId: z.string().min(1),
+  userName: z.string().max(100).optional(),
+});
+
+// Send an email to the conversation's customer (Contact.email) through the
+// tenant's own delivery integration (Settings → Email: SMTP or Resend — see
+// lib/email-config.ts / services/email.ts). Skipped + audited when the contact
+// has no email on file or the owner has not configured the integration — email
+// is a secondary channel, never a run failure.
+export const emailNodeDataSchema = z.object({
+  subject: z.string().min(1).max(200),
+  body: z.string().min(1).max(10000),
+});
 
 // ─────────────────────────── Graph ───────────────────────────
 
@@ -123,6 +185,30 @@ export const scenarioNodeSchema = z.discriminatedUnion("type", [
     position: positionSchema,
     data: endNodeDataSchema,
   }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("ai"),
+    position: positionSchema,
+    data: aiNodeDataSchema,
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("setStage"),
+    position: positionSchema,
+    data: setStageNodeDataSchema,
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("assign"),
+    position: positionSchema,
+    data: assignNodeDataSchema,
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("email"),
+    position: positionSchema,
+    data: emailNodeDataSchema,
+  }),
 ]);
 export type ScenarioNode = z.infer<typeof scenarioNodeSchema>;
 
@@ -145,8 +231,14 @@ export type ScenarioGraph = z.infer<typeof scenarioGraphSchema>;
 // ─────────────────────────── Trigger config (Scenario column) ───────────────────────────
 // Stored separately on the Scenario row so the engine can find active scenarios
 // for an event without parsing the JSON graph (indexed triggerType column).
+// Mirrors the trigger node's per-type fields: ON_TAG_ADDED → tagName,
+// ON_SCHEDULE → scheduleTime/scheduleDays (+ optional tagName target filter),
+// ON_NO_REPLY → noReplyAfterMinutes.
 export const triggerConfigSchema = z.object({
   tagName: z.string().min(1).optional(),
+  scheduleTime: scheduleTimeSchema.optional(),
+  scheduleDays: scheduleDaysSchema,
+  noReplyAfterMinutes: noReplyAfterMinutesSchema.optional(),
 });
 export type TriggerConfig = z.infer<typeof triggerConfigSchema>;
 

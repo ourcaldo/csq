@@ -42,9 +42,15 @@ export function validateScenarioGraph(
   if (triggers.length > 1) errors.push("Hanya boleh ada satu node trigger.");
   const trigger = triggers[0];
 
-  // Trigger cross-field: ON_TAG_ADDED requires tagName.
+  // Trigger cross-field requirements.
   if (trigger && trigger.data.triggerType === "ON_TAG_ADDED" && !trigger.data.tagName) {
     errors.push("Trigger ON_TAG_ADDED memerlukan nama tag.");
+  }
+  if (trigger && trigger.data.triggerType === "ON_SCHEDULE" && !trigger.data.scheduleTime) {
+    errors.push("Trigger ON_SCHEDULE memerlukan jam (HH:MM).");
+  }
+  if (trigger && trigger.data.triggerType === "ON_NO_REPLY" && !trigger.data.noReplyAfterMinutes) {
+    errors.push("Trigger ON_NO_REPLY memerlukan durasi tanpa balasan (menit).");
   }
 
   // At least one end node.
@@ -144,10 +150,10 @@ export function validateScenarioGraph(
     }
   }
 
-  // 24h window warning (Cloud API only): if a Send sits behind Waits summing
-  // to >= 24h along any path, the runtime will skip it (window closed). Warn
-  // at build time so the owner knows. This is heuristic — the real check is
-  // at send time against the customer's last inbound timestamp.
+  // 24h window warning (Cloud API only): if a Send or AI-generated send sits
+  // behind Waits summing to >= 24h along any path, the runtime will skip it
+  // (window closed). Warn at build time so the owner knows. This is heuristic —
+  // the real check is at send time against the customer's last inbound timestamp.
   if (opts.cloudApi && trigger) {
     const sendWarned = new Set<string>();
     function walk(id: string, accWaitMs: number): void {
@@ -155,10 +161,14 @@ export function validateScenarioGraph(
       if (!node) return;
       let wait = accWaitMs;
       if (node.type === "wait") wait += node.data.durationMs;
-      if (node.type === "send" && wait >= CLOUD_API_WINDOW_MS && !sendWarned.has(id)) {
+      if (
+        (node.type === "send" || node.type === "ai") &&
+        wait >= CLOUD_API_WINDOW_MS &&
+        !sendWarned.has(id)
+      ) {
         sendWarned.add(id);
         warnings.push(
-          `Node Send (${id}) mungkin melewati jendela 24 jam Cloud API dan akan dilewati saat runtime.`
+          `Node ${node.type === "send" ? "Kirim Pesan" : "Pesan AI"} (${id}) mungkin melewati jendela 24 jam Cloud API dan akan dilewati saat runtime.`
         );
       }
       for (const e of outEdges(id)) {
@@ -166,6 +176,19 @@ export function validateScenarioGraph(
       }
     }
     walk(trigger.id, 0);
+  }
+
+  // Scheduled-blast window warning (Cloud API only): an ON_SCHEDULE scenario
+  // messages customers who may not have written within 24h — most sends will
+  // be skipped by the runtime window. Templates are the compliant path for
+  // out-of-window outreach; warn so the owner knows what to expect.
+  if (opts.cloudApi && trigger && trigger.data.triggerType === "ON_SCHEDULE") {
+    const hasSend = nodes.some((n) => n.type === "send" || n.type === "ai");
+    if (hasSend) {
+      warnings.push(
+        "Pemicu Jadwal mengirim ke pelanggan yang mungkin sudah melewati jendela 24 jam Cloud API — pesan tersebut akan dilewati saat runtime (dicatat di audit)."
+      );
+    }
   }
 
   return { errors, warnings };

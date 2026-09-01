@@ -23,6 +23,8 @@ const TRIGGER_LABEL: Record<ScenarioTriggerType, string> = {
   ON_NEW_CONVERSATION: "Percakapan baru",
   ON_PURCHASE: "Pesanan dibuat",
   ON_TAG_ADDED: "Tag ditambahkan",
+  ON_SCHEDULE: "Jadwal",
+  ON_NO_REPLY: "Tanpa balasan pelanggan",
 };
 
 const STATUS_LABEL: Record<ScenarioStatus, string> = {

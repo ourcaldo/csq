@@ -11,6 +11,7 @@ import {
   triggerTypeSchema,
   triggerConfigSchema,
   type ScenarioGraph,
+  type TriggerConfig,
 } from "@/types/scenario";
 
 // Scenario list + create. Scenarios are tenant-scoped; tenantId always from
@@ -37,7 +38,7 @@ const createSchema = z.object({
 // builder. Carries the trigger config so the trigger node matches the column.
 function defaultGraph(
   triggerType: z.infer<typeof triggerTypeSchema>,
-  triggerConfig?: { tagName?: string }
+  triggerConfig?: TriggerConfig
 ): ScenarioGraph {
   return {
     nodes: [
@@ -45,7 +46,13 @@ function defaultGraph(
         id: "trigger-1",
         type: "trigger",
         position: { x: 80, y: 200 },
-        data: { triggerType, tagName: triggerConfig?.tagName },
+        data: {
+          triggerType,
+          tagName: triggerConfig?.tagName,
+          scheduleTime: triggerConfig?.scheduleTime,
+          scheduleDays: triggerConfig?.scheduleDays,
+          noReplyAfterMinutes: triggerConfig?.noReplyAfterMinutes,
+        },
       },
       {
         id: "end-1",
@@ -94,12 +101,26 @@ export default async function handler(
       return respondError(res, "VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Input tidak valid.");
     }
     const data = parsed.data;
-    // ON_TAG_ADDED requires a tagName on the trigger.
+    // Per-trigger-type required fields at creation.
     if (data.triggerType === "ON_TAG_ADDED" && !data.triggerConfig?.tagName) {
       return respondError(
         res,
         "VALIDATION_ERROR",
         "Trigger ON_TAG_ADDED memerlukan nama tag (triggerConfig.tagName)."
+      );
+    }
+    if (data.triggerType === "ON_SCHEDULE" && !data.triggerConfig?.scheduleTime) {
+      return respondError(
+        res,
+        "VALIDATION_ERROR",
+        "Trigger ON_SCHEDULE memerlukan jam (triggerConfig.scheduleTime, HH:MM)."
+      );
+    }
+    if (data.triggerType === "ON_NO_REPLY" && !data.triggerConfig?.noReplyAfterMinutes) {
+      return respondError(
+        res,
+        "VALIDATION_ERROR",
+        "Trigger ON_NO_REPLY memerlukan durasi tanpa balasan (triggerConfig.noReplyAfterMinutes)."
       );
     }
 

@@ -8,7 +8,11 @@ import { sheetsSourceConfigSchema } from "@/types/sheets";
 import { getGoogleCreds } from "@/lib/google-connect";
 import { replaceSourceRows } from "@/lib/source-rows";
 import { startBaileysChannels, startBaileysHeartbeat } from "@/services/baileys";
-import { registerScenarioEngine, resumePausedRuns } from "@/lib/scenario-engine";
+import {
+  registerScenarioEngine,
+  resumePausedRuns,
+  runScheduledTriggers,
+} from "@/lib/scenario-engine";
 
 // In-process periodic sync for Google Sheets sources (PRD §23A — no Redis/queue,
 // node-cron runs inside the Next.js server). Server-only: callers must invoke
@@ -38,12 +42,16 @@ export function startScheduler(): void {
     });
   });
   // Every minute — resume scenario runs paused on a Wait node whose resumeAt
-  // has passed, plus runs deferred at the concurrency cap. Bounded per tick
-  // (take 50); remaining picked up next tick. Fire-and-forget, per-run errors
-  // logged inside resumePausedRuns/scheduleAdvance.
+  // has passed, plus runs deferred at the concurrency cap; and evaluate the
+  // scheduler-driven triggers (ON_SCHEDULE time match, ON_NO_REPLY silence
+  // windows). Bounded per tick; remaining picked up next tick. Fire-and-forget,
+  // per-run errors logged inside the engine.
   cron.schedule("* * * * *", () => {
     void resumePausedRuns().catch(() => {
       // Per-run errors are logged inside; swallow top-level failures.
+    });
+    void runScheduledTriggers().catch(() => {
+      // Per-scenario errors are logged inside; swallow top-level failures.
     });
   });
 }
