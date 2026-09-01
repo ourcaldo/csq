@@ -45,6 +45,8 @@ const TRIGGER_LABEL: Record<ScenarioTriggerType, string> = {
   ON_NEW_CONVERSATION: "Percakapan baru",
   ON_PURCHASE: "Pesanan dibuat",
   ON_TAG_ADDED: "Tag ditambahkan",
+  ON_SCHEDULE: "Jadwal",
+  ON_NO_REPLY: "Tanpa balasan pelanggan",
 };
 
 const STATUS_TONE: Record<ScenarioStatus, "neutral" | "green" | "amber"> = {
@@ -86,6 +88,11 @@ const INSERTABLE: { type: string; label: string }[] = [
 // /api/dashboard/scenarios/team — id/name/role only, no secrets).
 type TeamMember = { id: string; name: string; role: string };
 
+// Pipeline stage option for the setStage node's dropdown (from
+// GET /api/dashboard/pipeline — any authenticated member; the route
+// lazy-seeds the default template so the list is never empty in practice).
+type StageOption = { id: string; name: string; order: number; kind: string };
+
 // Right-click context menu state. `flowX/flowY` are canvas coords for placing a
 // new node; `clientX/clientY` are viewport coords for positioning the menu.
 type MenuState =
@@ -100,6 +107,12 @@ function str(v: unknown): string {
 function num(v: unknown): number {
   return typeof v === "number" && Number.isFinite(v) ? v : 0;
 }
+function dayArray(v: unknown): number[] {
+  return Array.isArray(v) ? v.filter((d): d is number => typeof d === "number" && d >= 0 && d <= 6) : [];
+}
+
+// Weekday chip labels for the ON_SCHEDULE editor (0 = Sunday).
+const DAY_LABELS = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
 
 let idCounter = 0;
 function newId(prefix: string): string {
@@ -140,6 +153,11 @@ function Builder({ id }: { id: string }) {
     "/api/dashboard/scenarios/team"
   );
   const team: TeamMember[] = teamData?.items ?? [];
+  // setStage-node dropdown options — the tenant's actual pipeline stages.
+  const { data: pipelineData } = useApi<{ stages: StageOption[] }>(
+    "/api/dashboard/pipeline"
+  );
+  const stages: StageOption[] = pipelineData?.stages ?? [];
 
   const [nodes, setNodes, onNodesChangeRaw] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChangeRaw] = useEdgesState<Edge>([]);
@@ -492,6 +510,20 @@ function Builder({ id }: { id: string }) {
     const trigger = nodes.find((n) => n.type === "trigger");
     const triggerType = str(trigger?.data?.triggerType);
     const tagName = str(trigger?.data?.tagName);
+    // Mirror the trigger node's per-type fields onto the Scenario column so
+    // the engine can match triggers without parsing the graph.
+    const triggerConfig: Record<string, unknown> = {};
+    if (tagName) triggerConfig.tagName = tagName;
+    if (triggerType === "ON_SCHEDULE") {
+      const scheduleTime = str(trigger?.data?.scheduleTime);
+      const scheduleDays = dayArray(trigger?.data?.scheduleDays);
+      if (scheduleTime) triggerConfig.scheduleTime = scheduleTime;
+      if (scheduleDays.length > 0) triggerConfig.scheduleDays = scheduleDays;
+    }
+    if (triggerType === "ON_NO_REPLY") {
+      const noReplyAfterMinutes = num(trigger?.data?.noReplyAfterMinutes);
+      if (noReplyAfterMinutes > 0) triggerConfig.noReplyAfterMinutes = noReplyAfterMinutes;
+    }
     const graph = {
       nodes: nodes.map((n) => ({
         id: n.id,
@@ -511,7 +543,7 @@ function Builder({ id }: { id: string }) {
         name,
         description: description || undefined,
         triggerType,
-        triggerConfig: tagName ? { tagName } : {},
+        triggerConfig,
         graph,
       });
       setFormInfo("Tersimpan.");
@@ -630,7 +662,13 @@ function Builder({ id }: { id: string }) {
   );
 
   const propertiesInner = (
-    <PropertiesPanel node={selectedNode} canEdit={canEdit} onPatch={patchSelected} team={team} />
+    <PropertiesPanel
+      node={selectedNode}
+      canEdit={canEdit}
+      onPatch={patchSelected}
+      team={team}
+      stages={stages}
+    />
   );
 
   return (
@@ -996,11 +1034,13 @@ function PropertiesPanel({
   canEdit,
   onPatch,
   team,
+  stages,
 }: {
   node: Node | null;
   canEdit: boolean;
   onPatch: (patch: Record<string, unknown>) => void;
   team: TeamMember[];
+  stages: StageOption[];
 }) {
   if (!node) {
     return (
@@ -1028,6 +1068,8 @@ function PropertiesPanel({
                 <option value="ON_NEW_CONVERSATION">Percakapan baru</option>
                 <option value="ON_PURCHASE">Pesanan dibuat</option>
                 <option value="ON_TAG_ADDED">Tag ditambahkan</option>
+                <option value="ON_SCHEDULE">Jadwal (waktu tertentu)</option>
+                <option value="ON_NO_REPLY">Tanpa balasan pelanggan</option>
               </Select>
             </div>
             {str(node.data?.triggerType) === "ON_TAG_ADDED" && (
@@ -1036,8 +1078,98 @@ function PropertiesPanel({
                 <Input
                   disabled={!canEdit}
                   value={str(node.data?.tagName)}
+                  placeholder="hot-lead"
                   onChange={(e) => onPatch({ tagName: e.target.value })}
                 />
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Skenario berjalan saat percakapan diberi tag ini.
+                </p>
+              </div>
+            )}
+            {str(node.data?.triggerType) === "ON_SCHEDULE" && (
+              <>
+                <div>
+                  <Label className="text-xs">Jam (WIB)</Label>
+                  <Input
+                    type="time"
+                    disabled={!canEdit}
+                    value={str(node.data?.scheduleTime)}
+                    onChange={(e) => onPatch({ scheduleTime: e.target.value })}
+                  />
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    Berjalan setiap hari pada jam ini (waktu Jakarta).
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-xs">Hari</Label>
+                  <div className="flex flex-wrap gap-1">
+                    {DAY_LABELS.map((label, i) => {
+                      const days = dayArray(node.data?.scheduleDays);
+                      const on = days.includes(i);
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          disabled={!canEdit}
+                          onClick={() =>
+                            onPatch({
+                              scheduleDays: on
+                                ? days.filter((d) => d !== i)
+                                : [...days, i].sort((a, b) => a - b),
+                            })
+                          }
+                          className={
+                            "h-7 w-10 rounded-md border text-xs " +
+                            (on
+                              ? "border-green-600 bg-green-50 font-semibold text-green-700"
+                              : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50")
+                          }
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    Tanpa pilihan = setiap hari.
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-xs">Tag Target (opsional)</Label>
+                  <Input
+                    disabled={!canEdit}
+                    value={str(node.data?.tagName)}
+                    placeholder="promo"
+                    onChange={(e) => onPatch({ tagName: e.target.value })}
+                  />
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    Kosong = semua percakapan terbuka. Isi = hanya pelanggan
+                    dengan tag tersebut.
+                  </p>
+                </div>
+              </>
+            )}
+            {str(node.data?.triggerType) === "ON_NO_REPLY" && (
+              <div>
+                <Label className="text-xs">Tanpa Balasan (menit)</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  disabled={!canEdit}
+                  value={num(node.data?.noReplyAfterMinutes) || ""}
+                  placeholder="240"
+                  onChange={(e) => {
+                    const n = Number.parseInt(e.target.value, 10);
+                    onPatch({
+                      noReplyAfterMinutes: Number.isFinite(n) && n > 0 ? n : 0,
+                    });
+                  }}
+                />
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Berjalan bila pesan terakhir kita tidak dibalas pelanggan
+                  selama durasi ini (mis. 240 = 4 jam). Maksimal satu kali
+                  per pelanggan per hari.
+                </p>
               </div>
             )}
           </>
@@ -1135,19 +1267,7 @@ function PropertiesPanel({
         )}
 
         {type === "setStage" && (
-          <div>
-            <Label className="text-xs">Nama Tahap</Label>
-            <Input
-              disabled={!canEdit}
-              value={str(node.data?.stageName)}
-              placeholder="Pesanan"
-              onChange={(e) => onPatch({ stageName: e.target.value })}
-            />
-            <p className="mt-1 text-[11px] text-slate-400">
-              Tahap pipeline percakapan ini (mis. Baru, Tertarik, Penawaran,
-              Pesanan, Menang). Deal berpindah ke tahap tersebut.
-            </p>
-          </div>
+          <StageEditor node={node} canEdit={canEdit} onPatch={onPatch} stages={stages} />
         )}
 
         {type === "assign" && (
@@ -1239,6 +1359,72 @@ function WaitEditor({
           Di Cloud API, pesan setelah tunggu &ge; 24 jam mungkin dilewati (jendela 24 jam).
         </p>
       )}
+    </>
+  );
+}
+
+// setStage-node editor: a dropdown of the tenant's actual pipeline stages
+// (from GET /api/dashboard/pipeline) so owners pick from what they configured
+// instead of typing free text. Terminal stages (Menang/Kalah) are offered with
+// a hint — moving INTO them is fine; the engine blocks moving a deal OUT of a
+// terminal stage at runtime (skip + audit). Falls back to a text input only if
+// the stage list hasn't loaded (e.g. fetch failed); the engine resolves the
+// name against the pipeline at runtime either way.
+function StageEditor({
+  node,
+  canEdit,
+  onPatch,
+  stages,
+}: {
+  node: Node;
+  canEdit: boolean;
+  onPatch: (patch: Record<string, unknown>) => void;
+  stages: StageOption[];
+}) {
+  const stageName = str(node.data?.stageName);
+  const inList = stages.some((s) => s.name === stageName);
+  return (
+    <>
+      {stages.length > 0 ? (
+        <div>
+          <Label className="text-xs">Tahap Pipeline</Label>
+          <Select
+            disabled={!canEdit}
+            value={inList ? stageName : ""}
+            onChange={(e) => onPatch({ stageName: e.target.value })}
+          >
+            <option value="">— pilih tahap —</option>
+            {stages.map((s) => (
+              <option key={s.id} value={s.name}>
+                {s.name}
+                {s.kind === "WON" || s.kind === "LOST" ? " (tahap akhir)" : ""}
+              </option>
+            ))}
+          </Select>
+          {!inList && stageName && (
+            <p className="mt-1 text-[11px] text-amber-700">
+              Tahap &quot;{stageName}&quot; tidak ada di pipeline — pilih ulang.
+            </p>
+          )}
+        </div>
+      ) : (
+        <div>
+          <Label className="text-xs">Nama Tahap</Label>
+          <Input
+            disabled={!canEdit}
+            value={stageName}
+            placeholder="Pesanan"
+            onChange={(e) => onPatch({ stageName: e.target.value })}
+          />
+          <p className="mt-1 text-[11px] text-slate-400">
+            Daftar tahap belum termuat — masukkan nama tahap manual.
+          </p>
+        </div>
+      )}
+      <p className="text-[11px] text-slate-400">
+        Deal percakapan ini dipindahkan ke tahap tersebut (dicatat di riwayat
+        pipeline). Mengubah tahap dilakukan lewat halaman Pipeline.
+      </p>
     </>
   );
 }

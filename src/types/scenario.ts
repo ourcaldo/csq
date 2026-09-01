@@ -16,6 +16,8 @@ export const triggerTypeSchema = z.enum([
   "ON_NEW_CONVERSATION",
   "ON_PURCHASE",
   "ON_TAG_ADDED",
+  "ON_SCHEDULE",
+  "ON_NO_REPLY",
 ]);
 export type ScenarioTriggerType = z.infer<typeof triggerTypeSchema>;
 
@@ -43,13 +45,35 @@ export type ConditionOperator = z.infer<typeof conditionOperatorSchema>;
 
 // ─────────────────────────── Node data ───────────────────────────
 
+// HH:MM (24h) schedule time for ON_SCHEDULE.
+export const scheduleTimeSchema = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Gunakan format HH:MM (24 jam).");
+export type ScheduleTime = z.infer<typeof scheduleTimeSchema>;
+
+// Weekday selection for ON_SCHEDULE: 0 = Sunday … 6 = Saturday. An empty/absent
+// array means every day.
+export const scheduleDaysSchema = z
+  .array(z.number().int().min(0).max(6))
+  .max(7)
+  .optional();
+export type ScheduleDays = z.infer<typeof scheduleDaysSchema>;
+
+// Minutes of customer silence (after our last outbound message) before an
+// ON_NO_REPLY run starts. 1 minute … 30 days.
+export const noReplyAfterMinutesSchema = z.number().int().min(1).max(30 * 24 * 60);
+
 // Trigger node (exactly one per graph, the start). triggerType drives which
-// event starts a run; tagName is required when triggerType = ON_TAG_ADDED
-// (enforced in validateScenarioGraph, not the schema, so the discriminated
-// union stays clean).
+// event starts a run; per-type extra fields are enforced in
+// validateScenarioGraph (not the schema) so the object union stays clean:
+// ON_TAG_ADDED → tagName, ON_SCHEDULE → scheduleTime, ON_NO_REPLY →
+// noReplyAfterMinutes.
 export const triggerNodeDataSchema = z.object({
   triggerType: triggerTypeSchema,
   tagName: z.string().min(1).optional(),
+  scheduleTime: scheduleTimeSchema.optional(),
+  scheduleDays: scheduleDaysSchema,
+  noReplyAfterMinutes: noReplyAfterMinutesSchema.optional(),
 });
 
 // Send a WhatsApp message (free text + {{variable}} interpolation). On Cloud
@@ -207,8 +231,14 @@ export type ScenarioGraph = z.infer<typeof scenarioGraphSchema>;
 // ─────────────────────────── Trigger config (Scenario column) ───────────────────────────
 // Stored separately on the Scenario row so the engine can find active scenarios
 // for an event without parsing the JSON graph (indexed triggerType column).
+// Mirrors the trigger node's per-type fields: ON_TAG_ADDED → tagName,
+// ON_SCHEDULE → scheduleTime/scheduleDays (+ optional tagName target filter),
+// ON_NO_REPLY → noReplyAfterMinutes.
 export const triggerConfigSchema = z.object({
   tagName: z.string().min(1).optional(),
+  scheduleTime: scheduleTimeSchema.optional(),
+  scheduleDays: scheduleDaysSchema,
+  noReplyAfterMinutes: noReplyAfterMinutesSchema.optional(),
 });
 export type TriggerConfig = z.infer<typeof triggerConfigSchema>;
 

@@ -58,16 +58,34 @@ export default async function handler(
     }
     const data = parsed.data;
 
-    // If trigger type is becoming ON_TAG_ADDED, tagName must be set (either in
-    // this update's triggerConfig or the existing one).
+    // Per-trigger-type required fields must survive the update: either this
+    // update's triggerConfig carries them, or the existing one already does.
     const effectiveTriggerType = data.triggerType ?? existing.triggerType;
-    const effectiveTagName =
-      data.triggerConfig?.tagName ?? (parseExistingTag(existing.triggerConfig));
+    const existingCfg = parseExistingConfig(existing.triggerConfig);
+    const effectiveTagName = data.triggerConfig?.tagName ?? existingCfg?.tagName;
     if (effectiveTriggerType === "ON_TAG_ADDED" && !effectiveTagName) {
       return respondError(
         res,
         "VALIDATION_ERROR",
         "Trigger ON_TAG_ADDED memerlukan nama tag."
+      );
+    }
+    const effectiveScheduleTime =
+      data.triggerConfig?.scheduleTime ?? existingCfg?.scheduleTime;
+    if (effectiveTriggerType === "ON_SCHEDULE" && !effectiveScheduleTime) {
+      return respondError(
+        res,
+        "VALIDATION_ERROR",
+        "Trigger ON_SCHEDULE memerlukan jam (triggerConfig.scheduleTime, HH:MM)."
+      );
+    }
+    const effectiveNoReply =
+      data.triggerConfig?.noReplyAfterMinutes ?? existingCfg?.noReplyAfterMinutes;
+    if (effectiveTriggerType === "ON_NO_REPLY" && !effectiveNoReply) {
+      return respondError(
+        res,
+        "VALIDATION_ERROR",
+        "Trigger ON_NO_REPLY memerlukan durasi tanpa balasan (triggerConfig.noReplyAfterMinutes)."
       );
     }
 
@@ -111,8 +129,13 @@ export default async function handler(
 }
 
 // Extract tagName from a stored triggerConfig Json without `as`.
-function parseExistingTag(raw: unknown): string | undefined {
+function parseExistingConfig(raw: unknown): {
+  tagName?: string;
+  scheduleTime?: string;
+  scheduleDays?: number[];
+  noReplyAfterMinutes?: number;
+} | undefined {
   const parsed = triggerConfigSchema.safeParse(raw);
   if (!parsed.success) return undefined;
-  return parsed.data.tagName;
+  return parsed.data;
 }

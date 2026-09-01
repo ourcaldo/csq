@@ -22,6 +22,7 @@ import {
   type ScenarioNode,
   type RunContext,
   type ScenarioTriggerType,
+  type TriggerConfig,
 } from "@/types/scenario";
 
 // Scenario execution engine. Fire-and-forget: a scenario injects outbound
@@ -141,35 +142,47 @@ async function startRunsForTrigger(
 
     // Idempotent create: @@unique([scenarioId, dedupKey]) means a redelivered
     // event or double-fire collides and we skip the duplicate run.
-    let run: { id: string } | null = null;
-    try {
-      run = await prisma.scenarioRun.create({
-        data: {
-          tenantId,
-          scenarioId: scenario.id,
-          conversationId,
-          status: "RUNNING",
-          currentNodeId: null,
-          context: toJsonValue(input.context),
-          dedupKey: input.dedupKey,
-        },
-      });
-    } catch (err) {
-      if (
-        err instanceof Prisma.PrismaClientKnownRequestError &&
-        err.code === "P2002"
-      ) {
-        continue; // duplicate trigger — already ran/running for this ref
-      }
-      console.error(`[scenario] failed to create run for scenario ${scenario.id}:`, err);
-      continue;
-    }
-
-    if (run) {
-      void scheduleAdvance(run.id).catch((err: unknown) =>
-        console.error(`[scenario] scheduleAdvance ${run.id} threw:`, err)
+    const runId = await createRunOnce(scenario, conversationId, input.dedupKey, input.context);
+    if (runId) {
+      void scheduleAdvance(runId).catch((err: unknown) =>
+        console.error(`[scenario] scheduleAdvance ${runId} threw:`, err)
       );
     }
+  }
+}
+
+// Create one run, idempotently: @@unique([scenarioId, dedupKey]) means a
+// redelivered event or double-fire collides (P2002) and returns null instead of
+// duplicating the run. Shared by the event triggers and the scheduler-driven
+// triggers (ON_SCHEDULE / ON_NO_REPLY).
+async function createRunOnce(
+  scenario: { id: string; tenantId: string },
+  conversationId: string,
+  dedupKey: string,
+  context: RunContext
+): Promise<string | null> {
+  try {
+    const run = await prisma.scenarioRun.create({
+      data: {
+        tenantId: scenario.tenantId,
+        scenarioId: scenario.id,
+        conversationId,
+        status: "RUNNING",
+        currentNodeId: null,
+        context: toJsonValue(context),
+        dedupKey,
+      },
+    });
+    return run.id;
+  } catch (err) {
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === "P2002"
+    ) {
+      return null; // duplicate trigger — already ran/running for this ref
+    }
+    console.error(`[scenario] failed to create run for scenario ${scenario.id}:`, err);
+    return null;
   }
 }
 
@@ -781,9 +794,192 @@ export async function resumePausedRuns(): Promise<void> {
   }
 }
 
+// ─────────────────────────── Scheduler-driven triggers ───────────────────────────
+// ON_SCHEDULE and ON_NO_REPLY are not event-bus driven — the every-minute
+// scheduler tick calls runScheduledTriggers(), which decides per scenario
+// whether the current minute is a firing minute and creates one run per
+// target conversation (deduped per conversation per day, bounded per fire).
+
+// Schedule times are interpreted in this timezone (the target market), not
+// the server clock — a 10:00 promo fires at 10:00 WIB regardless of VPS TZ.
+const SCHEDULE_TZ = process.env.SCENARIO_SCHEDULE_TZ ?? "Asia/Jakarta";
+
+// Upper bound on conversations per scheduled fire / per no-reply scan. A
+// blast past this cap is truncated (most-recent first) + audited — never a
+// silent drop, never an unbounded fan-out.
+const SCHEDULE_TARGET_CAP = 100;
+
+const WEEKDAY_INDEX: Record<string, number> = {
+  Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6,
+};
+
+function nowInScheduleTz(now: Date): {
+  hour: number;
+  minute: number;
+  weekday: number;
+  date: string;
+} {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: SCHEDULE_TZ,
+    hourCycle: "h23",
+    hour: "2-digit",
+    minute: "2-digit",
+    weekday: "short",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const get = (type: string): string =>
+    parts.find((p) => p.type === type)?.value ?? "";
+  return {
+    hour: Number(get("hour")),
+    minute: Number(get("minute")),
+    weekday: WEEKDAY_INDEX[get("weekday")] ?? 0,
+    date: `${get("year")}-${get("month")}-${get("day")}`,
+  };
+}
+
+// Called every minute by the scheduler, alongside resumePausedRuns.
+export async function runScheduledTriggers(): Promise<void> {
+  const now = nowInScheduleTz(new Date());
+  const time = `${String(now.hour).padStart(2, "0")}:${String(now.minute).padStart(2, "0")}`;
+
+  // ON_SCHEDULE: fires in the configured minute; the dedup key (below) makes
+  // a re-fire within the same day a no-op, so an exact minute match suffices.
+  const scheduled = await prisma.scenario.findMany({
+    where: { triggerType: "ON_SCHEDULE", status: "ACTIVE" },
+  });
+  for (const scenario of scheduled) {
+    const cfg = parseTriggerConfig(scenario.triggerConfig);
+    if (!cfg?.scheduleTime) continue;
+    if (cfg.scheduleTime !== time) continue;
+    const days = cfg.scheduleDays ?? [];
+    if (days.length > 0 && !days.includes(now.weekday)) continue;
+    await fireForConversations(scenario, {
+      dedupPrefix: `sched:${now.date}`,
+      tagFilter: cfg.tagName ?? null,
+    });
+  }
+
+  // ON_NO_REPLY: conversations where OUR last message has gone unanswered for
+  // longer than the configured silence window. At most one run per
+  // conversation per day (dedup key carries the date).
+  const noReply = await prisma.scenario.findMany({
+    where: { triggerType: "ON_NO_REPLY", status: "ACTIVE" },
+  });
+  for (const scenario of noReply) {
+    const cfg = parseTriggerConfig(scenario.triggerConfig);
+    if (!cfg?.noReplyAfterMinutes) continue;
+    await fireForSilentConversations(scenario, cfg.noReplyAfterMinutes, now.date);
+  }
+}
+
+// ON_SCHEDULE targets: the tenant's OPEN conversations on CONNECTED channels,
+// optionally narrowed to a tag (e.g. only customers tagged "promo"). Most
+// recent activity first; capped at SCHEDULE_TARGET_CAP per fire.
+async function fireForConversations(
+  scenario: { id: string; tenantId: string },
+  opts: { dedupPrefix: string; tagFilter: string | null }
+): Promise<void> {
+  const convs = await prisma.conversation.findMany({
+    where: {
+      tenantId: scenario.tenantId,
+      status: "OPEN",
+      channel: { status: "CONNECTED" },
+      ...(opts.tagFilter
+        ? { tags: { some: { tag: { name: opts.tagFilter } } } }
+        : {}),
+    },
+    include: { contact: true },
+    orderBy: { lastMessageAt: "desc" },
+    take: SCHEDULE_TARGET_CAP,
+  });
+  if (convs.length === 0) return;
+  if (convs.length === SCHEDULE_TARGET_CAP) {
+    await logAction({
+      tenantId: scenario.tenantId,
+      agentId: null,
+      action: "scenario.schedule_capped",
+      entityType: "Scenario",
+      entityId: scenario.id,
+      approvalStatus: "NONE",
+      afterValue: { cap: SCHEDULE_TARGET_CAP, note: "Target percakapan dipangkas ke 100 terbaru." },
+    }).catch(() => undefined);
+  }
+  for (const conv of convs) {
+    const runId = await createRunOnce(
+      scenario,
+      conv.id,
+      `${opts.dedupPrefix}:${conv.id}`,
+      {
+        customer_name: conv.contact?.name ?? "",
+        customer_phone: conv.customerPhone,
+        conversation_id: conv.id,
+      }
+    );
+    if (runId) {
+      void scheduleAdvance(runId).catch((err: unknown) =>
+        console.error(`[scenario] scheduleAdvance ${runId} threw:`, err)
+      );
+    }
+  }
+}
+
+// ON_NO_REPLY targets: OPEN conversations on CONNECTED channels whose last
+// activity is older than the silence window AND whose latest message is
+// OUTBOUND (we replied; the customer never did). Oldest first. Conversations
+// already nudged today are filtered out BEFORE the per-conversation last-
+// message lookup so the every-minute scan stays cheap after the first pass.
+async function fireForSilentConversations(
+  scenario: { id: string; tenantId: string },
+  afterMinutes: number,
+  dateKey: string
+): Promise<void> {
+  const cutoff = new Date(Date.now() - afterMinutes * 60 * 1000);
+  const candidates = await prisma.conversation.findMany({
+    where: {
+      tenantId: scenario.tenantId,
+      status: "OPEN",
+      channel: { status: "CONNECTED" },
+      lastMessageAt: { lte: cutoff },
+    },
+    include: { contact: true },
+    orderBy: { lastMessageAt: "asc" },
+    take: SCHEDULE_TARGET_CAP,
+  });
+  if (candidates.length === 0) return;
+
+  const prefix = `noreply:${dateKey}:`;
+  const todays = await prisma.scenarioRun.findMany({
+    where: { scenarioId: scenario.id, dedupKey: { startsWith: prefix } },
+    select: { dedupKey: true },
+  });
+  const nudged = new Set(todays.map((r) => r.dedupKey.slice(prefix.length)));
+
+  for (const conv of candidates) {
+    if (nudged.has(conv.id)) continue;
+    const last = await prisma.message.findFirst({
+      where: { tenantId: scenario.tenantId, conversationId: conv.id },
+      orderBy: { createdAt: "desc" },
+      select: { direction: true },
+    });
+    if (!last || last.direction !== "OUTBOUND") continue;
+    const runId = await createRunOnce(scenario, conv.id, `${prefix}${conv.id}`, {
+      customer_name: conv.contact?.name ?? "",
+      customer_phone: conv.customerPhone,
+      conversation_id: conv.id,
+    });
+    if (runId) {
+      void scheduleAdvance(runId).catch((err: unknown) =>
+        console.error(`[scenario] scheduleAdvance ${runId} threw:`, err)
+      );
+    }
+  }
+}
+
 // ─────────────────────────── Helpers ───────────────────────────
 
-function parseTriggerConfig(raw: unknown): { tagName?: string } | null {
+function parseTriggerConfig(raw: unknown): TriggerConfig | null {
   const parsed = triggerConfigSchema.safeParse(raw);
   if (!parsed.success) return null;
   return parsed.data;

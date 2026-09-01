@@ -76,7 +76,15 @@ export const TriggerNode = memo(function TriggerNode({ data, selected }: NodePro
         ? "Pesanan dibuat"
         : triggerType === "ON_TAG_ADDED"
           ? `Tag: ${str(data?.tagName) || "?"}`
-          : "—";
+          : triggerType === "ON_SCHEDULE"
+            ? `Jadwal ${str(data?.scheduleTime) || "?"}${
+                typeof data?.tagName === "string" && data.tagName ? ` · ${data.tagName}` : ""
+              }`
+            : triggerType === "ON_NO_REPLY"
+              ? `Tanpa balasan ${
+                  typeof data?.noReplyAfterMinutes === "number" ? `${data.noReplyAfterMinutes}m` : "?"
+                }`
+              : "—";
   return (
     <NodeShell type="trigger" selected={selected}>
       <Handle type="target" position={Position.Left} isConnectable={false} />

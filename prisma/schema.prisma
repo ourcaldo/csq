@@ -148,6 +148,8 @@ enum ScenarioTriggerType {
   ON_NEW_CONVERSATION
   ON_PURCHASE
   ON_TAG_ADDED
+  ON_SCHEDULE
+  ON_NO_REPLY
 }
 
 // ─────────────────────────── Models ───────────────────────────

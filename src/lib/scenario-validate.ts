@@ -42,9 +42,15 @@ export function validateScenarioGraph(
   if (triggers.length > 1) errors.push("Hanya boleh ada satu node trigger.");
   const trigger = triggers[0];
 
-  // Trigger cross-field: ON_TAG_ADDED requires tagName.
+  // Trigger cross-field requirements.
   if (trigger && trigger.data.triggerType === "ON_TAG_ADDED" && !trigger.data.tagName) {
     errors.push("Trigger ON_TAG_ADDED memerlukan nama tag.");
+  }
+  if (trigger && trigger.data.triggerType === "ON_SCHEDULE" && !trigger.data.scheduleTime) {
+    errors.push("Trigger ON_SCHEDULE memerlukan jam (HH:MM).");
+  }
+  if (trigger && trigger.data.triggerType === "ON_NO_REPLY" && !trigger.data.noReplyAfterMinutes) {
+    errors.push("Trigger ON_NO_REPLY memerlukan durasi tanpa balasan (menit).");
   }
 
   // At least one end node.
@@ -170,6 +176,19 @@ export function validateScenarioGraph(
       }
     }
     walk(trigger.id, 0);
+  }
+
+  // Scheduled-blast window warning (Cloud API only): an ON_SCHEDULE scenario
+  // messages customers who may not have written within 24h — most sends will
+  // be skipped by the runtime window. Templates are the compliant path for
+  // out-of-window outreach; warn so the owner knows what to expect.
+  if (opts.cloudApi && trigger && trigger.data.triggerType === "ON_SCHEDULE") {
+    const hasSend = nodes.some((n) => n.type === "send" || n.type === "ai");
+    if (hasSend) {
+      warnings.push(
+        "Pemicu Jadwal mengirim ke pelanggan yang mungkin sudah melewati jendela 24 jam Cloud API — pesan tersebut akan dilewati saat runtime (dicatat di audit)."
+      );
+    }
   }
 
   return { errors, warnings };
