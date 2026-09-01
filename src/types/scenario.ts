@@ -5,9 +5,10 @@ import { z } from "zod";
 // graph that enters the system (API POST/PUT, runtime load) is parsed with
 // these schemas — no `as` narrowing, no trusting raw JSON.
 //
-// Node set (v1): trigger, send, wait, condition, tag, end. Fire-and-forget:
-// the scenario injects outbound messages at trigger times and never owns the
-// conversation; the AI agent handles any customer reply as normal.
+// Node set (v2): trigger, send, wait, condition, tag, end, ai, setStage,
+// assign, email. Fire-and-forget: the scenario injects outbound messages at
+// trigger times and never owns the conversation; the AI agent handles any
+// customer reply as normal.
 
 // ─────────────────────────── Enums ───────────────────────────
 
@@ -79,6 +80,41 @@ export const tagNodeDataSchema = z.object({
 
 export const endNodeDataSchema = z.object({});
 
+// AI-generated WhatsApp message. The prompt is interpolated with the run
+// context, the tenant's text LLM (services/llm.ts) generates the body, and it
+// is sent through the same window-checked path as a Send node. When the LLM is
+// not configured or generation fails, the send is skipped + audited (never a
+// silent drop, never a run failure).
+export const aiNodeDataSchema = z.object({
+  prompt: z.string().min(1).max(2000),
+});
+
+// Move the conversation's deal to a pipeline stage. The stage is resolved by
+// name within the tenant's pipeline at runtime (same resolution as the
+// deal.setStage agent tool). Reuses setConversationStage, which records deal
+// history + its own audit row.
+export const setStageNodeDataSchema = z.object({
+  stageName: z.string().min(1).max(100),
+});
+
+// Assign the conversation to a human team member; the AI agent stands down
+// (the same assignedAgentId XOR assigneeUserId invariant as the inbox).
+// `userName` is a display-only label captured at config time so the node card
+// can render a name instead of a UUID; the engine resolves `userId` fresh at
+// runtime and skips + audits if the member no longer exists.
+export const assignNodeDataSchema = z.object({
+  userId: z.string().min(1),
+  userName: z.string().max(100).optional(),
+});
+
+// Send an email to the conversation's customer (Contact.email). Skipped +
+// audited when the contact has no email on file or SMTP is not configured
+// (services/email.ts) — email is a secondary channel, never a run failure.
+export const emailNodeDataSchema = z.object({
+  subject: z.string().min(1).max(200),
+  body: z.string().min(1).max(10000),
+});
+
 // ─────────────────────────── Graph ───────────────────────────
 
 const positionSchema = z.object({
@@ -122,6 +158,30 @@ export const scenarioNodeSchema = z.discriminatedUnion("type", [
     type: z.literal("end"),
     position: positionSchema,
     data: endNodeDataSchema,
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("ai"),
+    position: positionSchema,
+    data: aiNodeDataSchema,
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("setStage"),
+    position: positionSchema,
+    data: setStageNodeDataSchema,
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("assign"),
+    position: positionSchema,
+    data: assignNodeDataSchema,
+  }),
+  z.object({
+    id: z.string().min(1),
+    type: z.literal("email"),
+    position: positionSchema,
+    data: emailNodeDataSchema,
   }),
 ]);
 export type ScenarioNode = z.infer<typeof scenarioNodeSchema>;

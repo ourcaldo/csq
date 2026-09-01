@@ -144,10 +144,10 @@ export function validateScenarioGraph(
     }
   }
 
-  // 24h window warning (Cloud API only): if a Send sits behind Waits summing
-  // to >= 24h along any path, the runtime will skip it (window closed). Warn
-  // at build time so the owner knows. This is heuristic — the real check is
-  // at send time against the customer's last inbound timestamp.
+  // 24h window warning (Cloud API only): if a Send or AI-generated send sits
+  // behind Waits summing to >= 24h along any path, the runtime will skip it
+  // (window closed). Warn at build time so the owner knows. This is heuristic —
+  // the real check is at send time against the customer's last inbound timestamp.
   if (opts.cloudApi && trigger) {
     const sendWarned = new Set<string>();
     function walk(id: string, accWaitMs: number): void {
@@ -155,10 +155,14 @@ export function validateScenarioGraph(
       if (!node) return;
       let wait = accWaitMs;
       if (node.type === "wait") wait += node.data.durationMs;
-      if (node.type === "send" && wait >= CLOUD_API_WINDOW_MS && !sendWarned.has(id)) {
+      if (
+        (node.type === "send" || node.type === "ai") &&
+        wait >= CLOUD_API_WINDOW_MS &&
+        !sendWarned.has(id)
+      ) {
         sendWarned.add(id);
         warnings.push(
-          `Node Send (${id}) mungkin melewati jendela 24 jam Cloud API dan akan dilewati saat runtime.`
+          `Node ${node.type === "send" ? "Kirim Pesan" : "Pesan AI"} (${id}) mungkin melewati jendela 24 jam Cloud API dan akan dilewati saat runtime.`
         );
       }
       for (const e of outEdges(id)) {

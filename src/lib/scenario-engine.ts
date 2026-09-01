@@ -3,7 +3,10 @@ import type { ScenarioRunStatus } from "@prisma/client";
 import prisma from "@/lib/db";
 import { getProvider } from "@/lib/whatsapp-provider";
 import { logAction, toJsonValue } from "@/lib/audit";
-import { CLOUD_API_WINDOW_MS } from "@/lib/inbox";
+import { CLOUD_API_WINDOW_MS, assignConversation } from "@/lib/inbox";
+import { setConversationStage } from "@/lib/pipeline";
+import { generateText, isTextLlmConfigured } from "@/services/llm";
+import { isEmailConfigured, sendEmail } from "@/services/email";
 import { events } from "@/lib/events";
 import type {
   ConversationNewEvent,
@@ -391,6 +394,136 @@ async function executeNode(
       return { kind: "continue", nextNodeId: nextOf(ctx.graph, node.id), result: { tag: node.data.tagName } };
     }
 
+    case "ai": {
+      const prompt = interpolate(node.data.prompt, ctx.context);
+      const generated = await generateScenarioBody(ctx.tenantId, ctx.conversationId, prompt);
+      if (!generated) {
+        return {
+          kind: "continue",
+          nextNodeId: nextOf(ctx.graph, node.id),
+          result: { sent: false, skipped: "llm" },
+        };
+      }
+      const result = await sendScenarioMessage({
+        tenantId: ctx.tenantId,
+        conversationId: ctx.conversationId,
+        body: generated.slice(0, 4096),
+      });
+      return {
+        kind: "continue",
+        nextNodeId: nextOf(ctx.graph, node.id),
+        result: { sent: result.sent, skippedWindow: result.skippedWindow, body: generated },
+      };
+    }
+
+    case "setStage": {
+      try {
+        const moved = await setConversationStage({
+          tenantId: ctx.tenantId,
+          conversationId: ctx.conversationId,
+          stageName: node.data.stageName,
+          reason: "scenario",
+        });
+        return {
+          kind: "continue",
+          nextNodeId: nextOf(ctx.graph, node.id),
+          result: { stageName: node.data.stageName, dealId: moved.dealId },
+        };
+      } catch (err) {
+        // Not a run failure: an invalid stage name or a terminal-stage deal is
+        // a config/runtime state the owner should see and fix — audited, and
+        // the rest of the flow (e.g. the send) still runs.
+        const message = err instanceof Error ? err.message : "Gagal mengubah tahap deal.";
+        await logAction({
+          tenantId: ctx.tenantId,
+          agentId: null,
+          action: "scenario.stage_skipped",
+          entityType: "Conversation",
+          entityId: ctx.conversationId,
+          approvalStatus: "NONE",
+          afterValue: { stageName: node.data.stageName, error: message },
+        });
+        return {
+          kind: "continue",
+          nextNodeId: nextOf(ctx.graph, node.id),
+          result: { stageName: node.data.stageName, moved: false, error: message },
+        };
+      }
+    }
+
+    case "assign": {
+      // Resolve the member fresh at runtime — a userId captured at config time
+      // may since have been removed. Tenant-scoped lookup; skip + audit if gone.
+      const user = await prisma.user.findFirst({
+        where: { id: node.data.userId, tenantId: ctx.tenantId },
+        select: { id: true, name: true, email: true },
+      });
+      if (!user) {
+        await logAction({
+          tenantId: ctx.tenantId,
+          agentId: null,
+          action: "scenario.assign_skipped",
+          entityType: "Conversation",
+          entityId: ctx.conversationId,
+          approvalStatus: "NONE",
+          afterValue: { userId: node.data.userId, reason: "Anggota tim tidak ditemukan." },
+        });
+        return {
+          kind: "continue",
+          nextNodeId: nextOf(ctx.graph, node.id),
+          result: { assignedTo: null, skipped: "user_not_found" },
+        };
+      }
+      // assignConversation enforces the assignedAgent XOR assignee invariant,
+      // stands the AI down, and writes its own conversation.assign audit row.
+      await assignConversation(ctx.conversationId, ctx.tenantId, { userId: user.id });
+      return {
+        kind: "continue",
+        nextNodeId: nextOf(ctx.graph, node.id),
+        result: { assignedTo: user.id, assignedToName: user.name ?? user.email },
+      };
+    }
+
+    case "email": {
+      const to = await resolveContactEmail(ctx.tenantId, ctx.conversationId);
+      if (!to || !isEmailConfigured()) {
+        await logAction({
+          tenantId: ctx.tenantId,
+          agentId: null,
+          action: "scenario.email_skipped",
+          entityType: "Conversation",
+          entityId: ctx.conversationId,
+          approvalStatus: "NONE",
+          afterValue: {
+            subject: node.data.subject,
+            reason: !to ? "Kontak tidak memiliki email." : "SMTP belum dikonfigurasi.",
+          },
+        });
+        return {
+          kind: "continue",
+          nextNodeId: nextOf(ctx.graph, node.id),
+          result: { sent: false, skipped: !to ? "no_contact_email" : "smtp_not_configured" },
+        };
+      }
+      const subject = interpolate(node.data.subject, ctx.context);
+      const text = interpolate(node.data.body, ctx.context);
+      const info = await sendEmail({ to, subject, text });
+      await logAction({
+        tenantId: ctx.tenantId,
+        agentId: null,
+        action: "scenario.email_sent",
+        entityType: "Conversation",
+        entityId: ctx.conversationId,
+        approvalStatus: "NONE",
+        afterValue: { to, subject, messageId: info.messageId },
+      });
+      return {
+        kind: "continue",
+        nextNodeId: nextOf(ctx.graph, node.id),
+        result: { sent: true, to },
+      };
+    }
+
     case "end":
       return { kind: "end" };
   }
@@ -456,6 +589,81 @@ async function applyScenarioTag(
     create: { tenantId, conversationId, tagId: tag.id },
   });
 }
+
+// ─────────────────────────── AI node generation ───────────────────────────
+
+// Fixed, bounded system prompt for the ai node — the scenario author's prompt
+// is the user message; this frames the output as a plain WhatsApp message body
+// so the model never wraps it in quotes/markdown/explanations.
+const AI_NODE_SYSTEM_PROMPT =
+  "Kamu menulis satu pesan WhatsApp customer service untuk pelanggan UMKM Indonesia. " +
+  "Tulis HANYA isi pesan — tanpa judul, tanpa tanda kutip, tanpa penjelasan tambahan. " +
+  "Maksimal sekitar 600 karakter, Bahasa Indonesia yang ramah dan sopan. " +
+  "Gunakan hanya fakta yang ada pada prompt; jangan mengarang harga, stok, atau kebijakan.";
+
+// Generate a message body for the ai node. Returns null when the LLM is not
+// configured or generation fails — the node is skipped + audited and the run
+// continues (an LLM hiccup must not kill the rest of the flow).
+async function generateScenarioBody(
+  tenantId: string,
+  conversationId: string,
+  prompt: string
+): Promise<string | null> {
+  if (!isTextLlmConfigured()) {
+    await logAction({
+      tenantId,
+      agentId: null,
+      action: "scenario.ai_skipped",
+      entityType: "Conversation",
+      entityId: conversationId,
+      approvalStatus: "NONE",
+      afterValue: { reason: "LLM teks belum dikonfigurasi (FIREWORKS_API_KEY).", prompt },
+    });
+    return null;
+  }
+  try {
+    return await generateText({ system: AI_NODE_SYSTEM_PROMPT, prompt });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Gagal generate teks.";
+    await logAction({
+      tenantId,
+      agentId: null,
+      action: "scenario.ai_skipped",
+      entityType: "Conversation",
+      entityId: conversationId,
+      approvalStatus: "NONE",
+      afterValue: { reason: message, prompt },
+    });
+    return null;
+  }
+}
+
+// Resolve the customer's email for the email node: the conversation's linked
+// Contact, falling back to the tenant's Contact with the same phone.
+// Tenant-scoped; returns null when no email is on file.
+async function resolveContactEmail(
+  tenantId: string,
+  conversationId: string
+): Promise<string | null> {
+  const conv = await prisma.conversation.findFirst({
+    where: { id: conversationId, tenantId },
+    select: { contactId: true, customerPhone: true },
+  });
+  if (!conv) return null;
+  const contact = conv.contactId
+    ? await prisma.contact.findFirst({
+        where: { id: conv.contactId, tenantId },
+        select: { email: true },
+      })
+    : await prisma.contact.findFirst({
+        where: { tenantId, phone: conv.customerPhone },
+        select: { email: true },
+      });
+  const email = contact?.email?.trim();
+  return email ? email : null;
+}
+
+
 
 // ─────────────────────────── Scenario send ───────────────────────────
 

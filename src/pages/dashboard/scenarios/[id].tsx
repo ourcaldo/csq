@@ -60,9 +60,13 @@ const STATUS_LABEL: Record<ScenarioStatus, string> = {
 
 const PALETTE: { type: string; label: string }[] = [
   { type: "send", label: "Kirim Pesan" },
+  { type: "ai", label: "Pesan AI" },
   { type: "wait", label: "Tunggu" },
   { type: "condition", label: "Kondisi (IF)" },
   { type: "tag", label: "Tag" },
+  { type: "setStage", label: "Tahap Deal" },
+  { type: "assign", label: "Tugaskan" },
+  { type: "email", label: "Email" },
   { type: "end", label: "Selesai" },
 ];
 
@@ -70,9 +74,17 @@ const PALETTE: { type: string; label: string }[] = [
 // condition (needs true/false handles, not a single in/out) and end (no output).
 const INSERTABLE: { type: string; label: string }[] = [
   { type: "send", label: "Kirim Pesan" },
+  { type: "ai", label: "Pesan AI" },
   { type: "wait", label: "Tunggu" },
   { type: "tag", label: "Tag" },
+  { type: "setStage", label: "Tahap Deal" },
+  { type: "assign", label: "Tugaskan" },
+  { type: "email", label: "Email" },
 ];
+
+// Team member option for the assign node's dropdown (from
+// /api/dashboard/scenarios/team — id/name/role only, no secrets).
+type TeamMember = { id: string; name: string; role: string };
 
 // Right-click context menu state. `flowX/flowY` are canvas coords for placing a
 // new node; `clientX/clientY` are viewport coords for positioning the menu.
@@ -122,6 +134,12 @@ function Builder({ id }: { id: string }) {
   const { data: runsData } = useApi<ListResult<RunItem>>(
     `/api/dashboard/scenarios/${id}/runs?pageSize=5`
   );
+  // Assign-node dropdown options. Failure (e.g. network) leaves the list empty
+  // and the assign editor degrades to a manual ID input.
+  const { data: teamData } = useApi<ListResult<TeamMember>>(
+    "/api/dashboard/scenarios/team"
+  );
+  const team: TeamMember[] = teamData?.items ?? [];
 
   const [nodes, setNodes, onNodesChangeRaw] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChangeRaw] = useEdgesState<Edge>([]);
@@ -259,9 +277,13 @@ function Builder({ id }: { id: string }) {
 
   function defaultDataFor(type: string): Record<string, unknown> {
     if (type === "send") return { body: "" };
+    if (type === "ai") return { prompt: "" };
     if (type === "wait") return { durationMs: 60 * 60 * 1000 };
     if (type === "condition") return { field: "", operator: "equals", value: "" };
     if (type === "tag") return { tagName: "" };
+    if (type === "setStage") return { stageName: "" };
+    if (type === "assign") return { userId: "", userName: "" };
+    if (type === "email") return { subject: "", body: "" };
     return {};
   }
 
@@ -608,7 +630,7 @@ function Builder({ id }: { id: string }) {
   );
 
   const propertiesInner = (
-    <PropertiesPanel node={selectedNode} canEdit={canEdit} onPatch={patchSelected} />
+    <PropertiesPanel node={selectedNode} canEdit={canEdit} onPatch={patchSelected} team={team} />
   );
 
   return (
@@ -973,10 +995,12 @@ function PropertiesPanel({
   node,
   canEdit,
   onPatch,
+  team,
 }: {
   node: Node | null;
   canEdit: boolean;
   onPatch: (patch: Record<string, unknown>) => void;
+  team: TeamMember[];
 }) {
   if (!node) {
     return (
@@ -1092,6 +1116,73 @@ function PropertiesPanel({
           </div>
         )}
 
+        {type === "ai" && (
+          <div>
+            <Label className="text-xs">Prompt AI</Label>
+            <Textarea
+              disabled={!canEdit}
+              rows={5}
+              value={str(node.data?.prompt)}
+              placeholder="Tulis ucapan terima kasih ramah untuk {{customer_name}} atas pesanan {{order_items}}, tanyakan apakah pesanan sudah diterima dengan baik."
+              onChange={(e) => onPatch({ prompt: e.target.value })}
+            />
+            <p className="mt-1 text-[11px] text-slate-400">
+              AI menulis isi pesannya, lalu dikirim via WhatsApp (tetap mengikuti
+              jendela 24 jam). Variabel: {`{{customer_name}}`}, {`{{order_id}}`},{" "}
+              {`{{order_total}}`}, {`{{order_items}}`}.
+            </p>
+          </div>
+        )}
+
+        {type === "setStage" && (
+          <div>
+            <Label className="text-xs">Nama Tahap</Label>
+            <Input
+              disabled={!canEdit}
+              value={str(node.data?.stageName)}
+              placeholder="Pesanan"
+              onChange={(e) => onPatch({ stageName: e.target.value })}
+            />
+            <p className="mt-1 text-[11px] text-slate-400">
+              Tahap pipeline percakapan ini (mis. Baru, Tertarik, Penawaran,
+              Pesanan, Menang). Deal berpindah ke tahap tersebut.
+            </p>
+          </div>
+        )}
+
+        {type === "assign" && (
+          <AssignEditor node={node} canEdit={canEdit} onPatch={onPatch} team={team} />
+        )}
+
+        {type === "email" && (
+          <>
+            <div>
+              <Label className="text-xs">Subjek</Label>
+              <Input
+                disabled={!canEdit}
+                value={str(node.data?.subject)}
+                placeholder="Terima kasih atas pesanan {{order_id}}"
+                onChange={(e) => onPatch({ subject: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Isi Email</Label>
+              <Textarea
+                disabled={!canEdit}
+                rows={6}
+                value={str(node.data?.body)}
+                placeholder="Halo {{customer_name}}, terima kasih sudah memesan {{order_items}}…"
+                onChange={(e) => onPatch({ body: e.target.value })}
+              />
+              <p className="mt-1 text-[11px] text-slate-400">
+                Dikirim ke email kontak pelanggan. Dilewati (dan dicatat di
+                audit) jika kontak tidak punya email atau SMTP belum diatur.
+                Variabel sama seperti Kirim Pesan.
+              </p>
+            </div>
+          </>
+        )}
+
         {type === "end" && <p className="text-xs text-slate-500">Node akhir — tidak ada properti.</p>}
       </div>
     </div>
@@ -1147,6 +1238,74 @@ function WaitEditor({
           Di Cloud API, pesan setelah tunggu &ge; 24 jam mungkin dilewati (jendela 24 jam).
         </p>
       )}
+    </>
+  );
+}
+
+// Assign-node editor: a dropdown of the tenant's members when the team list
+// loaded, degrading to a manual user-ID input otherwise (or when the stored
+// userId isn't in the list — e.g. the member was removed). Selecting a member
+// stores both userId (engine truth) and userName (card display label).
+function AssignEditor({
+  node,
+  canEdit,
+  onPatch,
+  team,
+}: {
+  node: Node;
+  canEdit: boolean;
+  onPatch: (patch: Record<string, unknown>) => void;
+  team: TeamMember[];
+}) {
+  const userId = str(node.data?.userId);
+  const inList = team.some((m) => m.id === userId);
+  return (
+    <>
+      {team.length > 0 ? (
+        <div>
+          <Label className="text-xs">Anggota Tim</Label>
+          <Select
+            disabled={!canEdit}
+            value={inList ? userId : ""}
+            onChange={(e) => {
+              const m = team.find((t) => t.id === e.target.value);
+              onPatch({
+                userId: m ? m.id : "",
+                userName: m ? m.name : "",
+              });
+            }}
+          >
+            <option value="">— pilih anggota —</option>
+            {team.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name} ({m.role === "OWNER" ? "Owner" : "Staf"})
+              </option>
+            ))}
+          </Select>
+          {!inList && userId && (
+            <p className="mt-1 text-[11px] text-amber-700">
+              Anggota tersimpan tidak ada di daftar tim — pilih ulang.
+            </p>
+          )}
+        </div>
+      ) : (
+        <div>
+          <Label className="text-xs">ID Anggota Tim</Label>
+          <Input
+            disabled={!canEdit}
+            value={userId}
+            placeholder="user id (uuid)"
+            onChange={(e) => onPatch({ userId: e.target.value, userName: "" })}
+          />
+          <p className="mt-1 text-[11px] text-slate-400">
+            Daftar tim belum termuat — masukkan ID anggota manual.
+          </p>
+        </div>
+      )}
+      <p className="text-[11px] text-slate-400">
+        Percakapan ditugaskan ke anggota ini; AI berhenti membalas otomatis
+        sampai dikembalikan.
+      </p>
     </>
   );
 }
