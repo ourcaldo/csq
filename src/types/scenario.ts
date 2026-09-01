@@ -107,9 +107,11 @@ export const assignNodeDataSchema = z.object({
   userName: z.string().max(100).optional(),
 });
 
-// Send an email to the conversation's customer (Contact.email). Skipped +
-// audited when the contact has no email on file or SMTP is not configured
-// (services/email.ts) — email is a secondary channel, never a run failure.
+// Send an email to the conversation's customer (Contact.email) through the
+// tenant's own delivery integration (Settings → Email: SMTP or Resend — see
+// lib/email-config.ts / services/email.ts). Skipped + audited when the contact
+// has no email on file or the owner has not configured the integration — email
+// is a secondary channel, never a run failure.
 export const emailNodeDataSchema = z.object({
   subject: z.string().min(1).max(200),
   body: z.string().min(1).max(10000),

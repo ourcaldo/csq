@@ -6,7 +6,8 @@ import { logAction, toJsonValue } from "@/lib/audit";
 import { CLOUD_API_WINDOW_MS, assignConversation } from "@/lib/inbox";
 import { setConversationStage } from "@/lib/pipeline";
 import { generateText, isTextLlmConfigured } from "@/services/llm";
-import { isEmailConfigured, sendEmail } from "@/services/email";
+import { sendEmailWithProvider } from "@/services/email";
+import { getEmailProvider } from "@/lib/email-config";
 import { events } from "@/lib/events";
 import type {
   ConversationNewEvent,
@@ -486,7 +487,8 @@ async function executeNode(
 
     case "email": {
       const to = await resolveContactEmail(ctx.tenantId, ctx.conversationId);
-      if (!to || !isEmailConfigured()) {
+      const provider = await getEmailProvider(ctx.tenantId);
+      if (!to || !provider) {
         await logAction({
           tenantId: ctx.tenantId,
           agentId: null,
@@ -496,18 +498,20 @@ async function executeNode(
           approvalStatus: "NONE",
           afterValue: {
             subject: node.data.subject,
-            reason: !to ? "Kontak tidak memiliki email." : "SMTP belum dikonfigurasi.",
+            reason: !to
+              ? "Kontak tidak memiliki email."
+              : "Email belum diatur oleh pemilik usaha (Pengaturan → Email).",
           },
         });
         return {
           kind: "continue",
           nextNodeId: nextOf(ctx.graph, node.id),
-          result: { sent: false, skipped: !to ? "no_contact_email" : "smtp_not_configured" },
+          result: { sent: false, skipped: !to ? "no_contact_email" : "provider_not_configured" },
         };
       }
       const subject = interpolate(node.data.subject, ctx.context);
       const text = interpolate(node.data.body, ctx.context);
-      const info = await sendEmail({ to, subject, text });
+      const info = await sendEmailWithProvider(provider, { to, subject, text });
       await logAction({
         tenantId: ctx.tenantId,
         agentId: null,
@@ -515,7 +519,7 @@ async function executeNode(
         entityType: "Conversation",
         entityId: ctx.conversationId,
         approvalStatus: "NONE",
-        afterValue: { to, subject, messageId: info.messageId },
+        afterValue: { to, subject, provider: provider.type, messageId: info.messageId },
       });
       return {
         kind: "continue",

@@ -1175,9 +1175,10 @@ function PropertiesPanel({
                 onChange={(e) => onPatch({ body: e.target.value })}
               />
               <p className="mt-1 text-[11px] text-slate-400">
-                Dikirim ke email kontak pelanggan. Dilewati (dan dicatat di
-                audit) jika kontak tidak punya email atau SMTP belum diatur.
-                Variabel sama seperti Kirim Pesan.
+                Dikirim ke email kontak pelanggan lewat integrasi email usaha
+                (Pengaturan → Email: SMTP atau Resend). Dilewati (dan dicatat
+                di audit) jika kontak tidak punya email atau integrasi belum
+                diatur. Variabel sama seperti Kirim Pesan.
               </p>
             </div>
           </>

@@ -19,6 +19,7 @@ import {
 import { withAuth } from "@/lib/auth";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
+import { EmailSection } from "@/components/dashboard/settings/email-section";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { StateNotice } from "@/components/dashboard/state-notice";
 import { Button } from "@/components/ui/button";
@@ -279,6 +280,10 @@ export default function SettingsPage() {
             </div>
           )}
         </section>
+
+        {/* Email — per-tenant delivery config (OWNER-only; the route is
+            OWNER-only server-side too, so staff never even fetch it). */}
+        {isOwner && <EmailSection />}
 
         {/* Profil Usaha — placeholder, read-only */}
         <section className="rounded-lg border border-slate-200 bg-white p-4 md:p-6">

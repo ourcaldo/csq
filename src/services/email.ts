@@ -1,64 +1,119 @@
+import { z } from "zod";
 import nodemailer from "nodemailer";
+import {
+  emailProviderSchema,
+  type EmailProviderConfig,
+} from "@/lib/email-config";
 
-// SMTP email for the scenario `email` node — transactional customer email
-// (order confirmations, receipts, follow-ups) sent to the Contact's email
-// address. One service module per external integration (AGENTS.md); the
-// scenario engine is the only caller and treats "not configured" as an
-// explicit skip + audit, never a run failure.
+// Per-tenant email delivery for the scenario Email module — transactional
+// customer email (order confirmations, receipts, follow-ups) sent through the
+// store owner's own provider, configured on the Settings page: their SMTP or a
+// Resend API key (src/lib/email-config.ts owns the stored shape). One service
+// module per external integration (AGENTS.md); callers (the scenario engine,
+// the settings test route) treat "no provider configured" as an explicit skip
+// + audit, never a silent drop and never a run failure.
 //
-// Configuration (env): SMTP_HOST, SMTP_PORT, SMTP_SECURE (true for 465),
-// SMTP_USER, SMTP_PASS, SMTP_FROM (display sender, e.g. "Toko Kopi
-// <no-reply@tokokopi.id>"). When SMTP_HOST is unset the module reports
-// unconfigured and every send is skipped + audited by the caller — same
-// degrade-gracefully contract as the embeddings service.
-//
-// Server-only. Secrets stay server-side.
+// Server-only. Credentials stay server-side; the client only ever sees masked
+// status flags. No `as` casts: external responses are Zod-parsed at the
+// boundary.
 
-const SMTP_HOST = process.env.SMTP_HOST ?? "";
-const SMTP_PORT = Number(process.env.SMTP_PORT ?? "587");
-const SMTP_SECURE = process.env.SMTP_SECURE === "true";
-const SMTP_USER = process.env.SMTP_USER ?? "";
-const SMTP_PASS = process.env.SMTP_PASS ?? "";
-const SMTP_FROM =
-  process.env.SMTP_FROM ?? process.env.SMTP_USER ?? "";
+// ─────────────────────────── Resend (HTTP API, no SDK) ───────────────────────────
 
-// Lazily-created singleton transporter. Created on first send so an
-// unconfigured env never constructs a transport at module load, and so env
-// changes in dev (next dev hot-reload aside) don't cache a stale transporter.
-let transporter: nodemailer.Transporter | null = null;
+const RESEND_BASE_URL = process.env.RESEND_BASE_URL ?? "https://api.resend.com";
 
-export function isEmailConfigured(): boolean {
-  return Boolean(SMTP_HOST && SMTP_FROM);
+const resendSendResponseSchema = z
+  .object({ id: z.string().optional() })
+  .passthrough();
+
+async function sendViaResend(
+  config: Extract<EmailProviderConfig, { type: "RESEND" }>,
+  input: { to: string; subject: string; text: string }
+): Promise<{ messageId: string }> {
+  const res = await fetch(`${RESEND_BASE_URL}/emails`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${config.apiKey}`,
+    },
+    body: JSON.stringify({
+      from: config.from,
+      to: input.to,
+      subject: input.subject,
+      text: input.text,
+    }),
+  });
+  if (!res.ok) {
+    throw new Error(`Resend gagal: ${res.status} ${res.statusText}`);
+  }
+  const parsed = resendSendResponseSchema.parse(await res.json());
+  return { messageId: parsed.id ?? "" };
 }
 
-function getTransporter(): nodemailer.Transporter {
-  if (!transporter) {
-    transporter = nodemailer.createTransport({
-      host: SMTP_HOST,
-      port: SMTP_PORT,
-      secure: SMTP_SECURE,
-      auth: SMTP_USER ? { user: SMTP_USER, pass: SMTP_PASS } : undefined,
-    });
-  }
+// ─────────────────────────── SMTP (nodemailer) ───────────────────────────
+
+// Transporter cache keyed by the config's stable signature. Bounded: at
+// MAX_TRANSPORTERS entries the cache resets, so a tenant changing credentials
+// never leaks an unbounded set of pooled sockets (each signature maps to one
+// transporter; the fresh config always wins).
+const MAX_TRANSPORTERS = 32;
+const transporters = new Map<string, nodemailer.Transporter>();
+
+function smtpSignature(config: Extract<EmailProviderConfig, { type: "SMTP" }>): string {
+  return [
+    config.host,
+    config.port,
+    config.secure ? "1" : "0",
+    config.username,
+    config.password,
+  ].join("|");
+}
+
+function smtpTransporter(
+  config: Extract<EmailProviderConfig, { type: "SMTP" }>
+): nodemailer.Transporter {
+  const key = smtpSignature(config);
+  const cached = transporters.get(key);
+  if (cached) return cached;
+  if (transporters.size >= MAX_TRANSPORTERS) transporters.clear();
+  const transporter = nodemailer.createTransport({
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    auth: config.username ? { user: config.username, pass: config.password } : undefined,
+  });
+  transporters.set(key, transporter);
   return transporter;
 }
 
-// Send one plain-text email. Throws on transport failure; the scenario engine
-// catches, skips, and audits. Body size is bounded by the email node's Zod
-// schema (10 KB) before it ever reaches here.
-export async function sendEmail(input: {
-  to: string;
-  subject: string;
-  text: string;
-}): Promise<{ messageId: string }> {
-  if (!isEmailConfigured()) {
-    throw new Error("SMTP not configured");
-  }
-  const info = await getTransporter().sendMail({
-    from: SMTP_FROM,
+async function sendViaSmtp(
+  config: Extract<EmailProviderConfig, { type: "SMTP" }>,
+  input: { to: string; subject: string; text: string }
+): Promise<{ messageId: string }> {
+  const info = await smtpTransporter(config).sendMail({
+    from: config.from,
     to: input.to,
     subject: input.subject,
     text: input.text,
   });
   return { messageId: info.messageId };
+}
+
+// ─────────────────────────── Public API ───────────────────────────
+
+// Validate an unknown value into a provider config (settings route input,
+// engine re-read). Returns null on an invalid/absent shape.
+export function parseEmailProvider(raw: unknown): EmailProviderConfig | null {
+  const parsed = emailProviderSchema.safeParse(raw);
+  return parsed.success ? parsed.data : null;
+}
+
+// Send one plain-text email through the tenant's configured provider. Throws
+// on transport failure; callers skip + audit. Body size is bounded by the
+// email node's Zod schema (10 KB) before it ever reaches here.
+export async function sendEmailWithProvider(
+  config: EmailProviderConfig,
+  input: { to: string; subject: string; text: string }
+): Promise<{ messageId: string }> {
+  if (config.type === "RESEND") return sendViaResend(config, input);
+  return sendViaSmtp(config, input);
 }
