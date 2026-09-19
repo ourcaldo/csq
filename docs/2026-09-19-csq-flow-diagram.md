@@ -63,7 +63,7 @@ sequenceDiagram
     participant CUST as Customer (WA)
     participant CH as Channel<br/>(Cloud API webhook / Baileys socket)
     participant ING as ingestInboundMessage
-    participant LOOP as runAgentReply<br/>(advisory-locked)
+    participant AL as runAgentReply<br/>(advisory-locked)
     participant GW as OpenClaw gateway
     participant CF as Cloudflare AI<br/>(qwen3.8-27b)
     participant TG as Tool Gateway
@@ -74,16 +74,16 @@ sequenceDiagram
     CH->>ING: Cloud API: HMAC-verified webhook (fail-closed)<br/>Baileys: messages.upsert event
     ING->>DB: Message INBOUND + Conversation (upsert, unique per phone)<br/>+ Contact upsert
     Note over CH: Cloud API: HTTP 200 ACK immediately<br/>(Meta 5s contract, work continues async)
-    ING--)LOOP: processInboundWithAgent (fire-and-forget)
-    Note over LOOP: pg_advisory_xact_lock(hashtext(conversationId))<br/>serializes turns per conversation, 120s timeout
+    ING--)AL: processInboundWithAgent (fire-and-forget)
+    Note over AL: pg_advisory_xact_lock(hashtext(conversationId))<br/>serializes turns per conversation, 120s timeout
 
     loop stand-down checks
-        Note over LOOP: skip turn IF human assignee set · channel DISCONNECTED ·<br/>agent not ACTIVE or not provisioned → exit silently
+        Note over AL: skip turn IF human assignee set · channel DISCONNECTED ·<br/>agent not ACTIVE or not provisioned → exit silently
     end
 
-    LOOP->>DB: last 30 messages as history
-    LOOP->>LOOP: buildSystemPrompt (bounded:<br/>persona + instructions + stage + ≤10 business info + HIGH memories)
-    LOOP->>GW: POST /v1/chat/completions<br/>model=openclaw/<agentId> · full tool list
+    AL->>DB: last 30 messages as history
+    AL->>AL: buildSystemPrompt (bounded:<br/>persona + instructions + stage + ≤10 business info + HIGH memories)
+    AL->>GW: POST /v1/chat/completions<br/>model=openclaw/<agentId> · full tool list
     GW->>CF: forward completion request
 
     alt model requests a tool
@@ -92,8 +92,8 @@ sequenceDiagram
         GW->>CF: role:"tool" result, continue
     end
 
-    GW-->>LOOP: final reply text
-    LOOP->>OUT: sendAgentMessage
+    GW-->>AL: final reply text
+    AL->>OUT: sendAgentMessage
     alt inside 24h customer-service window
         OUT->>CUST: free-form reply (Cloud API text / Baileys send)
     else outside window
@@ -158,7 +158,7 @@ flowchart LR
     SRC --> PRIO{"Source priority<br/>(owner-set in Settings:<br/>default MANUAL → SHEETS → EXCEL)"}
     PRIO -- "clean" --> CANON[Canonical Product/Inventory rows]
     PRIO -- "unresolvable conflict" --> ESC[Escalate to human<br/>never invent an answer]
-    E4 & S3 --> EMB[Embed knowledge text<br/>bge-m3 (Cloudflare) → pgvector]
+    E4 & S3 --> EMB["Embed knowledge text<br/>bge-m3 (Cloudflare) → pgvector"]
 ```
 
 **Data authority:** every value tracks source, timestamp, last sync; conflicts resolve by owner-defined priority; unresolvable → human.
@@ -171,15 +171,15 @@ flowchart LR
 flowchart TD
     subgraph INBOX["Shared inbox (3-pane)"]
         LIST[Conversation list<br/>status OPEN/PENDING/RESOLVED · tag filter ·<br/>Assigned/Unassigned tabs]
-        CHAT[Chat panel<br/>customer · AI agent (robot badge) ·<br/>human CS · scenario messages · private notes]
+        CHAT["Chat panel<br/>customer · AI agent (robot badge) ·<br/>human CS · scenario messages · private notes"]
         DET[Contact details<br/>name/email/notes inline edit ·<br/>tags · status · pipeline stage]
     end
 
-    TAKE[Owner/Staff clicks<br/>Ambil alih / Take over] --> A1[assignee = user<br/>AI stands down]
-    REL[Release] --> A2[assignee cleared<br/>AI resumes automatically]
-    NOTE[conversation.handoff tool<br/>(agent-initiated)] --> A3[Assign to owner ·<br/>agentId cleared · AI down]
-    SSE[Inbox stream<br/>server-sent events] -.-> LIST & CHAT
-    LIST --> OPEN[Buka Chat deep-link<br/>?c=id from pipeline kanban]
+    TAKE["Owner/Staff clicks<br/>Ambil alih / Take over"] --> A1["assignee = user<br/>AI stands down"]
+    REL["Release"] --> A2["assignee cleared<br/>AI resumes automatically"]
+    NOTE["conversation.handoff tool<br/>(agent-initiated)"] --> A3["Assign to owner ·<br/>agentId cleared · AI down"]
+    SSE["Inbox stream<br/>server-sent events"] -.-> LIST & CHAT
+    LIST --> OPEN["Buka Chat deep-link<br/>?c=id from pipeline kanban"]
 ```
 
 **Roles:** OWNER manages settings/agents/approvals/team; STAFF works the inbox (routes enforce server-side, UI only reflects).
@@ -226,7 +226,7 @@ flowchart LR
     EMBED --> V[(KnowledgeEmbedding<br/>pgvector · tenant-scoped)]
     Q[Agent calls knowledge.search tool] --> E2[embed query · bge-m3]
     E2 --> COS["1 - embedding <=> query<br/>cosine similarity"]
-    COS --> THR{similarity ≥ 0.6<br/>threshold (measured mid-gap:<br/>relevant 0.65-0.72 · irrelevant ≤0.55)}
+    COS --> THR{"similarity ≥ 0.6<br/>threshold (measured mid-gap:<br/>relevant 0.65-0.72 · irrelevant ≤0.55)"}
     THR -- yes --> RET[Return matched knowledge to the model]
     THR -- no --> KW[Keyword contains fallback]
     THR -- "embeddings unconfigured/error" --> KW
@@ -262,9 +262,9 @@ flowchart TD
 flowchart LR
     C[Conversation] -- 1:1 --> DEAL[Deal]
     DEAL --> STAGES[Pipeline stages per tenant<br/>lazy-seeded: Baru · Tertarik ·<br/>Penawaran · Pesanan · Menang · Kalah]
-    STAGES --> KIND[StageKind invariants:<br/>exactly one OPENING / WON / LOST<br/>(partial unique index, DB-enforced)]
+    STAGES --> KIND["StageKind invariants:<br/>exactly one OPENING / WON / LOST<br/>(partial unique index, DB-enforced)"]
     MOVE[deal.setStage tool / kanban drag<br/>/ scenario setStage node] --> HIST[DealStageHistory + audit]
-    STAGES --> FUNNEL[Funnel view: winProbability ·<br/>expectedDays per stage]
+    STAGES --> FUNNEL["Funnel view: winProbability ·<br/>expectedDays per stage"]
 ```
 
 ---
