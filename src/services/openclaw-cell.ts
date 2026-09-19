@@ -35,10 +35,11 @@ const SHARED_TOKEN =
 // Model each OpenClaw agent uses (Fireworks/Qwen). Overridable per env.
 const AGENT_MODEL =
   process.env.OPENCLAW_AGENT_MODEL ??
-  "fireworks/accounts/fireworks/models/qwen3p7-plus";
-// Fireworks API key passed to each cell so its OpenClaw fireworks provider
-// can call Fireworks. Required in fleet (production) mode.
-const FIREWORKS_API_KEY = process.env.FIREWORKS_API_KEY ?? "";
+  "cloudflare/@cf/qwen/qwen3.8-27b";
+// Cloudflare Workers AI credentials passed to each cell so its OpenClaw
+// cloudflare provider can authenticate. Required in fleet (production) mode.
+const CLOUDFLARE_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN ?? "";
+const CLOUDFLARE_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID ?? "";
 
 // Fleet tenant ids must match ^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$. Slugs
 // produced by the register route already satisfy this; clamp defensively.
@@ -108,11 +109,13 @@ type FleetCreateResult = {
 };
 
 async function fleetCreateCell(slug: string): Promise<FleetCreateResult> {
-  // Pass FIREWORKS_API_KEY into the cell so its OpenClaw fireworks provider
-  // can authenticate. Other --env flags can be added here as needed.
-  const envFlags = FIREWORKS_API_KEY
-    ? ` --env FIREWORKS_API_KEY=${JSON.stringify(FIREWORKS_API_KEY)}`
-    : "";
+  // Pass the Cloudflare credentials into the cell so its OpenClaw cloudflare
+  // provider can authenticate. Other --env flags can be added here as needed.
+  const envFlags =
+    CLOUDFLARE_API_TOKEN && CLOUDFLARE_ACCOUNT_ID
+      ? ` --env CLOUDFLARE_API_TOKEN=${JSON.stringify(CLOUDFLARE_API_TOKEN)}` +
+        ` --env CLOUDFLARE_ACCOUNT_ID=${JSON.stringify(CLOUDFLARE_ACCOUNT_ID)}`
+      : "";
   const { stdout } = await execAsync(
     `openclaw fleet create ${JSON.stringify(slug)}${envFlags} --json`,
     { timeout: 120_000 }

@@ -41,3 +41,5 @@ Thumbs.db
 
 # typescript build info
 *.tsbuildinfo
+
+docs/vps-access.md
