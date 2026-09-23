@@ -1,5 +1,4 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import crypto from "crypto";
 import { z } from "zod";
 import { getAuthSession, requireRole } from "@/lib/auth";
 import prisma from "@/lib/db";
@@ -12,19 +11,15 @@ import {
   type BaileysConfig,
 } from "@/types/whatsapp";
 import { connectBaileysChannel } from "@/services/baileys";
+import { generateVerifyToken } from "@/lib/whatsapp-verify-token";
 
 // Connect (or reconfigure) a WhatsApp channel for this tenant (plan 7.5).
 // Owner picks the provider at onboarding. Baileys is gated on tosAcknowledged
 // (ToS/ban risk, FR-WA-011) — enforced HERE in the backend, not just the UI.
 // For Baileys, starts the socket and returns the QR to scan; for Cloud API,
-// stores the credentials and marks CONNECTED.
-
-// Fresh verify token per (re)connect — generated server-side, the client
-// never supplies it. Rotating on every connect invalidates any stale token
-// left in Meta's webhook config after a disconnect/re-enable cycle.
-function generateVerifyToken(): string {
-  return `csq-${crypto.randomBytes(18).toString("base64url")}`;
-}
+// stores the credentials and marks CONNECTED. The Cloud API verify token is
+// generated when the owner enters the connect step (saluran page SSP) and is
+// PRESERVED here — see src/lib/whatsapp-verify-token.ts.
 
 const connectSchema = z.object({
   provider: z.enum(["CLOUD_API", "BAILEYS"]),
@@ -60,15 +55,27 @@ export default async function handler(
   }
   const { provider, agentId } = parsed.data;
 
+  // Upsert target (one channel per provider for MVP).
+  const existing = await prisma.channel.findFirst({
+    where: { tenantId, provider },
+  });
+
   let config: CloudApiConfig | BaileysConfig;
   let status: "CONNECTED" | "DISCONNECTED";
   if (provider === "CLOUD_API") {
     const { verifyToken: _clientToken, ...rest } =
       cloudApiConfigSchema.parse(parsed.data.config);
-    // Server-generated token: the client's value is always ignored so the
-    // webhook shared secret is never a predictable default like
-    // "demo-verify-token".
-    config = { ...rest, verifyToken: generateVerifyToken() };
+    // The verify token was already generated server-side and shown to the
+    // owner when they entered the connect step (they pasted it into Meta's
+    // webhook config). Connect must PRESERVE it, not rotate it — rotating here
+    // would invalidate what Meta already verified. Rotation happens on
+    // disconnect (see disconnect.ts).
+    const parsedExisting = cloudApiConfigSchema.safeParse(existing?.config);
+    const token =
+      parsedExisting.success && parsedExisting.data.verifyToken
+        ? parsedExisting.data.verifyToken
+        : generateVerifyToken();
+    config = { ...rest, verifyToken: token };
     status = "CONNECTED";
   } else {
     const cfg = baileysConfigSchema.parse(parsed.data.config);
@@ -84,9 +91,7 @@ export default async function handler(
   }
 
   // Upsert the tenant's channel for this provider (one per provider for MVP).
-  const existing = await prisma.channel.findFirst({
-    where: { tenantId, provider },
-  });
+  // `existing` was already fetched above for the token-preserve path.
   const channel = existing
     ? await prisma.channel.update({
         where: { id: existing.id },

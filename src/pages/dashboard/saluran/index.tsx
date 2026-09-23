@@ -18,6 +18,8 @@ import { QRCodeSVG } from "qrcode.react";
 import { withAuth, getSSRSession } from "@/lib/auth";
 import prisma from "@/lib/db";
 import { cloudApiConfigSchema } from "@/types/whatsapp";
+import { generateVerifyToken } from "@/lib/whatsapp-verify-token";
+import { z } from "zod";
 import { apiFetch, apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
@@ -522,8 +524,8 @@ export default function SaluranPage({
               <ReadOnlyField label="Callback URL" value={webhookUrl} />
               <ReadOnlyField
                 label="Verify Token"
-                value="(dibuat otomatis saat Sambungkan)"
-                hint="Token dibuat sistem saat menyambungkan — salin dari kartu saluran yang terhubung setelahnya."
+                value={cloudVerifyToken ?? "—"}
+                hint="Token saat ini. Berganti otomatis setiap kali disambungkan ulang — salin nilai terbaru dari kartu saluran setelah Sambungkan."
               />
             </div>
 
@@ -921,23 +923,49 @@ export const getServerSideProps: GetServerSideProps<SaluranProps> = withAuth<
   const origin = process.env.NEXTAUTH_URL ?? `https://${ctx.req.headers.host}`;
   const webhookUrl = `${origin.replace(/\/$/, "")}/api/webhooks/whatsapp`;
 
-  // Verify token is sanitized out of the channels list API (secret-adjacent),
-  // but the owner needs to copy-paste it into Meta App Manager — fetch it
-  // server-side for the tenant's CONNECTED Cloud API channel only.
+  // Verify token is sanitized out of the channels list API (secret-adjacent).
+  // The Cloud API channel row carries the token; if none exists yet (first
+  // connect) or none has a token yet, create/persist the channel stub with a
+  // freshly generated token NOW — so the token is on screen before the owner
+  // clicks Sambungkan, and Meta's webhook Verify can succeed immediately.
   const session = await getSSRSession(ctx);
   let cloudVerifyToken: string | null = null;
   if (session?.user.tenantId) {
-    const channel = await prisma.channel.findFirst({
-      where: {
-        tenantId: session.user.tenantId,
-        provider: "CLOUD_API",
-        status: "CONNECTED",
-      },
-      select: { config: true },
+    const tenantId = session.user.tenantId;
+    const existing = await prisma.channel.findFirst({
+      where: { tenantId, provider: "CLOUD_API" },
     });
-    const parsed = cloudApiConfigSchema.safeParse(channel?.config);
-    if (parsed.success && parsed.data.verifyToken) {
-      cloudVerifyToken = parsed.data.verifyToken;
+    const parsed = cloudApiConfigSchema.safeParse(existing?.config);
+    const existingToken =
+      parsed.success ? parsed.data.verifyToken : undefined;
+    if (existingToken) {
+      cloudVerifyToken = existingToken;
+    } else if (existing) {
+      // Channel exists but has no token yet (pre-rotation schema) — write one.
+      const rawConfig = z.record(z.unknown()).safeParse(existing.config);
+      const merged = {
+        ...(rawConfig.success ? rawConfig.data : {}),
+        verifyToken: generateVerifyToken(),
+      };
+      await prisma.channel.update({
+        where: { id: existing.id },
+        data: { config: merged },
+      });
+      cloudVerifyToken = merged.verifyToken;
+    } else {
+      // No channel row yet: create the stub now (DISCONNECTED, no secrets)
+      // so a verified webhook + on-screen token exist before Sambungkan.
+      const token = generateVerifyToken();
+      await prisma.channel.create({
+        data: {
+          tenantId,
+          type: "WHATSAPP",
+          provider: "CLOUD_API",
+          status: "DISCONNECTED",
+          config: { verifyToken: token },
+        },
+      });
+      cloudVerifyToken = token;
     }
   }
 
