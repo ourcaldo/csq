@@ -558,6 +558,41 @@ export default function SaluranPage({
               disabled={!isOwner}
             />
 
+            {/* Webhook setup comes BEFORE Sambungkan: Meta must be able to
+                verify the callback, which requires the channel row to exist —
+                but the owner needs the URL + verify token on screen while
+                doing the Meta-side config, not buried in a footer hint. */}
+            <div className="space-y-2 rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
+              <p className="font-medium text-slate-700">
+                Langkah wajib — setel webhook di Meta App Manager (WhatsApp →
+                Configuration) dengan nilai berikut, lalu klik Sambungkan di
+                bawah dan tekan Verify di Meta:
+              </p>
+              <div className="flex items-center gap-2">
+                <span className="w-20 shrink-0 text-slate-400">Callback</span>
+                <code className="min-w-0 flex-1 truncate rounded bg-white px-2 py-1 text-[11px] text-slate-700 ring-1 ring-slate-200">
+                  {webhookUrl}
+                </code>
+                <button
+                  type="button"
+                  className="shrink-0 rounded px-2 py-1 text-[11px] font-medium text-green-700 hover:bg-green-50"
+                  onClick={() => {
+                    void navigator.clipboard
+                      .writeText(webhookUrl)
+                      .then(() => showToast("URL webhook disalin.", "success"));
+                  }}
+                >
+                  Salin
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-20 shrink-0 text-slate-400">Verify token</span>
+                <code className="min-w-0 flex-1 truncate rounded bg-white px-2 py-1 text-[11px] text-slate-700 ring-1 ring-slate-200">
+                  {cloudForm.verifyToken || "—"}
+                </code>
+              </div>
+            </div>
+
             <div className="pt-1">
               <Button
                 disabled={!isOwner || connecting}
@@ -567,14 +602,6 @@ export default function SaluranPage({
                 {connecting ? "Menyambungkan…" : "Sambungkan"}
               </Button>
             </div>
-
-            <p className="text-xs text-slate-400">
-              Setel webhook di Meta App Manager ke{" "}
-              <code className="rounded bg-slate-100 px-1 break-all">
-                {webhookUrl}
-              </code>{" "}
-              dengan verify token yang sama.
-            </p>
           </div>
         </ConfigureCard>
       )}
