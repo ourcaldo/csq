@@ -15,7 +15,9 @@ import {
   Plug,
 } from "@phosphor-icons/react";
 import { QRCodeSVG } from "qrcode.react";
-import { withAuth } from "@/lib/auth";
+import { withAuth, getSSRSession } from "@/lib/auth";
+import prisma from "@/lib/db";
+import { cloudApiConfigSchema } from "@/types/whatsapp";
 import { apiFetch, apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
@@ -76,7 +78,10 @@ function errMsg(e: unknown, fallback: string): string {
 const inputCls =
   "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm placeholder-slate-400 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20";
 
-export default function SaluranPage() {
+export default function SaluranPage({
+  webhookUrl,
+  cloudVerifyToken,
+}: SaluranProps) {
   const { data: session } = useSession();
   const isOwner = session?.user?.role === "OWNER";
 
@@ -399,6 +404,51 @@ export default function SaluranPage() {
             Ingin berganti metode? Putuskan saluran ini, lalu pilih metode lain
             (mis. WhatsApp Resmi) dari langkah pertama.
           </p>
+          {connected.provider === "CLOUD_API" && (
+            <div className="px-5 pb-5 text-xs text-slate-500">
+              <Separator />
+              <div className="mt-4 space-y-2 rounded-lg bg-slate-50 p-3">
+                <p className="font-medium text-slate-700">
+                  Setelan webhook di Meta App Manager (WhatsApp → Configuration):
+                </p>
+                <div className="flex items-center gap-2">
+                  <span className="w-20 shrink-0 text-slate-400">Callback</span>
+                  <code className="min-w-0 flex-1 truncate rounded bg-white px-2 py-1 text-[11px] text-slate-700 ring-1 ring-slate-200">
+                    {webhookUrl}
+                  </code>
+                  <button
+                    type="button"
+                    className="shrink-0 rounded px-2 py-1 text-[11px] font-medium text-green-700 hover:bg-green-50"
+                    onClick={() => {
+                      void navigator.clipboard
+                        .writeText(webhookUrl)
+                        .then(() => showToast("URL webhook disalin.", "success"));
+                    }}
+                  >
+                    Salin
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-20 shrink-0 text-slate-400">Verify token</span>
+                  <code className="min-w-0 flex-1 truncate rounded bg-white px-2 py-1 text-[11px] text-slate-700 ring-1 ring-slate-200">
+                    {cloudVerifyToken ?? "—"}
+                  </code>
+                  <button
+                    type="button"
+                    className="shrink-0 rounded px-2 py-1 text-[11px] font-medium text-green-700 hover:bg-green-50"
+                    onClick={() => {
+                      if (!cloudVerifyToken) return;
+                      void navigator.clipboard
+                        .writeText(cloudVerifyToken)
+                        .then(() => showToast("Verify token disalin.", "success"));
+                    }}
+                  >
+                    Salin
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
           <Separator />
           <div className="p-5">
             <TestBox
@@ -520,8 +570,8 @@ export default function SaluranPage() {
 
             <p className="text-xs text-slate-400">
               Setel webhook di Meta App Manager ke{" "}
-              <code className="rounded bg-slate-100 px-1">
-                https://csq-z821.onrender.com/api/webhooks/whatsapp
+              <code className="rounded bg-slate-100 px-1 break-all">
+                {webhookUrl}
               </code>{" "}
               dengan verify token yang sama.
             </p>
@@ -863,6 +913,38 @@ function Toast({
   );
 }
 
-export const getServerSideProps: GetServerSideProps = withAuth<
-  Record<string, unknown>
->(async () => ({ props: {} }));
+type SaluranProps = {
+  webhookUrl: string;
+  cloudVerifyToken: string | null;
+};
+
+export const getServerSideProps: GetServerSideProps<SaluranProps> = withAuth<
+  SaluranProps
+>(async (ctx) => {
+  // Webhook URL shown in the UI is derived from the request origin, so dev
+  // shows localhost and prod shows the deployed domain (no hardcoded host).
+  const origin = process.env.NEXTAUTH_URL ?? `https://${ctx.req.headers.host}`;
+  const webhookUrl = `${origin.replace(/\/$/, "")}/api/webhooks/whatsapp`;
+
+  // Verify token is sanitized out of the channels list API (secret-adjacent),
+  // but the owner needs to copy-paste it into Meta App Manager — fetch it
+  // server-side for the tenant's CONNECTED Cloud API channel only.
+  const session = await getSSRSession(ctx);
+  let cloudVerifyToken: string | null = null;
+  if (session?.user.tenantId) {
+    const channel = await prisma.channel.findFirst({
+      where: {
+        tenantId: session.user.tenantId,
+        provider: "CLOUD_API",
+        status: "CONNECTED",
+      },
+      select: { config: true },
+    });
+    const parsed = cloudApiConfigSchema.safeParse(channel?.config);
+    if (parsed.success && parsed.data.verifyToken) {
+      cloudVerifyToken = parsed.data.verifyToken;
+    }
+  }
+
+  return { props: { webhookUrl, cloudVerifyToken } };
+});
