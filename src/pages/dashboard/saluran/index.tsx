@@ -66,7 +66,6 @@ const STEPS = ["Pilih Metode", "Sambungkan", "Aktif"];
 const EMPTY_CLOUD = {
   phoneNumberId: "",
   token: "",
-  verifyToken: "demo-verify-token",
   appSecret: "",
   businessAccountId: "",
 };
@@ -201,7 +200,6 @@ export default function SaluranPage({
         config: {
           phoneNumberId: cloudForm.phoneNumberId.trim(),
           token: cloudForm.token.trim(),
-          verifyToken: cloudForm.verifyToken.trim() || undefined,
           appSecret: cloudForm.appSecret.trim() || undefined,
           businessAccountId: cloudForm.businessAccountId.trim() || undefined,
         },
@@ -405,48 +403,17 @@ export default function SaluranPage({
             (mis. WhatsApp Resmi) dari langkah pertama.
           </p>
           {connected.provider === "CLOUD_API" && (
-            <div className="px-5 pb-5 text-xs text-slate-500">
+            <div className="space-y-3 px-5 pb-5">
               <Separator />
-              <div className="mt-4 space-y-2 rounded-lg bg-slate-50 p-3">
-                <p className="font-medium text-slate-700">
-                  Setelan webhook di Meta App Manager (WhatsApp → Configuration):
-                </p>
-                <div className="flex items-center gap-2">
-                  <span className="w-20 shrink-0 text-slate-400">Callback</span>
-                  <code className="min-w-0 flex-1 truncate rounded bg-white px-2 py-1 text-[11px] text-slate-700 ring-1 ring-slate-200">
-                    {webhookUrl}
-                  </code>
-                  <button
-                    type="button"
-                    className="shrink-0 rounded px-2 py-1 text-[11px] font-medium text-green-700 hover:bg-green-50"
-                    onClick={() => {
-                      void navigator.clipboard
-                        .writeText(webhookUrl)
-                        .then(() => showToast("URL webhook disalin.", "success"));
-                    }}
-                  >
-                    Salin
-                  </button>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-20 shrink-0 text-slate-400">Verify token</span>
-                  <code className="min-w-0 flex-1 truncate rounded bg-white px-2 py-1 text-[11px] text-slate-700 ring-1 ring-slate-200">
-                    {cloudVerifyToken ?? "—"}
-                  </code>
-                  <button
-                    type="button"
-                    className="shrink-0 rounded px-2 py-1 text-[11px] font-medium text-green-700 hover:bg-green-50"
-                    onClick={() => {
-                      if (!cloudVerifyToken) return;
-                      void navigator.clipboard
-                        .writeText(cloudVerifyToken)
-                        .then(() => showToast("Verify token disalin.", "success"));
-                    }}
-                  >
-                    Salin
-                  </button>
-                </div>
-              </div>
+              <p className="pt-4 text-xs font-medium text-slate-600">
+                Setelan webhook di Meta App Manager (WhatsApp → Configuration):
+              </p>
+              <ReadOnlyField label="Callback URL" value={webhookUrl} />
+              <ReadOnlyField
+                label="Verify Token"
+                value={cloudVerifyToken ?? "—"}
+                hint="Berganti otomatis setiap kali saluran disambungkan ulang — perbarui juga di Meta."
+              />
             </div>
           )}
           <Separator />
@@ -524,15 +491,6 @@ export default function SaluranPage({
             />
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field
-                label="Verify Token (webhook)"
-                value={cloudForm.verifyToken}
-                onChange={(v) =>
-                  setCloudForm((f) => ({ ...f, verifyToken: v }))
-                }
-                hint="Token untuk verifikasi webhook Meta, mis. demo-verify-token"
-                disabled={!isOwner}
-              />
-              <Field
                 label="App Secret"
                 value={cloudForm.appSecret}
                 onChange={(v) => setCloudForm((f) => ({ ...f, appSecret: v }))}
@@ -540,16 +498,34 @@ export default function SaluranPage({
                 disabled={!isOwner}
                 type="password"
               />
+              <Field
+                label="Business Account ID (opsional)"
+                value={cloudForm.businessAccountId}
+                onChange={(v) =>
+                  setCloudForm((f) => ({ ...f, businessAccountId: v }))
+                }
+                hint="Opsional. Contoh: 10xxxx…"
+                disabled={!isOwner}
+              />
             </div>
-            <Field
-              label="Business Account ID (opsional)"
-              value={cloudForm.businessAccountId}
-              onChange={(v) =>
-                setCloudForm((f) => ({ ...f, businessAccountId: v }))
-              }
-              hint="Opsional. Contoh: 10xxxx…"
-              disabled={!isOwner}
-            />
+
+            {/* Webhook setup comes BEFORE Sambungkan: Meta must verify the
+                callback, and the owner needs URL + token on screen while doing
+                the Meta-side config. Verify token is generated server-side on
+                connect — shown here as it will be after Sambungkan. */}
+            <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50/60 p-4">
+              <p className="text-xs font-medium text-slate-600">
+                Setel webhook di Meta App Manager (WhatsApp → Configuration)
+                dengan nilai berikut, lalu klik Sambungkan dan tekan Verify di
+                Meta:
+              </p>
+              <ReadOnlyField label="Callback URL" value={webhookUrl} />
+              <ReadOnlyField
+                label="Verify Token"
+                value="(dibuat otomatis saat Sambungkan)"
+                hint="Token dibuat sistem saat menyambungkan — salin dari kartu saluran yang terhubung setelahnya."
+              />
+            </div>
 
             <AgentPicker
               agents={activeAgents}
@@ -557,41 +533,6 @@ export default function SaluranPage({
               onChange={setAgentId}
               disabled={!isOwner}
             />
-
-            {/* Webhook setup comes BEFORE Sambungkan: Meta must be able to
-                verify the callback, which requires the channel row to exist —
-                but the owner needs the URL + verify token on screen while
-                doing the Meta-side config, not buried in a footer hint. */}
-            <div className="space-y-2 rounded-lg bg-slate-50 p-3 text-xs text-slate-500">
-              <p className="font-medium text-slate-700">
-                Langkah wajib — setel webhook di Meta App Manager (WhatsApp →
-                Configuration) dengan nilai berikut, lalu klik Sambungkan di
-                bawah dan tekan Verify di Meta:
-              </p>
-              <div className="flex items-center gap-2">
-                <span className="w-20 shrink-0 text-slate-400">Callback</span>
-                <code className="min-w-0 flex-1 truncate rounded bg-white px-2 py-1 text-[11px] text-slate-700 ring-1 ring-slate-200">
-                  {webhookUrl}
-                </code>
-                <button
-                  type="button"
-                  className="shrink-0 rounded px-2 py-1 text-[11px] font-medium text-green-700 hover:bg-green-50"
-                  onClick={() => {
-                    void navigator.clipboard
-                      .writeText(webhookUrl)
-                      .then(() => showToast("URL webhook disalin.", "success"));
-                  }}
-                >
-                  Salin
-                </button>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-20 shrink-0 text-slate-400">Verify token</span>
-                <code className="min-w-0 flex-1 truncate rounded bg-white px-2 py-1 text-[11px] text-slate-700 ring-1 ring-slate-200">
-                  {cloudForm.verifyToken || "—"}
-                </code>
-              </div>
-            </div>
 
             <div className="pt-1">
               <Button
@@ -693,15 +634,6 @@ export default function SaluranPage({
             />
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field
-                label="Verify Token (webhook)"
-                value={cloudForm.verifyToken}
-                onChange={(v) =>
-                  setCloudForm((f) => ({ ...f, verifyToken: v }))
-                }
-                hint="Token verifikasi webhook Meta"
-                disabled={!isOwner}
-              />
-              <Field
                 label="App Secret"
                 value={cloudForm.appSecret}
                 onChange={(v) => setCloudForm((f) => ({ ...f, appSecret: v }))}
@@ -723,6 +655,10 @@ export default function SaluranPage({
                 Batal
               </Button>
             </div>
+            <p className="text-xs text-slate-400">
+              Menyimpan membuat verify token baru — perbarui token webhook di
+              Meta App Manager setelahnya.
+            </p>
           </div>
         </ConfigureCard>
       )}
@@ -876,6 +812,38 @@ function Field(props: {
         </span>
       )}
     </label>
+  );
+}
+
+// Read-only credential display used for server-generated values (webhook URL,
+// verify token): same height/padding as Field's input, with an inline copy
+// button so it visually matches the editable fields beside it.
+function ReadOnlyField(props: { label: string; value: string; hint?: string }) {
+  return (
+    <div className="block">
+      <span className="mb-1 block text-xs font-medium text-slate-600">
+        {props.label}
+      </span>
+      <div className="flex items-center gap-2">
+        <code className="min-w-0 flex-1 truncate rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+          {props.value}
+        </code>
+        <button
+          type="button"
+          className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-green-700 hover:bg-green-50"
+          onClick={() => {
+            void navigator.clipboard.writeText(props.value);
+          }}
+        >
+          Salin
+        </button>
+      </div>
+      {props.hint && (
+        <span className="mt-1 block text-xs text-slate-400">
+          {props.hint}
+        </span>
+      )}
+    </div>
   );
 }
 

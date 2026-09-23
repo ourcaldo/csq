@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import crypto from "crypto";
 import { z } from "zod";
 import { getAuthSession, requireRole } from "@/lib/auth";
 import prisma from "@/lib/db";
@@ -17,6 +18,13 @@ import { connectBaileysChannel } from "@/services/baileys";
 // (ToS/ban risk, FR-WA-011) — enforced HERE in the backend, not just the UI.
 // For Baileys, starts the socket and returns the QR to scan; for Cloud API,
 // stores the credentials and marks CONNECTED.
+
+// Fresh verify token per (re)connect — generated server-side, the client
+// never supplies it. Rotating on every connect invalidates any stale token
+// left in Meta's webhook config after a disconnect/re-enable cycle.
+function generateVerifyToken(): string {
+  return `csq-${crypto.randomBytes(18).toString("base64url")}`;
+}
 
 const connectSchema = z.object({
   provider: z.enum(["CLOUD_API", "BAILEYS"]),
@@ -55,8 +63,12 @@ export default async function handler(
   let config: CloudApiConfig | BaileysConfig;
   let status: "CONNECTED" | "DISCONNECTED";
   if (provider === "CLOUD_API") {
-    const cfg = cloudApiConfigSchema.parse(parsed.data.config);
-    config = cfg;
+    const { verifyToken: _clientToken, ...rest } =
+      cloudApiConfigSchema.parse(parsed.data.config);
+    // Server-generated token: the client's value is always ignored so the
+    // webhook shared secret is never a predictable default like
+    // "demo-verify-token".
+    config = { ...rest, verifyToken: generateVerifyToken() };
     status = "CONNECTED";
   } else {
     const cfg = baileysConfigSchema.parse(parsed.data.config);
