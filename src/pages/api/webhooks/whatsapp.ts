@@ -5,6 +5,10 @@ import { ingestInboundMessage } from "@/lib/inbox";
 import { processInboundWithAgent } from "@/lib/agent-loop";
 import { cloudApiConfigSchema } from "@/types/whatsapp";
 import { parseCloudApiInbound } from "@/services/whatsapp";
+import {
+  recordWebhookDiag,
+  getWebhookDiags,
+} from "@/lib/webhook-diagnostics";
 
 // WhatsApp Cloud API webhook. UNAUTHENTICATED — Meta calls it directly, so
 // tenantId is resolved from the channel config (looked up by phone_number_id),
@@ -123,6 +127,11 @@ export default async function handler(
     });
     if (!channel) {
       // Unknown number — ACK to stop retries, but do nothing.
+      recordWebhookDiag({
+        at: new Date().toISOString(),
+        kind: "UNKNOWN_PHONE_ID",
+        phoneId: phoneNumberId,
+      });
       res.status(200).send("EVENT_RECEIVED");
       return;
     }
@@ -141,10 +150,31 @@ export default async function handler(
       console.error(
         `[whatsapp-webhook] Channel ${channel.id} has no appSecret and WHATSAPP_APP_SECRET is unset; rejecting inbound (fail-closed).`
       );
+      recordWebhookDiag({
+        at: new Date().toISOString(),
+        kind: "NO_SECRET",
+        phoneId: phoneNumberId,
+      });
       res.status(401).send("Unauthorized");
       return;
     }
     if (!verifySignature(raw, signature, appSecret)) {
+      // Record truncated signatures so the owner can compare what Meta sent vs
+      // what we computed — the fastest way to distinguish "wrong app secret"
+      // from "Meta is signing with something else" without server log access.
+      const expected = signature?.slice("sha256=".length, "sha256=".length + 16);
+      const computed = crypto
+        .createHmac("sha256", appSecret)
+        .update(raw)
+        .digest("hex")
+        .slice(0, 16);
+      recordWebhookDiag({
+        at: new Date().toISOString(),
+        kind: "SIG_MISMATCH",
+        phoneId: phoneNumberId,
+        receivedSig: expected,
+        computedSig: computed,
+      });
       res.status(401).send("Unauthorized");
       return;
     }
