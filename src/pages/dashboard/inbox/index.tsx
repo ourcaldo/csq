@@ -85,6 +85,18 @@ export default function InboxPage() {
     void refresh();
   }
 
+  // Live updates for the conversation LIST (the per-thread SSE in ChatPanel
+  // covers open chats, but the list — last message, ordering, new
+  // conversations — never refreshed, so new inbound traffic was invisible
+  // until a manual page reload). Poll at a modest cadence; keepSelection:
+  // refreshing must not clobber the open thread.
+  useEffect(() => {
+    const t = setInterval(() => {
+      void refresh();
+    }, 8000);
+    return () => clearInterval(t);
+  }, [refresh]);
+
   return (
     <DashboardShell title="Percakapan" flush>
       {/* Filter toolbar — status + tag drive the server-side query. */}

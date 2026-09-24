@@ -150,6 +150,13 @@ export function ChatPanel({ conversationId, customerName, customerPhone, aiActiv
     const es = new EventSource(
       `/api/dashboard/inbox/stream?conversationId=${conversationId}`
     );
+    // The server tracks "last seen" from the moment the SSE connects — any
+    // message that arrived while the connection was down (proxy timeout,
+    // deploy, laptop sleep) is never replayed. Re-fetch the full history on
+    // every (re)connect so the panel is always back in sync.
+    es.onopen = () => {
+      void loadMessages();
+    };
     es.onmessage = () => {
       void loadMessages();
     };
