@@ -925,9 +925,10 @@ export const getServerSideProps: GetServerSideProps<SaluranProps> = withAuth<
 
   // Verify token is sanitized out of the channels list API (secret-adjacent).
   // The Cloud API channel row carries the token; if none exists yet (first
-  // connect) or none has a token yet, create/persist the channel stub with a
-  // freshly generated token NOW — so the token is on screen before the owner
-  // clicks Sambungkan, and Meta's webhook Verify can succeed immediately.
+  // connect) or the stored one is missing or still the old predictable default
+  // ("demo-verify-token"), create/persist a freshly generated token NOW — so
+  // the token is on screen before the owner clicks Sambungkan, and Meta's
+  // webhook Verify can succeed immediately.
   const session = await getSSRSession(ctx);
   let cloudVerifyToken: string | null = null;
   if (session?.user.tenantId) {
@@ -938,10 +939,13 @@ export const getServerSideProps: GetServerSideProps<SaluranProps> = withAuth<
     const parsed = cloudApiConfigSchema.safeParse(existing?.config);
     const existingToken =
       parsed.success ? parsed.data.verifyToken : undefined;
-    if (existingToken) {
+    const isWeakToken =
+      !existingToken || existingToken === "demo-verify-token";
+    if (existingToken && !isWeakToken) {
       cloudVerifyToken = existingToken;
     } else if (existing) {
-      // Channel exists but has no token yet (pre-rotation schema) — write one.
+      // Channel exists but has no token (or still the pre-rotation default) —
+      // write a fresh one.
       const rawConfig = z.record(z.unknown()).safeParse(existing.config);
       const merged = {
         ...(rawConfig.success ? rawConfig.data : {}),
