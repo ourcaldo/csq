@@ -16,6 +16,7 @@ import {
   Phone,
   ArrowLeft,
   UserCircle,
+  Checks,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { apiFetch, apiSend } from "@/lib/api-client";
@@ -44,11 +45,14 @@ function timeLabel(iso: string): string {
   return d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
 }
 
-function MessageBubble({ m }: { m: Message }) {
+function MessageBubble({ m, readByAgent }: { m: Message; readByAgent: boolean }) {
+  // Whitespace-pre-line: agent replies carry markdown/newlines (lists, line
+  // breaks) that must render as-written like WhatsApp does, not collapse.
+  const bodyClass = "px-3 py-2 text-sm shadow-sm whitespace-pre-line";
   if (m.isInternal) {
     return (
       <div className="my-1 flex justify-center">
-        <div className="msg-note max-w-[80%] px-3 py-2 text-xs">
+        <div className="msg-note max-w-[80%] px-3 py-2 text-xs whitespace-pre-line">
           <span className="font-semibold">Catatan tim: </span>
           {m.body}
         </div>
@@ -63,7 +67,7 @@ function MessageBubble({ m }: { m: Message }) {
           {(m.body.charAt(0) || "?").toUpperCase()}
         </div>
         <div>
-          <div className="msg-received px-3 py-2 text-sm shadow-sm">{m.body}</div>
+          <div className={cn("msg-received", bodyClass)}>{m.body}</div>
           <span className="mt-1 ml-1 block text-[10px] text-slate-400">{timeLabel(m.createdAt)}</span>
         </div>
       </div>
@@ -86,15 +90,47 @@ function MessageBubble({ m }: { m: Message }) {
         )}
         <div
           className={cn(
-            "px-3 py-2 text-sm shadow-sm",
+            bodyClass,
             isScenario ? "msg-scenario" : isAi ? "msg-ai" : "msg-sent"
           )}
         >
           {m.body}
         </div>
-        <span className="mt-1 mr-1 block text-right text-[10px] text-slate-400">
+        <span className="mt-1 mr-1 flex items-center justify-end gap-1 text-[10px] text-slate-400">
+          {readByAgent && (
+            <span className="text-blue-500" aria-label="Dibaca AI" title="Dibaca AI">
+              <Checks size={13} weight="bold" />
+            </span>
+          )}
           {timeLabel(m.createdAt)}
         </span>
+      </div>
+    </div>
+  );
+}
+
+// WhatsApp-style "AI sedang mengetik…" indicator: three pulsing dots.
+function TypingIndicator({ label }: { label: string }) {
+  return (
+    <div className="my-1 flex max-w-[80%] items-end justify-end gap-2 self-end">
+      <div>
+        <span className="mb-1 ml-1 inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">
+          <Robot size={12} weight="fill" /> AI
+        </span>
+        <div className="msg-ai px-3 py-2 text-sm shadow-sm">
+          <span className="inline-flex items-center gap-1">
+            <span className="text-xs text-slate-500">{label}</span>
+            <span className="flex gap-0.5">
+              {[0, 1, 2].map((i) => (
+                <span
+                  key={i}
+                  className="h-1.5 w-1.5 animate-bounce rounded-full bg-blue-400"
+                  style={{ animationDelay: `${i * 150}ms` }}
+                />
+              ))}
+            </span>
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -278,7 +314,29 @@ export function ChatPanel({ conversationId, customerName, customerPhone, aiActiv
         )}
         {!loading &&
           !error &&
-          messages?.map((m) => <MessageBubble key={m.id} m={m} />)}
+          messages?.map((m) => (
+            <MessageBubble
+              key={m.id}
+              m={m}
+              readByAgent={
+                m.direction === "INBOUND" &&
+                !!messages.some(
+                  (later) =>
+                    later.createdAt > m.createdAt &&
+                    (later.senderType === "AGENT" ||
+                      later.senderType === "HUMAN")
+                )
+              }
+            />
+          ))}
+        {/* Agent turn in flight: the last message is a customer inbound with
+            no business reply after it yet — the agent loop is processing it
+            (webhook fires the loop on ingest). Show WhatsApp-style dots. */}
+        {aiActive && !loading && !error && messages && (() => {
+          const last = messages[messages.length - 1];
+          if (!last || last.direction !== "INBOUND") return null;
+          return <TypingIndicator label="AI sedang mengetik" />;
+        })()}
       </div>
 
       {/* Composer */}

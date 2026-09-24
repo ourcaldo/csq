@@ -18,6 +18,9 @@ type SerializedOrderItem = {
 
 type SerializedOrder = {
   id: string;
+  // Human-friendly order number shown on the dashboard (#<first 8 uuid chars>,
+  // uppercase). The agent must quote THIS to the customer, never the raw uuid.
+  orderNumber: string;
   customerName: string | null;
   customerPhone: string | null;
   status: string;
@@ -43,6 +46,7 @@ function serializeOrder(
 ): SerializedOrder {
   return {
     id: order.id,
+    orderNumber: `#${order.id.slice(0, 8).toUpperCase()}`,
     customerName: order.customerName,
     customerPhone: order.customerPhone,
     status: order.status,
