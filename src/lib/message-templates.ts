@@ -108,21 +108,24 @@ export async function getMetaTemplate(
   return { name: t.metaName, language: t.metaLanguage ?? "id" };
 }
 
-// System keys the platform recognizes (shown as hints in the UI).
+// System keys the platform recognizes (shown as dropdown options in the UI).
 export const SYSTEM_TEMPLATE_KEYS = [
   {
     key: "session_end",
+    label: "Pesan penutup sesi (otomatis saat idle 1 jam)",
     description:
-      "Pesan penutup yang dikirim otomatis saat percakapan idle 1 jam (masih dalam window 24h, teks bebas).",
+      "Dikirim otomatis saat percakapan idle 1 jam sejak pesan terakhir pelanggan.",
   },
   {
     key: "agent_fallback",
+    label: "Fallback saat AI gangguan",
     description:
-      "Pesan fallback saat AI mengalami gangguan (menggantikan default sistem).",
+      "Menggantikan pesan default sistem saat AI mengalami gangguan dan tidak bisa membalas.",
   },
   {
     key: "window_greeting",
+    label: "Sapaan pembuka window baru",
     description:
-      "Sapaan pembuka window baru (opsional; tanpa ini agent membalas tanpa sapaan khusus).",
+      "Sapaan saat pelanggan memulai kembali setelah sesi sebelumnya berakhir (opsional).",
   },
 ] as const;

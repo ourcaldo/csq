@@ -4,7 +4,13 @@
 // - META template: the name of a template approved in Meta Business Manager,
 //   used for business-initiated sends OUTSIDE the 24h window.
 // Owner-only writes; staff can view.
-import { useState } from "react";
+//
+// The template key is a system concern — never surfaced as a free-text field
+// on the page. The owner picks a SYSTEM key from a dropdown (with its
+// description) or "Lainnya" to define a custom key (label-only in the UI).
+// Duplicate (key, kind) is rejected by the API POST path; editing an existing
+// system key updates it in place.
+import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import type { GetServerSideProps } from "next";
 import { useSession } from "next-auth/react";
@@ -33,12 +39,23 @@ type MessageTemplate = {
   metaLanguage?: string;
 };
 
-type SystemKey = { key: string; description: string };
+type SystemKey = { key: string; label?: string; description: string };
 
 type ListResult = { items: MessageTemplate[]; systemKeys: SystemKey[] };
 
 const inputCls =
   "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm placeholder-slate-400 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20";
+
+// Select option value encoding: "sys:<key>" for a system key, "custom" for a
+// new custom key, "<key>" (plain) for a pre-existing custom key being edited.
+function keyToOption(key: string, systemKeys: SystemKey[]): string {
+  return systemKeys.some((k) => k.key === key) ? `sys:${key}` : key || "custom";
+}
+
+function optionToKey(value: string, customKey: string): string {
+  if (value === "custom") return customKey.trim();
+  return value.startsWith("sys:") ? value.slice(4) : value;
+}
 
 export default function TemplatesPage() {
   const { data: session } = useSession();
@@ -54,15 +71,43 @@ export default function TemplatesPage() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Kind drives which fields render; key selection drives sys/custom split.
+  const dialogTemplate = editing === "new" ? null : editing;
+  const [formKind, setFormKind] = useState<TemplateKind>("CSQ");
+  const [keyOption, setKeyOption] = useState("custom");
+  const [customKey, setCustomKey] = useState("");
+
+  function openForm(t: MessageTemplate | "new") {
+    setFormError(null);
+    if (t === "new") {
+      setEditing("new");
+      setFormKind("CSQ");
+      setKeyOption("custom");
+      setCustomKey("");
+    } else {
+      setEditing(t);
+      setFormKind(t.kind);
+      setKeyOption(keyToOption(t.key, systemKeys));
+      setCustomKey(t.key);
+    }
+  }
+
   async function onSave(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!editing) return;
     const form = new FormData(e.currentTarget);
-    const isNew = editing === "new";
+    const key = optionToKey(
+      String(form.get("keyOption") ?? keyOption),
+      customKey
+    );
+    if (!key) {
+      setFormError("Key template wajib diisi.");
+      return;
+    }
     const payload = {
-      key: String(form.get("key") ?? "").trim(),
+      key,
       label: String(form.get("label") ?? "").trim(),
-      kind: String(form.get("kind") ?? "CSQ") as TemplateKind,
+      kind: formKind,
       body: String(form.get("body") ?? "").trim(),
       metaName: String(form.get("metaName") ?? "").trim() || undefined,
       metaLanguage: String(form.get("metaLanguage") ?? "").trim() || undefined,
@@ -70,10 +115,9 @@ export default function TemplatesPage() {
     setSaving(true);
     setFormError(null);
     try {
-      if (isNew) {
+      if (editing === "new") {
         await apiSend<MessageTemplate>("/api/dashboard/templates", "POST", payload);
       } else {
-        // PUT replaces the whole list; merge the edited item in.
         const next = items.map((t) =>
           t.id === (editing as MessageTemplate).id ? { ...t, ...payload } : t
         );
@@ -98,7 +142,18 @@ export default function TemplatesPage() {
     }
   }
 
-  const dialogTemplate = editing === "new" ? null : editing;
+  const selectedSystem = useMemo(
+    () => systemKeys.find((k) => `sys:${k.key}` === keyOption),
+    [systemKeys, keyOption]
+  );
+
+  // System keys already in use for the current kind — disabled in the dropdown
+  // (one template per key per kind).
+  const usedSysKeys = new Set(
+    items
+      .filter((t) => t.kind === formKind && t.id !== dialogTemplate?.id)
+      .map((t) => t.key)
+  );
 
   return (
     <DashboardShell
@@ -112,23 +167,9 @@ export default function TemplatesPage() {
       )}
       {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
-      <div className="mb-4 flex items-center justify-between">
-        <p className="text-sm text-slate-500">
-          Key sistem yang dikenal platform:{" "}
-          {systemKeys.length > 0
-            ? systemKeys.map((k) => (
-                <code
-                  key={k.key}
-                  title={k.description}
-                  className="mr-2 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700"
-                >
-                  {k.key}
-                </code>
-              ))
-            : "—"}
-        </p>
+      <div className="mb-4 flex items-center justify-end">
         {isOwner && (
-          <Button onClick={() => setEditing("new")}>
+          <Button onClick={() => openForm("new")}>
             <Plus size={16} /> Tambah Template
           </Button>
         )}
@@ -156,7 +197,11 @@ export default function TemplatesPage() {
                     <p className="truncate text-sm font-semibold text-slate-900">
                       {t.label}
                     </p>
-                    <code className="text-xs text-slate-500">{t.key}</code>
+                    {sys && (
+                      <span className="text-[11px] text-slate-400">
+                        {sys.description}
+                      </span>
+                    )}
                   </div>
                   <span
                     className={cn(
@@ -174,15 +219,12 @@ export default function TemplatesPage() {
                     ? `Nama template Meta: ${t.metaName ?? "—"} (${t.metaLanguage ?? "id"})`
                     : t.body}
                 </p>
-                {sys && (
-                  <p className="mb-3 text-[11px] text-slate-400">{sys.description}</p>
-                )}
                 {isOwner && (
                   <div className="mt-auto flex gap-2 pt-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => setEditing(t)}
+                      onClick={() => openForm(t)}
                     >
                       <PencilSimple size={14} /> Edit
                     </Button>
@@ -208,37 +250,12 @@ export default function TemplatesPage() {
       >
         <form onSubmit={onSave} className="space-y-3">
           <div>
-            <Label htmlFor="tpl-label">Nama</Label>
-            <Input
-              id="tpl-label"
-              name="label"
-              defaultValue={dialogTemplate?.label ?? ""}
-              placeholder="Mis. Pesan penutup sesi"
-              required
-            />
-          </div>
-          <div>
-            <Label htmlFor="tpl-key">Key</Label>
-            <Input
-              id="tpl-key"
-              name="key"
-              defaultValue={dialogTemplate?.key ?? ""}
-              placeholder="mis. session_end"
-              pattern="[a-z0-9_]+"
-              title="huruf kecil, angka, underscore"
-              required
-            />
-            <p className="mt-1 text-xs text-slate-400">
-              Gunakan key sistem (seperti session_end) agar dipakai otomatis oleh
-              platform.
-            </p>
-          </div>
-          <div>
             <Label htmlFor="tpl-kind">Jenis</Label>
             <select
               id="tpl-kind"
               name="kind"
-              defaultValue={dialogTemplate?.kind ?? "CSQ"}
+              value={formKind}
+              onChange={(e) => setFormKind(e.target.value as TemplateKind)}
               className={inputCls}
             >
               <option value="CSQ">
@@ -249,38 +266,94 @@ export default function TemplatesPage() {
               </option>
             </select>
           </div>
+
           <div>
-            <Label htmlFor="tpl-body">Isi pesan</Label>
-            <textarea
-              id="tpl-body"
-              name="body"
-              defaultValue={dialogTemplate?.body ?? ""}
-              rows={3}
-              placeholder="Teks pesan yang dikirim ke pelanggan…"
+            <Label htmlFor="tpl-key-option">Fungsi template</Label>
+            <select
+              id="tpl-key-option"
+              name="keyOption"
+              value={keyOption}
+              onChange={(e) => setKeyOption(e.target.value)}
+              className={inputCls}
+            >
+              {systemKeys.map((k) => (
+                <option
+                  key={k.key}
+                  value={`sys:${k.key}`}
+                  disabled={usedSysKeys.has(k.key)}
+                >
+                  {k.label ?? k.key}
+                </option>
+              ))}
+              <option value="custom">Lainnya (buat sendiri)</option>
+            </select>
+            {selectedSystem ? (
+              <p className="mt-1 text-xs text-slate-400">
+                {selectedSystem.description}
+              </p>
+            ) : (
+              keyOption === "custom" && (
+                <div className="mt-2">
+                  <Input
+                    value={customKey}
+                    onChange={(e) => setCustomKey(e.target.value)}
+                    placeholder="Nama fungsi (huruf kecil, angka, underscore)"
+                    pattern="[a-z0-9_]+"
+                    title="huruf kecil, angka, underscore"
+                  />
+                </div>
+              )
+            )}
+          </div>
+
+          <div>
+            <Label htmlFor="tpl-label">Nama</Label>
+            <Input
+              id="tpl-label"
+              name="label"
+              defaultValue={dialogTemplate?.label ?? ""}
+              placeholder="Mis. Pesan penutup sesi"
               required
-              className={cn(inputCls, "resize-y")}
             />
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+
+          {formKind === "CSQ" ? (
             <div>
-              <Label htmlFor="tpl-meta-name">Nama template Meta (khusus jenis Meta)</Label>
-              <Input
-                id="tpl-meta-name"
-                name="metaName"
-                defaultValue={dialogTemplate?.metaName ?? ""}
-                placeholder="mis. session_close_v1"
+              <Label htmlFor="tpl-body">Isi pesan</Label>
+              <textarea
+                id="tpl-body"
+                name="body"
+                defaultValue={dialogTemplate?.body ?? ""}
+                rows={3}
+                placeholder="Teks pesan yang dikirim ke pelanggan…"
+                required
+                className={cn(inputCls, "resize-y")}
               />
             </div>
-            <div>
-              <Label htmlFor="tpl-meta-lang">Bahasa template Meta</Label>
-              <Input
-                id="tpl-meta-lang"
-                name="metaLanguage"
-                defaultValue={dialogTemplate?.metaLanguage ?? "id"}
-                placeholder="id"
-              />
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="tpl-meta-name">Nama template Meta</Label>
+                <Input
+                  id="tpl-meta-name"
+                  name="metaName"
+                  defaultValue={dialogTemplate?.metaName ?? ""}
+                  placeholder="mis. session_close_v1"
+                  required
+                />
+              </div>
+              <div>
+                <Label htmlFor="tpl-meta-lang">Bahasa</Label>
+                <Input
+                  id="tpl-meta-lang"
+                  name="metaLanguage"
+                  defaultValue={dialogTemplate?.metaLanguage ?? "id"}
+                  placeholder="id"
+                />
+              </div>
             </div>
-          </div>
+          )}
+
           <div className="flex justify-end gap-2 pt-2">
             <Button
               type="button"
