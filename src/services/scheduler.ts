@@ -1,4 +1,5 @@
 import cron from "node-cron";
+import { z } from "zod";
 import { InventorySource } from "@prisma/client";
 import prisma from "@/lib/db";
 import { applyImport } from "@/lib/import-apply";
@@ -13,6 +14,8 @@ import {
   resumePausedRuns,
   runScheduledTriggers,
 } from "@/lib/scenario-engine";
+import { sendAgentMessage } from "@/lib/agent-outbox";
+import { getTemplateBody } from "@/lib/message-templates";
 
 // In-process periodic sync for Google Sheets sources (PRD §23A — no Redis/queue,
 // node-cron runs inside the Next.js server). Server-only: callers must invoke
@@ -53,7 +56,88 @@ export function startScheduler(): void {
     void runScheduledTriggers().catch(() => {
       // Per-scenario errors are logged inside; swallow top-level failures.
     });
+    void closeIdleSessions().catch(() => {
+      // Per-conversation errors are logged inside; swallow.
+    });
   });
+}
+
+// Session-close: send the tenant's `session_end` template to conversations
+// whose last inbound is past the 1h agent-session TTL. Free-form WhatsApp is
+// allowed here (1h idle = still inside Meta's 24h customer-service window),
+// so no Meta template approval is needed. One message per conversation per
+// window (tracked in Conversation.settings), skipped for RESOLVED or
+// human-owned conversations.
+const conversationSettingsSchema = z.record(z.unknown());
+const SESSION_TTL_MS = 60 * 60 * 1000; // matches agent-loop's window TTL
+
+async function closeIdleSessions(): Promise<void> {
+  // 5-minute slack so a missed tick (e.g. mid-deploy) still closes the window.
+  const cutoff = new Date(Date.now() - (SESSION_TTL_MS + 5 * 60 * 1000));
+
+  const conversations = await prisma.conversation.findMany({
+    where: {
+      status: "OPEN",
+      assigneeUserId: null, // human-owned: do not auto-close
+      lastMessageAt: { lt: cutoff },
+    },
+    orderBy: { lastMessageAt: "asc" },
+    take: 20,
+    include: { channel: true },
+  });
+
+  for (const conversation of conversations) {
+    try {
+      // Only close on the customer's last inbound (outbound activity alone
+      // must not trigger a close — session TTL counts from customer input).
+      const last = await prisma.message.findFirst({
+        where: { conversationId: conversation.id },
+        orderBy: { createdAt: "desc" },
+      });
+      if (!last || last.direction !== "INBOUND") continue;
+      if (last.createdAt > cutoff) continue;
+
+      // Already closed for this window?
+      const rawSettings = conversationSettingsSchema.safeParse(
+        conversation.settings ?? {}
+      );
+      const settings = rawSettings.success ? rawSettings.data : {};
+      if (settings.lastInboundClosedAt === last.id) continue;
+
+      if (conversation.channel.status !== "CONNECTED") continue;
+
+      const body = await getTemplateBody(
+        conversation.tenantId,
+        "session_end",
+        "Terima kasih sudah mengobrol dengan kami! Jika ada pertanyaan lain, silakan chat kembali ya. 😊"
+      );
+      if (!body) continue;
+
+      await sendAgentMessage({
+        channel: conversation.channel,
+        conversationId: conversation.id,
+        customerPhone: conversation.customerPhone,
+        body,
+        agentId: null,
+        action: "conversation.session_closed",
+      });
+
+      await prisma.conversation.update({
+        where: { id: conversation.id },
+        data: {
+          settings: {
+            ...settings,
+            sessionClosedAt: new Date().toISOString(),
+            lastInboundClosedAt: last.id,
+          },
+        },
+      });
+    } catch (err) {
+      console.error(
+        `[scheduler] session-close failed for conversation ${conversation.id}: ${err instanceof Error ? err.message : err}`
+      );
+    }
+  }
 }
 
 async function syncAllSheetsSources(): Promise<void> {

@@ -534,6 +534,10 @@ model Conversation {
   status            ConversationStatus @default(OPEN)
   openclawSessionId String?
   lastMessageAt     DateTime?
+  // System flags per conversation (JSON). Currently: session-close tracking
+  // (sessionClosedAt, lastInboundClosedAt) so the idle-1h close message is
+  // sent at most once per agent-session window.
+  settings          Json?
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
