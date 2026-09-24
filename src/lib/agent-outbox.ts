@@ -45,9 +45,27 @@ export type SendAgentMessageInput = {
 export async function sendAgentMessage(
   input: SendAgentMessageInput
 ): Promise<SendAgentMessageResult> {
-  const { channel, conversationId, customerPhone, body, agentId, action } = input;
+  const { channel, conversationId, customerPhone, agentId, action } = input;
   const tenantId = channel.tenantId;
   const provider = getProvider(channel);
+
+  // WhatsApp renders bold as *text* (single asterisks) — the LLM replies in
+  // markdown (**text**), which WhatsApp shows as literal asterisks. Convert
+  // markdown formatting to WhatsApp's at the WhatsApp boundary only (the
+  // dashboard keeps the original markdown, which it renders well). Italic
+  // first (single *x* not part of **x**, and not a list bullet), then bold.
+  // Markdown links [label](url) don't render in WhatsApp either — flatten to
+  // label + url.
+  let body = input.body;
+  if (channel.provider === "CLOUD_API" || channel.provider === "BAILEYS") {
+    body = body
+      .replace(
+        /(?<!\*)\*(?!\*)([^*\n]+?)(?<!\*)\*(?!\*)/g,
+        (m, c) => (c.startsWith(" ") ? m : `_${c}_`)
+      )
+      .replace(/\*\*([^*]+)\*\*/g, "*$1*")
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, "$1 ($2)");
+  }
 
   // 24h customer-service window — Cloud API only (FR-MS-003). Baileys bypasses.
   let useTemplate = false;

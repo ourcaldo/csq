@@ -87,6 +87,103 @@ const orderRead: ToolDefinition<OrderReadParams> = {
   },
 };
 
+// order.list — read-only order search. Filters are all optional and combine
+// (AND). `orderNumber` is the 8-char human-friendly prefix ("#ABC12345" or
+// "ABC12345"); `phone`/`email` resolve the Contact first (email lives on
+// Contact, not Order, so an email search maps to the contact's phone) and also
+// match Order.customerPhone directly. Bounded result page (default 10, max 25)
+// so the agent can't pull an unbounded list into context.
+const MAX_ORDER_LIST = 25;
+
+const orderListSchema = z.object({
+  orderNumber: z.string().min(4).max(12).optional(),
+  phone: z.string().min(6).max(32).optional(),
+  email: z.string().email().optional(),
+  status: z.enum(["PENDING", "CONFIRMED", "CANCELLED"]).optional(),
+  page: z.number().int().min(1).max(1000).optional(),
+});
+type OrderListParams = z.infer<typeof orderListSchema>;
+
+const orderList: ToolDefinition<OrderListParams> = {
+  name: "order.list",
+  description:
+    "Search orders. Filter by orderNumber (e.g. #ABC12345), customer phone (WhatsApp number), customer email, and/or status. Returns the most recent matching orders with line items. Without filters, returns the customer's orders for the current conversation phone.",
+  category: "order",
+  parameters: orderListSchema,
+  defaultPermission: { allowed: true, requiresApproval: false },
+  async handler(ctx): Promise<ToolResult> {
+    const p = ctx.params;
+
+    // Order number → case-insensitive uuid prefix match. Normalize a leading "#".
+    const numberPrefix = p.orderNumber
+      ? p.orderNumber.replace(/^#/, "").toLowerCase()
+      : undefined;
+
+    // Email lives on Contact; resolve to the contact's phone(s), then include
+    // direct Order.customerPhone matches. Tenant-scoped throughout.
+    let emailPhones: string[] | undefined;
+    if (p.email) {
+      const contacts = await ctx.prisma.contact.findMany({
+        where: { tenantId: ctx.tenantId, email: p.email },
+        select: { phone: true },
+      });
+      emailPhones = contacts.map((c) => c.phone);
+    }
+
+    const where: Prisma.OrderWhereInput = {
+      tenantId: ctx.tenantId,
+      ...(numberPrefix ? { id: { startsWith: numberPrefix } } : {}),
+      ...(p.status ? { status: p.status } : {}),
+      ...(p.phone || emailPhones
+        ? {
+            OR: [
+              ...(p.phone ? [{ customerPhone: p.phone }] : []),
+              ...(emailPhones
+                ? emailPhones.map((ph) => ({ customerPhone: ph }))
+                : []),
+            ],
+          }
+        : // No explicit phone/email filter: default to the current conversation's
+          // customer so a bare `order.list` is always scoped, never a full dump.
+          ctx.customerPhone
+          ? { customerPhone: ctx.customerPhone }
+          : {}),
+    };
+
+    const page = p.page ?? 1;
+    const take = 10;
+    const [orders, total] = await Promise.all([
+      ctx.prisma.order.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        take: Math.min(take * page, MAX_ORDER_LIST),
+        include: { items: { include: { product: true } } },
+      }),
+      ctx.prisma.order.count({ where }),
+    ]);
+
+    await ctx.audit({
+      action: "order.list",
+      entityType: "order",
+      entityId: "search",
+      customerPhone: p.phone ?? ctx.customerPhone ?? undefined,
+      afterValue: { filters: { orderNumber: p.orderNumber, email: p.email, status: p.status }, total },
+    });
+
+    return {
+      success: true,
+      data: {
+        total,
+        page,
+        orders: orders.map((o) => ({
+          ...serializeOrder(o),
+          createdAt: o.createdAt.toISOString(),
+        })),
+      },
+    };
+  },
+};
+
 const orderCreateSchema = z.object({
   customerName: z.string().min(1).optional(),
   customerPhone: z.string().min(1).optional(),
@@ -322,6 +419,7 @@ const orderCancel: ToolDefinition<OrderCancelParams> = {
 
 export const orderTools: ToolDefinition<any>[] = [
   orderRead,
+  orderList,
   orderCreate,
   orderCancel,
 ];

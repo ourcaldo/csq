@@ -121,6 +121,11 @@ export type RunConversationArgs = {
   agentId: string; // CSQ Agent.id UUID — keys executeTool/capability lookup
   openclawAgentId: string; // OpenClaw agent id — the `model: openclaw/<id>` target
   conversationId: string;
+  // OpenClaw session key — selects the persistent session that carries the
+  // conversation transcript (windowed by the caller, e.g. 1h TTL). Distinct
+  // from conversationId so windows can rotate without losing OpenClaw UI
+  // grouping. Falls back to conversationId when omitted.
+  sessionKey?: string;
   channelId?: string; // G1: routing context for approval follow-ups
   systemPrompt?: string;
   history: ChatMessage[];
@@ -147,7 +152,7 @@ export async function runConversation(args: RunConversationArgs): Promise<RunRes
     const resp = await chatCompletion(
       messages,
       args.openclawAgentId,
-      args.conversationId,
+      args.sessionKey ?? args.conversationId,
       cell
     );
     const choice = resp.choices[0];
