@@ -184,6 +184,7 @@ model Tenant {
   auditLogs           AuditLog[]
   approvals           Approval[]
   conversations       Conversation[]
+  conversationReads   ConversationRead[]
   contacts            Contact[]
   tags                Tag[]
   messages            Message[]
@@ -210,10 +211,11 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  tenant                Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  assignedConversations Conversation[] @relation("ConversationAssignee")
-  sentMessages          Message[]      @relation("MessageSenderUser")
-  resolvedApprovals     Approval[]     @relation("ApprovalResolver")
+  tenant                Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assignedConversations Conversation[]     @relation("ConversationAssignee")
+  sentMessages          Message[]          @relation("MessageSenderUser")
+  resolvedApprovals     Approval[]         @relation("ApprovalResolver")
+  conversationReads     ConversationRead[]
 
   @@index([tenantId])
 }
@@ -535,21 +537,40 @@ model Conversation {
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 
-  tenant        Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  channel       Channel           @relation(fields: [channelId], references: [id], onDelete: Cascade)
-  contact       Contact?          @relation(fields: [contactId], references: [id], onDelete: SetNull)
-  assignedAgent Agent?            @relation("ConversationAssigneeAgent", fields: [assignedAgentId], references: [id], onDelete: SetNull)
-  assignee      User?             @relation("ConversationAssignee", fields: [assigneeUserId], references: [id], onDelete: SetNull)
+  tenant        Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  channel       Channel            @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  contact       Contact?           @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  assignedAgent Agent?             @relation("ConversationAssigneeAgent", fields: [assignedAgentId], references: [id], onDelete: SetNull)
+  assignee      User?              @relation("ConversationAssignee", fields: [assigneeUserId], references: [id], onDelete: SetNull)
   messages      Message[]
   tags          ConversationTag[]
-  approvals     Approval[]        @relation("ApprovalConversation")
+  approvals     Approval[]         @relation("ApprovalConversation")
   deal          Deal?
   scenarioRuns  ScenarioRun[]
+  reads         ConversationRead[]
 
   @@unique([tenantId, channelId, customerPhone])
   @@index([tenantId, status])
   @@index([tenantId, assignedAgentId])
   @@index([tenantId, assigneeUserId])
+}
+
+// Per-user "chat opened" watermark for the inbox unread badge (WhatsApp-style:
+// badge shows when an INBOUND message arrived after this user last opened the
+// conversation; opening the chat clears it).
+model ConversationRead {
+  id             String   @id @default(uuid())
+  conversationId String
+  userId         String
+  tenantId       String
+  lastReadAt     DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([tenantId])
 }
 
 model Contact {

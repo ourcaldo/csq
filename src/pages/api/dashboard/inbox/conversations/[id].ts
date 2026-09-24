@@ -32,7 +32,7 @@ const conversationPatchSchema = z.object({
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<ApiResponse<Detail>>
+  res: NextApiResponse<ApiResponse<Detail | { id: string; lastReadAt: string }>>
 ) {
   const session = await getAuthSession(req, res);
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
@@ -58,6 +58,30 @@ export default async function handler(
     });
     if (!conv) return respondError(res, "NOT_FOUND", "Percakapan tidak ditemukan.");
     return res.status(200).json(apiOk(conv));
+  }
+
+  if (req.method === "POST") {
+    // Mark-as-read: upsert the caller's ConversationRead watermark to now.
+    // Called when the user opens a conversation — clears the unread badge.
+    if (!requireRole(session, "OWNER", "STAFF")) {
+      return respondError(
+        res,
+        "PERMISSION_DENIED",
+        "Hanya owner atau staff yang dapat membuka percakapan."
+      );
+    }
+    const existing = await prisma.conversation.findFirst({
+      where: { id, tenantId },
+      select: { id: true },
+    });
+    if (!existing) return respondError(res, "NOT_FOUND", "Percakapan tidak ditemukan.");
+    const lastReadAt = new Date();
+    await prisma.conversationRead.upsert({
+      where: { conversationId_userId: { conversationId: id, userId: session.user.id } },
+      create: { conversationId: id, userId: session.user.id, tenantId, lastReadAt },
+      update: { lastReadAt },
+    });
+    return res.status(200).json(apiOk({ id, lastReadAt: lastReadAt.toISOString() }));
   }
 
   if (req.method === "PATCH") {

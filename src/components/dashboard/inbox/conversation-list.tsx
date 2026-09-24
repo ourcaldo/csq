@@ -154,7 +154,7 @@ export function ConversationList({
                     <WhatsappLogo size={11} weight="fill" />
                   </div>
                 </div>
-                <div className="min-w-0 flex-1">
+                <div className="relative min-w-0 flex-1 pr-8">
                   <div className="mb-1 flex items-baseline justify-between">
                     <h4 className="truncate text-sm font-semibold text-slate-900">{name}</h4>
                     <span className="ml-2 shrink-0 text-xs text-slate-400">
@@ -162,7 +162,10 @@ export function ConversationList({
                     </span>
                   </div>
                   {c.lastMessage && (
-                    <p className="truncate text-xs text-slate-400">
+                    <p className={cn(
+                      "truncate text-xs",
+                      c.unreadCount > 0 ? "font-medium text-slate-700" : "text-slate-400"
+                    )}>
                       {c.lastMessage.senderType === "AGENT"
                         ? "AI: "
                         : c.lastMessage.senderType === "HUMAN"
@@ -187,6 +190,11 @@ export function ConversationList({
                   {c.stage && (
                     <span className="mt-1 inline-block rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
                       {c.stage.name}
+                    </span>
+                  )}
+                  {c.unreadCount > 0 && (
+                    <span className="absolute right-0 top-1/2 -translate-y-1/2 flex h-5 min-w-5 items-center justify-center rounded-full bg-green-500 px-1.5 text-[11px] font-semibold text-white">
+                      {c.unreadCount > 99 ? "99+" : c.unreadCount}
                     </span>
                   )}
                 </div>
