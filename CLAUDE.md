@@ -2,9 +2,15 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Mandatory Workflow Rules
+
+1. **Git operations go through the `git-pushing` skill.** Every commit, push, or other GitHub/git-remote action must invoke the `git-pushing` skill (stage only intended files, conventional commit message, atomic push). Never run raw `git commit`/`git push` directly.
+2. **Bump the version on every update.** Any change that lands on main must bump `version` in `package.json`. Format `XX.YY.ZZ` where YY and ZZ stay in 0–10 (rolling over into XX when they would exceed 10); XX may grow beyond 10. Non-breaking change → bump ZZ (patch). New feature or behavior change → bump YY (minor). Breaking change (schema, API contract, env vars removed/renamed) → bump XX (major).
+3. **Update the changelog with every version bump.** Keep `Changelogs.md` at the repo root. If it does not exist, create it by reviewing the commit history (`git log --oneline`) and backfilling past releases. Each entry: version number, date, and grouped changes (Added / Changed / Fixed / Removed) in plain language.
+
 ## Project Status
 
-Greenfield HackFest MVP. **No code exists yet** — only the PRD and a phased plan set. Phase 0 (scaffolding) is the first implementation work. Until it lands, there is no `package.json`, no build/lint commands, and no Prisma schema. When scaffolding lands, update this file and `AGENTS.md` with the actual commands and directory layout.
+Active project (past its HackFest origin — that framing is historical; the docs under `docs/` still carry it but the project is now developed for real use). Scaffolding through the agent runtime, inbox, scenarios, and pipeline has landed. The agent runtime is a direct OpenAI-compatible client (`src/services/llm-runtime.ts`) — OpenClaw is gone.
 
 ## Read This First — In This Order
 

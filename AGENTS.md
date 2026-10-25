@@ -1,10 +1,10 @@
 # AGENTS.md — CSQ
 
 ## Project Status
-Greenfield HackFest MVP (Customer Service category). No code yet — only the PRD.
+Active project (HackFest origin is historical). Scaffolding through the agent runtime,
+inbox, scenarios, and pipeline has landed; the agent runtime is a direct
+OpenAI-compatible client (`src/services/llm-runtime.ts`) — OpenClaw is gone.
 **Read `docs/prd-product-requirements-document.md` in full before making any architectural decision.**
-When scaffolding lands (package.json, prisma/, pages/api, etc.), update this file with
-actual build/lint/test commands and directory layout.
 
 ## What We Are Building
 Self-hosted, multi-tenant AI agent platform for Indonesian UMKM. First agent: a Customer
