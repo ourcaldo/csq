@@ -1,22 +1,24 @@
 import { z } from "zod";
 
-// Cloudflare Workers AI one-shot text generation for the scenario `ai` node.
-// A plain, tool-less chat completion — NOT the agent loop (openclaw.ts):
-// scenario message generation must not call tools, touch business data, or
-// loop. Same OpenAI-compatible endpoint + account/token as the embeddings
-// service; raw `fetch` + Zod at the boundary (no SDK).
+// Fireworks one-shot text generation for the scenario `ai` node. A plain,
+// tool-less chat completion — NOT the agent loop (openclaw.ts): scenario
+// message generation must not call tools, touch business data, or loop. Same
+// OpenAI-compatible endpoint + account/key as the embeddings service; raw
+// `fetch` + Zod at the boundary (matches the codebase HTTP style, no SDK).
 //
-// Model defaults to CLOUDFLARE_TEXT_MODEL (same family as the OpenClaw agents
-// use via the gateway provider); keep them aligned so one Cloudflare account
-// serves everything.
+// Model defaults to the same Qwen chat model the OpenClaw agents use
+// (OPENCLAW_AGENT_MODEL) so one Fireworks account serves everything;
+// FIREWORKS_TEXT_MODEL overrides it for scenario copywriting if desired.
 //
 // Server-only. Secrets stay server-side. No `as` casts.
 
-const CLOUDFLARE_API_TOKEN = process.env.CLOUDFLARE_API_TOKEN ?? "";
-const CLOUDFLARE_ACCOUNT_ID = process.env.CLOUDFLARE_ACCOUNT_ID ?? "";
-const CLOUDFLARE_TEXT_MODEL =
-  process.env.CLOUDFLARE_TEXT_MODEL ?? "@cf/qwen/qwen3.8-27b";
-const CLOUDFLARE_BASE_URL = `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/ai/v1`;
+const FIREWORKS_API_KEY = process.env.FIREWORKS_API_KEY ?? "";
+const FIREWORKS_BASE_URL =
+  process.env.FIREWORKS_BASE_URL ?? "https://api.fireworks.ai/inference";
+const FIREWORKS_TEXT_MODEL =
+  process.env.FIREWORKS_TEXT_MODEL ??
+  process.env.OPENCLAW_AGENT_MODEL ??
+  "fireworks/accounts/fireworks/models/qwen3p7-plus";
 
 // OpenAI-compatible chat completion response shape. `.passthrough()` tolerates
 // extra provider fields (id, usage, …) we don't need.
@@ -34,7 +36,7 @@ const textCompletionResponseSchema = z
   .passthrough();
 
 export function isTextLlmConfigured(): boolean {
-  return Boolean(CLOUDFLARE_API_TOKEN && CLOUDFLARE_ACCOUNT_ID);
+  return Boolean(FIREWORKS_API_KEY);
 }
 
 // Generate one message body from a prompt. Bounded by design: maxTokens caps
@@ -49,17 +51,17 @@ export async function generateText(input: {
   maxTokens?: number;
   temperature?: number;
 }): Promise<string> {
-  if (!isTextLlmConfigured()) {
-    throw new Error("CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID not set");
+  if (!FIREWORKS_API_KEY) {
+    throw new Error("FIREWORKS_API_KEY not set");
   }
-  const res = await fetch(`${CLOUDFLARE_BASE_URL}/chat/completions`, {
+  const res = await fetch(`${FIREWORKS_BASE_URL}/v1/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${CLOUDFLARE_API_TOKEN}`,
+      Authorization: `Bearer ${FIREWORKS_API_KEY}`,
     },
     body: JSON.stringify({
-      model: CLOUDFLARE_TEXT_MODEL,
+      model: FIREWORKS_TEXT_MODEL,
       max_tokens: input.maxTokens ?? 400,
       temperature: input.temperature ?? 0.4,
       messages: [
@@ -70,13 +72,13 @@ export async function generateText(input: {
   });
   if (!res.ok) {
     throw new Error(
-      `Cloudflare text completion failed: ${res.status} ${res.statusText}`
+      `Fireworks text completion failed: ${res.status} ${res.statusText}`
     );
   }
   const parsed = textCompletionResponseSchema.parse(await res.json());
   const content = parsed.choices[0]?.message.content?.trim() ?? "";
   if (!content) {
-    throw new Error("Cloudflare text completion returned no content");
+    throw new Error("Fireworks text completion returned no content");
   }
   return content;
 }
