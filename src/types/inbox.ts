@@ -58,6 +58,9 @@ export type ConversationListItem = {
   stage: Stage | null; // current pipeline stage (from Conversation.deal.stage)
   lastMessageAt: string | null;
   lastMessage: { body: string; senderType: string } | null;
+  // INBOUND messages after this user's last-read watermark (WhatsApp-style
+  // unread badge); 0 when caught up.
+  unreadCount: number;
   createdAt: string;
   updatedAt: string;
   contact: Contact | null;

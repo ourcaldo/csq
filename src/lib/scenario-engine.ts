@@ -634,7 +634,7 @@ async function generateScenarioBody(
       entityType: "Conversation",
       entityId: conversationId,
       approvalStatus: "NONE",
-      afterValue: { reason: "LLM teks belum dikonfigurasi (FIREWORKS_API_KEY).", prompt },
+      afterValue: { reason: "LLM teks belum dikonfigurasi (CLOUDFLARE_API_TOKEN).", prompt },
     });
     return null;
   }

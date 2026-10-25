@@ -219,7 +219,7 @@ async function ensureKnowledge(
 }
 
 // Best-effort embedding so seeded knowledge is semantically retrievable. If
-// FIREWORKS_API_KEY is unset (e.g. seeding in an env without embeddings), skip
+// CLOUDFLARE_API_TOKEN is unset (e.g. seeding in an env without embeddings), skip
 // with a warning — the row is already saved and retrieval degrades to keyword.
 async function embedKnowledge(
   tenantId: string,

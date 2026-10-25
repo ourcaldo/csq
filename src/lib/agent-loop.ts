@@ -1,9 +1,9 @@
 import type { Channel } from "@prisma/client";
 import prisma from "@/lib/db";
-import { buildSystemPrompt, toChatHistory } from "@/lib/prompt-builder";
+import { buildSystemPrompt } from "@/lib/prompt-builder";
 import { runConversation } from "@/services/openclaw";
 import { sendAgentMessage } from "@/lib/agent-outbox";
-import type { ChatMessage, ToolCallRecord } from "@/types/openclaw";
+import type { ToolCallRecord } from "@/types/openclaw";
 
 // Fire-and-forget agent auto-reply for an inbound WhatsApp message — the
 // Phase 6 ↔ Phase 7 wiring. Called from the webhook AFTER the inbound is
@@ -83,34 +83,74 @@ export async function runAgentReply(args: {
     return { reply: "", toolCalls: [], stoodDown: true };
   }
 
-  // Recent message history → OpenAI chat history (INBOUND→user, AGENT
-  // outbound→assistant). The current inbound has already been recorded by
-  // ingestInboundMessage, so it is the last row in `recent`. We drop that last
-  // row from history and pass its body as `userMessage` instead, so
-  // runConversation appends exactly one `user` turn for this inbound (no
-  // duplicate). If the last row is somehow not the inbound (race), we keep all
-  // rows and still pass `body` as the new user turn.
-  const recent = await prisma.message.findMany({
-    where: { conversationId },
-    orderBy: { createdAt: "asc" },
-    take: 30,
+  // SESSION-BASED CONTEXT (no history replay). The OpenClaw session keyed by
+  // the session key below persists the full transcript of the active window —
+  // including assistant replies and tool-call results, which a CSQ-side replay
+  // could never reconstruct — and OpenClaw compacts it internally. CSQ sends
+  // ONLY the new user message; replaying stored rows on top would double-keep
+  // state (and the old implementation's asc+take window sent stale rows).
+  //
+  // TTL: one session window per conversation, 1h since the LAST inbound. A
+  // chat that goes quiet for an hour starts a fresh window — stale/incorrect
+  // facts cannot leak across windows. Continuity beyond the window lives in
+  // the CSQ layer the agent pulls via tools on every fresh window:
+  // customer.read (name/email), order.list (history), pipeline stage.
+  const lastInbound = await prisma.message.findFirst({
+    where: { conversationId, direction: "INBOUND" },
+    orderBy: { createdAt: "desc" },
   });
+  const SESSION_TTL_MS = 60 * 60 * 1000;
+  const currentInboundAt = new Date();
+  const isStartOfNewWindow =
+    !lastInbound ||
+    currentInboundAt.getTime() - lastInbound.createdAt.getTime() > SESSION_TTL_MS;
+  // <conversationId>#w<windowStartEpoch> — each window gets its own OpenClaw
+  // session; the id prefix keeps the OpenClaw UI grouping readable.
+  const sessionKey = `${conversationId}#w${Math.floor(
+    (lastInbound && !isStartOfNewWindow
+      ? lastInbound.createdAt
+      : currentInboundAt
+    ).getTime() /
+      SESSION_TTL_MS
+  )}`;
 
-  let historyRows = recent;
-  let userMessage = body;
-  const last = recent[recent.length - 1];
-  if (last && last.direction === "INBOUND") {
-    historyRows = recent.slice(0, -1);
-    userMessage = last.body || body;
+  // Fresh-window opener (option b): one bounded line of safe structured facts
+  // from CSQ so the agent doesn't ask the customer things the system already
+  // knows. NOT a replay — a short summary pulled from the source of truth.
+  let windowContext = "";
+  if (isStartOfNewWindow) {
+    const [contact, orderCount, lastOrder, stage] = await Promise.all([
+      prisma.contact.findFirst({
+        where: { tenantId, phone: customerPhone },
+        select: { name: true, email: true },
+      }),
+      prisma.order.count({ where: { tenantId, customerPhone } }),
+      prisma.order.findFirst({
+        where: { tenantId, customerPhone },
+        orderBy: { createdAt: "desc" },
+        select: { totalAmount: true, createdAt: true, status: true },
+      }),
+      prisma.conversation
+        .findUnique({
+          where: { id: conversationId },
+          select: { deal: { select: { stage: { select: { name: true } } } } },
+        })
+        .then((c) => c?.deal?.stage?.name ?? null),
+    ]);
+    const parts = [
+      contact?.name ? `Nama pelanggan tercatat: ${contact.name}` : null,
+      contact?.email ? `Email tercatat: ${contact.email}` : null,
+      orderCount > 0
+        ? `${orderCount} order sebelumnya (terakhir: ${new Date(
+            lastOrder!.createdAt
+          ).toLocaleDateString("id-ID")}, ${lastOrder!.status}, Rp ${lastOrder!.totalAmount})`
+        : null,
+      stage ? `Tahap pipeline saat ini: ${stage}` : null,
+    ].filter(Boolean);
+    if (parts.length > 0) {
+      windowContext = `[Konteks pelanggan dari sistem] ${parts.join("; ")}. Verifikasi detail dengan tools bila perlu.\n\n`;
+    }
   }
-
-  const history: ChatMessage[] = toChatHistory(
-    historyRows.map((m) => ({
-      direction: m.direction,
-      senderType: m.senderType,
-      body: m.body,
-    }))
-  );
 
   // Map the Prisma conversation's deal+stage into the minimal prompt context.
   const stage = conversation.deal?.stage;
@@ -127,10 +167,13 @@ export async function runAgentReply(args: {
     agentId: agent.id, // CSQ UUID — keys executeTool/capability lookup
     openclawAgentId: agent.openclawAgentId, // OpenClaw model target (guarded non-null above)
     conversationId,
+    // Session-based context: the OpenClaw session key selects the 1h window
+    // (see above); history is NOT replayed.
+    sessionKey,
     channelId: channel.id, // G1: routing context for approval follow-ups
     systemPrompt,
-    history,
-    userMessage,
+    history: [], // windowContext (if any) is folded into userMessage below
+    userMessage: windowContext + body,
     customerPhone,
   });
 

@@ -15,7 +15,11 @@ import {
   Plug,
 } from "@phosphor-icons/react";
 import { QRCodeSVG } from "qrcode.react";
-import { withAuth } from "@/lib/auth";
+import { withAuth, getSSRSession } from "@/lib/auth";
+import prisma from "@/lib/db";
+import { cloudApiConfigSchema } from "@/types/whatsapp";
+import { generateVerifyToken } from "@/lib/whatsapp-verify-token";
+import { z } from "zod";
 import { apiFetch, apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
@@ -64,7 +68,6 @@ const STEPS = ["Pilih Metode", "Sambungkan", "Aktif"];
 const EMPTY_CLOUD = {
   phoneNumberId: "",
   token: "",
-  verifyToken: "demo-verify-token",
   appSecret: "",
   businessAccountId: "",
 };
@@ -76,7 +79,10 @@ function errMsg(e: unknown, fallback: string): string {
 const inputCls =
   "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm placeholder-slate-400 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20";
 
-export default function SaluranPage() {
+export default function SaluranPage({
+  webhookUrl,
+  cloudVerifyToken,
+}: SaluranProps) {
   const { data: session } = useSession();
   const isOwner = session?.user?.role === "OWNER";
 
@@ -196,7 +202,6 @@ export default function SaluranPage() {
         config: {
           phoneNumberId: cloudForm.phoneNumberId.trim(),
           token: cloudForm.token.trim(),
-          verifyToken: cloudForm.verifyToken.trim() || undefined,
           appSecret: cloudForm.appSecret.trim() || undefined,
           businessAccountId: cloudForm.businessAccountId.trim() || undefined,
         },
@@ -399,6 +404,20 @@ export default function SaluranPage() {
             Ingin berganti metode? Putuskan saluran ini, lalu pilih metode lain
             (mis. WhatsApp Resmi) dari langkah pertama.
           </p>
+          {connected.provider === "CLOUD_API" && (
+            <div className="space-y-3 px-5 pb-5">
+              <Separator />
+              <p className="pt-4 text-xs font-medium text-slate-600">
+                Setelan webhook di Meta App Manager (WhatsApp → Configuration):
+              </p>
+              <ReadOnlyField label="Callback URL" value={webhookUrl} />
+              <ReadOnlyField
+                label="Verify Token"
+                value={cloudVerifyToken ?? "—"}
+                hint="Berganti otomatis setiap kali saluran disambungkan ulang — perbarui juga di Meta."
+              />
+            </div>
+          )}
           <Separator />
           <div className="p-5">
             <TestBox
@@ -474,15 +493,6 @@ export default function SaluranPage() {
             />
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field
-                label="Verify Token (webhook)"
-                value={cloudForm.verifyToken}
-                onChange={(v) =>
-                  setCloudForm((f) => ({ ...f, verifyToken: v }))
-                }
-                hint="Token untuk verifikasi webhook Meta, mis. demo-verify-token"
-                disabled={!isOwner}
-              />
-              <Field
                 label="App Secret"
                 value={cloudForm.appSecret}
                 onChange={(v) => setCloudForm((f) => ({ ...f, appSecret: v }))}
@@ -490,16 +500,34 @@ export default function SaluranPage() {
                 disabled={!isOwner}
                 type="password"
               />
+              <Field
+                label="Business Account ID (opsional)"
+                value={cloudForm.businessAccountId}
+                onChange={(v) =>
+                  setCloudForm((f) => ({ ...f, businessAccountId: v }))
+                }
+                hint="Opsional. Contoh: 10xxxx…"
+                disabled={!isOwner}
+              />
             </div>
-            <Field
-              label="Business Account ID (opsional)"
-              value={cloudForm.businessAccountId}
-              onChange={(v) =>
-                setCloudForm((f) => ({ ...f, businessAccountId: v }))
-              }
-              hint="Opsional. Contoh: 10xxxx…"
-              disabled={!isOwner}
-            />
+
+            {/* Webhook setup comes BEFORE Sambungkan: Meta must verify the
+                callback, and the owner needs URL + token on screen while doing
+                the Meta-side config. Verify token is generated server-side on
+                connect — shown here as it will be after Sambungkan. */}
+            <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50/60 p-4">
+              <p className="text-xs font-medium text-slate-600">
+                Setel webhook di Meta App Manager (WhatsApp → Configuration)
+                dengan nilai berikut, lalu klik Sambungkan dan tekan Verify di
+                Meta:
+              </p>
+              <ReadOnlyField label="Callback URL" value={webhookUrl} />
+              <ReadOnlyField
+                label="Verify Token"
+                value={cloudVerifyToken ?? "—"}
+                hint="Token saat ini. Berganti otomatis setiap kali disambungkan ulang — salin nilai terbaru dari kartu saluran setelah Sambungkan."
+              />
+            </div>
 
             <AgentPicker
               agents={activeAgents}
@@ -517,14 +545,6 @@ export default function SaluranPage() {
                 {connecting ? "Menyambungkan…" : "Sambungkan"}
               </Button>
             </div>
-
-            <p className="text-xs text-slate-400">
-              Setel webhook di Meta App Manager ke{" "}
-              <code className="rounded bg-slate-100 px-1">
-                https://csq-z821.onrender.com/api/webhooks/whatsapp
-              </code>{" "}
-              dengan verify token yang sama.
-            </p>
           </div>
         </ConfigureCard>
       )}
@@ -616,15 +636,6 @@ export default function SaluranPage() {
             />
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field
-                label="Verify Token (webhook)"
-                value={cloudForm.verifyToken}
-                onChange={(v) =>
-                  setCloudForm((f) => ({ ...f, verifyToken: v }))
-                }
-                hint="Token verifikasi webhook Meta"
-                disabled={!isOwner}
-              />
-              <Field
                 label="App Secret"
                 value={cloudForm.appSecret}
                 onChange={(v) => setCloudForm((f) => ({ ...f, appSecret: v }))}
@@ -646,6 +657,10 @@ export default function SaluranPage() {
                 Batal
               </Button>
             </div>
+            <p className="text-xs text-slate-400">
+              Menyimpan membuat verify token baru — perbarui token webhook di
+              Meta App Manager setelahnya.
+            </p>
           </div>
         </ConfigureCard>
       )}
@@ -802,6 +817,38 @@ function Field(props: {
   );
 }
 
+// Read-only credential display used for server-generated values (webhook URL,
+// verify token): same height/padding as Field's input, with an inline copy
+// button so it visually matches the editable fields beside it.
+function ReadOnlyField(props: { label: string; value: string; hint?: string }) {
+  return (
+    <div className="block">
+      <span className="mb-1 block text-xs font-medium text-slate-600">
+        {props.label}
+      </span>
+      <div className="flex items-center gap-2">
+        <code className="min-w-0 flex-1 truncate rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+          {props.value}
+        </code>
+        <button
+          type="button"
+          className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-green-700 hover:bg-green-50"
+          onClick={() => {
+            void navigator.clipboard.writeText(props.value);
+          }}
+        >
+          Salin
+        </button>
+      </div>
+      {props.hint && (
+        <span className="mt-1 block text-xs text-slate-400">
+          {props.hint}
+        </span>
+      )}
+    </div>
+  );
+}
+
 function TestBox(props: {
   id: string;
   testTo: Record<string, string>;
@@ -863,6 +910,68 @@ function Toast({
   );
 }
 
-export const getServerSideProps: GetServerSideProps = withAuth<
-  Record<string, unknown>
->(async () => ({ props: {} }));
+type SaluranProps = {
+  webhookUrl: string;
+  cloudVerifyToken: string | null;
+};
+
+export const getServerSideProps: GetServerSideProps<SaluranProps> = withAuth<
+  SaluranProps
+>(async (ctx) => {
+  // Webhook URL shown in the UI is derived from the request origin, so dev
+  // shows localhost and prod shows the deployed domain (no hardcoded host).
+  const origin = process.env.NEXTAUTH_URL ?? `https://${ctx.req.headers.host}`;
+  const webhookUrl = `${origin.replace(/\/$/, "")}/api/webhooks/whatsapp`;
+
+  // Verify token is sanitized out of the channels list API (secret-adjacent).
+  // The Cloud API channel row carries the token; if none exists yet (first
+  // connect) or the stored one is missing or still the old predictable default
+  // ("demo-verify-token"), create/persist a freshly generated token NOW — so
+  // the token is on screen before the owner clicks Sambungkan, and Meta's
+  // webhook Verify can succeed immediately.
+  const session = await getSSRSession(ctx);
+  let cloudVerifyToken: string | null = null;
+  if (session?.user.tenantId) {
+    const tenantId = session.user.tenantId;
+    const existing = await prisma.channel.findFirst({
+      where: { tenantId, provider: "CLOUD_API" },
+    });
+    const parsed = cloudApiConfigSchema.safeParse(existing?.config);
+    const existingToken =
+      parsed.success ? parsed.data.verifyToken : undefined;
+    const isWeakToken =
+      !existingToken || existingToken === "demo-verify-token";
+    if (existingToken && !isWeakToken) {
+      cloudVerifyToken = existingToken;
+    } else if (existing) {
+      // Channel exists but has no token (or still the pre-rotation default) —
+      // write a fresh one.
+      const rawConfig = z.record(z.unknown()).safeParse(existing.config);
+      const merged = {
+        ...(rawConfig.success ? rawConfig.data : {}),
+        verifyToken: generateVerifyToken(),
+      };
+      await prisma.channel.update({
+        where: { id: existing.id },
+        data: { config: merged },
+      });
+      cloudVerifyToken = merged.verifyToken;
+    } else {
+      // No channel row yet: create the stub now (DISCONNECTED, no secrets)
+      // so a verified webhook + on-screen token exist before Sambungkan.
+      const token = generateVerifyToken();
+      await prisma.channel.create({
+        data: {
+          tenantId,
+          type: "WHATSAPP",
+          provider: "CLOUD_API",
+          status: "DISCONNECTED",
+          config: { verifyToken: token },
+        },
+      });
+      cloudVerifyToken = token;
+    }
+  }
+
+  return { props: { webhookUrl, cloudVerifyToken } };
+});

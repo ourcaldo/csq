@@ -37,7 +37,7 @@ services:
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI}
       # OpenClaw per-tenant cell provisioning (production = fleet).
       OPENCLAW_PROVISIONING: fleet
-      OPENCLAW_AGENT_MODEL: ${OPENCLAW_AGENT_MODEL:-fireworks/accounts/fireworks/models/qwen3p7-plus}
+      OPENCLAW_AGENT_MODEL: ${OPENCLAW_AGENT_MODEL:-cloudflare/@cf/qwen/qwen3.8-27b}
       # Dev-only fallback (unused in fleet mode, but required by the code path).
       OPENCLAW_BASE_URL: ${OPENCLAW_BASE_URL:-http://127.0.0.1:18789}
       OPENCLAW_API_KEY: ${OPENCLAW_API_KEY:-}

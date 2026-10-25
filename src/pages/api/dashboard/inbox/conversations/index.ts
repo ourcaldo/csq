@@ -25,6 +25,10 @@ type DisplayItem = Item & {
   customerPhoneDisplay: string;
   lastMessage: { body: string; senderType: string } | null;
   stage: Stage | null;
+  // Count of INBOUND messages newer than this user's last-read watermark
+  // (WhatsApp-style unread badge). 0 when the user is caught up. Never counts
+  // the user's own or the AI's outbound replies.
+  unreadCount: number;
 };
 type ListResult = {
   items: DisplayItem[];
@@ -47,6 +51,7 @@ export default async function handler(
   const session = await getAuthSession(req, res);
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
   const tenantId = requireTenant(session);
+  const userId = session.user.id;
 
   if (req.method === "GET") {
     const { skip, take, page, pageSize } = paginate(req.query);
@@ -84,6 +89,30 @@ export default async function handler(
       prisma.conversation.count({ where }),
     ]);
 
+    // Unread badges: this user's last-read watermark per conversation, then
+    // count INBOUND messages newer than the watermark. Conversations without
+    // a watermark row count from 0 (never opened → every inbound is unread).
+    const reads = await prisma.conversationRead.findMany({
+      where: { tenantId, userId, conversationId: { in: items.map((i) => i.id) } },
+      select: { conversationId: true, lastReadAt: true },
+    });
+    const readByConv = new Map(reads.map((r) => [r.conversationId, r.lastReadAt]));
+    const unreadCounts = new Map<string, number>();
+    await Promise.all(
+      items.map(async (item) => {
+        const watermark = readByConv.get(item.id);
+        const count = await prisma.message.count({
+          where: {
+            tenantId,
+            conversationId: item.id,
+            direction: "INBOUND",
+            ...(watermark ? { createdAt: { gt: watermark } } : {}),
+          },
+        });
+        unreadCounts.set(item.id, count);
+      })
+    );
+
     // Resolve LID → real phone number for display + attach the last message + stage.
     const itemsWithDisplay: DisplayItem[] = await Promise.all(
       items.map(async (item) => {
@@ -99,7 +128,13 @@ export default async function handler(
           ? { body: lastMsgs[0].body, senderType: lastMsgs[0].senderType }
           : null;
         const stage = item.deal?.stage ?? null;
-        return { ...rest, stage, customerPhoneDisplay, lastMessage };
+        return {
+          ...rest,
+          stage,
+          customerPhoneDisplay,
+          lastMessage,
+          unreadCount: unreadCounts.get(item.id) ?? 0,
+        };
       })
     );
 

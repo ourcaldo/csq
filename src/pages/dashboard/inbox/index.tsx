@@ -7,6 +7,7 @@ import type { ChangeEvent } from "react";
 import type { GetServerSideProps } from "next";
 import { useRouter } from "next/router";
 import { withAuth } from "@/lib/auth";
+import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
 import type { ListResult, Tag } from "@/types/dashboard";
 import type { ConversationListItem } from "@/types/inbox";
@@ -78,12 +79,28 @@ export default function InboxPage() {
   function onSelect(id: string) {
     setSelectedId(id);
     setDetailsOpen(false);
+    // Opening a chat marks it read for this user (clears the unread badge).
+    void apiSend(`/api/dashboard/inbox/conversations/${id}`, "POST").then(
+      () => refresh()
+    );
   }
 
   // Refresh conversation metadata after a details-pane mutation.
   function onConversationChanged() {
     void refresh();
   }
+
+  // Live updates for the conversation LIST (the per-thread SSE in ChatPanel
+  // covers open chats, but the list — last message, ordering, new
+  // conversations — never refreshed, so new inbound traffic was invisible
+  // until a manual page reload). Poll at a modest cadence; keepSelection:
+  // refreshing must not clobber the open thread.
+  useEffect(() => {
+    const t = setInterval(() => {
+      void refresh();
+    }, 8000);
+    return () => clearInterval(t);
+  }, [refresh]);
 
   return (
     <DashboardShell title="Percakapan" flush>
