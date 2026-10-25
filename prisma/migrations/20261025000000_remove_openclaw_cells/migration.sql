@@ -1,4 +1,4 @@
-﻿-- Remove OpenClaw cell/session columns: the agent runtime is now a direct
+-- Remove OpenClaw cell/session columns: the agent runtime is now a direct
 -- OpenAI-compatible client (services/llm-runtime.ts) — no sidecar, no cells.
 ALTER TABLE "Tenant" DROP COLUMN IF EXISTS "openclawCellId";
 ALTER TABLE "Tenant" DROP COLUMN IF EXISTS "openclawBaseUrl";
