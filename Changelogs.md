@@ -2,6 +2,12 @@
 
 Version format: `XX.YY.ZZ` — YY (minor) and ZZ (patch) stay within 0–10; XX (major) may grow beyond. Minor = new feature/behavior change, patch = fix, major = breaking change (schema, API contract, env vars).
 
+## 1.2.10 — 2026-10-25
+
+Decision record: multi-agent discussion documented.
+
+- **Added:** `docs/2026-10-25-project-discussion.md` — first project-discussion record: multi-agent capability stays, single-CS-agent focus, owner-ops agent deferred to phase 2 with security prerequisites (owner-phone allowlist + confirmation loop for writes). File also documents the purpose + update convention for `*-project-discussion.md` files.
+
 ## 1.2.9 — 2026-10-25
 
 Project descriptions updated: HackFest framing removed — the project is now described as an active product, not a hackathon entry.
