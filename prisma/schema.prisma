@@ -5,7 +5,7 @@
 // pgvector: "KnowledgeEmbedding.embedding" is declared Unsupported("vector")
 // because Prisma has no native vector type. The FIRST migration runs
 // `CREATE EXTENSION IF NOT EXISTS vector;` and creates the column; a later
-// migration alters it to `vector(1024)` (Fireworks fireworks/qwen3-embedding-8b
+// migration alters it to `vector(1024)` (the initially used embedding model;
 // dimension, via the `dimensions` param). All vector reads and writes go
 // through src/lib/vector.ts only — never raw SQL elsewhere.
 

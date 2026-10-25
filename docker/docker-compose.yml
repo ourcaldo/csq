@@ -35,7 +35,7 @@ services:
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_BASE_URL: ${LLM_BASE_URL:-}
       LLM_CHAT_MODEL: ${LLM_CHAT_MODEL:-}
-      LLM_EMBEDDING_MODEL: ${LLM_EMBEDDING_MODEL:-fireworks/qwen3-embedding-8b}
+      LLM_EMBEDDING_MODEL: ${LLM_EMBEDDING_MODEL:-}
       LLM_EMBEDDING_DIM: ${LLM_EMBEDDING_DIM:-1024}
     volumes:
       # Persist Baileys auth state (bring-your-own-number WhatsApp sessions)

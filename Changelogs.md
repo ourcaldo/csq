@@ -2,6 +2,12 @@
 
 Version format: `XX.YY.ZZ` — YY (minor) and ZZ (patch) stay within 0–10; XX (major) may grow beyond. Minor = new feature/behavior change, patch = fix, major = breaking change (schema, API contract, env vars).
 
+## 1.3.0 — 2026-10-25
+
+Provider-neutral LLM config.
+
+- **Changed:** `LLM_EMBEDDING_MODEL` no longer has a provider-specific default — it must be set explicitly; unset = embeddings unconfigured (knowledge.search degrades to keyword search). All Fireworks references removed from code defaults, compose, env examples, README.
+
 ## 1.2.10 — 2026-10-25
 
 Decision record: multi-agent discussion documented.

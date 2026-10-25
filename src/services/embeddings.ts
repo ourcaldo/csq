@@ -1,24 +1,25 @@
 import { z } from "zod";
 
 // Embeddings for knowledge semantic retrieval (closes Gap G3). Any
-// OpenAI-compatible provider (LLM_BASE_URL + LLM_API_KEY — Fireworks, OpenAI,
-// Groq, OpenRouter, local vLLM, …); raw `fetch` + Zod at the boundary (matches
-// the codebase HTTP style — no SDK dependency).
+// OpenAI-compatible provider (LLM_BASE_URL + LLM_API_KEY + a provider-specific
+// LLM_EMBEDDING_MODEL); raw `fetch` + Zod at the boundary (matches the
+// codebase HTTP style — no SDK dependency).
 //
-// Model: LLM_EMBEDDING_MODEL (default fireworks/qwen3-embedding-8b) —
-// multilingual (works for Bahasa Indonesia content/queries; English-only
-// bge/nomic models were rejected for this reason), resizable via the
-// `dimensions` param (Matryoshka). Those vectors are NOT unit-length, but
-// pgvector's `<=>` cosine distance used in lib/vector.ts is
-// magnitude-invariant, so no normalization is required.
+// Pick a multilingual embedding model (works for Bahasa Indonesia
+// content/queries; English-only bge/nomic models were rejected for this
+// reason). Qwen3-style vectors are NOT unit-length, but pgvector's `<=>`
+// cosine distance used in lib/vector.ts is magnitude-invariant, so no
+// normalization is required.
 //
 // Server-only. Secrets stay server-side. No `as` casts: the response is
 // Zod-parsed at the boundary.
 
 const LLM_API_KEY = process.env.LLM_API_KEY ?? "";
 const LLM_BASE_URL = process.env.LLM_BASE_URL ?? "";
-const LLM_EMBEDDING_MODEL =
-  process.env.LLM_EMBEDDING_MODEL ?? "fireworks/qwen3-embedding-8b";
+// No provider-specific default: the model name depends on whichever provider
+// LLM_BASE_URL points at, so it must be set explicitly. Unset → embeddings
+// are "not configured" and knowledge.search degrades to keyword search.
+const LLM_EMBEDDING_MODEL = process.env.LLM_EMBEDDING_MODEL ?? "";
 const LLM_EMBEDDING_DIM = Number(
   process.env.LLM_EMBEDDING_DIM ?? "1024"
 );
@@ -37,7 +38,7 @@ const embeddingResponseSchema = z
   .passthrough();
 
 export function isEmbeddingsConfigured(): boolean {
-  return Boolean(LLM_API_KEY && LLM_BASE_URL);
+  return Boolean(LLM_API_KEY && LLM_BASE_URL && LLM_EMBEDDING_MODEL);
 }
 
 // Embed a single text into a LLM_EMBEDDING_DIM-dim vector. Throws on a
@@ -46,7 +47,7 @@ export function isEmbeddingsConfigured(): boolean {
 // to keyword `contains`).
 export async function embed(text: string): Promise<number[]> {
   if (!isEmbeddingsConfigured()) {
-    throw new Error("LLM_API_KEY / LLM_BASE_URL not set");
+    throw new Error("LLM_API_KEY / LLM_BASE_URL / LLM_EMBEDDING_MODEL not set");
   }
   const res = await fetch(`${LLM_BASE_URL.replace(/\/$/, "")}/v1/embeddings`, {
     method: "POST",
@@ -77,7 +78,7 @@ export async function embed(text: string): Promise<number[]> {
 // bulk backfill script; the core write path uses single-item `embed`.
 export async function embedBatch(texts: string[]): Promise<number[][]> {
   if (!isEmbeddingsConfigured()) {
-    throw new Error("LLM_API_KEY / LLM_BASE_URL not set");
+    throw new Error("LLM_API_KEY / LLM_BASE_URL / LLM_EMBEDDING_MODEL not set");
   }
   if (texts.length === 0) return [];
   const res = await fetch(`${LLM_BASE_URL.replace(/\/$/, "")}/v1/embeddings`, {

@@ -10,6 +10,26 @@
 
 ---
 
+## Discussion 2: Inventory Stays a Separate Model (Not a Column on Product)
+
+**Date:** 2026-10-25
+**Status:** Decided — schema unchanged; Product = catalog, Inventory = stock level.
+
+### The Question
+
+The dashboard shows Product and Inventaris as two pages. Since Inventory is just "stock of the product," why isn't stock simply a column on Product?
+
+### The Answer (verified in code)
+
+- **Product** = catalog facts (name, description, SKU, price) — stable, one writer (the owner).
+- **Inventory** = stock level — changes constantly, many writers (manual entry, Excel sync, Google Sheets sync, agent tool calls, order decrements).
+
+The deciding reason: stock is the only field multiple sources fight over. The design keeps an `InventorySnapshot` row per (tenant, product, source) and resolves conflicts via the tenant's `sourcePriority` setting (`src/lib/source-priority.ts`, PRD §13 / G8). A plain column on Product could not record which source a number came from (`Inventory.source`/`sourceRef` provenance), so the latest sync would silently overwrite the owner's manual corrections — data loss with no audit trail.
+
+Secondary reasons: separating them means stock syncs never touch catalog fields (a typo in an Excel price column can't rewrite your price), and the Tool Gateway's split permissions (`product.update` vs `inventory.update`) map exactly onto the two tables — which is what makes the demo-safety moment (agent may adjust stock but never price) enforceable.
+
+Caveat recorded: if multi-source ingestion were ever dropped, a `stock` column would become defensible — but multi-source messy data is the core PRD pitch, so the separation stays. Dashboard UX may still present stock inline on the Product page later (presentation choice, not schema).
+
 ## Discussion 1: Multi-Agent — Keep, Don't Expand (Yet)
 
 **Date:** 2026-10-25

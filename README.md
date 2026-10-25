@@ -33,7 +33,7 @@ Edit `.env.production` and fill in:
 - **`NEXTAUTH_SECRET`** — generate with `openssl rand -base64 32`.
 - **`CERT_DOMAIN`** — the same domain, e.g. `umkm.example.com`.
 - **`CSQ_APP_IMAGE`** / **`CSQ_NGINX_IMAGE`** — the registry image names you pushed in step 1.
-- **`LLM_API_KEY`** / **`LLM_BASE_URL`** / **`LLM_CHAT_MODEL`** — any OpenAI-compatible LLM provider (Fireworks, OpenAI, Groq, OpenRouter, local vLLM, …). Serves the agent loop, scenario AI node, and embeddings.
+- **`LLM_API_KEY`** / **`LLM_BASE_URL`** / **`LLM_CHAT_MODEL`** — any OpenAI-compatible LLM provider. Serves the agent loop, scenario AI node, and embeddings.
 - **`WHATSAPP_APP_SECRET`** — the App Secret from your Meta app (used for webhook HMAC validation).
 - **`GOOGLE_CLIENT_ID`** / **`GOOGLE_CLIENT_SECRET`** / **`GOOGLE_REDIRECT_URI`** — for Google Sheets OAuth (optional, only if stores import from Sheets).
 

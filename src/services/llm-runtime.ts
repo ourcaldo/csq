@@ -12,8 +12,7 @@ import {
 
 // Direct OpenAI-compatible agent loop. No sidecar, no per-tenant cells: the
 // app itself drives POST /v1/chat/completions on any OpenAI-compatible
-// provider (Fireworks, OpenAI, Groq, OpenRouter, local vLLM, …) configured
-// by LLM_BASE_URL/LLM_API_KEY/LLM_CHAT_MODEL. The model returns either a
+// provider configured by LLM_BASE_URL/LLM_API_KEY/LLM_CHAT_MODEL. The model returns either a
 // final reply or tool_calls; we execute the tools IN-PROCESS via executeTool
 // (the Tool Gateway — tenant-scoped, permission-checked, audited) and feed
 // `role:"tool"` results back, looping until the model finishes.

@@ -2,7 +2,7 @@ import { z } from "zod";
 
 // One-shot text generation for the scenario `ai` node. A plain, tool-less
 // chat completion against any OpenAI-compatible provider (LLM_BASE_URL +
-// LLM_API_KEY — Fireworks, OpenAI, Groq, OpenRouter, local vLLM, …); raw
+// LLM_API_KEY); raw
 // `fetch` + Zod at the boundary (matches the codebase HTTP style, no SDK).
 // NOT the agent loop (llm-runtime.ts): scenario message generation must not
 // call tools, touch business data, or loop. LLM_SCENARIO_MODEL overrides the
