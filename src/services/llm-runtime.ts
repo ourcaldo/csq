@@ -1,6 +1,5 @@
 import { executeTool } from "@/tools/execute";
 import { listTools } from "@/tools";
-import prisma from "@/lib/db";
 import { zodToJsonSchema, type JsonSchema } from "@/lib/zod-to-json";
 import type { ExecuteOutcome } from "@/types/tools";
 import {
@@ -9,34 +8,29 @@ import {
   type ChatMessage,
   type RunResult,
   type ToolCallRecord,
-} from "@/types/openclaw";
-import type { Tenant } from "@prisma/client";
-import {
-  getCellForTenant,
-  provisionCell,
-  provisionAgentInCell,
-  type CellConnection,
-} from "@/services/openclaw-cell";
+} from "@/types/chat";
 
-// OpenClaw integration (PRD §23A, §26). Each tenant gets its own isolated
-// OpenClaw cell (one Gateway container per store); the cell's baseUrl + token
-// are stored on the Tenant row and resolved per request by getCellForTenant.
-// We drive the cell over HTTP: send messages + function tools to its
-// OpenAI-compatible POST /v1/chat/completions, it returns a final reply or
-// tool_calls; we execute the tools IN-PROCESS via executeTool (the Tool
-// Gateway — tenant-scoped, permission-checked, audited) and feed `role:"tool"`
-// results back, looping until the model finishes. OpenClaw never touches our DB.
-//
-// Agent targeting: the OpenAI `model` field selects the OpenClaw agent by id
-// (`openclaw/<openclawAgentId>`). The `agentId` passed to executeTool is the
-// CSQ Agent.id UUID (keys the capability lookup) — the two ids are distinct
-// and must not be conflated.
+// Direct OpenAI-compatible agent loop. No sidecar, no per-tenant cells: the
+// app itself drives POST /v1/chat/completions on any OpenAI-compatible
+// provider (Fireworks, OpenAI, Groq, OpenRouter, local vLLM, …) configured
+// by LLM_BASE_URL/LLM_API_KEY/LLM_CHAT_MODEL. The model returns either a
+// final reply or tool_calls; we execute the tools IN-PROCESS via executeTool
+// (the Tool Gateway — tenant-scoped, permission-checked, audited) and feed
+// `role:"tool"` results back, looping until the model finishes.
 //
 // Server-only. Secrets stay server-side.
 
-// G6: the order workflow is ~4-5 tool calls (search product → read stock → read
-// price → create order → confirm). 10 gives headroom for verify/refine loops
-// without running the loop unboundedly.
+const LLM_API_KEY = process.env.LLM_API_KEY ?? "";
+const LLM_BASE_URL = process.env.LLM_BASE_URL ?? "";
+const LLM_CHAT_MODEL = process.env.LLM_CHAT_MODEL ?? "";
+
+export function isAgentLlmConfigured(): boolean {
+  return Boolean(LLM_API_KEY && LLM_BASE_URL && LLM_CHAT_MODEL);
+}
+
+// G6: the order workflow is ~4-5 tool calls (search product → read stock →
+// read price → create order → confirm). 10 gives headroom for verify/refine
+// loops without running the loop unboundedly.
 const MAX_TOOL_ITERATIONS = 10;
 
 type FunctionTool = {
@@ -59,34 +53,24 @@ function buildTools(): FunctionTool[] {
 
 async function chatCompletion(
   messages: ChatMessage[],
-  openclawAgentId: string,
-  conversationId: string,
-  cell: CellConnection
+  user: string
 ): Promise<ChatCompletionResponse> {
-  const body: {
-    model: string;
-    user: string;
-    messages: ChatMessage[];
-    tools: FunctionTool[];
-    tool_choice: string;
-  } = {
-    model: `openclaw/${openclawAgentId}`,
-    user: conversationId, // OpenClaw session key
-    messages,
-    tools: buildTools(),
-    tool_choice: "auto",
-  };
-
-  const res = await fetch(`${cell.baseUrl}/v1/chat/completions`, {
+  const res = await fetch(`${LLM_BASE_URL.replace(/\/$/, "")}/v1/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${cell.token}`,
+      Authorization: `Bearer ${LLM_API_KEY}`,
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({
+      model: LLM_CHAT_MODEL,
+      user,
+      messages,
+      tools: buildTools(),
+      tool_choice: "auto",
+    }),
   });
   if (!res.ok) {
-    throw new Error(`OpenClaw chat completions failed: ${res.status} ${res.statusText}`);
+    throw new Error(`LLM chat completions failed: ${res.status} ${res.statusText}`);
   }
   // External boundary → Zod parse, never `as`.
   return chatCompletionResponseSchema.parse(await res.json());
@@ -119,13 +103,7 @@ function serializeOutcome(o: ExecuteOutcome): string {
 export type RunConversationArgs = {
   tenantId: string;
   agentId: string; // CSQ Agent.id UUID — keys executeTool/capability lookup
-  openclawAgentId: string; // OpenClaw agent id — the `model: openclaw/<id>` target
   conversationId: string;
-  // OpenClaw session key — selects the persistent session that carries the
-  // conversation transcript (windowed by the caller, e.g. 1h TTL). Distinct
-  // from conversationId so windows can rotate without losing OpenClaw UI
-  // grouping. Falls back to conversationId when omitted.
-  sessionKey?: string;
   channelId?: string; // G1: routing context for approval follow-ups
   systemPrompt?: string;
   history: ChatMessage[];
@@ -145,16 +123,8 @@ export async function runConversation(args: RunConversationArgs): Promise<RunRes
   messages.push(...args.history, { role: "user", content: args.userMessage });
   const toolCallLog: ToolCallRecord[] = [];
 
-  // Resolve the tenant's own OpenClaw cell once per turn (PRD §26).
-  const cell = await getCellForTenant(args.tenantId);
-
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
-    const resp = await chatCompletion(
-      messages,
-      args.openclawAgentId,
-      args.sessionKey ?? args.conversationId,
-      cell
-    );
+    const resp = await chatCompletion(messages, args.conversationId);
     const choice = resp.choices[0];
     if (!choice) break;
 
@@ -214,58 +184,5 @@ export async function runConversation(args: RunConversationArgs): Promise<RunRes
     reply: lastAssistant?.content ?? "",
     toolCalls: toolCallLog,
     truncated: true,
-  };
-}
-
-// Provision an agent against the tenant's OpenClaw cell (PRD §26, plan 6.2).
-// This is a REAL provisioning step, not just a DB write: it ensures the tenant
-// has a cell (provisioning one if missing) and creates the agent inside that
-// cell (via openclaw-cell), giving the agent its own workspace/sessions. The
-// returned openclawAgentId is what runConversation sends as
-// `model: openclaw/<openclawAgentId>`. Instructions are supplied at runtime
-// via the system prompt (buildSystemPrompt), so there is no separate
-// configureInstructions call. Marks the Agent ACTIVE on success.
-export async function provisionAgent(args: {
-  agentId: string;
-  tenantId: string;
-}): Promise<{ id: string; status: string; openclawCellId: string; openclawAgentId: string }> {
-  const tenant = await prisma.tenant.findUnique({ where: { id: args.tenantId } });
-  if (!tenant) {
-    throw new Error(`Tenant ${args.tenantId} not found`);
-  }
-
-  // Ensure the tenant has a provisioned cell; reload to pick up the cell id.
-  let cellTenant: Tenant | null = tenant;
-  if (!tenant.openclawBaseUrl || !tenant.openclawToken) {
-    await provisionCell(tenant);
-    cellTenant = await prisma.tenant.findUnique({ where: { id: args.tenantId } });
-    if (!cellTenant) throw new Error(`Tenant ${args.tenantId} vanished during cell provisioning`);
-  }
-  // Narrow: cellTenant is non-null from here on (original tenant or reloaded).
-  if (!cellTenant) throw new Error(`Tenant ${args.tenantId} not found`);
-
-  const agent = await prisma.agent.findUnique({ where: { id: args.agentId } });
-  if (!agent) {
-    throw new Error(`Agent ${args.agentId} not found`);
-  }
-
-  // Create the agent in the cell (or target the shared default in dev).
-  const { openclawAgentId } = await provisionAgentInCell(cellTenant, agent);
-
-  const updated = await prisma.agent.update({
-    where: { id: agent.id },
-    data: {
-      openclawCellId: cellTenant.openclawCellId,
-      openclawAgentId,
-      status: "ACTIVE",
-    },
-    select: { id: true, status: true, openclawCellId: true, openclawAgentId: true },
-  });
-
-  return {
-    id: updated.id,
-    status: updated.status,
-    openclawCellId: updated.openclawCellId ?? cellTenant.openclawCellId ?? "",
-    openclawAgentId: updated.openclawAgentId ?? openclawAgentId,
   };
 }

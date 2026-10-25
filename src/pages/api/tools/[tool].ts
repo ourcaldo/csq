@@ -7,10 +7,10 @@ import { apiError, apiOk, type ApiResponse } from "@/types/api";
 import type { ApprovalPayload } from "@/types/tools";
 
 // POST /api/tools/[tool] — the agent-facing tool endpoint (SDD §5.2).
-// Body: { agentId, params }. Auth: a dashboard session OR the OpenClaw API key
-// (x-openclaw-api-key header matching OPENCLAW_API_KEY). tenantId is ALWAYS
-// resolved server-side — from the session, or from the Agent record behind the
-// agentId — never from the request body or conversation content.
+// Body: { agentId, params }. Auth: a dashboard session. Tools are executed
+// in-process by the agent loop (services/llm-runtime.ts); this HTTP route is
+// the dashboard-side entry point. tenantId is ALWAYS resolved server-side from
+// the session — never from the request body or conversation content.
 
 const toolCallSchema = z.object({
   agentId: z.string().uuid(),
@@ -45,38 +45,23 @@ export default async function handler(
   }
   const { agentId, params } = parsed.data;
 
-  // Resolve tenantId. Session path also verifies the agentId belongs to the
+  // Resolve tenantId from the session; also verify the agentId belongs to the
   // same tenant (prevents a session user driving another tenant's agent).
-  let tenantId: string | null = null;
   const session = await getAuthSession(req, res);
-  if (session) {
-    tenantId = session.user.tenantId;
-    const agent = await prisma.agent.findUnique({
-      where: { id: agentId },
-      select: { tenantId: true },
-    });
-    if (!agent || agent.tenantId !== tenantId) {
-      return res
-        .status(403)
-        .json(
-          apiError("PERMISSION_DENIED", "Agent does not belong to your tenant")
-        );
-    }
-  } else {
-    const key = req.headers["x-openclaw-api-key"];
-    const expected = process.env.OPENCLAW_API_KEY;
-    if (expected && typeof key === "string" && key === expected) {
-      const agent = await prisma.agent.findUnique({
-        where: { id: agentId },
-        select: { tenantId: true },
-      });
-      if (agent) {
-        tenantId = agent.tenantId;
-      }
-    }
-  }
-  if (!tenantId) {
+  if (!session) {
     return res.status(401).json(apiError("UNAUTHORIZED", "Authentication required"));
+  }
+  const tenantId = session.user.tenantId;
+  const agent = await prisma.agent.findUnique({
+    where: { id: agentId },
+    select: { tenantId: true },
+  });
+  if (!agent || agent.tenantId !== tenantId) {
+    return res
+      .status(403)
+      .json(
+        apiError("PERMISSION_DENIED", "Agent does not belong to your tenant")
+      );
   }
 
   const outcome = await executeTool({ toolName, tenantId, agentId, params });

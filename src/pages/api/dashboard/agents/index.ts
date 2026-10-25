@@ -1,4 +1,4 @@
-import type { NextApiRequest, NextApiResponse } from "next";
+﻿import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { getAuthSession, requireRole } from "@/lib/auth";
@@ -14,8 +14,8 @@ export type AgentWithCapabilities = Prisma.AgentGetPayload<{
 
 type ListResult = { items: AgentWithCapabilities[] };
 
-// POST body for creating a new agent (PRD §15.2/§19). The agent is created in
-// DRAFT; provisioning (OpenClaw cell + agent) happens on Deploy, not here.
+// POST body for creating a new agent (PRD Â§15.2/Â§19). The agent is created in
+// DRAFT; activation (status -> ACTIVE) happens on Deploy, not here.
 const createSchema = z.object({
   name: z.string().min(1).max(120),
   type: z.enum(["CUSTOMER_SERVICE"]).optional(),

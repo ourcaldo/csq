@@ -1,9 +1,9 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 # One-shot VPS setup for CSQ on a fresh Ubuntu host
 # (HackFest: 4 vCPU / 4GB RAM / 20GB SSD). Idempotent. Run as root:
 #   bash docker/setup-vps.sh
 #
-# ⚠️  PREREQUISITE — PREBUILT IMAGES: this script does NOT build on the 4GB
+# âš ï¸  PREREQUISITE â€” PREBUILT IMAGES: this script does NOT build on the 4GB
 # VPS (the Next.js build will OOM; see docker/Dockerfile header). You must
 # prebuild the app + nginx images elsewhere (CI or a beefier machine), push
 # them to a registry, and set the image names in .env.production:
@@ -11,17 +11,15 @@
 #   CSQ_NGINX_IMAGE=ghcr.io/yourorg/csq-nginx:latest
 # This script runs `docker compose pull` to fetch them.
 #
-# ⚠️  PREREQUISITE — TLS CERT: you MUST run init-certbot.sh BEFORE this script
+# âš ï¸  PREREQUISITE â€” TLS CERT: you MUST run init-certbot.sh BEFORE this script
 # (or at least before the first successful `up`). Nginx requires the cert files
-# to exist at startup, and the certbot compose service only renews — it does
+# to exist at startup, and the certbot compose service only renews â€” it does
 # not issue the initial certificate. This script checks for the cert and will
 # exit with instructions if it is missing.
 #
-# Production model (PRD §5/§26): per-tenant OpenClaw cells. The app container
-# has the `openclaw` + `docker` CLIs (see Dockerfile) and provisions one
-# isolated OpenClaw container per store via `openclaw fleet create <slug>`
-# against the host Docker daemon (socket mounted in docker-compose.yml).
-# Postgres runs on the VPS (pgvector image), not Neon.
+# The app drives the configured OpenAI-compatible LLM provider directly over
+# HTTPS — no sidecar containers. Postgres runs on the VPS (pgvector image),
+# not Neon.
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -49,17 +47,17 @@ echo "==> Loading environment"
 if [ -f "$REPO_DIR/.env.production" ]; then
   set -a; . "$REPO_DIR/.env.production"; set +a
 else
-  echo "Missing $REPO_DIR/.env.production — copy .env.production.example and fill it in." >&2
+  echo "Missing $REPO_DIR/.env.production â€” copy .env.production.example and fill it in." >&2
   exit 1
 fi
 
-# ── TLS gate: Nginx will fail to start without a cert for CERT_DOMAIN. ──
+# â”€â”€ TLS gate: Nginx will fail to start without a cert for CERT_DOMAIN. â”€â”€
 # init-certbot.sh issues the initial certificate using a standalone certbot
 # container (does not need compose running). The certbot service in compose
-# only renews existing certs — it does not issue the first one, and will
+# only renews existing certs â€” it does not issue the first one, and will
 # restart-loop until init-certbot.sh has been run.
 if [ -z "${CERT_DOMAIN:-}" ]; then
-  echo "CERT_DOMAIN is not set in .env.production — set it and re-run." >&2
+  echo "CERT_DOMAIN is not set in .env.production â€” set it and re-run." >&2
   exit 1
 fi
 CERT_DIR="$REPO_DIR/docker/certbot/conf/live/${CERT_DOMAIN}"
@@ -76,13 +74,13 @@ cd "$REPO_DIR/docker"
 echo "==> Pulling prebuilt images (app=${CSQ_APP_IMAGE:-csq/app:latest}, nginx=${CSQ_NGINX_IMAGE:-csq/nginx:latest})"
 docker compose --env-file "$REPO_DIR/.env.production" pull
 
-echo "==> Starting app + postgres + nginx + certbot (OpenClaw cells spawn on demand)"
+echo "==> Starting app + postgres + nginx + certbot (no sidecar containers)"
 docker compose --env-file "$REPO_DIR/.env.production" up -d
 
 echo "==> Waiting for postgres health"
 sleep 5
 
-# A clean production install does NOT seed the demo tenant — owners register
+# A clean production install does NOT seed the demo tenant â€” owners register
 # their own stores from /register. To seed the demo tenant for a throwaway
 # preview, uncomment the block below.
 # echo "==> Seeding demo tenant (optional)"
@@ -90,5 +88,5 @@ sleep 5
 #   npx prisma db seed || true
 
 echo "==> Done."
-echo "    OpenClaw cells are provisioned automatically when owners register + deploy agents."
+echo "    Agents run in-process against the configured LLM provider."
 echo "    Health check: curl -sf https://${CERT_DOMAIN}/api/health"

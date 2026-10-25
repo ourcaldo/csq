@@ -1,4 +1,4 @@
-// Tool Gateway shared types (SDD §4.4). The registry, executor, permissions,
+﻿// Tool Gateway shared types (SDD Â§4.4). The registry, executor, permissions,
 // audit, and every tool module import from here so the shapes stay in sync.
 //
 // No `as` assertions anywhere in this layer: the registry stores an erased
@@ -54,7 +54,7 @@ export type ToolContext<P extends Record<string, unknown> = Record<string, unkno
   prisma: PrismaClient;
   audit: (entry: AuditEntryInput) => Promise<void>;
   // Server-authoritative conversation routing context (G1). Never supplied by
-  // the agent — resolved from the inbound conversation by the caller, like
+  // the agent â€” resolved from the inbound conversation by the caller, like
   // tenantId. Tools use these so they never trust agent-supplied identity: e.g.
   // customer.update uses customerPhone instead of asking the model for a number
   // (prompt-injection defense), and conversation.handoff uses conversationId.
@@ -73,7 +73,7 @@ export type ApprovalChange = {
 
 // For approval-required write tools: snapshot the current state and the
 // projected result so the approval queue can show a diff before executing.
-// Optional — only write tools that may require approval implement it.
+// Optional â€” only write tools that may require approval implement it.
 export type DescribeChange<P extends Record<string, unknown> = Record<string, unknown>> = (
   params: P,
   ctx: { tenantId: string; prisma: PrismaClient }
@@ -89,7 +89,7 @@ export type ToolDefinition<P extends Record<string, unknown> = Record<string, un
   describeChange?: DescribeChange<P>;
 };
 
-// Summary shape returned by GET /api/tools (for OpenClaw config + dashboard).
+// Summary shape returned by GET /api/tools (for agent config + dashboard).
 export type ToolSummary = {
   name: string;
   description: string;
@@ -97,7 +97,7 @@ export type ToolSummary = {
   defaultPermission: ToolPermission;
 };
 
-// Discriminated outcome of executeTool — typed so API routes map to ApiResponse
+// Discriminated outcome of executeTool â€” typed so API routes map to ApiResponse
 // + HTTP status via a switch, no string-to-ErrorCode casts.
 export type ExecuteOutcome =
   | { kind: "ok"; result: ToolResult }

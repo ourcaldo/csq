@@ -1,9 +1,9 @@
-import prisma from "../src/lib/db";
+﻿import prisma from "../src/lib/db";
 import { hashPassword } from "../src/lib/password";
 import { upsertEmbedding } from "../src/lib/vector";
 import { embed, isEmbeddingsConfigured } from "../src/services/embeddings";
 
-// Demo tenant: Toko Kopi Nusantara (PRD §21). Run with `npm run prisma:seed`.
+// Demo tenant: Toko Kopi Nusantara (PRD Â§21). Run with `npm run prisma:seed`.
 // Idempotent-ish: upserts by unique keys (tenant slug, user email, inventory
 // productId) and findFirst-or-create for products/knowledge. (tenantId, sku)
 // is unique as of M13; the seed SKUs below are distinct so re-seeding is safe.
@@ -92,7 +92,7 @@ export async function seedDemo(): Promise<void> {
     "Barang dapat ditukar jika rusak atau cacat produksi dalam 3 hari setelah diterima, dengan melampirkan foto dan bukti pembelian. Pengembalian dana dilakukan setelah verifikasi."
   );
 
-  // ── Demo Customer Service Agent + capabilities + WhatsApp channel ──
+  // â”€â”€ Demo Customer Service Agent + capabilities + WhatsApp channel â”€â”€
   const agent =
     (await prisma.agent.findFirst({
       where: { tenantId: tenant.id, name: "Kopi Nusantara CS" },
@@ -106,7 +106,7 @@ export async function seedDemo(): Promise<void> {
         instructions:
           "Kamu adalah customer service Toko Kopi Nusantara. Jawab dengan ramah dalam Bahasa Indonesia. " +
           "Bantu pelanggan mencari produk, cek stok, dan membuat pesanan. JANGAN pernah mengubah harga " +
-          "tanpa persetujuan owner — perubahan harga selalu butuh approval.",
+          "tanpa persetujuan owner â€” perubahan harga selalu butuh approval.",
       },
     }));
 
@@ -146,7 +146,7 @@ export async function seedDemo(): Promise<void> {
 
   // Default sales pipeline for the demo tenant. Real tenants get this template
   // lazily on first Pipeline-page open (see lib/pipeline.ts). Mapped onto the
-  // existing order flow: Pesanan ↔ order.create, Menang ↔ confirmed order.
+  // existing order flow: Pesanan â†” order.create, Menang â†” confirmed order.
   const existingPipeline = await prisma.pipeline.findFirst({
     where: { tenantId: tenant.id },
   });
@@ -169,7 +169,7 @@ export async function seedDemo(): Promise<void> {
     });
   }
 
-  // WhatsApp Cloud API channel (DISCONNECTED — owner fills real creds to demo).
+  // WhatsApp Cloud API channel (DISCONNECTED â€” owner fills real creds to demo).
   const existingChannel = await prisma.channel.findFirst({
     where: { tenantId: tenant.id, provider: "CLOUD_API" },
   });
@@ -219,8 +219,8 @@ async function ensureKnowledge(
 }
 
 // Best-effort embedding so seeded knowledge is semantically retrievable. If
-// FIREWORKS_API_KEY is unset (e.g. seeding in an env without embeddings), skip
-// with a warning — the row is already saved and retrieval degrades to keyword.
+// LLM_API_KEY is unset (e.g. seeding in an env without embeddings), skip
+// with a warning â€” the row is already saved and retrieval degrades to keyword.
 async function embedKnowledge(
   tenantId: string,
   knowledgeId: string,
@@ -228,7 +228,7 @@ async function embedKnowledge(
   content: string
 ): Promise<void> {
   if (!isEmbeddingsConfigured()) {
-    console.warn(`[seed] embeddings not configured — skipping "${title}"`);
+    console.warn(`[seed] embeddings not configured â€” skipping "${title}"`);
     return;
   }
   try {

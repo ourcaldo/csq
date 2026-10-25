@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-// OpenClaw sidecar speaks an OpenAI-compatible chat completions API (memory:
-// openclaw-integration). Every HTTP response from the sidecar is an external
-// boundary → parsed with Zod, never `as`-cast.
+// The agent runtime speaks an OpenAI-compatible chat completions API. Every
+// HTTP response from the provider is an external boundary → parsed with Zod,
+// never `as`-cast.
 
 export const toolCallPartSchema = z.object({
   id: z.string(),

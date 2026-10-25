@@ -4,16 +4,13 @@ import prisma from "@/lib/db";
 import { requireTenant, respondError } from "@/lib/queries";
 import { apiOk, type ApiResponse } from "@/types/api";
 
-// Tenant info for the dashboard (cell status indicator, PRD §5/§26). Read-only;
-// any authenticated tenant user may view. Secrets (openclawToken/baseUrl) are
-// NOT returned — only the cell id and status.
+// Tenant info for the dashboard. Read-only; any authenticated tenant user may
+// view.
 
 export type TenantInfo = {
   id: string;
   name: string;
   slug: string;
-  cellStatus: string | null;
-  openclawCellId: string | null;
 };
 
 export default async function handler(
@@ -33,8 +30,6 @@ export default async function handler(
       id: true,
       name: true,
       slug: true,
-      cellStatus: true,
-      openclawCellId: true,
     },
   });
   if (!tenant) return respondError(res, "NOT_FOUND", "Tenant tidak ditemukan.");

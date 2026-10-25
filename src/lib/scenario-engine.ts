@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+﻿import { Prisma } from "@prisma/client";
 import type { ScenarioRunStatus } from "@prisma/client";
 import prisma from "@/lib/db";
 import { getProvider } from "@/lib/whatsapp-provider";
@@ -26,14 +26,14 @@ import {
 } from "@/types/scenario";
 
 // Scenario execution engine. Fire-and-forget: a scenario injects outbound
-// messages at trigger times and never owns the conversation — the AI agent
+// messages at trigger times and never owns the conversation â€” the AI agent
 // handles any customer reply as normal. Runs are persisted state machines so a
 // process restart/deploy never loses a paused (Wait) run; node-cron resumes
 // due runs. Channel-agnostic; on Cloud API no send lands past the 24h
 // customer-service window (skipped + audited at runtime).
 //
 // Concurrency is bounded: at most MAX_CONCURRENT advances run at once; overflow
-// is deferred (set WAITING with resumeAt=now) and picked up by the cron tick —
+// is deferred (set WAITING with resumeAt=now) and picked up by the cron tick â€”
 // never silently dropped.
 
 const MAX_CONCURRENT_ADVANCES = 16;
@@ -41,7 +41,7 @@ const MAX_NODES_PER_ADVANCE = 200; // defense vs. a malformed cyclic graph
 
 let activeAdvances = 0;
 
-// ─────────────────────────── Registration ───────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Registration â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Subscribe the engine to the event bus. Called once from startScheduler()
 // (server-only, after the Baileys/Sheets jobs). Idempotent.
 let registered = false;
@@ -91,7 +91,7 @@ export function registerScenarioEngine(): void {
   });
 }
 
-// ─────────────────────────── Trigger → runs ───────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Trigger â†’ runs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type TriggerInput = {
   dedupKey: string;
@@ -120,7 +120,7 @@ async function startRunsForTrigger(
     }
 
     // Resolve a conversation to bind the run to. ON_PURCHASE may arrive without
-    // a conversationId (order created outside a thread) — fall back to the most
+    // a conversationId (order created outside a thread) â€” fall back to the most
     // recent conversation for this customer on a connected channel. If none,
     // the scenario can't deliver anything; skip + audit.
     let conversationId = input.conversationId;
@@ -179,7 +179,7 @@ async function createRunOnce(
       err instanceof Prisma.PrismaClientKnownRequestError &&
       err.code === "P2002"
     ) {
-      return null; // duplicate trigger — already ran/running for this ref
+      return null; // duplicate trigger â€” already ran/running for this ref
     }
     console.error(`[scenario] failed to create run for scenario ${scenario.id}:`, err);
     return null;
@@ -200,7 +200,7 @@ async function resolveConversationByPhone(
   return conv?.id;
 }
 
-// ─────────────────────────── Advance ───────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Advance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function scheduleAdvance(runId: string): Promise<void> {
   if (activeAdvances >= MAX_CONCURRENT_ADVANCES) {
@@ -342,7 +342,7 @@ async function advanceRun(runId: string): Promise<void> {
   }
 
   if (iterations >= MAX_NODES_PER_ADVANCE) {
-    await failRun(run.id, run.tenantId, "Loop terlalu panjang — kemungkinan siklus.");
+    await failRun(run.id, run.tenantId, "Loop terlalu panjang â€” kemungkinan siklus.");
   }
 }
 
@@ -361,7 +361,7 @@ async function failRun(runId: string, tenantId: string, message: string): Promis
   }).catch(() => undefined);
 }
 
-// ─────────────────────────── Node executors ───────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Node executors â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function executeNode(
   node: ScenarioNode,
@@ -445,7 +445,7 @@ async function executeNode(
         };
       } catch (err) {
         // Not a run failure: an invalid stage name or a terminal-stage deal is
-        // a config/runtime state the owner should see and fix — audited, and
+        // a config/runtime state the owner should see and fix â€” audited, and
         // the rest of the flow (e.g. the send) still runs.
         const message = err instanceof Error ? err.message : "Gagal mengubah tahap deal.";
         await logAction({
@@ -466,7 +466,7 @@ async function executeNode(
     }
 
     case "assign": {
-      // Resolve the member fresh at runtime — a userId captured at config time
+      // Resolve the member fresh at runtime â€” a userId captured at config time
       // may since have been removed. Tenant-scoped lookup; skip + audit if gone.
       const user = await prisma.user.findFirst({
         where: { id: node.data.userId, tenantId: ctx.tenantId },
@@ -513,7 +513,7 @@ async function executeNode(
             subject: node.data.subject,
             reason: !to
               ? "Kontak tidak memiliki email."
-              : "Email belum diatur oleh pemilik usaha (Pengaturan → Email).",
+              : "Email belum diatur oleh pemilik usaha (Pengaturan â†’ Email).",
           },
         });
         return {
@@ -588,7 +588,7 @@ function evaluateCondition(
 }
 
 // Apply a tag from a scenario Tag node. Auto-creates the Tag for the tenant if
-// it doesn't exist. Does NOT emit conversation.tagged — that would let a
+// it doesn't exist. Does NOT emit conversation.tagged â€” that would let a
 // scenario's Tag node re-trigger other ON_TAG_ADDED scenarios and loop.
 async function applyScenarioTag(
   tenantId: string,
@@ -607,19 +607,19 @@ async function applyScenarioTag(
   });
 }
 
-// ─────────────────────────── AI node generation ───────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ AI node generation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-// Fixed, bounded system prompt for the ai node — the scenario author's prompt
+// Fixed, bounded system prompt for the ai node â€” the scenario author's prompt
 // is the user message; this frames the output as a plain WhatsApp message body
 // so the model never wraps it in quotes/markdown/explanations.
 const AI_NODE_SYSTEM_PROMPT =
   "Kamu menulis satu pesan WhatsApp customer service untuk pelanggan UMKM Indonesia. " +
-  "Tulis HANYA isi pesan — tanpa judul, tanpa tanda kutip, tanpa penjelasan tambahan. " +
+  "Tulis HANYA isi pesan â€” tanpa judul, tanpa tanda kutip, tanpa penjelasan tambahan. " +
   "Maksimal sekitar 600 karakter, Bahasa Indonesia yang ramah dan sopan. " +
   "Gunakan hanya fakta yang ada pada prompt; jangan mengarang harga, stok, atau kebijakan.";
 
 // Generate a message body for the ai node. Returns null when the LLM is not
-// configured or generation fails — the node is skipped + audited and the run
+// configured or generation fails â€” the node is skipped + audited and the run
 // continues (an LLM hiccup must not kill the rest of the flow).
 async function generateScenarioBody(
   tenantId: string,
@@ -634,7 +634,7 @@ async function generateScenarioBody(
       entityType: "Conversation",
       entityId: conversationId,
       approvalStatus: "NONE",
-      afterValue: { reason: "LLM teks belum dikonfigurasi (FIREWORKS_API_KEY).", prompt },
+      afterValue: { reason: "LLM teks belum dikonfigurasi (LLM_API_KEY).", prompt },
     });
     return null;
   }
@@ -682,7 +682,7 @@ async function resolveContactEmail(
 
 
 
-// ─────────────────────────── Scenario send ───────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Scenario send â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function sendScenarioMessage(input: {
   tenantId: string;
@@ -707,7 +707,7 @@ async function sendScenarioMessage(input: {
     return { sent: false, skippedWindow: false };
   }
 
-  // Cloud API 24h customer-service window. Out-of-window → skip + audit
+  // Cloud API 24h customer-service window. Out-of-window â†’ skip + audit
   // (never silently drop, never send into a Meta rejection). Baileys bypasses.
   if (conv.channel.provider === "CLOUD_API") {
     const lastInbound = await prisma.message.findFirst({
@@ -765,11 +765,11 @@ async function sendScenarioMessage(input: {
   return { sent: true, skippedWindow: false };
 }
 
-// ─────────────────────────── Interpolation ───────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Interpolation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Replace {{variable}} tokens with run-context values. Missing variables are
 // dropped (empty string) so a send never crashes on a missing field. Variable
 // names are identifier-restricted so no arbitrary content can ride inside a
-// token; values are String()'d — no HTML, no eval, no injection surface.
+// token; values are String()'d â€” no HTML, no eval, no injection surface.
 export function interpolate(body: string, context: RunContext): string {
   return body.replace(/\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/g, (_match, name: string) => {
     const v = context[name];
@@ -778,7 +778,7 @@ export function interpolate(body: string, context: RunContext): string {
   });
 }
 
-// ─────────────────────────── Resume tick (node-cron) ───────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Resume tick (node-cron) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Called every minute by the scheduler. Resumes WAITING runs whose resumeAt has
 // passed (Wait nodes) and deferred-at-cap runs (resumeAt=now). Bounded: each
 // resumed run goes through scheduleAdvance, which respects the concurrency cap.
@@ -794,18 +794,18 @@ export async function resumePausedRuns(): Promise<void> {
   }
 }
 
-// ─────────────────────────── Scheduler-driven triggers ───────────────────────────
-// ON_SCHEDULE and ON_NO_REPLY are not event-bus driven — the every-minute
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Scheduler-driven triggers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ON_SCHEDULE and ON_NO_REPLY are not event-bus driven â€” the every-minute
 // scheduler tick calls runScheduledTriggers(), which decides per scenario
 // whether the current minute is a firing minute and creates one run per
 // target conversation (deduped per conversation per day, bounded per fire).
 
 // Schedule times are interpreted in this timezone (the target market), not
-// the server clock — a 10:00 promo fires at 10:00 WIB regardless of VPS TZ.
+// the server clock â€” a 10:00 promo fires at 10:00 WIB regardless of VPS TZ.
 const SCHEDULE_TZ = process.env.SCENARIO_SCHEDULE_TZ ?? "Asia/Jakarta";
 
 // Upper bound on conversations per scheduled fire / per no-reply scan. A
-// blast past this cap is truncated (most-recent first) + audited — never a
+// blast past this cap is truncated (most-recent first) + audited â€” never a
 // silent drop, never an unbounded fan-out.
 const SCHEDULE_TARGET_CAP = 100;
 
@@ -977,7 +977,7 @@ async function fireForSilentConversations(
   }
 }
 
-// ─────────────────────────── Helpers ───────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function parseTriggerConfig(raw: unknown): TriggerConfig | null {
   const parsed = triggerConfigSchema.safeParse(raw);

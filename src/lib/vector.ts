@@ -1,8 +1,8 @@
-import prisma from "@/lib/db";
+﻿import prisma from "@/lib/db";
 
 // ALL pgvector reads and writes go through this module. No raw vector SQL
 // anywhere else. Prisma declares the embedding column as Unsupported("vector");
-// the actual Postgres type is vector(1024) (Fireworks fireworks/qwen3-embedding-8b
+// the actual Postgres type is vector(1024) (Qwen3 embedding
 // via the `dimensions` param), altered in a migration. Embeddings are generated
 // in src/services/embeddings.ts. Cosine distance operator is `<=>`; similarity
 // = 1 - distance. Qwen3 vectors are not unit-length, but `<=>` is magnitude-

@@ -1,17 +1,16 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getAuthSession, requireRole } from "@/lib/auth";
 import prisma from "@/lib/db";
-import { provisionAgent } from "@/services/openclaw";
 import { requireTenant, respondError, strQuery } from "@/lib/queries";
 import { apiOk, type ApiResponse } from "@/types/api";
 
-// Deploy an agent: mark ACTIVE and provision it against the OpenClaw sidecar
-// (write openclawCellId + openclawAgentId). OWNER-only, tenant-scoped (plan 6.6).
+// Deploy an agent: mark it ACTIVE so the agent loop picks it up. OWNER-only,
+// tenant-scoped. There is no external runtime to provision — the agent loop
+// (services/llm-runtime.ts) drives the configured OpenAI-compatible provider
+// directly, so deploying is purely a status flip.
 export type DeployResult = {
   id: string;
   status: string;
-  openclawCellId: string;
-  openclawAgentId: string;
 };
 
 export default async function handler(
@@ -35,9 +34,11 @@ export default async function handler(
   const agent = await prisma.agent.findFirst({ where: { id, tenantId } });
   if (!agent) return respondError(res, "NOT_FOUND", "Agent tidak ditemukan.");
 
-  // provisionAgent now creates the agent inside the tenant's OpenClaw cell
-  // and decides the openclawAgentId itself (no caller-supplied id).
-  const result = await provisionAgent({ agentId: agent.id, tenantId });
+  const updated = await prisma.agent.update({
+    where: { id: agent.id },
+    data: { status: "ACTIVE" },
+    select: { id: true, status: true },
+  });
 
-  return res.status(200).json(apiOk(result));
+  return res.status(200).json(apiOk(updated));
 }

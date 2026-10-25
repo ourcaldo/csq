@@ -7,17 +7,13 @@
 # CSQ_NGINX_IMAGE in .env.production, then `docker compose pull && docker
 # compose up -d`. (docker/setup-vps.sh does this for you.)
 #
-# Per-tenant OpenClaw cells (PRD §5/§26): there is NO single shared openclaw
-# service here. CSQ provisions one isolated OpenClaw container per store via
-# `openclaw fleet create <slug>` (OPENCLAW_PROVISIONING=fleet). To do that,
-# the app container talks to the host Docker daemon through the mounted
-# /var/run/docker.sock and has the `openclaw` + `docker` CLIs baked in (see
-# Dockerfile). Cell containers run as siblings on the host, not in this compose.
-# TLS is terminated by Nginx; Certbot renews certificates.
+# The app drives the configured OpenAI-compatible LLM provider directly over
+# HTTPS — no sidecar containers, no per-tenant cells. TLS is terminated by
+# Nginx; Certbot renews certificates.
 #
 # Resource limits (H7): total container budget ~2.4 GB to leave headroom for
-# the OS (~400 MB) and per-tenant OpenClaw cell containers spawned at runtime
-# on the 4 GB host. Adjust only if you understand the headroom trade-off.
+# the OS (~400 MB) on the 4 GB host. Adjust only if you understand the
+# headroom trade-off.
 
 services:
   app:
@@ -35,30 +31,16 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI}
-      # OpenClaw per-tenant cell provisioning (production = fleet).
-      OPENCLAW_PROVISIONING: fleet
-      OPENCLAW_AGENT_MODEL: ${OPENCLAW_AGENT_MODEL:-fireworks/accounts/fireworks/models/qwen3p7-plus}
-      # Dev-only fallback (unused in fleet mode, but required by the code path).
-      OPENCLAW_BASE_URL: ${OPENCLAW_BASE_URL:-http://127.0.0.1:18789}
-      OPENCLAW_API_KEY: ${OPENCLAW_API_KEY:-}
+      # Any OpenAI-compatible LLM provider (agent loop, scenario AI, embeddings).
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_CHAT_MODEL: ${LLM_CHAT_MODEL:-}
+      LLM_EMBEDDING_MODEL: ${LLM_EMBEDDING_MODEL:-fireworks/qwen3-embedding-8b}
+      LLM_EMBEDDING_DIM: ${LLM_EMBEDDING_DIM:-1024}
     volumes:
-      # ⚠️  SECURITY — CONTAINER ESCAPE RISK: mounting the host Docker socket
-      # gives the app container full root-equivalent control over the host
-      # Docker daemon. Any code running in the app container can create/kill
-      # containers, mount arbitrary host paths, and effectively escape to the
-      # host. This mount is required for `openclaw fleet create <slug>` to
-      # provision per-tenant cell containers as siblings on the host (PRD
-      # §5/§26). Mitigation path: replace this direct mount with a Docker
-      # socket proxy (e.g. tecnativa/docker-socket-proxy) that exposes only
-      # the minimal API surface needed (container create/inspect/exec) and
-      # blocks the rest. Do NOT remove this mount without an equivalent
-      # provisioning path.
-      - /var/run/docker.sock:/var/run/docker.sock
       # Persist Baileys auth state (bring-your-own-number WhatsApp sessions)
       # across app restarts so owners don't re-scan the QR.
       - baileys-auth:/app/.baileys-auth
-      # Persist OpenClaw Fleet cell metadata across app restarts.
-      - openclaw-fleet:/data/.openclaw
     depends_on:
       postgres:
         condition: service_healthy
@@ -133,4 +115,3 @@ services:
 volumes:
   pgdata:
   baileys-auth:
-  openclaw-fleet:

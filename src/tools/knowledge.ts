@@ -1,11 +1,11 @@
-import { z } from "zod";
+﻿import { z } from "zod";
 import type { Knowledge } from "@prisma/client";
 import type { ToolDefinition, ToolResult } from "@/types/tools";
 import { findSimilar } from "@/lib/vector";
 import { embed, isEmbeddingsConfigured } from "@/services/embeddings";
 
-// knowledge.search — allowed by default (read-only). Generates a query
-// embedding server-side from `query` via Fireworks Qwen3, then runs pgvector
+// knowledge.search â€” allowed by default (read-only). Generates a query
+// embedding server-side from `query` via the configured embedding provider, then runs pgvector
 // cosine similarity through lib/vector.ts. Falls back to Prisma text `contains`
 // on title + content when embeddings are not configured, the embedding call
 // fails, or semantic search returns nothing [SRS FR-KN-006]. All vector reads

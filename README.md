@@ -1,5 +1,5 @@
 # CSQ
-Self-hosted, multi-tenant AI agent platform for Indonesian UMKM. HackFest MVP: a Customer Service Agent on WhatsApp that reads the business's own messy data (manual, Excel/CSV, Google Sheets) and performs controlled writes under per-tool permissions. Built on Next.js (Pages Router) + PostgreSQL/Prisma/pgvector + OpenClaw + WhatsApp Cloud API.
+Self-hosted, multi-tenant AI agent platform for Indonesian UMKM. HackFest MVP: a Customer Service Agent on WhatsApp that reads the business's own messy data (manual, Excel/CSV, Google Sheets) and performs controlled writes under per-tool permissions. Built on Next.js (Pages Router) + PostgreSQL/Prisma/pgvector + any OpenAI-compatible LLM provider + WhatsApp Cloud API.
 
 ## Self-hosted deployment (PRD §22A.1)
 
@@ -33,7 +33,7 @@ Edit `.env.production` and fill in:
 - **`NEXTAUTH_SECRET`** — generate with `openssl rand -base64 32`.
 - **`CERT_DOMAIN`** — the same domain, e.g. `umkm.example.com`.
 - **`CSQ_APP_IMAGE`** / **`CSQ_NGINX_IMAGE`** — the registry image names you pushed in step 1.
-- **`OPENCLAW_API_KEY`** / **`FIREWORKS_API_KEY`** — your Fireworks API key (used to configure each tenant's OpenClaw cell).
+- **`LLM_API_KEY`** / **`LLM_BASE_URL`** / **`LLM_CHAT_MODEL`** — any OpenAI-compatible LLM provider (Fireworks, OpenAI, Groq, OpenRouter, local vLLM, …). Serves the agent loop, scenario AI node, and embeddings.
 - **`WHATSAPP_APP_SECRET`** — the App Secret from your Meta app (used for webhook HMAC validation).
 - **`GOOGLE_CLIENT_ID`** / **`GOOGLE_CLIENT_SECRET`** / **`GOOGLE_REDIRECT_URI`** — for Google Sheets OAuth (optional, only if stores import from Sheets).
 

@@ -1,24 +1,18 @@
 import { z } from "zod";
 
-// Fireworks one-shot text generation for the scenario `ai` node. A plain,
-// tool-less chat completion — NOT the agent loop (openclaw.ts): scenario
-// message generation must not call tools, touch business data, or loop. Same
-// OpenAI-compatible endpoint + account/key as the embeddings service; raw
+// One-shot text generation for the scenario `ai` node. A plain, tool-less
+// chat completion against any OpenAI-compatible provider (LLM_BASE_URL +
+// LLM_API_KEY — Fireworks, OpenAI, Groq, OpenRouter, local vLLM, …); raw
 // `fetch` + Zod at the boundary (matches the codebase HTTP style, no SDK).
-//
-// Model defaults to the same Qwen chat model the OpenClaw agents use
-// (OPENCLAW_AGENT_MODEL) so one Fireworks account serves everything;
-// FIREWORKS_TEXT_MODEL overrides it for scenario copywriting if desired.
+// NOT the agent loop (llm-runtime.ts): scenario message generation must not
+// call tools, touch business data, or loop. LLM_SCENARIO_MODEL overrides the
+// shared LLM_CHAT_MODEL for scenario copywriting if desired.
 //
 // Server-only. Secrets stay server-side. No `as` casts.
 
-const FIREWORKS_API_KEY = process.env.FIREWORKS_API_KEY ?? "";
-const FIREWORKS_BASE_URL =
-  process.env.FIREWORKS_BASE_URL ?? "https://api.fireworks.ai/inference";
-const FIREWORKS_TEXT_MODEL =
-  process.env.FIREWORKS_TEXT_MODEL ??
-  process.env.OPENCLAW_AGENT_MODEL ??
-  "fireworks/accounts/fireworks/models/qwen3p7-plus";
+const LLM_API_KEY = process.env.LLM_API_KEY ?? "";
+const LLM_BASE_URL = process.env.LLM_BASE_URL ?? "";
+const LLM_TEXT_MODEL = process.env.LLM_SCENARIO_MODEL ?? process.env.LLM_CHAT_MODEL ?? "";
 
 // OpenAI-compatible chat completion response shape. `.passthrough()` tolerates
 // extra provider fields (id, usage, …) we don't need.
@@ -36,7 +30,7 @@ const textCompletionResponseSchema = z
   .passthrough();
 
 export function isTextLlmConfigured(): boolean {
-  return Boolean(FIREWORKS_API_KEY);
+  return Boolean(LLM_API_KEY && LLM_BASE_URL && LLM_TEXT_MODEL);
 }
 
 // Generate one message body from a prompt. Bounded by design: maxTokens caps
@@ -51,17 +45,17 @@ export async function generateText(input: {
   maxTokens?: number;
   temperature?: number;
 }): Promise<string> {
-  if (!FIREWORKS_API_KEY) {
-    throw new Error("FIREWORKS_API_KEY not set");
+  if (!isTextLlmConfigured()) {
+    throw new Error("LLM_API_KEY / LLM_BASE_URL / LLM_SCENARIO_MODEL (or LLM_CHAT_MODEL) not set");
   }
-  const res = await fetch(`${FIREWORKS_BASE_URL}/v1/chat/completions`, {
+  const res = await fetch(`${LLM_BASE_URL.replace(/\/$/, "")}/v1/chat/completions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${FIREWORKS_API_KEY}`,
+      Authorization: `Bearer ${LLM_API_KEY}`,
     },
     body: JSON.stringify({
-      model: FIREWORKS_TEXT_MODEL,
+      model: LLM_TEXT_MODEL,
       max_tokens: input.maxTokens ?? 400,
       temperature: input.temperature ?? 0.4,
       messages: [
@@ -72,13 +66,13 @@ export async function generateText(input: {
   });
   if (!res.ok) {
     throw new Error(
-      `Fireworks text completion failed: ${res.status} ${res.statusText}`
+      `Text completion failed: ${res.status} ${res.statusText}`
     );
   }
   const parsed = textCompletionResponseSchema.parse(await res.json());
   const content = parsed.choices[0]?.message.content?.trim() ?? "";
   if (!content) {
-    throw new Error("Fireworks text completion returned no content");
+    throw new Error("Text completion returned no content");
   }
   return content;
 }

@@ -1,8 +1,8 @@
-import { z, type ZodTypeAny } from "zod";
+﻿import { z, type ZodTypeAny } from "zod";
 
-// Best-effort Zod → JSON Schema converter for the OpenClaw function-tools
+// Best-effort Zod â†’ JSON Schema converter for the agent function-tools
 // payload. The JSON Schema only GUIDES the model; the real validation is
-// server-side Zod inside executeTool, so an imperfect schema is safe — unknown
+// server-side Zod inside executeTool, so an imperfect schema is safe â€” unknown
 // nodes fall back to a permissive `{}`.
 //
 // No `as` assertions: every Zod subtype is narrowed with `instanceof`, after
@@ -37,7 +37,7 @@ function convert(node: ZodTypeAny): JsonSchema {
     const properties: Record<string, JsonSchema> = {};
     const required: string[] = [];
     for (const [key, value] of Object.entries(node.shape)) {
-      // Object.entries on a ZodObject<any,…> .shape yields `unknown` (the
+      // Object.entries on a ZodObject<any,â€¦> .shape yields `unknown` (the
       // generic shape loosens to any); narrow with instanceof instead of a
       // cast so convert/isOptional receive a real ZodTypeAny.
       if (!(value instanceof z.ZodType)) continue;
@@ -62,5 +62,5 @@ function convert(node: ZodTypeAny): JsonSchema {
   if (node instanceof z.ZodRecord) {
     return { type: "object", additionalProperties: convert(node.element) };
   }
-  return {}; // permissive fallback — server-side Zod is the real validator
+  return {}; // permissive fallback â€” server-side Zod is the real validator
 }

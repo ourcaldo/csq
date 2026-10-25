@@ -159,14 +159,6 @@ model Tenant {
   name            String
   slug            String   @unique
   settings        Json?
-  // Per-tenant OpenClaw cell connection (PRD §5/§26: one isolated cell per
-  // tenant). Provisioned by the platform at tenant creation. cellStatus is
-  // PENDING | PROVISIONED | FAILED. In dev (shared provisioning) these point
-  // at a single shared gateway; in production (fleet) at the tenant's own cell.
-  openclawCellId  String?
-  openclawBaseUrl String?
-  openclawToken   String?
-  cellStatus      String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -227,8 +219,6 @@ model Agent {
   type            AgentType   @default(CUSTOMER_SERVICE)
   status          AgentStatus @default(DRAFT)
   instructions    String?
-  openclawCellId  String?
-  openclawAgentId String?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
@@ -532,7 +522,6 @@ model Conversation {
   assignedAgentId   String?
   assigneeUserId    String?
   status            ConversationStatus @default(OPEN)
-  openclawSessionId String?
   lastMessageAt     DateTime?
   // System flags per conversation (JSON). Currently: session-close tracking
   // (sessionClosedAt, lastInboundClosedAt) so the idle-1h close message is

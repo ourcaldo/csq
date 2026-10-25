@@ -49,8 +49,6 @@ type AgentWithCapabilities = {
   name: string;
   status: AgentStatus;
   instructions: string | null;
-  openclawCellId: string | null;
-  openclawAgentId: string | null;
   createdAt: string;
   updatedAt: string;
   capabilities: AgentCapability[];
@@ -318,7 +316,7 @@ export default function AgentsPage() {
           title="Belum ada agent"
           description={
             isOwner
-              ? "Buat agent pertama Anda dengan tombol \"Buat Agent\" di kanan atas, lalu deploy untuk menyambungkannya ke OpenClaw."
+              ? "Buat agent pertama Anda dengan tombol \"Buat Agent\" di kanan atas, lalu deploy untuk mengaktifkannya."
               : "Owner dapat membuat agent dari halaman ini."
           }
         />
@@ -544,7 +542,7 @@ export default function AgentsPage() {
         open={creating}
         onClose={() => setCreating(false)}
         title="Buat Agent"
-        description="Agent baru dibuat sebagai draf. Deploy untuk menyambungkannya ke OpenClaw."
+        description="Agent baru dibuat sebagai draf. Deploy untuk mengaktifkannya."
       >
         <div className="space-y-4">
           <label className="block">

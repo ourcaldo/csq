@@ -1,9 +1,9 @@
 import type { Channel } from "@prisma/client";
 import prisma from "@/lib/db";
 import { buildSystemPrompt } from "@/lib/prompt-builder";
-import { runConversation } from "@/services/openclaw";
+import { runConversation } from "@/services/llm-runtime";
 import { sendAgentMessage } from "@/lib/agent-outbox";
-import type { ToolCallRecord } from "@/types/openclaw";
+import type { ChatMessage, ToolCallRecord } from "@/types/chat";
 
 // Fire-and-forget agent auto-reply for an inbound WhatsApp message — the
 // Phase 6 ↔ Phase 7 wiring. Called from the webhook AFTER the inbound is
@@ -73,8 +73,8 @@ export async function runAgentReply(args: {
   const agent = await prisma.agent.findFirst({
     where: { id: resolvedAgentId, tenantId },
   });
-  // Only an ACTIVE agent with a provisioned OpenClaw cell can reply.
-  if (!agent || agent.status !== "ACTIVE" || !agent.openclawAgentId) {
+  // Only an ACTIVE agent can reply.
+  if (!agent || agent.status !== "ACTIVE") {
     return { reply: "", toolCalls: [], stoodDown: true };
   }
 
@@ -83,38 +83,35 @@ export async function runAgentReply(args: {
     return { reply: "", toolCalls: [], stoodDown: true };
   }
 
-  // SESSION-BASED CONTEXT (no history replay). The OpenClaw session keyed by
-  // the session key below persists the full transcript of the active window —
-  // including assistant replies and tool-call results, which a CSQ-side replay
-  // could never reconstruct — and OpenClaw compacts it internally. CSQ sends
-  // ONLY the new user message; replaying stored rows on top would double-keep
-  // state (and the old implementation's asc+take window sent stale rows).
-  //
-  // TTL: one session window per conversation, 1h since the LAST inbound. A
-  // chat that goes quiet for an hour starts a fresh window — stale/incorrect
-  // facts cannot leak across windows. Continuity beyond the window lives in
-  // the CSQ layer the agent pulls via tools on every fresh window:
-  // customer.read (name/email), order.list (history), pipeline stage.
-  const lastInbound = await prisma.message.findFirst({
-    where: { conversationId, direction: "INBOUND" },
-    orderBy: { createdAt: "desc" },
-  });
+  // BOUNDED HISTORY WINDOW (no external session state). The recent transcript
+  // is replayed from our own Message rows, capped to the newest
+  // AGENT_HISTORY_LIMIT messages within the 1h window — a chat that goes
+  // quiet for an hour starts a fresh window, so stale/incorrect facts cannot
+  // leak across windows and the prompt stays bounded. Continuity beyond the
+  // window lives in the CSQ layer the agent pulls via tools on every fresh
+  // window: customer.read (name/email), order.list (history), pipeline stage.
   const SESSION_TTL_MS = 60 * 60 * 1000;
-  const currentInboundAt = new Date();
-  const isStartOfNewWindow =
-    !lastInbound ||
-    currentInboundAt.getTime() - lastInbound.createdAt.getTime() > SESSION_TTL_MS;
-  // <conversationId>#w<windowStartEpoch> — each window gets its own OpenClaw
-  // session; the id prefix keeps the OpenClaw UI grouping readable.
-  const sessionKey = `${conversationId}#w${Math.floor(
-    (lastInbound && !isStartOfNewWindow
-      ? lastInbound.createdAt
-      : currentInboundAt
-    ).getTime() /
-      SESSION_TTL_MS
-  )}`;
+  const AGENT_HISTORY_LIMIT = 20;
+  const windowStart = new Date(Date.now() - SESSION_TTL_MS);
+  const recentRows = await prisma.message.findMany({
+    where: {
+      conversationId,
+      createdAt: { gte: windowStart },
+      isInternal: false,
+    },
+    orderBy: { createdAt: "asc" },
+    take: AGENT_HISTORY_LIMIT,
+    select: { direction: true, body: true },
+  });
+  // Oldest-first rows → OpenAI chat messages. INBOUND → user; anything the
+  // agent or a human sent outbound → assistant.
+  const history: ChatMessage[] = recentRows.map((m) => ({
+    role: m.direction === "INBOUND" ? "user" : "assistant",
+    content: m.body,
+  }));
+  const isStartOfNewWindow = history.length === 0;
 
-  // Fresh-window opener (option b): one bounded line of safe structured facts
+  // Fresh-window opener: one bounded line of safe structured facts
   // from CSQ so the agent doesn't ask the customer things the system already
   // knows. NOT a replay — a short summary pulled from the source of truth.
   let windowContext = "";
@@ -165,14 +162,10 @@ export async function runAgentReply(args: {
   const result = await runConversation({
     tenantId,
     agentId: agent.id, // CSQ UUID — keys executeTool/capability lookup
-    openclawAgentId: agent.openclawAgentId, // OpenClaw model target (guarded non-null above)
     conversationId,
-    // Session-based context: the OpenClaw session key selects the 1h window
-    // (see above); history is NOT replayed.
-    sessionKey,
     channelId: channel.id, // G1: routing context for approval follow-ups
     systemPrompt,
-    history: [], // windowContext (if any) is folded into userMessage below
+    history, // bounded 1h-window transcript (see above)
     userMessage: windowContext + body,
     customerPhone,
   });
@@ -198,7 +191,7 @@ export async function processInboundWithAgent(args: {
     // this one finishes — preventing duplicate replies and serializing stock
     // mutations. Transaction-scoped locks are safe with PgBouncer transaction
     // pooling (the tx pins one server connection for its lifetime). The lock is
-    // held for the whole turn, including OpenClaw HTTP latency, so a generous
+    // held for the whole turn, including LLM HTTP latency, so a generous
     // timeout is required; at UMKM scale holding one pooled connection per
     // active turn is acceptable (a lock table is the documented upgrade path if
     // turn latency grows). Inner DB ops use the global prisma; the lock tx only
@@ -215,7 +208,7 @@ export async function processInboundWithAgent(args: {
     console.error(
       `[agent-loop] Failed to process inbound for conversation ${args.conversationId}: ${message}`
     );
-    // G5: don't leave the customer in silence when the agent errors (OpenClaw
+    // G5: don't leave the customer in silence when the agent errors (LLM
     // down, send failure, etc.). Best-effort canned fallback — the 24h window
     // is open because the inbound that triggered this turn just arrived. Guarded
     // so a second failure here can never throw out of this catch.
