@@ -2,6 +2,13 @@
 
 Version format: `XX.YY.ZZ` — YY (minor) and ZZ (patch) stay within 0–10; XX (major) may grow beyond. Minor = new feature/behavior change, patch = fix, major = breaking change (schema, API contract, env vars).
 
+## 1.4.0 — 2026-10-26
+
+Customer lifecycle timeline (Riwayat) in the inbox contact panel.
+
+- **Added:** `GET /api/dashboard/inbox/conversations/[id]/history` — merges first-chat, orders (by customer phone), and pipeline stage moves (with AI vs human attribution) into one bounded, newest-first timeline; stage/user names resolved in batched lookups, not per-row.
+- **Added:** Riwayat section in the contact-details panel (desktop pane + mobile drawer): per-event icon, text, short id-ID date. Empty state shown when only the first-chat anchor exists.
+
 ## 1.3.0 — 2026-10-25
 
 Provider-neutral LLM config.

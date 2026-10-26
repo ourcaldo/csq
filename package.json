@@ -1,6 +1,6 @@
 {
   "name": "csq",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Self-hosted, multi-tenant AI agent platform for Indonesian UMKM — a Customer Service Agent on WhatsApp that reads the business's own data and performs controlled writes under per-tool permissions.",
   "private": true,
   "engines": {

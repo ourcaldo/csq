@@ -1,4 +1,6 @@
-// Right pane of the CRM inbox: contact info, tags, human/AI handoff, and status.
+// Right pane of the CRM inbox: contact info, tags, human/AI handoff, status,
+// and the Riwayat lifecycle timeline (first chat, orders, pipeline moves) —
+// merged server-side by the conversation history endpoint.
 // "Take over" assigns the conversation to the current user (stands the AI down,
 // FR-AS-003); "Release" unassigns so the AI resumes. Tags add/remove via the
 // tags API. Status via PATCH on the conversation.
@@ -17,6 +19,10 @@ import {
   FloppyDisk,
   CaretLeft,
   CaretRight,
+  ClockCounterClockwise,
+  ChatCircle,
+  ShoppingCart,
+  ArrowsLeftRight,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { apiFetch, apiSend } from "@/lib/api-client";
@@ -36,6 +42,67 @@ type ContactDetailsProps = {
   onToggleHide?: () => void;
 };
 
+// Customer lifecycle timeline entry — matches the shape returned by
+// GET /api/dashboard/inbox/conversations/[id]/history.
+type HistoryEvent = {
+  kind: "FIRST_CHAT" | "ORDER" | "STAGE_MOVE";
+  at: string;
+  orderNumber?: string;
+  amount?: string;
+  status?: string;
+  fromStage?: string;
+  toStage?: string;
+  actor?: string | null;
+  reason?: string | null;
+};
+
+const ORDER_STATUS_LABEL: Record<string, string> = {
+  PENDING: "Menunggu",
+  CONFIRMED: "Dikonfirmasi",
+  SHIPPED: "Dikirim",
+  COMPLETED: "Selesai",
+  CANCELLED: "Dibatalkan",
+};
+
+// "25 Okt 14:30" — short absolute date; relative labels would go stale in an
+// open panel and full dates waste the narrow column.
+function historyDateLabel(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString("id-ID", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function historyEventText(e: HistoryEvent): string {
+  switch (e.kind) {
+    case "FIRST_CHAT":
+      return "Percakapan pertama";
+    case "ORDER":
+      return `Pesan ${e.orderNumber} dibuat — Rp ${Number(
+        e.amount ?? 0
+      ).toLocaleString("id-ID")}, ${ORDER_STATUS_LABEL[e.status ?? ""] ?? e.status ?? ""}`;
+    case "STAGE_MOVE": {
+      const by = e.actor ? ` (oleh ${e.actor})` : "";
+      return `Pindah tahap: ${e.fromStage} → ${e.toStage}${by}`;
+    }
+  }
+}
+
+function historyEventIcon(e: HistoryEvent) {
+  switch (e.kind) {
+    case "FIRST_CHAT":
+      return <ChatCircle size={14} className="mt-0.5 shrink-0 text-slate-400" />;
+    case "ORDER":
+      return <ShoppingCart size={14} className="mt-0.5 shrink-0 text-green-600" />;
+    case "STAGE_MOVE":
+      return <ArrowsLeftRight size={14} className="mt-0.5 shrink-0 text-blue-600" />;
+  }
+}
+
 export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMobile, hidden, onToggleHide }: ContactDetailsProps) {
   const { data: session } = useSession();
   const me = session?.user?.id;
@@ -49,6 +116,27 @@ export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMob
   const [editNotes, setEditNotes] = useState("");
   const [savingContact, setSavingContact] = useState(false);
   const [showTagPicker, setShowTagPicker] = useState(false);
+  const [history, setHistory] = useState<HistoryEvent[] | null>(null);
+
+  // Load the lifecycle timeline for this conversation. Refresh with the
+  // parent's onChanged cadence so new orders/stage moves appear after the
+  // owner acts (the panel's other mutations all funnel through onChanged).
+  async function loadHistory(conversationId: string) {
+    try {
+      const data = await apiFetch<{ events: HistoryEvent[] }>(
+        `/api/dashboard/inbox/conversations/${conversationId}/history`
+      );
+      setHistory(data.events);
+    } catch {
+      setHistory([]);
+    }
+  }
+
+  useEffect(() => {
+    setHistory(null);
+    void loadHistory(conversation.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversation.id]);
 
   async function loadTags() {
     try {
@@ -393,6 +481,34 @@ export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMob
                 Selesai
               </button>
             </div>
+          )}
+        </div>
+
+        {/* Riwayat — customer lifecycle timeline: first chat, orders, and
+            pipeline moves, merged chronologically (newest first, capped
+            server-side). Stage moves include who moved it (AI vs human). */}
+        <div>
+          <h4 className="mb-3 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
+            <ClockCounterClockwise size={13} /> Riwayat
+          </h4>
+          {history === null ? (
+            <p className="text-xs text-slate-400">Memuat riwayat…</p>
+          ) : history.length <= 1 ? (
+            <p className="text-xs text-slate-400">
+              Belum ada aktivitas pesanan atau tahap.
+            </p>
+          ) : (
+            <ol className="space-y-3">
+              {history.map((e, i) => (
+                <li key={`${e.kind}-${e.at}-${i}`} className="flex gap-2.5 text-xs">
+                  {historyEventIcon(e)}
+                  <div className="min-w-0">
+                    <p className="text-slate-600">{historyEventText(e)}</p>
+                    <p className="mt-0.5 text-slate-400">{historyDateLabel(e.at)}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
           )}
         </div>
       </div>
