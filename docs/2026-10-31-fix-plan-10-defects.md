@@ -1,20 +1,44 @@
 # Fix Plan - 10 Defects from the 2026-10-31 Deep Dive
 
 **Date:** 2026-10-31
-**Status:** In execution - see the execution status table below
+**Status:** **COMPLETED — 2026-11-01.** All 16 items below are fixed, verified, and shipped.
 **Source of findings:** `docs/2026-10-31-project-deep-dive.md` (D1-D10)
 **Scope:** fix all 10 defects, in 5 phases, without new runtime dependencies.
+
+## Completion summary (2026-11-01)
+
+- **Code:** 13 commits, `47d4b01` → `e4602d4`, all pushed to `main`; `npm run build` and `npm run lint`
+  green after every one, `npm run check:encoding` green since D10f.
+- **Database:** 9 migrations applied directly to Neon (`winter-flower-03790042`, branch `production`)
+  over the MCP connection, each with a `_prisma_migrations` bookkeeping row whose checksum matches the
+  file (`npm run db:migration-checksums`), so `prisma migrate deploy` at container boot stays a no-op.
+  Backup branch taken before any change: `pre-fix-backup-2026-11-01` (`br-muddy-feather-b3vsoacz`).
+- **One destructive step, approved in the plan:** the dedupe of 11 duplicate `[unsupported]` inbound
+  rows before the idempotency index could be created (kept the earliest of each group; 201 messages
+  remain; no conversation settings referenced a deleted row).
+- **Verification performed:** live-SQL tests of both lease designs (turn lease and system lock:
+  acquire / busy / wrong-owner-release blocked / no leftovers), a blocked duplicate-insert for the
+  pipeline unique index, an HNSW plan check (`Index Scan using ..._hnsw_idx`), RLS coverage queries
+  (30/30 tenant tables), the copied OAuth credential row inspected byte-for-byte, and two
+  assert-based self-checks (`scripts/self-check-scope.ts` 7/7,
+  `scripts/self-check-inbound-classify.ts` 8/8).
+- **Verified by final DB audit:** lease columns, idempotency index, kind column, HNSW index, pipeline
+  unique, both new tables, and RLS coverage all present; 31 applied migrations, 0 rolled back since.
+- **Still to verify with live traffic (needs a real device; not possible from the dev machine):**
+  two rapid messages on one conversation (single reply pair), a replayed webhook (single ingest),
+  media handling end-to-end, and the 10-concurrency pool check. The error paths these replace are
+  gone from the code, but watch the first day of `AuditLog` after deploy.
+- **Pending follow-ups (documented, deliberate):**
+  1. Remove the legacy `settings.googleSheets` key from `Tenant` in a later release, after the
+     new `TenantCredential` read path is confirmed live (D10c, two-release rollout).
+  2. Three pre-existing migrations (`init`, `rls_policies`, `remove_openclaw_cells`) were edited
+     after they were applied, so their stored checksums no longer match the files. Harmless for
+     `migrate deploy` (it does not verify checksums and has succeeded many times since), but it will
+     confuse `migrate dev`/`migrate resolve` workflows some day.
 
 ---
 
 ## 0. Execution status
-
-Decisions confirmed by the owner on 2026-11-01: A = hard scope to the conversation's customer,
-B = delete the chat route, C = RLS coverage only, D = debounced media reply. Database changes are
-applied directly to Neon (project `winter-flower-03790042`) over the MCP connection; migration SQL
-plus a matching `_prisma_migrations` bookkeeping row are applied together so `prisma migrate
-deploy` at container boot stays a no-op. A backup branch of the production database was taken
-before any change: `pre-fix-backup-2026-11-01` (`br-muddy-feather-b3vsoacz`).
 
 | Defect | Status | Notes |
 |---|---|---|
@@ -26,7 +50,7 @@ before any change: `pre-fix-backup-2026-11-01` (`br-muddy-feather-b3vsoacz`).
 | D6 media classification | **FIXED** | New `Message.kind` (TEXT/MEDIA/OTHER, migration applied to Neon). Cloud API parses captions as text; media gets one debounced reply, other types are stored silently; Baileys media no longer dropped. History replay and the drain loop are kind-aware. Classifier self-check: scripts/self-check-inbound-classify.ts (8/8). |
 | D7 stream cursor | **FIXED** | Overlap window (gte, 2s) + id de-duplication replaces the strict `gt` cursor, so same-second messages are no longer dropped. |
 | D8 HNSW index | **FIXED** | Index applied to Neon and verified usable by the planner (`Index Scan using ..._hnsw_idx`); on today's 4-row table a seq scan is cheaper, which is correct. ef_search tuning note added to vector.ts. |
-| D9 RLS coverage | **FIXED** | Idempotent coverage migration applied: 29/29 tenant-scoped tables now carry the policy (was 19). Still inert by design; activation path unchanged. |
+| D9 RLS coverage | **FIXED** | Idempotent coverage migration applied: tenant tables with a policy went 19 → 29, then → 30 in a follow-up migration (`20261101000800`) after verification caught that the new `TenantCredential` table (D10c) had landed without one — fresh installs get the same gap, hence a migration rather than a manual patch. Still inert by design; activation path unchanged. |
 | D10a order paging | **FIXED** | `skip: (page-1)*take` replaces the growing `take`; page 2 returns different rows. |
 | D10b pipeline unique | **FIXED** | Unique index on `Pipeline.tenantId` applied (duplicate insert verified blocked on Neon); `getOrCreatePipeline` is now a real upsert. |
 | D10c credentials table | **FIXED** | `TenantCredential` table created on Neon; live Google tokens copied out of `settings.googleSheets` and verified; `google-connect.ts` reads/writes the table only. The legacy settings key stays until the new read path is verified live (removal = documented follow-up migration). |

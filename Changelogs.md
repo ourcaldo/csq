@@ -2,6 +2,21 @@
 
 Version format: `XX.YY.ZZ` — YY (minor) and ZZ (patch) stay within 0–10; XX (major) may grow beyond. Minor = new feature/behavior change, patch = fix, major = breaking change (schema, API contract, env vars).
 
+## 2.0.0 — 2026-11-01
+
+All 10 defects from the 2026-10-31 deep dive fixed (design + evidence: `docs/2026-10-31-fix-plan-10-defects.md`). Major because the schema changed and one API route was removed.
+
+- **Agent turn (D1):** the per-conversation advisory lock held a DB transaction (and a pooled connection) across LLM HTTP latency — production showed expired transactions, pool exhaustion, and 21 customer-facing error apologies. Replaced by a lease on the Conversation row (`turnLockId`/`turnLockedAt`, 3-min stale window) plus a busy-skip drain loop that answers any message that arrived mid-turn; LLM calls get a 30s timeout, one retry on 429/5xx, and a 90s whole-turn budget.
+- **Inbound idempotency (D3):** partial unique index on `(tenantId, waMessageId)`; Meta redeliveries no longer store a second row or run a second agent turn (the 11 duplicate production rows were deduplicated first). The webhook now ACKs before ingesting.
+- **History window (D4):** the replayed transcript was the *oldest* 20 messages of the window and duplicated the trigger message; now newest-20 in order, trigger included exactly once.
+- **Customer scope (D2):** `customer.read/update` and `order.read/list` accepted a model-supplied phone, letting one customer read another's data. In the agent path identity is now hard-scoped to the conversation (denied + audited otherwise); the session-authenticated HTTP gateway keeps explicit-phone lookups.
+- **Removed:** `/api/agents/[agentId]/chat` (D5) — no consumer, and its advisory lock never held.
+- **Media handling (D6):** new `Message.kind` (TEXT/MEDIA/OTHER). Captions count as text; uncaptioned media is stored with a placeholder and gets ONE debounced courtesy reply per 10 minutes; reactions/system events are stored silently. Baileys no longer drops media without a caption, and `[image]` never reaches the LLM.
+- **Inbox stream (D7):** overlap window + id de-duplication replaces the strict `>` cursor that dropped same-second messages.
+- **DB hardening (D8/D9/D10b):** HNSW index for `knowledge.search`; RLS policies on all 30 tenant-scoped tables (10 were missing; +1 follow-up for `TenantCredential`); unique `Pipeline.tenantId` with a race-free upsert seed.
+- **Hygiene (D10a–g):** `order.list` real pagination; Google OAuth tokens moved to a new `TenantCredential` table (legacy settings key removed in a later release); cron ticks single-instance via a `SystemLock` lease; the event bus is fully typed (no `as` casts anywhere in the codebase); 598 CP1252-mojibake sequences decoded back to the original characters + `npm run check:encoding` guard; deployment docs cover self-hosted vs managed Postgres.
+- **Tooling:** `npm run db:migration-checksums` (Neon MCP apply workflow) and two assert-based self-checks (`scripts/self-check-scope.ts`, `scripts/self-check-inbound-classify.ts`).
+
 ## 1.4.0 — 2026-10-26
 
 Customer lifecycle timeline (Riwayat) in the inbox contact panel.
