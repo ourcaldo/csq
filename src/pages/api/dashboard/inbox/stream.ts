@@ -13,6 +13,17 @@ import { requireTenant, respondError, strQuery } from "@/lib/queries";
 const POLL_INTERVAL_MS = 3000;
 const HEARTBEAT_INTERVAL_MS = 15000;
 
+// D7: a strict `>` cursor silently drops a second message sent in the same
+// second — inbound rows carry the WhatsApp timestamp, which is SECOND
+// precision. Query with a small overlap window and de-duplicate by id: a
+// repeated event is harmless (the client refetches its full history on every
+// event) while a missed one is not.
+const CURSOR_OVERLAP_MS = 2000;
+// Safety valve so the set can never grow unboundedly on a very long-lived
+// stream; clearing at worst re-emits a few rows once, which the client's
+// idempotent refetch absorbs.
+const MAX_TRACKED_IDS = 1000;
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
@@ -48,20 +59,25 @@ export default async function handler(
   res.flushHeaders?.();
 
   let lastSeen = new Date();
+  const sentIds = new Set<string>();
   let closed = false;
 
   const poll = setInterval(async () => {
     if (closed) return;
     try {
+      const since = new Date(lastSeen.getTime() - CURSOR_OVERLAP_MS);
       const msgs = await prisma.message.findMany({
-        where: { conversationId, tenantId, createdAt: { gt: lastSeen } },
+        where: { conversationId, tenantId, createdAt: { gte: since } },
         orderBy: { createdAt: "asc" },
         take: 100,
       });
       for (const m of msgs) {
+        if (sentIds.has(m.id)) continue;
+        sentIds.add(m.id);
+        if (m.createdAt.getTime() > lastSeen.getTime()) lastSeen = m.createdAt;
         res.write(`data: ${JSON.stringify(m)}\n\n`);
-        lastSeen = m.createdAt;
       }
+      if (sentIds.size > MAX_TRACKED_IDS) sentIds.clear();
     } catch {
       // Swallow transient DB errors; next tick retries.
     }
