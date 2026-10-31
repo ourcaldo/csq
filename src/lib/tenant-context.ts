@@ -11,8 +11,12 @@ import prisma from "@/lib/db";
 // is the only live guard today.
 //
 // Row Level Security policies are DEFINED in
-// prisma/migrations/20260818010000_rls_policies/migration.sql as a FUTURE
-// enforcement layer, but they are NOT currently enforced at runtime:
+// prisma/migrations/20260818010000_rls_policies/migration.sql (original 19
+// tables) and prisma/migrations/20261101000400_rls_coverage/migration.sql
+// (D9: every remaining tenant-scoped table - Deal, DealStageHistory, Pipeline,
+// Stage, Scenario, ScenarioRun, ScenarioRunStep, SourceRow, ConversationRead,
+// InventorySnapshot). Coverage is now 29/29 tenant tables, but the policies
+// are NOT currently enforced at runtime:
 //   1. The migration uses `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` but does
 //      NOT `FORCE ROW LEVEL SECURITY`. The Prisma app connects as the table
 //      OWNER, and table owners bypass non-FORCED RLS policies entirely.
@@ -37,6 +41,11 @@ import prisma from "@/lib/db";
 // Until all three steps land, treat RLS as defined-but-inert and rely on the
 // application-level filtering above. Do NOT describe RLS as a "second active
 // layer" — it is not.
+//
+// Maintenance note (D9): the coverage migration only covers tables that exist
+// when it runs. Every new tenant-scoped model needs the same policy — re-check
+// `select count(*) from pg_policies` equals the number of tables with a
+// tenantId column whenever a model is added.
 
 export type TenantSession = { tenantId?: string };
 
