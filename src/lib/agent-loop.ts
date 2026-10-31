@@ -3,6 +3,7 @@ import prisma from "@/lib/db";
 import { buildSystemPrompt } from "@/lib/prompt-builder";
 import { runConversation } from "@/services/llm-runtime";
 import { sendAgentMessage } from "@/lib/agent-outbox";
+import { acquireTurnLease, releaseTurnLease } from "@/lib/turn-lock";
 import type { ChatMessage, ToolCallRecord } from "@/types/chat";
 
 // Fire-and-forget agent auto-reply for an inbound WhatsApp message — the
@@ -19,6 +20,14 @@ import type { ChatMessage, ToolCallRecord } from "@/types/chat";
 // Tenant always comes from the resolved channel — never from message content.
 // All failures are caught and logged: a broken agent reply must never surface
 // as an error to Meta (which would retry and spam the customer).
+//
+// D1 — turn serialization. Turns are serialized per conversation with a LEASE
+// on the Conversation row (src/lib/turn-lock.ts), NOT with a held Postgres
+// transaction. No pooled connection is pinned while the agent waits on the
+// LLM, and a turn that outlives the lease's stale window (crashed process)
+// is automatically recoverable. When the lease is busy we simply return: the
+// in-flight turn's drain loop picks the new message up as an unanswered
+// inbound when it finishes, so no message is ever dropped by the skip.
 
 export type AgentTurnResult = {
   reply: string;
@@ -29,10 +38,9 @@ export type AgentTurnResult = {
 
 // Run one agent turn for a conversation and return what the agent would reply.
 // Pure of WhatsApp-side effects (no provider send, no outbound Message row) so
-// it can be reused by both the webhook path (which then sends + records) and
-// the documented /api/agents/[agentId]/chat.ts endpoint (which just returns
-// the reply). Returns `stoodDown: true` when a human owns the conversation or
-// no ACTIVE/provisioned agent is configured.
+// it can be reused by the webhook path (which then sends + records). Returns
+// `stoodDown: true` when a human owns the conversation or no ACTIVE/provisioned
+// agent is configured.
 export async function runAgentReply(args: {
   tenantId: string;
   conversationId: string;
@@ -116,7 +124,10 @@ export async function runAgentReply(args: {
   // knows. NOT a replay — a short summary pulled from the source of truth.
   let windowContext = "";
   if (isStartOfNewWindow) {
-    const [contact, orderCount, lastOrder, stage] = await Promise.all([
+    // The conversation row is already loaded with deal+stage included, so the
+    // current stage name needs no extra query.
+    const stageName = conversation.deal?.stage?.name ?? null;
+    const [contact, orderCount, lastOrder] = await Promise.all([
       prisma.contact.findFirst({
         where: { tenantId, phone: customerPhone },
         select: { name: true, email: true },
@@ -127,12 +138,6 @@ export async function runAgentReply(args: {
         orderBy: { createdAt: "desc" },
         select: { totalAmount: true, createdAt: true, status: true },
       }),
-      prisma.conversation
-        .findUnique({
-          where: { id: conversationId },
-          select: { deal: { select: { stage: { select: { name: true } } } } },
-        })
-        .then((c) => c?.deal?.stage?.name ?? null),
     ]);
     const parts = [
       contact?.name ? `Nama pelanggan tercatat: ${contact.name}` : null,
@@ -142,7 +147,7 @@ export async function runAgentReply(args: {
             lastOrder!.createdAt
           ).toLocaleDateString("id-ID")}, ${lastOrder!.status}, Rp ${lastOrder!.totalAmount})`
         : null,
-      stage ? `Tahap pipeline saat ini: ${stage}` : null,
+      stageName ? `Tahap pipeline saat ini: ${stageName}` : null,
     ].filter(Boolean);
     if (parts.length > 0) {
       windowContext = `[Konteks pelanggan dari sistem] ${parts.join("; ")}. Verifikasi detail dengan tools bila perlu.\n\n`;
@@ -178,45 +183,46 @@ export async function runAgentReply(args: {
   };
 }
 
+// A drain pass may answer at most this many queued inbounds. The cap exists so
+// a pathological loop (model replies with nothing, next inbound still
+// unanswered) terminates; each pass answers one message.
+const MAX_DRAIN_TURNS = 3;
+
 export async function processInboundWithAgent(args: {
   channel: Channel;
   conversationId: string;
-  customerPhone: string;
-  body: string;
 }): Promise<void> {
+  const { channel, conversationId } = args;
+  const tenantId = channel.tenantId;
+
+  const leaseId = await acquireTurnLease(conversationId, tenantId);
+  if (!leaseId) {
+    // Another turn holds this conversation. Returning (instead of waiting) is
+    // the whole point: no connection pinned, and the holder's drain loop will
+    // pick this message up as an unanswered inbound when it finishes.
+    return;
+  }
+
   try {
-    // G2: serialize turns per conversation across all instances. A
-    // transaction-scoped advisory lock on hashtext(conversationId) blocks any
-    // other turn for the same conversation (on this or another instance) until
-    // this one finishes — preventing duplicate replies and serializing stock
-    // mutations. Transaction-scoped locks are safe with PgBouncer transaction
-    // pooling (the tx pins one server connection for its lifetime). The lock is
-    // held for the whole turn, including LLM HTTP latency, so a generous
-    // timeout is required; at UMKM scale holding one pooled connection per
-    // active turn is acceptable (a lock table is the documented upgrade path if
-    // turn latency grows). Inner DB ops use the global prisma; the lock tx only
-    // needs to stay open.
-    await prisma.$transaction(
-      async (tx) => {
-        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${args.conversationId})::bigint)`;
-        await processInboundWithAgentInner(args);
-      },
-      { timeout: 120_000, maxWait: 10_000 }
-    );
+    await drainUnansweredInbound(channel, conversationId, tenantId);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error(
-      `[agent-loop] Failed to process inbound for conversation ${args.conversationId}: ${message}`
+      `[agent-loop] Failed to process inbound for conversation ${conversationId}: ${message}`
     );
     // G5: don't leave the customer in silence when the agent errors (LLM
     // down, send failure, etc.). Best-effort canned fallback — the 24h window
     // is open because the inbound that triggered this turn just arrived. Guarded
     // so a second failure here can never throw out of this catch.
     try {
+      const conversation = await prisma.conversation.findFirst({
+        where: { id: conversationId, tenantId },
+      });
+      if (!conversation) return;
       await sendAgentMessage({
-        channel: args.channel,
-        conversationId: args.conversationId,
-        customerPhone: args.customerPhone,
+        channel,
+        conversationId,
+        customerPhone: conversation.customerPhone,
         body:
           "Maaf, sistem kami sedang mengalami gangguan sebentar. Pesan Anda akan kami balas secepatnya.",
         action: "conversation.agent_error",
@@ -226,71 +232,104 @@ export async function processInboundWithAgent(args: {
     } catch (sendErr) {
       const sendMsg = sendErr instanceof Error ? sendErr.message : String(sendErr);
       console.error(
-        `[agent-loop] fallback send also failed for conversation ${args.conversationId}: ${sendMsg}`
+        `[agent-loop] fallback send also failed for conversation ${conversationId}: ${sendMsg}`
       );
     }
+  } finally {
+    await releaseTurnLease(conversationId, tenantId, leaseId).catch((err: unknown) => {
+      console.error(
+        `[agent-loop] lease release failed for conversation ${conversationId}:`,
+        err
+      );
+    });
   }
 }
 
-async function processInboundWithAgentInner(args: {
-  channel: Channel;
-  conversationId: string;
-  customerPhone: string;
-  body: string;
-}): Promise<void> {
-  const { channel, conversationId, customerPhone, body } = args;
-  const tenantId = channel.tenantId;
+// Answer every unanswered inbound on the conversation, newest-first, until
+// none remain (or the cap is hit). This is what makes "skip when the lease
+// is busy" safe: the in-flight turn re-checks after finishing, so a message
+// that arrived mid-turn is still answered by the lease holder.
+async function drainUnansweredInbound(
+  channel: Channel,
+  conversationId: string,
+  tenantId: string
+): Promise<void> {
+  const attempted = new Set<string>();
 
-  const turn = await runAgentReply({
-    tenantId,
-    conversationId,
-    customerPhone,
-    body,
-  });
+  for (let i = 0; i < MAX_DRAIN_TURNS; i++) {
+    // Newest inbound that has no business-side reply after it. Only AGENT or
+    // HUMAN outbound counts as an answer — a SCENARIO message (opening
+    // greeting, promo) must never mark a customer's question as answered.
+    const trigger = await prisma.message.findFirst({
+      where: { conversationId, tenantId, direction: "INBOUND" },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!trigger || attempted.has(trigger.id)) return;
+    attempted.add(trigger.id);
 
-  if (turn.stoodDown) return;
+    const answered = await prisma.message.findFirst({
+      where: {
+        conversationId,
+        tenantId,
+        direction: "OUTBOUND",
+        senderType: { in: ["AGENT", "HUMAN"] },
+        createdAt: { gte: trigger.createdAt },
+      },
+      orderBy: { createdAt: "desc" },
+      select: { id: true },
+    });
+    if (answered) return;
 
-  // G6: a truncated turn (iteration cap hit) may carry empty or mid-thought
-  // content. Send a clean "still processing" message instead of a partial
-  // reply, so the customer is never left hanging or handed a half-finished
-  // answer. A non-truncated empty reply means the model had nothing to say —
-  // nothing to send.
-  let replyBody = turn.reply;
-  if (turn.truncated) {
-    replyBody =
-      "Mohon tunggu, saya sedang memproses permintaan Anda dan akan segera membalas.";
+    const conversation = await prisma.conversation.findFirst({
+      where: { id: conversationId, tenantId },
+    });
+    if (!conversation) return;
+
+    const turn = await runAgentReply({
+      tenantId,
+      conversationId,
+      customerPhone: conversation.customerPhone,
+      body: trigger.body,
+    });
+    if (turn.stoodDown) return;
+
+    // G6: a truncated turn (iteration cap / budget hit) may carry empty or
+    // mid-thought content. Send a clean "still processing" message instead of
+    // a partial reply, so the customer is never left hanging or handed a
+    // half-finished answer. A non-truncated empty reply means the model had
+    // nothing to say — nothing to send, and the drain stops on `attempted`.
+    let replyBody = turn.reply;
+    if (turn.truncated) {
+      replyBody =
+        "Mohon tunggu, saya sedang memproses permintaan Anda dan akan segera membalas.";
+    }
+    if (!replyBody.trim()) continue;
+
+    // Reload the channel — if the owner disconnected (Putuskan) while the turn
+    // was running, don't send the reply.
+    const freshChannel = await prisma.channel.findUnique({
+      where: { id: channel.id },
+    });
+    if (!freshChannel || freshChannel.status !== "CONNECTED") return;
+
+    const agentId = conversation.assignedAgentId ?? freshChannel.agentId;
+
+    // G7: send via the shared agent-outbox, which enforces the 24h
+    // customer-service window (free-form within, template outside) and records
+    // the OUTBOUND/AGENT Message + audit. The fallback template is used only
+    // if the turn ran so long the window closed mid-flight.
+    await sendAgentMessage({
+      channel: freshChannel,
+      conversationId,
+      customerPhone: conversation.customerPhone,
+      body: replyBody,
+      agentId: agentId ?? null,
+      action: "conversation.agent_reply",
+      templateName: process.env.WHATSAPP_AGENT_FALLBACK_TEMPLATE || undefined,
+      auditAfter: {
+        toolCalls: turn.toolCalls.length,
+        truncated: turn.truncated ?? false,
+      },
+    });
   }
-  if (!replyBody.trim()) return;
-
-  // Resolve which agent replied (per-conversation assignment or channel default)
-  // so the outbound Message and audit log are attributed correctly.
-  const conversation = await prisma.conversation.findFirst({
-    where: { id: conversationId, tenantId },
-  });
-  const agentId = conversation?.assignedAgentId ?? channel.agentId;
-
-  // Reload the channel — if the owner disconnected (Putuskan) while the turn
-  // was running, don't send the reply.
-  const freshChannel = await prisma.channel.findUnique({
-    where: { id: channel.id },
-  });
-  if (!freshChannel || freshChannel.status !== "CONNECTED") return;
-
-  // G7: send via the shared agent-outbox, which enforces the 24h
-  // customer-service window (free-form within, template outside) and records
-  // the OUTBOUND/AGENT Message + audit. The fallback template is used only
-  // if the turn ran so long the window closed mid-flight.
-  await sendAgentMessage({
-    channel: freshChannel,
-    conversationId,
-    customerPhone,
-    body: replyBody,
-    agentId: agentId ?? null,
-    action: "conversation.agent_reply",
-    templateName: process.env.WHATSAPP_AGENT_FALLBACK_TEMPLATE || undefined,
-    auditAfter: {
-      toolCalls: turn.toolCalls.length,
-      truncated: turn.truncated ?? false,
-    },
-  });
 }

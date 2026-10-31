@@ -198,8 +198,6 @@ export default async function handler(
       void processInboundWithAgent({
         channel,
         conversationId: recorded.conversationId,
-        customerPhone: m.from,
-        body: m.body,
       });
     }
 

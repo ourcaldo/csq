@@ -527,6 +527,11 @@ model Conversation {
   // (sessionClosedAt, lastInboundClosedAt) so the idle-1h close message is
   // sent at most once per agent-session window.
   settings          Json?
+  // D1: per-conversation turn lease. Replaces the transaction-held advisory
+  // lock so no pooled connection is pinned across LLM HTTP latency. All
+  // reads/writes go through src/lib/turn-lock.ts only.
+  turnLockId        String?
+  turnLockedAt      DateTime?
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
 

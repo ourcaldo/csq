@@ -234,8 +234,6 @@ export async function connectBaileysChannel(
             void processInboundWithAgent({
               channel: fresh,
               conversationId: recorded.conversationId,
-              customerPhone: from,
-              body,
             });
           }
         })();

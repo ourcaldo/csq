@@ -32,6 +32,24 @@ export function isAgentLlmConfigured(): boolean {
 // loops without running the loop unboundedly.
 const MAX_TOOL_ITERATIONS = 10;
 
+// D1: one chat call must never hang a turn. Hard timeout per call, one retry
+// on transient failures (429 / 5xx / timeout), and a budget for the whole
+// turn so the loop always terminates while the customer is still waiting.
+// The turn budget (90s) must stay well under the turn-lease stale window
+// (3 minutes, src/lib/turn-lock.ts) so a live turn is never stolen.
+const LLM_TIMEOUT_MS = 30_000;
+const TURN_BUDGET_MS = 90_000;
+
+// Carries retryability out of the fetch without a type assertion.
+class LlmHttpError extends Error {
+  constructor(
+    message: string,
+    readonly retryable: boolean
+  ) {
+    super(message);
+  }
+}
+
 type FunctionTool = {
   type: "function";
   function: { name: string; description: string; parameters: JsonSchema };
@@ -50,7 +68,7 @@ function buildTools(): FunctionTool[] {
   }));
 }
 
-async function chatCompletion(
+async function chatCompletionOnce(
   messages: ChatMessage[],
   user: string
 ): Promise<ChatCompletionResponse> {
@@ -67,12 +85,38 @@ async function chatCompletion(
       tools: buildTools(),
       tool_choice: "auto",
     }),
+    // D1: no fetch may outlive the turn. AbortSignal.timeout rejects with a
+    // DOMException named "TimeoutError".
+    signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
   });
   if (!res.ok) {
-    throw new Error(`LLM chat completions failed: ${res.status} ${res.statusText}`);
+    throw new LlmHttpError(
+      `LLM chat completions failed: ${res.status} ${res.statusText}`,
+      res.status === 429 || res.status >= 500
+    );
   }
   // External boundary → Zod parse, never `as`.
   return chatCompletionResponseSchema.parse(await res.json());
+}
+
+async function chatCompletion(
+  messages: ChatMessage[],
+  user: string
+): Promise<ChatCompletionResponse> {
+  let lastError: unknown = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      return await chatCompletionOnce(messages, user);
+    } catch (err) {
+      lastError = err;
+      const retryable =
+        (err instanceof LlmHttpError && err.retryable) ||
+        (err instanceof Error && err.name === "TimeoutError");
+      // 4xx (bad model name, bad key) will not fix themselves - fail fast.
+      if (!retryable) break;
+    }
+  }
+  throw lastError;
 }
 
 // Render an ExecuteOutcome as the content of a `role:"tool"` message.
@@ -121,8 +165,22 @@ export async function runConversation(args: RunConversationArgs): Promise<RunRes
   }
   messages.push(...args.history, { role: "user", content: args.userMessage });
   const toolCallLog: ToolCallRecord[] = [];
+  const deadline = Date.now() + TURN_BUDGET_MS;
+
+  const lastAssistantText = (): string => {
+    const last = [...messages]
+      .reverse()
+      .find((m) => m.role === "assistant" && m.content !== null && m.content !== undefined);
+    return last?.content ?? "";
+  };
 
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
+    // D1: budget check BEFORE paying for another LLM round-trip, so a slow
+    // provider can never extend a turn past the lease stale window.
+    if (Date.now() > deadline) {
+      return { reply: lastAssistantText(), toolCalls: toolCallLog, truncated: true };
+    }
+
     const resp = await chatCompletion(messages, args.conversationId);
     const choice = resp.choices[0];
     if (!choice) break;
@@ -176,11 +234,8 @@ export async function runConversation(args: RunConversationArgs): Promise<RunRes
   }
 
   // Iteration cap reached — surface the last assistant text if any.
-  const lastAssistant = [...messages]
-    .reverse()
-    .find((m) => m.role === "assistant" && m.content);
   return {
-    reply: lastAssistant?.content ?? "",
+    reply: lastAssistantText(),
     toolCalls: toolCallLog,
     truncated: true,
   };

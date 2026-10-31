@@ -1,9 +1,39 @@
 # Fix Plan - 10 Defects from the 2026-10-31 Deep Dive
 
 **Date:** 2026-10-31
-**Status:** Proposed - awaiting approval
+**Status:** In execution - see the execution status table below
 **Source of findings:** `docs/2026-10-31-project-deep-dive.md` (D1-D10)
 **Scope:** fix all 10 defects, in 5 phases, without new runtime dependencies.
+
+---
+
+## 0. Execution status
+
+Decisions confirmed by the owner on 2026-11-01: A = hard scope to the conversation's customer,
+B = delete the chat route, C = RLS coverage only, D = debounced media reply. Database changes are
+applied directly to Neon (project `winter-flower-03790042`) over the MCP connection; migration SQL
+plus a matching `_prisma_migrations` bookkeeping row are applied together so `prisma migrate
+deploy` at container boot stays a no-op. A backup branch of the production database was taken
+before any change: `pre-fix-backup-2026-11-01` (`br-muddy-feather-b3vsoacz`).
+
+| Defect | Status | Notes |
+|---|---|---|
+| D1 turn lease + LLM budget | **FIXED** | Lease columns applied to Neon; lease SQL verified live (acquire / busy / wrong-owner-release / recover). |
+| D2 customer scope | Pending | |
+| D3 inbound idempotency | Pending | Dedupe of the 11 duplicate rows runs with this fix. |
+| D4 newest-20 history | Pending | |
+| D5 delete chat route | Pending | Approved for deletion. |
+| D6 media classification | Pending | |
+| D7 stream cursor | Pending | |
+| D8 HNSW index | Pending | |
+| D9 RLS coverage | Pending | |
+| D10a order paging | Pending | |
+| D10b pipeline unique | Pending | |
+| D10c credentials table | Pending | |
+| D10d cron lock | Pending | |
+| D10e event bus | Pending | |
+| D10f encoding guard | Pending | |
+| D10g deploy docs | Pending | |
 
 ---
 
@@ -559,8 +589,8 @@ Per phase:
 
 ## 14. Checklist
 
-- [ ] Decisions A-D confirmed
-- [ ] Phase 1: D1 turn lease + LLM timeout
+- [x] Decisions A-D confirmed
+- [x] Phase 1: D1 turn lease + LLM timeout
 - [ ] Phase 1: D3 idempotency + ACK-first
 - [ ] Phase 1: D4 newest-20 history, no duplicate trigger
 - [ ] Phase 2: D2 customer scope guard
