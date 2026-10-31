@@ -27,7 +27,7 @@ before any change: `pre-fix-backup-2026-11-01` (`br-muddy-feather-b3vsoacz`).
 | D7 stream cursor | Pending | |
 | D8 HNSW index | Pending | |
 | D9 RLS coverage | Pending | |
-| D10a order paging | Pending | |
+| D10a order paging | **FIXED** | `skip: (page-1)*take` replaces the growing `take`; page 2 returns different rows. |
 | D10b pipeline unique | Pending | |
 | D10c credentials table | Pending | |
 | D10d cron lock | Pending | |
@@ -595,7 +595,7 @@ Per phase:
 - [x] Phase 1: D4 newest-20 history, no duplicate trigger
 - [x] Phase 2: D2 customer scope guard
 - [x] Phase 2: D5 delete chat route
-- [ ] Phase 2: D10a order paging
+- [x] Phase 2: D10a order paging
 - [ ] Phase 3: D6 media classification + debounced reply
 - [ ] Phase 3: D7 stream cursor
 - [ ] Phase 4: D8 HNSW index

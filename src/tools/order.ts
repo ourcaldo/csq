@@ -188,13 +188,18 @@ const orderList: ToolDefinition<OrderListParams> = {
         : {}),
     };
 
+    // D10a: real pagination. take stays one page; skip advances. The cap keeps
+    // skip inside MAX_ORDER_LIST so a large page number cannot walk the whole
+    // table.
     const page = p.page ?? 1;
     const take = 10;
+    const skip = Math.min((page - 1) * take, MAX_ORDER_LIST - take);
     const [orders, total] = await Promise.all([
       ctx.prisma.order.findMany({
         where,
         orderBy: { createdAt: "desc" },
-        take: Math.min(take * page, MAX_ORDER_LIST),
+        take,
+        skip,
         include: { items: { include: { product: true } } },
       }),
       ctx.prisma.order.count({ where }),
