@@ -65,7 +65,7 @@ export default async function handler(
     // triggerConfig.tagName matches can start a run. Fire-and-forget; only
     // fired from this manual staff path (the scenario Tag node does NOT emit,
     // preventing scenario→tag→scenario loops).
-    events.emit("conversation.tagged", {
+    events.conversationTagged.emit({
       tenantId,
       conversationId: id,
       tagName: tag.name,

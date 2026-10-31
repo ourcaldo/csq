@@ -50,7 +50,7 @@ export function registerScenarioEngine(): void {
   if (typeof window !== "undefined") return;
   registered = true;
 
-  events.on("conversation.new", (e: ConversationNewEvent) => {
+  events.conversationNew.on((e: ConversationNewEvent) => {
     void startRunsForTrigger("ON_NEW_CONVERSATION", e.tenantId, {
       dedupKey: e.conversationId,
       conversationId: e.conversationId,
@@ -62,7 +62,7 @@ export function registerScenarioEngine(): void {
     }).catch((err: unknown) => console.error("[scenario] conversation.new trigger threw:", err));
   });
 
-  events.on("order.purchased", (e: OrderPurchasedEvent) => {
+  events.orderPurchased.on((e: OrderPurchasedEvent) => {
     void startRunsForTrigger("ON_PURCHASE", e.tenantId, {
       dedupKey: e.orderId,
       conversationId: e.conversationId,
@@ -78,7 +78,7 @@ export function registerScenarioEngine(): void {
     }).catch((err: unknown) => console.error("[scenario] order.purchased trigger threw:", err));
   });
 
-  events.on("conversation.tagged", (e: ConversationTaggedEvent) => {
+  events.conversationTagged.on((e: ConversationTaggedEvent) => {
     void startRunsForTrigger("ON_TAG_ADDED", e.tenantId, {
       dedupKey: `${e.conversationId}:${e.tagId}`,
       conversationId: e.conversationId,

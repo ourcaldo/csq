@@ -340,7 +340,7 @@ const orderCreate: ToolDefinition<OrderCreateParams> = {
     // (after-sales survey, etc.). Fire-and-forget; routing context (conversation
     // + phone) flows from the tool call so the scenario can resolve the
     // customer thread. No-op if no scenario is subscribed/listening.
-    events.emit("order.purchased", {
+    events.orderPurchased.emit({
       tenantId: ctx.tenantId,
       orderId: order.id,
       conversationId: ctx.conversationId,

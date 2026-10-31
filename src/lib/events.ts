@@ -1,17 +1,18 @@
-import { EventEmitter } from "events";
 import { z } from "zod";
 
-// In-process scenario event bus. The codebase has no pubsub/queue (single
+// Typed scenario event bus. The codebase has no pubsub/queue (single
 // Next.js process, no Redis per the stack decision), so triggers dispatch
-// through a typed EventEmitter here. This is the single chokepoint that the
-// webhook, the tool gateway, and the tag-application path emit into, and the
-// scenario engine subscribes to — keeping emission decoupled from execution
-// and avoiding scattered direct calls.
+// through typed channels here. This is the single chokepoint that the
+// webhook, the tool gateway, and the tag-application path emit into, and
+// the scenario engine subscribes to — keeping emission decoupled from
+// execution and avoiding scattered direct calls.
 //
-// `emit` is fire-and-forget: it validates the payload with Zod, then invokes
-// each handler without awaiting it (so a slow scenario run never blocks the
-// webhook ACK or the tool call). Handler errors are caught and logged per-
-// handler so one failing subscriber cannot crash another or the emitter.
+// D10e: channels replace the old EventEmitter wrapper. `emit` validates the
+// payload with Zod and invokes each handler without awaiting it (a slow
+// scenario run never blocks the webhook ACK or the tool call). Handler
+// errors are caught and logged per-handler so one failing subscriber cannot
+// crash another or the emitter. Each channel's handler signature is derived
+// from its schema, so the whole module is cast-free.
 
 // ─────────────────────────── Payloads ───────────────────────────
 
@@ -49,76 +50,52 @@ export type ConversationNewEvent = z.infer<typeof conversationNewSchema>;
 export type OrderPurchasedEvent = z.infer<typeof orderPurchasedSchema>;
 export type ConversationTaggedEvent = z.infer<typeof conversationTaggedSchema>;
 
-export type ScenarioEventName =
-  | "conversation.new"
-  | "order.purchased"
-  | "conversation.tagged";
+// ─────────────────────────── Channel ───────────────────────────
 
-// Map each event name to its schema for boundary validation in emit().
-const schemas = {
-  "conversation.new": conversationNewSchema,
-  "order.purchased": orderPurchasedSchema,
-  "conversation.tagged": conversationTaggedSchema,
-} as const;
+class TypedChannel<S extends z.ZodTypeAny> {
+  private readonly handlers: Array<(p: z.output<S>) => void> = [];
 
-// ─────────────────────────── Bus ───────────────────────────
+  constructor(private readonly schema: S) {}
 
-type EventHandler<P> = (payload: P) => Promise<void> | void;
-
-type EventPayload<N extends ScenarioEventName> =
-  N extends "conversation.new"
-    ? ConversationNewEvent
-    : N extends "order.purchased"
-      ? OrderPurchasedEvent
-      : ConversationTaggedEvent;
-
-class ScenarioEventBus {
-  private emitter = new EventEmitter();
-
-  constructor() {
-    // A scenario trigger fan-out can start many runs; raise the default
-    // listener cap so a large active-scenario set never hits the warning.
-    this.emitter.setMaxListeners(50);
-  }
-
-  on<N extends ScenarioEventName>(
-    name: N,
-    handler: EventHandler<EventPayload<N>>
-  ): void {
-    this.emitter.on(name, handler as (...args: unknown[]) => void);
+  on(handler: (p: z.output<S>) => void): void {
+    this.handlers.push(handler);
   }
 
   // Validate the payload, then invoke each handler fire-and-forget. Never
   // throws to the caller: a bad payload or a throwing handler is logged and
   // swallowed so the emission point (webhook/tool) is unaffected.
-  emit<N extends ScenarioEventName>(name: N, raw: unknown): void {
-    const schema = schemas[name];
-    const parsed = schema.safeParse(raw);
+  emit(raw: unknown): void {
+    const parsed = this.schema.safeParse(raw);
     if (!parsed.success) {
       console.error(
-        `[events] ${name} payload failed validation; dropping event:`,
+        "[events] payload failed validation; dropping event:",
         parsed.error.issues
       );
       return;
     }
     const payload = parsed.data;
-    const handlers = this.emitter.listeners(name) as Array<
-      (p: unknown) => Promise<void> | void
-    >;
-    for (const handler of handlers) {
+    for (const handler of this.handlers) {
       try {
-        const maybe = handler(payload);
-        if (maybe && typeof (maybe as Promise<void>).then === "function") {
-          (maybe as Promise<void>).catch((err: unknown) => {
-            console.error(`[events] ${name} handler threw:`, err);
+        // Handlers may return void or a Promise; boxing through unknown keeps
+        // the check cast-free (void is not a valid instanceof LHS).
+        const maybe: unknown = handler(payload);
+        if (maybe instanceof Promise) {
+          maybe.catch((err: unknown) => {
+            console.error("[events] handler rejected:", err);
           });
         }
       } catch (err) {
-        console.error(`[events] ${name} handler threw synchronously:`, err);
+        console.error("[events] handler threw synchronously:", err);
       }
     }
   }
 }
 
-// Single shared instance. Modules import `events` and call on()/emit().
-export const events = new ScenarioEventBus();
+// ─────────────────────────── Bus ───────────────────────────
+// One typed channel per event; emit() validates, on() is fully typed.
+
+export const events = {
+  conversationNew: new TypedChannel(conversationNewSchema),
+  orderPurchased: new TypedChannel(orderPurchasedSchema),
+  conversationTagged: new TypedChannel(conversationTaggedSchema),
+};

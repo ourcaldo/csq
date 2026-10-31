@@ -116,7 +116,7 @@ export async function ingestInboundMessage(
   // The trigger fires only for a genuinely new message on a genuinely new
   // conversation — a redelivery must never start a second scenario run.
   if (created && !duplicate) {
-    events.emit("conversation.new", {
+    events.conversationNew.emit({
       tenantId: msg.tenantId,
       conversationId: conversation.id,
       channelId: msg.channelId,
