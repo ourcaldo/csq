@@ -46,8 +46,12 @@ export async function runAgentReply(args: {
   conversationId: string;
   customerPhone: string;
   body: string;
+  // The Message row that triggered this turn. D4: it is EXCLUDED from the
+  // replayed history (it is appended once as the user message) so the model
+  // never sees the same customer message twice.
+  triggerMessageId?: string;
 }): Promise<AgentTurnResult> {
-  const { tenantId, conversationId, customerPhone, body } = args;
+  const { tenantId, conversationId, customerPhone, body, triggerMessageId } = args;
 
   const conversation = await prisma.conversation.findFirst({
     where: { id: conversationId, tenantId },
@@ -92,12 +96,15 @@ export async function runAgentReply(args: {
   }
 
   // BOUNDED HISTORY WINDOW (no external session state). The recent transcript
-  // is replayed from our own Message rows, capped to the newest
-  // AGENT_HISTORY_LIMIT messages within the 1h window — a chat that goes
-  // quiet for an hour starts a fresh window, so stale/incorrect facts cannot
-  // leak across windows and the prompt stays bounded. Continuity beyond the
-  // window lives in the CSQ layer the agent pulls via tools on every fresh
-  // window: customer.read (name/email), order.list (history), pipeline stage.
+  // is replayed from our own Message rows — the NEWEST AGENT_HISTORY_LIMIT
+  // messages within the 1h window, in chronological order (fetch desc, take,
+  // then reverse). A chat that goes quiet for an hour starts a fresh window,
+  // so stale/incorrect facts cannot leak across windows and the prompt stays
+  // bounded. The trigger message is excluded here (D4) because it is appended
+  // once as the user message below — without the exclusion the model saw the
+  // customer's last message twice. Continuity beyond the window lives in the
+  // CSQ layer the agent pulls via tools on every fresh window: customer.read
+  // (name/email), order.list (history), pipeline stage.
   const SESSION_TTL_MS = 60 * 60 * 1000;
   const AGENT_HISTORY_LIMIT = 20;
   const windowStart = new Date(Date.now() - SESSION_TTL_MS);
@@ -106,17 +113,20 @@ export async function runAgentReply(args: {
       conversationId,
       createdAt: { gte: windowStart },
       isInternal: false,
+      ...(triggerMessageId ? { id: { not: triggerMessageId } } : {}),
     },
-    orderBy: { createdAt: "asc" },
+    orderBy: { createdAt: "desc" },
     take: AGENT_HISTORY_LIMIT,
     select: { direction: true, body: true },
   });
-  // Oldest-first rows → OpenAI chat messages. INBOUND → user; anything the
-  // agent or a human sent outbound → assistant.
-  const history: ChatMessage[] = recentRows.map((m) => ({
-    role: m.direction === "INBOUND" ? "user" : "assistant",
-    content: m.body,
-  }));
+  // Newest-first rows → chronological OpenAI chat messages. INBOUND → user;
+  // anything the agent or a human sent outbound → assistant.
+  const history: ChatMessage[] = recentRows
+    .reverse()
+    .map((m) => ({
+      role: m.direction === "INBOUND" ? "user" : "assistant",
+      content: m.body,
+    }));
   const isStartOfNewWindow = history.length === 0;
 
   // Fresh-window opener: one bounded line of safe structured facts
@@ -290,6 +300,7 @@ async function drainUnansweredInbound(
       conversationId,
       customerPhone: conversation.customerPhone,
       body: trigger.body,
+      triggerMessageId: trigger.id,
     });
     if (turn.stoodDown) return;
 

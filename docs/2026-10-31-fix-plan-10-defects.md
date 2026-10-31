@@ -21,7 +21,7 @@ before any change: `pre-fix-backup-2026-11-01` (`br-muddy-feather-b3vsoacz`).
 | D1 turn lease + LLM budget | **FIXED** | Lease columns applied to Neon; lease SQL verified live (acquire / busy / wrong-owner-release / recover). |
 | D2 customer scope | Pending | |
 | D3 inbound idempotency | **FIXED** | 11 duplicate rows deduplicated on Neon (kept earliest of each group); partial unique index applied + bookkeeping row; ACK moved ahead of ingest. |
-| D4 newest-20 history | Pending | |
+| D4 newest-20 history | **FIXED** | History now fetches newest-20 then reverses; trigger message excluded from replay so it appears exactly once. Dead `toChatHistory` deleted. |
 | D5 delete chat route | Pending | Approved for deletion. |
 | D6 media classification | Pending | |
 | D7 stream cursor | Pending | |
@@ -592,7 +592,7 @@ Per phase:
 - [x] Decisions A-D confirmed
 - [x] Phase 1: D1 turn lease + LLM timeout
 - [x] Phase 1: D3 idempotency + ACK-first
-- [ ] Phase 1: D4 newest-20 history, no duplicate trigger
+- [x] Phase 1: D4 newest-20 history, no duplicate trigger
 - [ ] Phase 2: D2 customer scope guard
 - [ ] Phase 2: D5 delete chat route
 - [ ] Phase 2: D10a order paging

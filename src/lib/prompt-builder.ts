@@ -179,31 +179,3 @@ export async function buildSystemPrompt(args: {
 
   return sections.join("\n\n");
 }
-
-// Convert stored DB messages to OpenAI chat history for runConversation.
-// INBOUND → user; OUTBOUND from AGENT/HUMAN/STAFF → assistant. WHY include
-// HUMAN/STAFF outbound: after an AI→human→AI handoff, the AI must see the full
-// continuous thread — including the staff/owner replies that happened while it
-// stood down — or its context is discontinuous and it may repeat or contradict
-// what staff said. Mapping staff/owner outbound to `assistant` is correct
-// because it is the business's side of the conversation, same as the AI's own
-// replies. Ordering (oldest→newest) and the 30-message limit are preserved.
-export function toChatHistory(
-  messages: { direction: string; senderType: string; body: string }[],
-  limit = 30
-): { role: string; content: string }[] {
-  return messages
-    .slice(-limit)
-    .filter(
-      (m) =>
-        m.direction === "INBOUND" ||
-        (m.direction === "OUTBOUND" &&
-          (m.senderType === "AGENT" ||
-            m.senderType === "HUMAN" ||
-            m.senderType === "STAFF"))
-    )
-    .map((m) => ({
-      role: m.direction === "INBOUND" ? "user" : "assistant",
-      content: m.body,
-    }));
-}
