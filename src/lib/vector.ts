@@ -7,6 +7,14 @@
 // in src/services/embeddings.ts. Cosine distance operator is `<=>`; similarity
 // = 1 - distance. Qwen3 vectors are not unit-length, but `<=>` is magnitude-
 // invariant so no normalization is required.
+//
+// D8: an HNSW index (vector_cosine_ops) exists on embedding. At small row
+// counts the planner will prefer a seq/btree scan - correct. Two scaling notes:
+// - the index is POST-filtered by the tenantId predicate, so at large tenant
+//   sizes a filtered search can return fewer than `limit` rows; the knob is
+//   `SET hnsw.ef_search` (raise it, or switch to iterative scans).
+// - rows written BEFORE the index existed are in it only after a one-off
+//   REINDEX; not needed today (index created at 4 rows).
 
 type VectorModel = "KnowledgeEmbedding";
 

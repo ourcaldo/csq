@@ -25,7 +25,7 @@ before any change: `pre-fix-backup-2026-11-01` (`br-muddy-feather-b3vsoacz`).
 | D5 delete chat route | **FIXED** | `/api/agents/[agentId]/chat` deleted (no consumer; its advisory lock was ineffective). |
 | D6 media classification | **FIXED** | New `Message.kind` (TEXT/MEDIA/OTHER, migration applied to Neon). Cloud API parses captions as text; media gets one debounced reply, other types are stored silently; Baileys media no longer dropped. History replay and the drain loop are kind-aware. Classifier self-check: scripts/self-check-inbound-classify.ts (8/8). |
 | D7 stream cursor | **FIXED** | Overlap window (gte, 2s) + id de-duplication replaces the strict `gt` cursor, so same-second messages are no longer dropped. |
-| D8 HNSW index | Pending | |
+| D8 HNSW index | **FIXED** | Index applied to Neon and verified usable by the planner (`Index Scan using ..._hnsw_idx`); on today's 4-row table a seq scan is cheaper, which is correct. ef_search tuning note added to vector.ts. |
 | D9 RLS coverage | Pending | |
 | D10a order paging | **FIXED** | `skip: (page-1)*take` replaces the growing `take`; page 2 returns different rows. |
 | D10b pipeline unique | Pending | |
@@ -598,7 +598,7 @@ Per phase:
 - [x] Phase 2: D10a order paging
 - [x] Phase 3: D6 media classification + debounced reply
 - [x] Phase 3: D7 stream cursor
-- [ ] Phase 4: D8 HNSW index
+- [x] Phase 4: D8 HNSW index
 - [ ] Phase 4: D9 RLS coverage
 - [ ] Phase 4: D10b pipeline unique
 - [ ] Phase 5: D10c credentials table
