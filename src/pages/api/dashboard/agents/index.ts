@@ -14,7 +14,7 @@ export type AgentWithCapabilities = Prisma.AgentGetPayload<{
 
 type ListResult = { items: AgentWithCapabilities[] };
 
-// POST body for creating a new agent (PRD Â§15.2/Â§19). The agent is created in
+// POST body for creating a new agent (PRD §15.2/§19). The agent is created in
 // DRAFT; activation (status -> ACTIVE) happens on Deploy, not here.
 const createSchema = z.object({
   name: z.string().min(1).max(120),

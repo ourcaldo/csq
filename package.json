@@ -15,6 +15,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:generate": "prisma generate",
     "db:migration-checksums": "node scripts/migration-checksums.mjs",
+    "check:encoding": "node scripts/check-encoding.mjs",
     "demo:reset": "tsx prisma/reset-demo.ts"
   },
   "prisma": {

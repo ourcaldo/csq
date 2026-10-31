@@ -3,10 +3,10 @@ import { listToolSummaries } from "@/tools";
 import { apiError, apiOk, type ApiResponse } from "@/types/api";
 import type { ToolSummary } from "@/types/tools";
 
-// GET /api/tools â€” list registered tools (name/description/category/default
+// GET /api/tools — list registered tools (name/description/category/default
 // permission). Used by the dashboard and agent config. Tool
 // definitions themselves are not sensitive, so this is unauthenticated; the
-// JSON-schema form of parameters is deferred to Phase 6 (YAGNI â€” no consumer
+// JSON-schema form of parameters is deferred to Phase 6 (YAGNI — no consumer
 // yet, and zod-to-json-schema is not a dependency we want to add now).
 export default function handler(
   req: NextApiRequest,
