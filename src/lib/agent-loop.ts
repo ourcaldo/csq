@@ -113,6 +113,9 @@ export async function runAgentReply(args: {
       conversationId,
       createdAt: { gte: windowStart },
       isInternal: false,
+      // D6: never replay "[image]"-style placeholders as customer speech —
+      // only real text and business-side outbound belong in the transcript.
+      OR: [{ direction: "OUTBOUND" }, { kind: "TEXT" }],
       ...(triggerMessageId ? { id: { not: triggerMessageId } } : {}),
     },
     orderBy: { createdAt: "desc" },
@@ -267,11 +270,18 @@ async function drainUnansweredInbound(
   const attempted = new Set<string>();
 
   for (let i = 0; i < MAX_DRAIN_TURNS; i++) {
-    // Newest inbound that has no business-side reply after it. Only AGENT or
-    // HUMAN outbound counts as an answer — a SCENARIO message (opening
-    // greeting, promo) must never mark a customer's question as answered.
+    // Newest unanswered TEXT inbound (D6: media/other never drive a turn —
+    // media is answered by the debounced courtesy reply at ingest time). Only
+    // AGENT or HUMAN outbound counts as an answer — a SCENARIO message
+    // (opening greeting, promo) must never mark a customer's question as
+    // answered.
     const trigger = await prisma.message.findFirst({
-      where: { conversationId, tenantId, direction: "INBOUND" },
+      where: {
+        conversationId,
+        tenantId,
+        direction: "INBOUND",
+        kind: "TEXT",
+      },
       orderBy: { createdAt: "desc" },
     });
     if (!trigger || attempted.has(trigger.id)) return;

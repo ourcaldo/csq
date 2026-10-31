@@ -3,6 +3,7 @@ import crypto from "crypto";
 import prisma from "@/lib/db";
 import { ingestInboundMessage } from "@/lib/inbox";
 import { processInboundWithAgent } from "@/lib/agent-loop";
+import { replyToNonText } from "@/lib/agent-outbox";
 import { cloudApiConfigSchema } from "@/types/whatsapp";
 import { parseCloudApiInbound } from "@/services/whatsapp";
 import {
@@ -197,15 +198,30 @@ export default async function handler(
           tenantId: channel.tenantId,
           from: m.from,
           body: m.body,
+          kind: m.kind,
           waMessageId: m.waMessageId,
           receivedAt: m.timestamp,
           customerName: m.customerName,
         });
         if (recorded.duplicate) return;
-        void processInboundWithAgent({
-          channel,
-          conversationId: recorded.conversationId,
-        });
+        // D6: only real text drives the LLM. Media gets one debounced courtesy
+        // reply; reactions/system events are stored and ignored.
+        if (m.kind === "text") {
+          void processInboundWithAgent({
+            channel,
+            conversationId: recorded.conversationId,
+          });
+        } else if (m.kind === "media") {
+          void replyToNonText({
+            channel,
+            conversationId: recorded.conversationId,
+          }).catch((err: unknown) => {
+            console.error(
+              `[whatsapp-webhook] non-text reply failed for ${m.waMessageId}:`,
+              err
+            );
+          });
+        }
       })().catch((err: unknown) => {
         console.error(
           `[whatsapp-webhook] ingest failed for ${m.waMessageId}:`,

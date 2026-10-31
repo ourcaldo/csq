@@ -6,6 +6,11 @@ import { getProvider } from "@/lib/whatsapp-provider";
 import { logAction } from "@/lib/audit";
 import { CLOUD_API_WINDOW_MS } from "@/lib/inbox";
 
+// Conversation.settings is a Json column; read it as a plain record so
+// debounce keys can be merged without a type assertion (same pattern as the
+// scheduler's session-close settings read).
+const conversationSettingsRecord = z.record(z.unknown());
+
 // Shared outbound path for every agent-originated WhatsApp message: the normal
 // auto-reply (G7), the approval-result follow-up (G1), the error fallback
 // (G5), and the truncated "still processing" message (G6). It enforces the
@@ -166,6 +171,57 @@ export async function resolveConnectedChannel(
     conversationId: conv.id,
     customerPhone: conv.customerPhone,
   };
+}
+
+// D6: a MEDIA inbound (image/video/document/audio/sticker with no caption)
+// must never reach the LLM — the agent would be answering "[image]". Instead
+// the customer gets ONE short reply per debounce window, and the message is
+// stored for the human inbox. Debounce state lives on Conversation.settings
+// (same pattern as the scheduler's session-close tracking); the small
+// check-then-send race between two simultaneous photos is accepted — the worst
+// case is one extra courtesy message, never an LLM turn.
+const NON_TEXT_REPLY_DEBOUNCE_MS = 10 * 60 * 1000;
+const NON_TEXT_REPLY_BODY =
+  "Maaf, saya belum bisa membuka foto, video, atau file. Tulis dalam teks ya, Kak, supaya saya bisa bantu.";
+
+export async function replyToNonText(args: {
+  channel: Channel;
+  conversationId: string;
+}): Promise<void> {
+  const { channel, conversationId } = args;
+  const conversation = await prisma.conversation.findFirst({
+    where: { id: conversationId, tenantId: channel.tenantId },
+  });
+  if (!conversation) return;
+  // A human owns the conversation: they see the media in the inbox; no auto reply.
+  if (conversation.assigneeUserId) return;
+
+  const settingsParsed = conversationSettingsRecord.safeParse(
+    conversation.settings ?? {}
+  );
+  const settings = settingsParsed.success ? settingsParsed.data : {};
+  const lastRaw =
+    typeof settings.lastNonTextReplyAt === "string"
+      ? Date.parse(settings.lastNonTextReplyAt)
+      : NaN;
+  if (!Number.isNaN(lastRaw) && Date.now() - lastRaw < NON_TEXT_REPLY_DEBOUNCE_MS) {
+    return;
+  }
+  await prisma.conversation.update({
+    where: { id: conversationId },
+    data: { settings: { ...settings, lastNonTextReplyAt: new Date().toISOString() } },
+  });
+
+  // sendAgentMessage enforces the 24h window; outside it this is skipped and
+  // audited (correct — a proactive media ack is not worth a Meta template).
+  await sendAgentMessage({
+    channel,
+    conversationId,
+    customerPhone: conversation.customerPhone,
+    body: NON_TEXT_REPLY_BODY,
+    agentId: null,
+    action: "conversation.non_text_reply",
+  });
 }
 
 // G1: send the approval result back to the customer who asked for it. The

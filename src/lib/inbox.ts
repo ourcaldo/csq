@@ -4,7 +4,7 @@ import prisma from "@/lib/db";
 import { HttpError } from "@/lib/queries";
 import { logAction } from "@/lib/audit";
 import { getProvider } from "@/lib/whatsapp-provider";
-import type { InboundMessage } from "@/types/whatsapp";
+import type { InboundMessage, InboundKind } from "@/types/whatsapp";
 import { events } from "@/lib/events";
 
 // Inbox domain logic shared by the dashboard routes and the webhook ingest
@@ -107,6 +107,7 @@ export async function ingestInboundMessage(
     conversationId: conversation.id,
     from: msg.from,
     body: msg.body,
+    kind: msg.kind,
     waMessageId: msg.waMessageId,
     receivedAt: msg.receivedAt,
     customerName: msg.customerName,
@@ -137,6 +138,7 @@ export async function recordInboundMessage(input: {
   conversationId: string;
   from: string;
   body: string;
+  kind: InboundKind;
   waMessageId: string;
   receivedAt: Date;
   customerName?: string;
@@ -149,6 +151,13 @@ export async function recordInboundMessage(input: {
         direction: "INBOUND",
         senderType: "CUSTOMER",
         body: input.body,
+        // Map the lowercase wire form onto the Prisma enum (no string→enum cast).
+        kind:
+          input.kind === "text"
+            ? "TEXT"
+            : input.kind === "media"
+              ? "MEDIA"
+              : "OTHER",
         waMessageId: input.waMessageId,
         createdAt: input.receivedAt,
       },

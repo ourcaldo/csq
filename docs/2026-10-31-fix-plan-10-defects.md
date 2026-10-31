@@ -23,7 +23,7 @@ before any change: `pre-fix-backup-2026-11-01` (`br-muddy-feather-b3vsoacz`).
 | D3 inbound idempotency | **FIXED** | 11 duplicate rows deduplicated on Neon (kept earliest of each group); partial unique index applied + bookkeeping row; ACK moved ahead of ingest. |
 | D4 newest-20 history | **FIXED** | History now fetches newest-20 then reverses; trigger message excluded from replay so it appears exactly once. Dead `toChatHistory` deleted. |
 | D5 delete chat route | **FIXED** | `/api/agents/[agentId]/chat` deleted (no consumer; its advisory lock was ineffective). |
-| D6 media classification | Pending | |
+| D6 media classification | **FIXED** | New `Message.kind` (TEXT/MEDIA/OTHER, migration applied to Neon). Cloud API parses captions as text; media gets one debounced reply, other types are stored silently; Baileys media no longer dropped. History replay and the drain loop are kind-aware. Classifier self-check: scripts/self-check-inbound-classify.ts (8/8). |
 | D7 stream cursor | Pending | |
 | D8 HNSW index | Pending | |
 | D9 RLS coverage | Pending | |
@@ -596,7 +596,7 @@ Per phase:
 - [x] Phase 2: D2 customer scope guard
 - [x] Phase 2: D5 delete chat route
 - [x] Phase 2: D10a order paging
-- [ ] Phase 3: D6 media classification + debounced reply
+- [x] Phase 3: D6 media classification + debounced reply
 - [ ] Phase 3: D7 stream cursor
 - [ ] Phase 4: D8 HNSW index
 - [ ] Phase 4: D9 RLS coverage

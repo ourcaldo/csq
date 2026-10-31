@@ -126,6 +126,15 @@ enum MessageSenderType {
   SCENARIO
 }
 
+// How an inbound message's content arrived (D6). TEXT carries a real text
+// body (or a media caption) and drives the agent; MEDIA/OTHER are stored for
+// the inbox as "[image]"-style placeholders and never run the LLM.
+enum MessageKind {
+  TEXT
+  MEDIA
+  OTHER
+}
+
 // Scenario = owner/staff-built automation flow (visual drag-and-drop builder).
 // A Scenario is the template (graph + trigger); a ScenarioRun is a live
 // execution bound to one conversation. See src/lib/scenario-engine.ts.
@@ -598,6 +607,7 @@ model Message {
   senderUserId   String?
   body           String
   waMessageId    String?
+  kind           MessageKind       @default(TEXT)
   isInternal     Boolean           @default(false)
   createdAt      DateTime          @default(now())
 

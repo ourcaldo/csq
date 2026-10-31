@@ -41,14 +41,19 @@ const contactSchema = z.object({
   profile: z.object({ name: z.string() }).optional(),
 });
 
-// `type` is a string (text/image/audio/...). Only `text` carries a body; other
-// types are recorded as placeholders so the conversation stays traceable.
-const messageSchema = z.object({
+// `type` is a string (text/image/audio/...). Only `text` carries a body;
+// image/video/document may carry a `caption` (which IS text). Other types are
+// recorded as placeholders so the conversation stays traceable, and are
+// classified as MEDIA or OTHER so they never reach the LLM (D6).
+export const messageSchema = z.object({
   type: z.string(),
   id: z.string(),
   from: z.string(),
   timestamp: z.string(),
   text: z.object({ body: z.string() }).optional(),
+  image: z.object({ caption: z.string().optional() }).optional(),
+  video: z.object({ caption: z.string().optional() }).optional(),
+  document: z.object({ caption: z.string().optional() }).optional(),
 });
 
 const statusSchema = z.object({
@@ -86,22 +91,33 @@ export type WebhookPayload = z.infer<typeof webhookPayloadSchema>;
 // What the provider returns from parsing a webhook. channelId/tenantId are
 // resolved by the webhook route AFTER locating the channel by phone_number_id,
 // so the parsed form carries `phoneNumberId` instead.
+//
+// kind (D6): how the content arrived. TEXT = a real text body (including a
+// media caption) and is the only kind that may trigger an agent turn.
+// MEDIA = image/video/document/audio/sticker without a caption — stored for
+// the inbox as "[image]" and answered by one debounced courtesy message.
+// OTHER = reactions, unsupported types, system events — stored, no reply.
+
+export type InboundKind = "text" | "media" | "other";
 
 export type ParsedInbound = {
   phoneNumberId: string;
   from: string;
   body: string;
+  kind: InboundKind;
   waMessageId: string;
   timestamp: Date;
   customerName?: string;
 };
 
 // Full inbound record used by the inbox ingest path (SDD §4.8 InboundMessage).
+
 export type InboundMessage = {
   channelId: string;
   tenantId: string;
   from: string;
   body: string;
+  kind: InboundKind;
   waMessageId: string;
   receivedAt: Date;
   customerName?: string;

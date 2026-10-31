@@ -78,6 +78,10 @@ export type Message = {
   senderUserId: string | null;
   body: string;
   waMessageId: string | null;
+  // How the inbound content arrived (D6). Non-text rows are stored for the
+  // inbox but never trigger an agent turn; the body is a display placeholder
+  // like "[image]".
+  kind: "TEXT" | "MEDIA" | "OTHER";
   isInternal: boolean;
   createdAt: string;
 };

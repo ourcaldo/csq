@@ -10,10 +10,12 @@ import { z } from "zod";
 import prisma from "@/lib/db";
 import { ingestInboundMessage } from "@/lib/inbox";
 import { processInboundWithAgent } from "@/lib/agent-loop";
+import { replyToNonText } from "@/lib/agent-outbox";
 import { loadDbAuthState } from "@/lib/baileys-auth-db";
 import type { Channel } from "@prisma/client";
 import type {
   BaileysConfig,
+  InboundKind,
   ParsedInbound,
   SendTemplateInput,
   SendTextInput,
@@ -64,8 +66,11 @@ function disconnectCode(err: unknown): number | undefined {
   return parsed.success ? parsed.data?.output?.statusCode : undefined;
 }
 
-// Extract a text body from a Baileys message (text / extendedText / caption).
-// Extract a text body from a Baileys message using Baileys' OWN utilities
+// Extract the inbound content from a Baileys message: a display body plus the
+// D6 kind. Text (including a media caption) is "text"; media without a
+// caption is "media" with a "[image]"-style placeholder so the inbox shows
+// what arrived; anything else is "other" with an empty body, which the caller
+// skips (nothing to store). Uses Baileys' OWN utilities
 // (normalizeMessageContent + getContentType), not a Zod schema. A Zod
 // z.object().safeParse() on the raw protobufjs message object fails because
 // the nested messageContextInfo carries Buffer values (messageSecret,
@@ -74,25 +79,32 @@ function disconnectCode(err: unknown): number | undefined {
 // silently dropped and every inbound was skipped as "empty body". Baileys'
 // utilities handle the proto object and ephemeral/view-once wrapping
 // correctly. No `as` casts — normalizeMessageContent returns any.
-function extractBody(message: proto.IMessage | null | undefined): string {
+function extractContent(
+  message: proto.IMessage | null | undefined
+): { body: string; kind: InboundKind } {
   const content = normalizeMessageContent(message);
-  if (!content) return "";
+  if (!content) return { body: "", kind: "other" };
   // Typed property access on proto.IMessage — no string indexing, no `as`.
   // normalizeMessageContent already unwrapped ephemeral/view-once.
-  if (typeof content.conversation === "string") return content.conversation;
+  if (typeof content.conversation === "string") {
+    return { body: content.conversation, kind: "text" };
+  }
   if (typeof content.extendedTextMessage?.text === "string") {
-    return content.extendedTextMessage.text;
+    return { body: content.extendedTextMessage.text, kind: "text" };
   }
-  if (typeof content.imageMessage?.caption === "string") {
-    return content.imageMessage.caption;
+  const caption =
+    content.imageMessage?.caption ??
+    content.videoMessage?.caption ??
+    content.documentMessage?.caption;
+  if (typeof caption === "string" && caption.length > 0) {
+    return { body: caption, kind: "text" };
   }
-  if (typeof content.videoMessage?.caption === "string") {
-    return content.videoMessage.caption;
-  }
-  if (typeof content.documentMessage?.caption === "string") {
-    return content.documentMessage.caption;
-  }
-  return "";
+  if (content.imageMessage) return { body: "[image]", kind: "media" };
+  if (content.videoMessage) return { body: "[video]", kind: "media" };
+  if (content.documentMessage) return { body: "[document]", kind: "media" };
+  if (content.audioMessage) return { body: "[audio]", kind: "media" };
+  if (content.stickerMessage) return { body: "[sticker]", kind: "media" };
+  return { body: "", kind: "other" };
 }
 
 // Start (or reattach) the socket for a Baileys channel. Returns the current QR
@@ -202,9 +214,11 @@ export async function connectBaileysChannel(
         ) {
           continue;
         }
-        const body = extractBody(m.message);
+        const content = extractContent(m.message);
+        const body = content.body;
+        const kind = content.kind;
         console.log(
-          `[baileys:${channel.id}] inbound from=${fromJid(m.key.remoteJid)} type=${getContentType(normalizeMessageContent(m.message)) ?? "?"} body=${JSON.stringify(body).slice(0, 80)}`
+          `[baileys:${channel.id}] inbound from=${fromJid(m.key.remoteJid)} type=${getContentType(normalizeMessageContent(m.message)) ?? "?"} kind=${kind} body=${JSON.stringify(body).slice(0, 80)}`
         );
         if (!body) {
           console.log(`[baileys:${channel.id}] skip empty body`);
@@ -224,6 +238,7 @@ export async function connectBaileysChannel(
             tenantId,
             from,
             body,
+            kind,
             waMessageId: m.key.id ?? "",
             receivedAt: new Date(),
             customerName: m.pushName || undefined,
@@ -232,10 +247,22 @@ export async function connectBaileysChannel(
           if (recorded.duplicate) return;
           // Reload the channel so the agent loop sees fresh status/agentId.
           const fresh = await prisma.channel.findUnique({ where: { id: channel.id } });
-          if (fresh) {
+          if (!fresh) return;
+          // D6: only real text drives the LLM; media gets one debounced reply.
+          if (kind === "text") {
             void processInboundWithAgent({
               channel: fresh,
               conversationId: recorded.conversationId,
+            });
+          } else if (kind === "media") {
+            void replyToNonText({
+              channel: fresh,
+              conversationId: recorded.conversationId,
+            }).catch((err: unknown) => {
+              console.error(
+                `[baileys:${channel.id}] non-text reply failed for ${m.key.id ?? ""}:`,
+                err
+              );
             });
           }
         })().catch((err: unknown) => {

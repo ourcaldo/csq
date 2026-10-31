@@ -5,8 +5,14 @@ import type {
   SendTextInput,
   SendTextResult,
   WhatsAppProvider,
+  InboundKind,
 } from "@/types/whatsapp";
-import { sendTextResponseSchema, webhookPayloadSchema } from "@/types/whatsapp";
+import {
+  messageSchema,
+  sendTextResponseSchema,
+  webhookPayloadSchema,
+} from "@/types/whatsapp";
+import type { z } from "zod";
 
 // WhatsApp Cloud API (official) provider — ToS-safe default.
 // Graph API version is pinned (memory: v25.0); one service module per
@@ -14,6 +20,29 @@ import { sendTextResponseSchema, webhookPayloadSchema } from "@/types/whatsapp";
 // comes from Channel.config and never reaches the client bundle.
 
 const GRAPH_API_VERSION = "v25.0";
+
+// D6: which non-text payload types are "media" (customer content we should
+// acknowledge) vs "other" (reactions/system noise that needs no reply).
+const MEDIA_TYPES = new Set(["image", "video", "document", "audio", "sticker"]);
+
+// Classify one Cloud API message into a display body + a kind. A media caption
+// IS text and is treated as such. Everything non-text keeps the "[type]"
+// placeholder body so the inbox shows what arrived.
+function classifyMessage(
+  msg: z.infer<typeof messageSchema>
+): { body: string; kind: InboundKind } {
+  if (typeof msg.text?.body === "string") {
+    return { body: msg.text.body, kind: "text" };
+  }
+  const caption = msg.image?.caption ?? msg.video?.caption ?? msg.document?.caption;
+  if (typeof caption === "string" && caption.length > 0) {
+    return { body: caption, kind: "text" };
+  }
+  return {
+    body: `[${msg.type}]`,
+    kind: MEDIA_TYPES.has(msg.type) ? "media" : "other",
+  };
+}
 
 // Parse a Cloud API webhook payload into normalized inbound messages.
 // Exported standalone so the webhook route can parse without constructing a
@@ -30,10 +59,12 @@ export function parseCloudApiInbound(payload: unknown): ParsedInbound[] {
       const contacts = value.contacts ?? [];
       for (const msg of value.messages) {
         const contact = contacts.find((c) => c.wa_id === msg.from);
+        const { body, kind } = classifyMessage(msg);
         out.push({
           phoneNumberId: value.metadata.phone_number_id,
           from: msg.from,
-          body: msg.text?.body ?? `[${msg.type}]`,
+          body,
+          kind,
           waMessageId: msg.id,
           timestamp: new Date(Number.parseInt(msg.timestamp, 10) * 1000),
           customerName: contact?.profile?.name,
