@@ -16,6 +16,7 @@ import {
 } from "@/lib/scenario-engine";
 import { sendAgentMessage } from "@/lib/agent-outbox";
 import { getTemplateBody } from "@/lib/message-templates";
+import { withSystemLock } from "@/lib/system-lock";
 
 // In-process periodic sync for Google Sheets sources (PRD §23A — no Redis/queue,
 // node-cron runs inside the Next.js server). Server-only: callers must invoke
@@ -38,27 +39,43 @@ export function startScheduler(): void {
   registerScenarioEngine();
   // Every 5 minutes — bounds Sheets data freshness for the agent. The owner
   // can also force a refresh per source via "Sync Sekarang" on the Sumber Data
-  // page (hits /api/import/sheets/sync, which reuses syncOne below).
+  // page (hits /api/import/sheets/sync, which reuses syncOne below). D10d: the
+  // system lock makes the tick single-instance; the TTL (4 min) is shorter than
+  // the cadence so a crashed tick self-heals before the next slot.
   cron.schedule("*/5 * * * *", () => {
-    void syncAllSheetsSources().catch(() => {
-      // Errors are recorded per-source below; swallow top-level failures.
-    });
+    void withSystemLock("sheets-sync", 240, syncAllSheetsSources)
+      .catch((err: unknown) => {
+        // Errors are recorded per-source below; log only the top-level ones.
+        console.error("[scheduler] sheets-sync tick threw:", err);
+      });
   });
   // Every minute — resume scenario runs paused on a Wait node whose resumeAt
   // has passed, plus runs deferred at the concurrency cap; and evaluate the
   // scheduler-driven triggers (ON_SCHEDULE time match, ON_NO_REPLY silence
   // windows). Bounded per tick; remaining picked up next tick. Fire-and-forget,
-  // per-run errors logged inside the engine.
+  // per-run errors logged inside the engine. D10d: the whole minute tick is
+  // one unit under the system lock (TTL 90s: tolerates a slow tick, self-heals
+  // a crashed one).
   cron.schedule("* * * * *", () => {
-    void resumePausedRuns().catch(() => {
-      // Per-run errors are logged inside; swallow top-level failures.
-    });
-    void runScheduledTriggers().catch(() => {
-      // Per-scenario errors are logged inside; swallow top-level failures.
-    });
-    void closeIdleSessions().catch(() => {
-      // Per-conversation errors are logged inside; swallow.
-    });
+    void withSystemLock("scenario-tick", 90, runScenarioTick)
+      .catch((err: unknown) => {
+        console.error("[scheduler] scenario tick threw:", err);
+      });
+  });
+}
+
+// The once-a-minute scenario work, extracted so the system lock can wrap the
+// whole tick as one unit.
+async function runScenarioTick(): Promise<void> {
+  await resumePausedRuns().catch((err: unknown) => {
+    // Per-run errors are logged inside; swallow top-level failures.
+    console.error("[scheduler] resumePausedRuns threw:", err);
+  });
+  await runScheduledTriggers().catch((err: unknown) => {
+    console.error("[scheduler] runScheduledTriggers threw:", err);
+  });
+  await closeIdleSessions().catch((err: unknown) => {
+    console.error("[scheduler] closeIdleSessions threw:", err);
   });
 }
 

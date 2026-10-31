@@ -30,7 +30,7 @@ before any change: `pre-fix-backup-2026-11-01` (`br-muddy-feather-b3vsoacz`).
 | D10a order paging | **FIXED** | `skip: (page-1)*take` replaces the growing `take`; page 2 returns different rows. |
 | D10b pipeline unique | **FIXED** | Unique index on `Pipeline.tenantId` applied (duplicate insert verified blocked on Neon); `getOrCreatePipeline` is now a real upsert. |
 | D10c credentials table | **FIXED** | `TenantCredential` table created on Neon; live Google tokens copied out of `settings.googleSheets` and verified; `google-connect.ts` reads/writes the table only. The legacy settings key stays until the new read path is verified live (removal = documented follow-up migration). |
-| D10d cron lock | Pending | |
+| D10d cron lock | **FIXED** | `SystemLock` lease table applied to Neon, lease SQL verified live (busy/wrong-owner/no leftovers); both cron ticks run under it. Single-instance behavior unchanged. |
 | D10e event bus | Pending | |
 | D10f encoding guard | Pending | |
 | D10g deploy docs | Pending | |
@@ -602,7 +602,7 @@ Per phase:
 - [x] Phase 4: D9 RLS coverage
 - [x] Phase 4: D10b pipeline unique
 - [x] Phase 5: D10c credentials table
-- [ ] Phase 5: D10d cron lock
+- [x] Phase 5: D10d cron lock
 - [ ] Phase 5: D10e event bus
 - [ ] Phase 5: D10f encoding guard
 - [ ] Phase 5: D10g deployment docs

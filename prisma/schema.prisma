@@ -762,6 +762,20 @@ model DealStageHistory {
   @@index([tenantId, dealId, createdAt])
 }
 
+// ─────────────────────────── System lock ───────────────────────────
+
+// D10d: cross-instance cron mutual exclusion. startScheduler() boots from the
+// health endpoint on EVERY instance, so a second instance would duplicate
+// Sheets syncs, scenario runs, and session-close messages. A lock row with a
+// TTL is a lease, not a mutex held forever: a crashed tick self-heals when
+// its TTL expires. See src/lib/system-lock.ts.
+model SystemLock {
+  key         String   @id
+  token       String
+  lockedUntil DateTime
+  updatedAt   DateTime @updatedAt
+}
+
 // ─────────────────────────── Scenarios ───────────────────────────
 // Scenario automation: a visual drag-and-drop flow the owner/staff builds.
 // Fire-and-forget outbound sequences (surveys, after-sales) — the scenario
