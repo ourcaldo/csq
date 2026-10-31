@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import type { ToolDefinition, ToolResult } from "@/types/tools";
+import { resolveScopedPhone } from "@/tools/scope";
 
 // customer.* tools. customer.read and customer.update are both allowed by
 // default without approval: capturing identity the customer volunteered
@@ -8,7 +9,7 @@ import type { ToolDefinition, ToolResult } from "@/types/tools";
 // write. Lookup is always tenant + phone. In the agent path the phone comes
 // from ctx.customerPhone (the current conversation), never from the model — so
 // the agent never needs to ask for the customer's number and a prompt cannot
-// redirect a write to another tenant's contact.
+// redirect a read or a write to another customer's record (D2 / PRD 18.1).
 
 type SerializedContact = {
   id: string;
@@ -31,8 +32,9 @@ function serializeContact(c: {
 const customerReadSchema = z.object({
   // phone is optional in the schema so zodToJsonSchema does not force the model
   // to supply it; the handler falls back to ctx.customerPhone (the current
-  // conversation's customer). An explicit phone is still accepted for the
-  // HTTP Tool Gateway path where there is no conversation context.
+  // conversation's customer). An explicit phone is accepted only on the
+  // session-authenticated HTTP gateway path; in the agent path a phone that
+  // differs from the conversation's customer is denied (D2).
   phone: z.string().min(1).optional(),
 });
 type CustomerReadParams = z.infer<typeof customerReadSchema>;
@@ -46,12 +48,20 @@ const customerRead: ToolDefinition<CustomerReadParams> = {
   defaultPermission: { allowed: true, requiresApproval: false },
   async handler(ctx): Promise<ToolResult> {
     const p = ctx.params;
-    const phone = p.phone ?? ctx.customerPhone;
+    const phone = resolveScopedPhone(ctx, p.phone);
     if (!phone) {
+      // D2: the model asked for a phone other than the conversation's
+      // customer. Audited so a probing attempt is visible to the owner.
+      await ctx.audit({
+        action: "customer.read",
+        entityType: "customer",
+        entityId: "",
+        afterValue: { scopeDenied: true, requestedPhone: p.phone ?? null },
+      });
       return {
         success: false,
-        error: "No phone number available in this context",
-        errorCode: "VALIDATION_ERROR",
+        error: "Hanya bisa membaca data pelanggan percakapan ini.",
+        errorCode: "PERMISSION_DENIED",
       };
     }
     const contact = await ctx.prisma.contact.findFirst({
@@ -94,12 +104,20 @@ const customerUpdate: ToolDefinition<CustomerUpdateParams> = {
   defaultPermission: { allowed: true, requiresApproval: false },
   async handler(ctx): Promise<ToolResult> {
     const p = ctx.params;
-    const phone = p.phone ?? ctx.customerPhone;
+    const phone = resolveScopedPhone(ctx, p.phone);
     if (!phone) {
+      // D2: a model-supplied phone must never redirect a write to another
+      // customer's record. Audited so the attempt is visible to the owner.
+      await ctx.audit({
+        action: "customer.update",
+        entityType: "customer",
+        entityId: "",
+        afterValue: { scopeDenied: true, requestedPhone: p.phone ?? null },
+      });
       return {
         success: false,
-        error: "No phone number available in this context",
-        errorCode: "VALIDATION_ERROR",
+        error: "Hanya bisa mengubah data pelanggan percakapan ini.",
+        errorCode: "PERMISSION_DENIED",
       };
     }
     const before = await ctx.prisma.contact.findFirst({

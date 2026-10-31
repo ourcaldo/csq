@@ -7,6 +7,10 @@ import { events } from "@/lib/events";
 // (denied + approval by default): creates an Order + OrderItems and decrements
 // Inventory in one transaction, validating stock first. order.cancel is a write
 // with approval required; cancelling restores the decremented stock.
+//
+// D2 / PRD 18.1: in the agent path every lookup is hard-scoped to the
+// conversation's customer - by UUID, by order number, by phone, and by email
+// resolution. The model cannot read or mutate another customer's order.
 
 type SerializedOrderItem = {
   productId: string;
@@ -75,7 +79,15 @@ const orderRead: ToolDefinition<OrderReadParams> = {
   async handler(ctx): Promise<ToolResult> {
     const p = ctx.params;
     const order = await ctx.prisma.order.findFirst({
-      where: { tenantId: ctx.tenantId, id: p.orderId },
+      where: {
+        tenantId: ctx.tenantId,
+        id: p.orderId,
+        // D2: agent path — only the conversation's customer's order is
+        // readable. A foreign UUID returns NOT_FOUND, never data.
+        ...(ctx.conversationId && ctx.customerPhone
+          ? { customerPhone: ctx.customerPhone }
+          : {}),
+      },
       include: { items: { include: { product: true } } },
     });
     if (!order) {
@@ -118,6 +130,30 @@ const orderList: ToolDefinition<OrderListParams> = {
   async handler(ctx): Promise<ToolResult> {
     const p = ctx.params;
 
+    // D2 / PRD 18.1: in the agent path the customer IS the conversation. A
+    // model-supplied phone that differs is denied outright, and every filter
+    // (order number, phone, email) is AND-ed with the conversation's phone, so
+    // another customer's order number or email yields an empty result instead
+    // of their data. The session-authenticated HTTP gateway path keeps an
+    // explicit phone.
+    const agentPath = !!ctx.conversationId;
+    if (agentPath && p.phone && p.phone !== ctx.customerPhone) {
+      await ctx.audit({
+        action: "order.list",
+        entityType: "order",
+        entityId: "search",
+        afterValue: { scopeDenied: true, requestedPhone: p.phone },
+      });
+      return {
+        success: false,
+        error: "Hanya bisa melihat pesanan pelanggan percakapan ini.",
+        errorCode: "PERMISSION_DENIED",
+      };
+    }
+    const scopedPhone = agentPath
+      ? ctx.customerPhone
+      : p.phone ?? ctx.customerPhone ?? undefined;
+
     // Order number → case-insensitive uuid prefix match. Normalize a leading "#".
     const numberPrefix = p.orderNumber
       ? p.orderNumber.replace(/^#/, "").toLowerCase()
@@ -138,6 +174,8 @@ const orderList: ToolDefinition<OrderListParams> = {
       tenantId: ctx.tenantId,
       ...(numberPrefix ? { id: { startsWith: numberPrefix } } : {}),
       ...(p.status ? { status: p.status } : {}),
+      // Scoped customer (always set in the agent path).
+      ...(scopedPhone ? { customerPhone: scopedPhone } : {}),
       ...(p.phone || emailPhones
         ? {
             OR: [
@@ -147,11 +185,7 @@ const orderList: ToolDefinition<OrderListParams> = {
                 : []),
             ],
           }
-        : // No explicit phone/email filter: default to the current conversation's
-          // customer so a bare `order.list` is always scoped, never a full dump.
-          ctx.customerPhone
-          ? { customerPhone: ctx.customerPhone }
-          : {}),
+        : {}),
     };
 
     const page = p.page ?? 1;
