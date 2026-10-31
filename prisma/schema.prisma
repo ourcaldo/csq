@@ -601,6 +601,12 @@ model Message {
   isInternal     Boolean           @default(false)
   createdAt      DateTime          @default(now())
 
+  // D3: a PARTIAL unique index exists in Postgres on (tenantId, waMessageId)
+  // WHERE waMessageId IS NOT NULL (migration 20261101000100). Prisma cannot
+  // express partial unique indexes, so it is not declared here; the P2002
+  // catch in src/lib/inbox.ts recordInboundMessage is what makes redeliveries
+  // idempotent. Do not add a plain @@unique([tenantId, waMessageId]) here.
+
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   senderAgent  Agent?       @relation("MessageSenderAgent", fields: [senderAgentId], references: [id], onDelete: SetNull)

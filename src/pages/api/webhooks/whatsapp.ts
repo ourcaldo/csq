@@ -179,29 +179,40 @@ export default async function handler(
       return;
     }
 
+    // ACK FIRST, then ingest (D3). Meta requires the 200 within ~5s; ingest is
+    // up to three DB writes per message and belongs after the ACK. Trade-off
+    // (the standard Meta pattern): a crash between ACK and ingest loses that
+    // one message - preferred over reprocessing duplicates, which the
+    // (tenantId, waMessageId) unique index makes harmless anyway.
+    res.status(200).send("EVENT_RECEIVED");
+
     // Ingest each message via the shared path. Tenant comes from the channel,
     // never from message content. Then fire-and-forget the agent auto-reply
-    // loop â€” NOT awaited, so the ACK below returns immediately. The loop
-    // resolves the agent (conversation assignment or channel default), runs
-    // the agent loop, sends the reply via the provider, and records it. A human-owned
-    // conversation makes the loop stand down (FR-AS-003).
+    // loop. A human-owned conversation makes the loop stand down (FR-AS-003).
+    // A redelivery is skipped: no second agent turn, no second reply.
     for (const m of inboundMessages) {
-      const recorded = await ingestInboundMessage({
-        channelId: channel.id,
-        tenantId: channel.tenantId,
-        from: m.from,
-        body: m.body,
-        waMessageId: m.waMessageId,
-        receivedAt: m.timestamp,
-        customerName: m.customerName,
-      });
-      void processInboundWithAgent({
-        channel,
-        conversationId: recorded.conversationId,
+      void (async () => {
+        const recorded = await ingestInboundMessage({
+          channelId: channel.id,
+          tenantId: channel.tenantId,
+          from: m.from,
+          body: m.body,
+          waMessageId: m.waMessageId,
+          receivedAt: m.timestamp,
+          customerName: m.customerName,
+        });
+        if (recorded.duplicate) return;
+        void processInboundWithAgent({
+          channel,
+          conversationId: recorded.conversationId,
+        });
+      })().catch((err: unknown) => {
+        console.error(
+          `[whatsapp-webhook] ingest failed for ${m.waMessageId}:`,
+          err
+        );
       });
     }
-
-    res.status(200).send("EVENT_RECEIVED");
     return;
   }
 

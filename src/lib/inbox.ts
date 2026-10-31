@@ -83,13 +83,26 @@ export async function findOrCreateConversation(
 // (first inbound from this customer) it emits `conversation.new` so any active
 // ON_NEW_CONVERSATION scenarios can start a run — fire-and-forget, never
 // blocks the ingest/ACK path.
-export async function ingestInboundMessage(msg: InboundMessage): Promise<Message> {
+//
+// D3: idempotent. Message carries a partial unique index on
+// (tenantId, waMessageId), so a Meta redelivery cannot store a second row;
+// the caller is told it was a duplicate and must skip the agent turn.
+export type IngestedInbound = {
+  message: Message;
+  conversationId: string;
+  // True when this waMessageId was already stored (provider redelivery).
+  duplicate: boolean;
+};
+
+export async function ingestInboundMessage(
+  msg: InboundMessage
+): Promise<IngestedInbound> {
   const { conversation, created } = await findOrCreateConversation(
     msg.tenantId,
     msg.channelId,
     msg.from
   );
-  const message = await recordInboundMessage({
+  const { message, duplicate } = await recordInboundMessage({
     tenantId: msg.tenantId,
     conversationId: conversation.id,
     from: msg.from,
@@ -99,7 +112,9 @@ export async function ingestInboundMessage(msg: InboundMessage): Promise<Message
     customerName: msg.customerName,
   });
 
-  if (created) {
+  // The trigger fires only for a genuinely new message on a genuinely new
+  // conversation — a redelivery must never start a second scenario run.
+  if (created && !duplicate) {
     events.emit("conversation.new", {
       tenantId: msg.tenantId,
       conversationId: conversation.id,
@@ -109,12 +124,14 @@ export async function ingestInboundMessage(msg: InboundMessage): Promise<Message
     });
   }
 
-  return message;
+  return { message, conversationId: conversation.id, duplicate };
 }
 
 // Persist an inbound customer message. direction=INBOUND, senderType=CUSTOMER.
 // `receivedAt` is the WhatsApp timestamp (not server now()) so the inbox shows
-// the real message time.
+// the real message time. D3: returns { duplicate: true } with the already
+// stored row when the (tenantId, waMessageId) unique index rejects a
+// redelivery instead of throwing.
 export async function recordInboundMessage(input: {
   tenantId: string;
   conversationId: string;
@@ -123,28 +140,42 @@ export async function recordInboundMessage(input: {
   waMessageId: string;
   receivedAt: Date;
   customerName?: string;
-}): Promise<Message> {
-  const message = await prisma.message.create({
-    data: {
-      tenantId: input.tenantId,
-      conversationId: input.conversationId,
-      direction: "INBOUND",
-      senderType: "CUSTOMER",
-      body: input.body,
-      waMessageId: input.waMessageId,
-      createdAt: input.receivedAt,
-    },
-  });
-
-  // If the contact has no name yet, fill it from the inbound payload.
-  if (input.customerName) {
-    await prisma.contact.updateMany({
-      where: { tenantId: input.tenantId, phone: input.from, name: null },
-      data: { name: input.customerName },
+}): Promise<{ message: Message; duplicate: boolean }> {
+  try {
+    const message = await prisma.message.create({
+      data: {
+        tenantId: input.tenantId,
+        conversationId: input.conversationId,
+        direction: "INBOUND",
+        senderType: "CUSTOMER",
+        body: input.body,
+        waMessageId: input.waMessageId,
+        createdAt: input.receivedAt,
+      },
     });
-  }
 
-  return message;
+    // If the contact has no name yet, fill it from the inbound payload.
+    if (input.customerName) {
+      await prisma.contact.updateMany({
+        where: { tenantId: input.tenantId, phone: input.from, name: null },
+        data: { name: input.customerName },
+      });
+    }
+
+    return { message, duplicate: false };
+  } catch (err) {
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === "P2002"
+    ) {
+      const existing = await prisma.message.findFirst({
+        where: { tenantId: input.tenantId, waMessageId: input.waMessageId },
+        orderBy: { createdAt: "asc" },
+      });
+      if (existing) return { message: existing, duplicate: true };
+    }
+    throw err;
+  }
 }
 
 // Persist an outbound message sent by a human (dashboard reply). Caller is

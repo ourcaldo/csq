@@ -228,6 +228,8 @@ export async function connectBaileysChannel(
             receivedAt: new Date(),
             customerName: m.pushName || undefined,
           });
+          // Redelivery of a waMessageId we already stored: no second turn.
+          if (recorded.duplicate) return;
           // Reload the channel so the agent loop sees fresh status/agentId.
           const fresh = await prisma.channel.findUnique({ where: { id: channel.id } });
           if (fresh) {
@@ -236,7 +238,12 @@ export async function connectBaileysChannel(
               conversationId: recorded.conversationId,
             });
           }
-        })();
+        })().catch((err: unknown) => {
+          console.error(
+            `[baileys:${channel.id}] ingest failed for ${m.key.id ?? ""}:`,
+            err
+          );
+        });
       }
     });
   }
