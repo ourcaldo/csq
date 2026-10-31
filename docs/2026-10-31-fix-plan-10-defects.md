@@ -28,7 +28,7 @@ before any change: `pre-fix-backup-2026-11-01` (`br-muddy-feather-b3vsoacz`).
 | D8 HNSW index | **FIXED** | Index applied to Neon and verified usable by the planner (`Index Scan using ..._hnsw_idx`); on today's 4-row table a seq scan is cheaper, which is correct. ef_search tuning note added to vector.ts. |
 | D9 RLS coverage | **FIXED** | Idempotent coverage migration applied: 29/29 tenant-scoped tables now carry the policy (was 19). Still inert by design; activation path unchanged. |
 | D10a order paging | **FIXED** | `skip: (page-1)*take` replaces the growing `take`; page 2 returns different rows. |
-| D10b pipeline unique | Pending | |
+| D10b pipeline unique | **FIXED** | Unique index on `Pipeline.tenantId` applied (duplicate insert verified blocked on Neon); `getOrCreatePipeline` is now a real upsert. |
 | D10c credentials table | Pending | |
 | D10d cron lock | Pending | |
 | D10e event bus | Pending | |
@@ -600,7 +600,7 @@ Per phase:
 - [x] Phase 3: D7 stream cursor
 - [x] Phase 4: D8 HNSW index
 - [x] Phase 4: D9 RLS coverage
-- [ ] Phase 4: D10b pipeline unique
+- [x] Phase 4: D10b pipeline unique
 - [ ] Phase 5: D10c credentials table
 - [ ] Phase 5: D10d cron lock
 - [ ] Phase 5: D10e event bus

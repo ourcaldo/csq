@@ -41,28 +41,22 @@ const DEFAULT_STAGES: DefaultStage[] = [
 ];
 
 // Lazy-seed the tenant's pipeline from the default template if it doesn't exist.
-// App-level check-then-create (one pipeline per tenant); a DB partial unique on
-// (tenantId) would harden this further if concurrency ever warrants it.
+// D10b: a database unique on Pipeline.tenantId makes this a real upsert — two
+// concurrent callers can no longer both pass the "not exists" check and seed
+// two pipelines; the loser's create turns into a no-op update.
 export async function getOrCreatePipeline(
   tenantId: string
 ): Promise<PipelineWithStages> {
-  const existing = await prisma.pipeline.findFirst({
+  return prisma.pipeline.upsert({
     where: { tenantId },
-    include: { stages: { orderBy: { order: "asc" } } },
-  });
-  if (existing) return existing;
-
-  await prisma.pipeline.create({
-    data: {
+    create: {
       tenantId,
       name: DEFAULT_PIPELINE_NAME,
       stages: {
         create: DEFAULT_STAGES.map((s) => ({ tenantId, ...s })),
       },
     },
-  });
-  return prisma.pipeline.findFirstOrThrow({
-    where: { tenantId },
+    update: {},
     include: { stages: { orderBy: { order: "asc" } } },
   });
 }

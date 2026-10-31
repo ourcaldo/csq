@@ -665,7 +665,11 @@ model Pipeline {
   tenant Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   stages Stage[]
 
-  @@index([tenantId])
+  // D10b: exactly one pipeline per tenant, enforced by the database. The old
+  // plain index was replaced by this unique constraint (migration
+  // 20261101000500_pipeline_unique); getOrCreatePipeline relies on it for its
+  // race-free upsert.
+  @@unique([tenantId])
 }
 
 // A stage in a tenant's pipeline. `order` is the kanban column order. `kind`
