@@ -1,8 +1,8 @@
 import { z } from "zod";
 
 // Google Sheets OAuth + connection types (PRD §8.3). OAuth credentials live
-// at the tenant level in Tenant.settings.googleSheets (see lib/google-connect),
-// NOT in each DataSource — one Google connection powers many spreadsheets.
+// at the tenant level in the TenantCredential table (D10c; see
+// lib/google-connect) — one Google connection powers many spreadsheets.
 // DataSource.config holds only the per-spreadsheet selection + column mapping.
 
 export type OAuthCredentials = {

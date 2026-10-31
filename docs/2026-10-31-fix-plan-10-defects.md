@@ -29,7 +29,7 @@ before any change: `pre-fix-backup-2026-11-01` (`br-muddy-feather-b3vsoacz`).
 | D9 RLS coverage | **FIXED** | Idempotent coverage migration applied: 29/29 tenant-scoped tables now carry the policy (was 19). Still inert by design; activation path unchanged. |
 | D10a order paging | **FIXED** | `skip: (page-1)*take` replaces the growing `take`; page 2 returns different rows. |
 | D10b pipeline unique | **FIXED** | Unique index on `Pipeline.tenantId` applied (duplicate insert verified blocked on Neon); `getOrCreatePipeline` is now a real upsert. |
-| D10c credentials table | Pending | |
+| D10c credentials table | **FIXED** | `TenantCredential` table created on Neon; live Google tokens copied out of `settings.googleSheets` and verified; `google-connect.ts` reads/writes the table only. The legacy settings key stays until the new read path is verified live (removal = documented follow-up migration). |
 | D10d cron lock | Pending | |
 | D10e event bus | Pending | |
 | D10f encoding guard | Pending | |
@@ -601,7 +601,7 @@ Per phase:
 - [x] Phase 4: D8 HNSW index
 - [x] Phase 4: D9 RLS coverage
 - [x] Phase 4: D10b pipeline unique
-- [ ] Phase 5: D10c credentials table
+- [x] Phase 5: D10c credentials table
 - [ ] Phase 5: D10d cron lock
 - [ ] Phase 5: D10e event bus
 - [ ] Phase 5: D10f encoding guard

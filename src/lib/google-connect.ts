@@ -1,101 +1,69 @@
-import { z } from "zod";
-import { Prisma } from "@prisma/client";
 import prisma from "@/lib/db";
 import type { OAuthCredentials } from "@/types/sheets";
 
 // Tenant-level Google OAuth token store (PRD §8.3). One Google connection
-// per tenant, stored in `Tenant.settings.googleSheets` (Json) — NOT per
-// DataSource. This is what lets the owner add a second spreadsheet without
-// re-logging-in: the connection is shared across every GOOGLE_SHEETS source,
-// and the Connect/Disconnect button has a single source of truth.
+// per tenant — NOT per DataSource. This is what lets the owner add a second
+// spreadsheet without re-logging-in: the connection is shared across every
+// GOOGLE_SHEETS source, and the Connect/Disconnect button has a single
+// source of truth.
 //
-// Server-only. Tokens are server secrets; never sent to the client (the public
-// endpoint exposes only `connected` + `email`). Settings is read-merge-written
-// so other settings keys are preserved, and parsed with Zod at every read —
-// the Json column is an external boundary (no `as`).
+// D10c: credentials live in the dedicated TenantCredential table, NOT in
+// Tenant.settings. Settings is a config blob several routes read-merge-write,
+// so keeping tokens there made any future `select settings` a credential
+// leak. The legacy `settings.googleSheets` key is left in place for now and
+// removed in a later release once this read path is verified live.
+//
+// Server-only. Tokens are server secrets; never sent to the client (the
+// public status exposes only `connected` + `email`).
 
-// Shape stored under Tenant.settings.googleSheets.
-export const googleCredsSchema = z.object({
-  accessToken: z.string(),
-  refreshToken: z.string().optional(),
-  expiryDate: z.number().optional(),
-  email: z.string().optional(),
-});
-export type StoredGoogleCreds = z.infer<typeof googleCredsSchema>;
-
-// Tenant.settings is a Json column — parse it into a plain record so we can
-// merge without `as`. Falls back to {} when null/missing/non-object.
-const settingsRecordSchema = z.record(z.unknown());
-type TenantSettings = Record<string, unknown>;
-
-function asSettings(raw: unknown): TenantSettings {
-  const parsed = settingsRecordSchema.safeParse(raw);
-  return parsed.success ? parsed.data : {};
-}
-
-// Coerce a settings record to a Prisma InputJsonValue for the write. Same
-// pattern as toJson in src/tools/execute.ts — round-tripping through JSON
-// yields a JSON-serializable value assignable to InputJsonValue without a
-// type assertion.
-function toJson(v: unknown): Prisma.InputJsonValue {
-  return JSON.parse(JSON.stringify(v));
-}
+const GOOGLE_PROVIDER = "google";
 
 // Read the Google connection for a tenant. Returns the OAuth credentials (for
 // server-side googleapis calls) or null when not connected.
 export async function getGoogleCreds(
   tenantId: string
 ): Promise<OAuthCredentials | null> {
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: tenantId },
-    select: { settings: true },
+  const row = await prisma.tenantCredential.findFirst({
+    where: { tenantId, provider: GOOGLE_PROVIDER },
   });
-  if (!tenant) return null;
-  const parsed = googleCredsSchema.safeParse(asSettings(tenant.settings).googleSheets);
-  if (!parsed.success) return null;
-  const c = parsed.data;
+  if (!row) return null;
   return {
-    accessToken: c.accessToken,
-    refreshToken: c.refreshToken,
-    expiryDate: c.expiryDate,
+    accessToken: row.accessToken,
+    refreshToken: row.refreshToken ?? undefined,
+    expiryDate: row.expiryDate?.getTime(),
   };
 }
 
-// Persist the Google connection on the tenant. Merges into existing settings
-// without dropping other keys.
+// Persist the Google connection on the tenant. Upsert keyed on
+// (tenantId, provider) — reconnecting replaces the previous tokens.
 export async function setGoogleCreds(
   tenantId: string,
   creds: OAuthCredentials,
   email?: string
 ): Promise<void> {
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: tenantId },
-    select: { settings: true },
-  });
-  const settings = asSettings(tenant?.settings);
-  settings.googleSheets = {
-    accessToken: creds.accessToken,
-    refreshToken: creds.refreshToken,
-    expiryDate: creds.expiryDate,
-    email,
-  };
-  await prisma.tenant.update({
-    where: { id: tenantId },
-    data: { settings: toJson(settings) },
+  await prisma.tenantCredential.upsert({
+    where: { tenantId_provider: { tenantId, provider: GOOGLE_PROVIDER } },
+    create: {
+      tenantId,
+      provider: GOOGLE_PROVIDER,
+      accessToken: creds.accessToken,
+      refreshToken: creds.refreshToken ?? null,
+      expiryDate: creds.expiryDate ? new Date(creds.expiryDate) : null,
+      email: email ?? null,
+    },
+    update: {
+      accessToken: creds.accessToken,
+      refreshToken: creds.refreshToken ?? null,
+      expiryDate: creds.expiryDate ? new Date(creds.expiryDate) : null,
+      email: email ?? null,
+    },
   });
 }
 
-// Remove the Google connection (Disconnect). Other settings keys are preserved.
+// Remove the Google connection (Disconnect).
 export async function clearGoogleCreds(tenantId: string): Promise<void> {
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: tenantId },
-    select: { settings: true },
-  });
-  const settings = asSettings(tenant?.settings);
-  delete settings.googleSheets;
-  await prisma.tenant.update({
-    where: { id: tenantId },
-    data: { settings: toJson(settings) },
+  await prisma.tenantCredential.deleteMany({
+    where: { tenantId, provider: GOOGLE_PROVIDER },
   });
 }
 
@@ -104,12 +72,10 @@ export async function clearGoogleCreds(tenantId: string): Promise<void> {
 export async function isGoogleConnected(
   tenantId: string
 ): Promise<{ connected: boolean; email?: string }> {
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: tenantId },
-    select: { settings: true },
+  const row = await prisma.tenantCredential.findFirst({
+    where: { tenantId, provider: GOOGLE_PROVIDER },
+    select: { email: true },
   });
-  if (!tenant) return { connected: false };
-  const parsed = googleCredsSchema.safeParse(asSettings(tenant.settings).googleSheets);
-  if (!parsed.success) return { connected: false };
-  return { connected: true, email: parsed.data.email };
+  if (!row) return { connected: false };
+  return { connected: true, email: row.email ?? undefined };
 }
