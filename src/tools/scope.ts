@@ -17,8 +17,11 @@ import type { ToolContext } from "@/types/tools";
 // PERMISSION_DENIED ToolResult. Scope is enforced here in code - never by
 // prompt text.
 
+// Declares exactly what the guard reads: the routing context the caller
+// resolved (never the model). `Pick` keeps the self-check DB-free and makes
+// the function's inputs explicit.
 export function resolveScopedPhone(
-  ctx: ToolContext,
+  ctx: Pick<ToolContext, "conversationId" | "customerPhone">,
   requested?: string
 ): string | null {
   if (!ctx.conversationId) {

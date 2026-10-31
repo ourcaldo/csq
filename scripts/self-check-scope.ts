@@ -5,11 +5,13 @@
 import { resolveScopedPhone } from "../src/tools/scope";
 import type { ToolContext } from "../src/types/tools";
 
+type MinimalContext = Pick<ToolContext, "conversationId" | "customerPhone">;
+
 function ctx(
   conversationId: string | undefined,
   customerPhone: string | undefined
-): ToolContext {
-  return { tenantId: "t", agentId: "a", params: {}, prisma: null, audit: null, conversationId, customerPhone };
+): MinimalContext {
+  return { conversationId, customerPhone };
 }
 
 const checks: Array<[string, boolean]> = [
