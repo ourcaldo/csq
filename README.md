@@ -37,6 +37,21 @@ Edit `.env.production` and fill in:
 - **`WHATSAPP_APP_SECRET`** — the App Secret from your Meta app (used for webhook HMAC validation).
 - **`GOOGLE_CLIENT_ID`** / **`GOOGLE_CLIENT_SECRET`** / **`GOOGLE_REDIRECT_URI`** — for Google Sheets OAuth (optional, only if stores import from Sheets).
 
+#### Database: self-hosted or managed — choose one
+
+- **Mode A — self-hosted (default).** Keep `POSTGRES_*` and the compose
+  `postgres` service; `DATABASE_URL` points at `postgres:5432` on the compose
+  network. Nothing else to do.
+- **Mode B — managed Postgres (Neon, or any provider with pgvector).** Set
+  `DATABASE_URL` (pooled) and `DATABASE_URL_UNPOOLED` (direct — used by
+  `prisma migrate deploy`) to the managed endpoints. The compose `postgres`
+  service is unused in this mode and may be removed from the stack
+  (`docker compose up app nginx certbot`). Do not run the local `postgres`
+  service against the same database.
+
+Both modes require pgvector (`pgvector/pgvector:pg16` in Mode A; Neon has it
+built in). All other setup is identical.
+
 Other WhatsApp Cloud API credentials (`WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, etc.) are entered per-store through the dashboard UI and stored in the database — they are not read from env. See `.env.production.example` for details.
 
 ### 3. Issue the TLS certificate

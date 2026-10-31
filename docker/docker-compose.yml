@@ -55,6 +55,10 @@ services:
       retries: 3
       start_period: 30s
 
+  # Mode A database (self-hosted). Unused when DATABASE_URL points at a
+  # managed Postgres such as Neon (Mode B) - in that mode remove this service
+  # and keep app + nginx + certbot. Do NOT point this local service at the
+  # same database as DATABASE_URL; they are alternative modes, not layers.
   postgres:
     image: pgvector/pgvector:pg16
     mem_limit: 1024m

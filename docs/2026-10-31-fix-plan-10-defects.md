@@ -33,7 +33,7 @@ before any change: `pre-fix-backup-2026-11-01` (`br-muddy-feather-b3vsoacz`).
 | D10d cron lock | **FIXED** | `SystemLock` lease table applied to Neon, lease SQL verified live (busy/wrong-owner/no leftovers); both cron ticks run under it. Single-instance behavior unchanged. |
 | D10e event bus | **FIXED** | EventEmitter + 3 `as` casts replaced by typed channels; handler signatures derive from the Zod schemas. All 6 call sites updated. |
 | D10f encoding guard | **FIXED** | All 598 mojibake sequences decoded back to the original characters across 9 files (em dashes, box rules, arrows, §, … — including the 3 model/owner-visible strings). `npm run check:encoding` guards 221 files; passes. |
-| D10g deploy docs | Pending | |
+| D10g deploy docs | **FIXED** | README + compose + env example now document the two database modes (self-hosted compose Postgres vs managed Neon); the compose service is kept, not deleted. |
 
 ---
 
@@ -605,4 +605,4 @@ Per phase:
 - [x] Phase 5: D10d cron lock
 - [x] Phase 5: D10e event bus
 - [x] Phase 5: D10f encoding guard
-- [ ] Phase 5: D10g deployment docs
+- [x] Phase 5: D10g deployment docs
