@@ -84,7 +84,7 @@ export const TriggerNode = memo(function TriggerNode({ data, selected }: NodePro
               ? `Tanpa balasan ${
                   typeof data?.noReplyAfterMinutes === "number" ? `${data.noReplyAfterMinutes}m` : "?"
                 }`
-              : "—";
+              : "-";
   return (
     <NodeShell type="trigger" selected={selected}>
       <Handle type="target" position={Position.Left} isConnectable={false} />

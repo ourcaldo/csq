@@ -26,7 +26,7 @@ import type {
 
 // Baileys bring-your-own-number provider (QR / pair-code login, full parity,
 // no template/24h-window restriction). ToS/ban risk: the owner MUST acknowledge
-// this at onboarding (FR-WA-011) — the channels API enforces tosAcknowledged
+// this at onboarding (FR-WA-011) - the channels API enforces tosAcknowledged
 // before a Baileys channel can be enabled.
 //
 // Socket-driven: inbound arrives via `messages.upsert` events, not HTTP, so
@@ -35,7 +35,7 @@ import type {
 // src/lib/baileys-auth-db.ts) so the session survives restarts without a
 // persistent disk and without re-scanning the QR.
 //
-// Server-only. Module-level singleton socket map — works under the Docker
+// Server-only. Module-level singleton socket map - works under the Docker
 // standalone Node deploy target (long-lived process).
 
 const logger = pino({ level: "silent" });
@@ -43,7 +43,7 @@ const logger = pino({ level: "silent" });
 type SocketEntry = { sock: WASocket; qr: string | null; open: boolean };
 const sockets = new Map<string, SocketEntry>();
 // Channels the owner intentionally disconnected (Putuskan). The close
-// handler checks this so it doesn't auto-reconnect on the end() —
+// handler checks this so it doesn't auto-reconnect on the end() -
 // without this, disconnect bounces back to CONNECTED because the saved
 // creds let the socket reopen.
 const disconnecting = new Set<string>();
@@ -76,16 +76,16 @@ function disconnectCode(err: unknown): number | undefined {
 // z.object().safeParse() on the raw protobufjs message object fails because
 // the nested messageContextInfo carries Buffer values (messageSecret,
 // recipientKeyHash) and the proto instance isn't a plain object Zod can
-// parse — so the text in `conversation`/`extendedTextMessage.text` was
+// parse - so the text in `conversation`/`extendedTextMessage.text` was
 // silently dropped and every inbound was skipped as "empty body". Baileys'
 // utilities handle the proto object and ephemeral/view-once wrapping
-// correctly. No `as` casts — normalizeMessageContent returns any.
+// correctly. No `as` casts - normalizeMessageContent returns any.
 function extractContent(
   message: proto.IMessage | null | undefined
 ): { body: string; kind: InboundKind } {
   const content = normalizeMessageContent(message);
   if (!content) return { body: "", kind: "other" };
-  // Typed property access on proto.IMessage — no string indexing, no `as`.
+  // Typed property access on proto.IMessage - no string indexing, no `as`.
   // normalizeMessageContent already unwrapped ephemeral/view-once.
   if (typeof content.conversation === "string") {
     return { body: content.conversation, kind: "text" };
@@ -126,7 +126,7 @@ export async function connectBaileysChannel(
   let entry: SocketEntry;
   if (existing) {
     // A socket already exists for this channel (e.g. login pending). Reuse it
-    // instead of creating a duplicate — the QR arrives async via
+    // instead of creating a duplicate - the QR arrives async via
     // connection.update and we wait for it below.
     entry = existing;
   } else {
@@ -137,7 +137,7 @@ export async function connectBaileysChannel(
       printQRInTerminal: false,
       connectTimeoutMs: 20_000,
       // Keep the WebSocket alive so host proxies (Render's load balancer)
-      // don't terminate it as idle — this is what keeps the agent on 24/7
+      // don't terminate it as idle - this is what keeps the agent on 24/7
       // instead of dropping after a few minutes.
       keepAliveIntervalMs: 10_000,
       retryRequestDelayMs: 2_000,
@@ -161,7 +161,7 @@ export async function connectBaileysChannel(
       if (update.connection === "open") {
         entry.open = true;
         entry.qr = null;
-        console.log(`[baileys:${channel.id}] OPEN — marking channel CONNECTED`);
+        console.log(`[baileys:${channel.id}] OPEN - marking channel CONNECTED`);
         void prisma.channel
           .update({ where: { id: channel.id }, data: { status: "CONNECTED" } })
           .catch((err) =>
@@ -205,7 +205,7 @@ export async function connectBaileysChannel(
           console.log(`[baileys:${channel.id}] skip own message`);
           continue;
         }
-        // Skip group/broadcast/newsletter messages — the CS agent handles
+        // Skip group/broadcast/newsletter messages - the CS agent handles
         // 1:1 customer chats only, not groups the number joined.
         const jid = m.key.remoteJid ?? "";
         if (
@@ -226,7 +226,7 @@ export async function connectBaileysChannel(
           continue;
         }
         // Store the FULL remoteJid (e.g. "194274775822580@lid" or
-        // "<phone>@s.whatsapp.net") — NOT the bare fromJid — so replies
+        // "<phone>@s.whatsapp.net") - NOT the bare fromJid - so replies
         // route to the correct JID. Newer WhatsApp uses LIDs for 1:1 chats;
         // appending @s.whatsapp.net to a LID (as toJid would) sends to a
         // non-existent user and the reply is silently lost.
@@ -290,7 +290,7 @@ export async function connectBaileysChannel(
 // without starting a new socket. Used by the GET /channels/[id]/qr route so
 // the Saluran page can display the *current* QR (Baileys rotates it) and detect
 // a completed scan. Returns { qr: null, open: false } when no socket is
-// running (e.g. after a process restart) — the caller should re-connect.
+// running (e.g. after a process restart) - the caller should re-connect.
 export function getBaileysState(
   channelId: string
 ): { qr: string | null; open: boolean } {
@@ -312,7 +312,7 @@ export async function startBaileysChannels(): Promise<void> {
 
 // Heartbeat: a host proxy (e.g. Render's load balancer) can terminate the
 // long-lived WebSocket to WhatsApp's servers minutes after it opens, and the
-// raw close sometimes doesn't surface as a connection.update event — so the
+// raw close sometimes doesn't surface as a connection.update event - so the
 // auto-reconnect in the close handler never fires and the socket stays dead
 // (inbound messages silently drop). Poll every 45s: for each CONNECTED
 // Baileys channel, reconnect if the socket entry is missing or stuck (not
@@ -337,7 +337,7 @@ export function startBaileysHeartbeat(): void {
 
 // Stop and forget a channel's socket (used by disconnect).
 // Disconnect (Putuskan): logs out the linked device on WhatsApp's side
-// (sock.logout() — the paired device is auto-removed from the owner's
+// (sock.logout() - the paired device is auto-removed from the owner's
 // phone), tears down the socket, and deletes the saved creds so reconnect
 // requires a fresh QR. This is a FULL disconnect, not just pausing the
 // socket.
@@ -348,7 +348,7 @@ export async function disconnectBaileysChannel(channelId: string): Promise<void>
     try {
       await entry.sock.logout();
     } catch {
-      // ignore — socket may already be closed
+      // ignore - socket may already be closed
     }
     sockets.delete(channelId);
   }

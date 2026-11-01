@@ -14,7 +14,7 @@ const VALID_PRIORITY: readonly string[] = ["MANUAL", "EXCEL", "GOOGLE_SHEETS"];
 
 // Permissive read shape for stored settings (any strings allowed, then filtered).
 // Resilient to legacy stored values outside the valid set (e.g. an old
-// "MEMORY" entry) — invalid entries are dropped instead of throwing.
+// "MEMORY" entry) - invalid entries are dropped instead of throwing.
 const storedSettingsSchema = z
   .object({ sourcePriority: z.array(z.string()).optional() })
   .passthrough();

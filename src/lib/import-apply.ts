@@ -58,7 +58,7 @@ export async function applyImport(
   // Atomic: every product upsert + snapshot + canonical recompute runs in one
   // $transaction so a crash mid-import rolls back the whole batch (preferable
   // to a partial import). Per-row validation already happened above, so any
-  // failure inside is fatal — we record it and zero the counters since nothing
+  // failure inside is fatal - we record it and zero the counters since nothing
   // was committed.
   try {
     await prisma.$transaction(async (tx) => {

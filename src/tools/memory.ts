@@ -3,7 +3,7 @@ import type { Prisma } from "@prisma/client";
 import type { ToolDefinition, ToolResult } from "@/types/tools";
 
 // memory.* tools (G4). The Memory model stores per-(tenant, agent) facts the
-// agent can recall across turns — the continuity layer beyond the chat history
+// agent can recall across turns - the continuity layer beyond the chat history
 // window (G10). memory.search is read-only and allowed by default;
 // memory.create is a write (denied + approval by default, consistent with
 // "write by permission") that upserts by (tenant, agent, key) so recalling a
@@ -96,7 +96,7 @@ const memoryCreate: ToolDefinition<MemoryCreateParams> = {
         tenantId_agentId_key: { tenantId: ctx.tenantId, agentId: ctx.agentId, key: p.key },
       },
     });
-    // Upsert by (tenant, agent, key) — recalling a key updates it instead of
+    // Upsert by (tenant, agent, key) - recalling a key updates it instead of
     // duplicating (relies on the Memory unique index from the gap batch).
     const memory = await ctx.prisma.memory.upsert({
       where: {

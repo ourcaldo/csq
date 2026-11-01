@@ -6,12 +6,12 @@ import { handleOAuthCallback } from "@/services/sheets";
 import { setGoogleCreds } from "@/lib/google-connect";
 
 // Step 2: Google redirects here with ?code=... Exchange it for tokens and
-// store them ON THE TENANT (Tenant.settings.googleSheets) — one Google
+// store them ON THE TENANT (Tenant.settings.googleSheets) - one Google
 // connection per tenant, shared across every spreadsheet. We also create a
 // placeholder GOOGLE_SHEETS DataSource (spreadsheet picked next, via
 // /sheets/connect) so the UI has a sourceId to bind the spreadsheet selection
 // to. This route is hit in-browser after consent, so the NextAuth cookie is
-// present — we scope by session, not by the state param.
+// present - we scope by session, not by the state param.
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") {
     res.status(405).json({ success: false, error: { code: "VALIDATION_ERROR", message: "Metode tidak didukung." } });

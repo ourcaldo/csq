@@ -5,8 +5,8 @@ import { requireTenant, respondError } from "@/lib/queries";
 import { apiOk, type ApiResponse } from "@/types/api";
 import prisma from "@/lib/db";
 
-// PUT /api/dashboard/pipeline/stages/reorder — OWNER/STAFF. Body:
-// { order: string[] } — the stage ids in the desired order. Reassigns the
+// PUT /api/dashboard/pipeline/stages/reorder - OWNER/STAFF. Body:
+// { order: string[] } - the stage ids in the desired order. Reassigns the
 // `order` field of each stage to its index (1-based) in the array. All ids must
 // belong to the tenant's pipeline.
 const reorderSchema = z.object({

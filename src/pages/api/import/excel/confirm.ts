@@ -13,7 +13,7 @@ type ConfirmResponse = { imported: number; dataSourceId: string };
 // Only dataType "produk" gets structured product/inventory import via applyImport
 // (G8: writes per-source InventorySnapshot + recomputes canonical Inventory by
 // Tenant.settings.sourcePriority, atomically in one transaction). Any other type
-// (cabang, staff, etc.) is stored as raw rows in SourceRow for source.search —
+// (cabang, staff, etc.) is stored as raw rows in SourceRow for source.search -
 // no product upsert, no mapping required. Tenant from session only.
 export default async function handler(
   req: NextApiRequest,
@@ -71,7 +71,7 @@ export default async function handler(
   }
 
   // Persist the full parsed rows (all columns) so source.search can read
-  // inside the uploaded file — not just the five mapped product fields.
+  // inside the uploaded file - not just the five mapped product fields.
   await replaceSourceRows(tenantId, dataSource.id, rows);
 
   return res.status(201).json(apiOk({ imported, dataSourceId: dataSource.id }));

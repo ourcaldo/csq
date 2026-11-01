@@ -1,4 +1,4 @@
-// Settings page — source-priority reorder (OWNER-only edits) + read-only
+// Settings page - source-priority reorder (OWNER-only edits) + read-only
 // business-profile placeholder. Staff see the current priority order but the
 // reorder controls and Save button are hidden (the PUT route is OWNER-only
 // server-side anyway, so this is a UX guard, not the security boundary).
@@ -255,11 +255,11 @@ export default function SettingsPage() {
           )}
         </section>
 
-        {/* Email — per-tenant delivery config (OWNER-only; the route is
+        {/* Email - per-tenant delivery config (OWNER-only; the route is
             OWNER-only server-side too, so staff never even fetch it). */}
         {isOwner && <EmailSection />}
 
-        {/* Profil Usaha — placeholder, read-only */}
+        {/* Profil Usaha - placeholder, read-only */}
         <section className="rounded-lg border border-slate-200 bg-white p-4 md:p-6">
           <div className="flex items-start gap-3">
             <span className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
@@ -288,7 +288,7 @@ export default function SettingsPage() {
                 Kontak Pemilik
               </dt>
               <dd className="mt-1 text-sm text-slate-900">
-                {session?.user?.email ?? "—"}
+                {session?.user?.email ?? "-"}
               </dd>
             </div>
           </dl>

@@ -12,7 +12,7 @@ import type {
 
 // JSON-safe coercion for Prisma Json inputs. Round-tripping through JSON
 // guarantees the value is JSON-serializable (drops undefined, converts Decimal
-// if any slipped through) and yields a value assignable to InputJsonValue —
+// if any slipped through) and yields a value assignable to InputJsonValue -
 // without a type assertion.
 function toJson(v: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(v));
@@ -51,7 +51,7 @@ export async function executeTool(args: ExecuteArgs): Promise<ExecuteOutcome> {
 
   const perm = await checkPermission(args.tenantId, args.agentId, args.toolName);
   if (!perm.allowed) {
-    // Safety moment: an unauthorized write is blocked AND audited — never
+    // Safety moment: an unauthorized write is blocked AND audited - never
     // executed. [FR-AL-004, PRD §27]
     await logAction({
       tenantId: args.tenantId,
@@ -164,7 +164,7 @@ type ExecuteApprovedArgs = {
 // Owner approved a pending action: re-validate the stored params and run the
 // handler, stamping audit entries APPROVED. The approval is only marked
 // APPROVED if the handler succeeds; on failure it stays PENDING (retryable).
-// Permission is not re-checked — approval is the owner's explicit grant.
+// Permission is not re-checked - approval is the owner's explicit grant.
 export async function executeApprovedAction(
   args: ExecuteApprovedArgs
 ): Promise<ExecuteOutcome> {

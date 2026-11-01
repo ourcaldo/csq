@@ -3,7 +3,7 @@ import { z } from "zod";
 // Scenario graph types + Zod schemas. The source of truth for the visual
 // drag-and-drop builder, the API boundary, and the execution engine. Every
 // graph that enters the system (API POST/PUT, runtime load) is parsed with
-// these schemas — no `as` narrowing, no trusting raw JSON.
+// these schemas - no `as` narrowing, no trusting raw JSON.
 //
 // Node set (v2): trigger, send, wait, condition, tag, end, ai, setStage,
 // assign, email. Fire-and-forget: the scenario injects outbound messages at
@@ -132,9 +132,9 @@ export const assignNodeDataSchema = z.object({
 });
 
 // Send an email to the conversation's customer (Contact.email) through the
-// tenant's own delivery integration (Settings → Email: SMTP or Resend — see
+// tenant's own delivery integration (Settings → Email: SMTP or Resend - see
 // lib/email-config.ts / services/email.ts). Skipped + audited when the contact
-// has no email on file or the owner has not configured the integration — email
+// has no email on file or the owner has not configured the integration - email
 // is a secondary channel, never a run failure.
 export const emailNodeDataSchema = z.object({
   subject: z.string().min(1).max(200),
@@ -244,7 +244,7 @@ export type TriggerConfig = z.infer<typeof triggerConfigSchema>;
 
 // ─────────────────────────── Run context ───────────────────────────
 // The variable payload the trigger event injects; `{{variable}}` in Send node
-// bodies resolves against this. Values are primitives only — never objects —
+// bodies resolves against this. Values are primitives only - never objects -
 // so interpolation can't leak structured data or injection payloads.
 export const runContextSchema = z.record(
   z.string(),

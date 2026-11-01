@@ -14,7 +14,7 @@ const conversationSettingsRecord = z.record(z.unknown());
 // Shared outbound path for every agent-originated WhatsApp message: the normal
 // auto-reply (G7), the approval-result follow-up (G1), the error fallback
 // (G5), and the truncated "still processing" message (G6). It enforces the
-// Cloud API 24h customer-service window — within the window free-form text is
+// Cloud API 24h customer-service window - within the window free-form text is
 // allowed; outside the window an approved template is required, and if none is
 // configured the send is skipped + audited (this is the Meta-compliant behavior,
 // not a shortcut: free-form outside 24h is simply not allowed). Baileys has no
@@ -22,7 +22,7 @@ const conversationSettingsRecord = z.record(z.unknown());
 //
 // Records an OUTBOUND/AGENT Message row + an audit entry on every successful
 // (or intentionally-skipped) send. Never throws to the caller on send failure
-// — returns a result so the agent loop can decide whether to surface it.
+// - returns a result so the agent loop can decide whether to surface it.
 
 export type SendAgentMessageResult = {
   sent: boolean;
@@ -54,12 +54,12 @@ export async function sendAgentMessage(
   const tenantId = channel.tenantId;
   const provider = getProvider(channel);
 
-  // WhatsApp renders bold as *text* (single asterisks) — the LLM replies in
+  // WhatsApp renders bold as *text* (single asterisks) - the LLM replies in
   // markdown (**text**), which WhatsApp shows as literal asterisks. Convert
   // markdown formatting to WhatsApp's at the WhatsApp boundary only (the
   // dashboard keeps the original markdown, which it renders well). Italic
   // first (single *x* not part of **x**, and not a list bullet), then bold.
-  // Markdown links [label](url) don't render in WhatsApp either — flatten to
+  // Markdown links [label](url) don't render in WhatsApp either - flatten to
   // label + url.
   let body = input.body;
   if (channel.provider === "CLOUD_API" || channel.provider === "BAILEYS") {
@@ -72,7 +72,7 @@ export async function sendAgentMessage(
       .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, "$1 ($2)");
   }
 
-  // 24h customer-service window — Cloud API only (FR-MS-003). Baileys bypasses.
+  // 24h customer-service window - Cloud API only (FR-MS-003). Baileys bypasses.
   let useTemplate = false;
   let templateToSend: string | undefined;
   if (channel.provider === "CLOUD_API") {
@@ -156,7 +156,7 @@ export async function sendAgentMessage(
 
 // Resolve the channel for a conversation (used by G1's approval follow-up,
 // where we have a conversationId but not a channel in hand). Returns the
-// channel only if it is CONNECTED — a disconnected channel must not receive an
+// channel only if it is CONNECTED - a disconnected channel must not receive an
 // auto-follow-up (matches the agent loop's stand-down rule).
 export async function resolveConnectedChannel(
   conversationId: string
@@ -174,11 +174,11 @@ export async function resolveConnectedChannel(
 }
 
 // D6: a MEDIA inbound (image/video/document/audio/sticker with no caption)
-// must never reach the LLM — the agent would be answering "[image]". Instead
+// must never reach the LLM - the agent would be answering "[image]". Instead
 // the customer gets ONE short reply per debounce window, and the message is
 // stored for the human inbox. Debounce state lives on Conversation.settings
 // (same pattern as the scheduler's session-close tracking); the small
-// check-then-send race between two simultaneous photos is accepted — the worst
+// check-then-send race between two simultaneous photos is accepted - the worst
 // case is one extra courtesy message, never an LLM turn.
 const NON_TEXT_REPLY_DEBOUNCE_MS = 10 * 60 * 1000;
 const NON_TEXT_REPLY_BODY =
@@ -213,7 +213,7 @@ export async function replyToNonText(args: {
   });
 
   // sendAgentMessage enforces the 24h window; outside it this is skipped and
-  // audited (correct — a proactive media ack is not worth a Meta template).
+  // audited (correct - a proactive media ack is not worth a Meta template).
   await sendAgentMessage({
     channel,
     conversationId,
@@ -228,7 +228,7 @@ export async function replyToNonText(args: {
 // approval row carries the originating conversationId/customerPhone/agentId
 // (stored when the approval was queued in executeTool). Best-effort: if the
 // approval predates the routing columns, or the channel is no longer
-// connected, skip with a warning — never fail the owner's approve/reject
+// connected, skip with a warning - never fail the owner's approve/reject
 // action because the follow-up couldn't be delivered.
 export async function sendApprovalFollowUp(args: {
   approvalId: string;
@@ -240,7 +240,7 @@ export async function sendApprovalFollowUp(args: {
   if (!approval) return;
   if (!approval.conversationId || !approval.customerPhone) {
     console.warn(
-      `[approval-followup] approval ${approval.id} has no conversation routing — skipping customer reply`
+      `[approval-followup] approval ${approval.id} has no conversation routing - skipping customer reply`
     );
     return;
   }
@@ -248,7 +248,7 @@ export async function sendApprovalFollowUp(args: {
   const resolved = await resolveConnectedChannel(approval.conversationId);
   if (!resolved) {
     console.warn(
-      `[approval-followup] conversation ${approval.conversationId} channel not connected — skipping customer reply`
+      `[approval-followup] conversation ${approval.conversationId} channel not connected - skipping customer reply`
     );
     return;
   }

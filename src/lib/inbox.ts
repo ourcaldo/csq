@@ -8,7 +8,7 @@ import type { InboundMessage, InboundKind } from "@/types/whatsapp";
 import { events } from "@/lib/events";
 
 // Inbox domain logic shared by the dashboard routes and the webhook ingest
-// path (SDD §4.9). Tenant is always passed explicitly — never inferred from
+// path (SDD §4.9). Tenant is always passed explicitly - never inferred from
 // message content.
 
 // 24h customer-service window for Cloud API free-form replies (FR-MS-003).
@@ -60,7 +60,7 @@ export async function findOrCreateConversation(
     return { conversation, created: true };
   } catch (err) {
     // Raced with another first-message for the same customer+channel: the
-    // unique constraint fired. Treat as existing — update and report created=false.
+    // unique constraint fired. Treat as existing - update and report created=false.
     if (
       err instanceof Prisma.PrismaClientKnownRequestError &&
       err.code === "P2002"
@@ -79,9 +79,9 @@ export async function findOrCreateConversation(
 
 // Shared inbound ingest path (SDD §4.9 / phase 7.4). Both the Cloud API
 // webhook and the Baileys socket call this. channelId/tenantId come from the
-// resolved channel — never from message content. On a brand-new conversation
+// resolved channel - never from message content. On a brand-new conversation
 // (first inbound from this customer) it emits `conversation.new` so any active
-// ON_NEW_CONVERSATION scenarios can start a run — fire-and-forget, never
+// ON_NEW_CONVERSATION scenarios can start a run - fire-and-forget, never
 // blocks the ingest/ACK path.
 //
 // D3: idempotent. Message carries a partial unique index on
@@ -114,7 +114,7 @@ export async function ingestInboundMessage(
   });
 
   // The trigger fires only for a genuinely new message on a genuinely new
-  // conversation — a redelivery must never start a second scenario run.
+  // conversation - a redelivery must never start a second scenario run.
   if (created && !duplicate) {
     events.conversationNew.emit({
       tenantId: msg.tenantId,
@@ -283,7 +283,7 @@ export async function sendHumanReply(input: {
     throw new HttpError("NOT_FOUND", "Percakapan tidak ditemukan.");
   }
 
-  // 24h customer-service window — Cloud API only (FR-MS-003).
+  // 24h customer-service window - Cloud API only (FR-MS-003).
   if (conv.channel.provider === "CLOUD_API") {
     const lastInbound = await prisma.message.findFirst({
       where: { conversationId: input.conversationId, direction: "INBOUND" },

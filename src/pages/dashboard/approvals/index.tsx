@@ -1,4 +1,4 @@
-// Approvals dashboard — OWNER-only queue of pending agent write actions.
+// Approvals dashboard - OWNER-only queue of pending agent write actions.
 // Lists PENDING approvals as cards with a before→after diff preview and
 // Approve / Reject actions. Staff see a PERMISSION_DENIED notice (the API
 // also enforces this server-side).
@@ -54,7 +54,7 @@ const STATUS_LABEL: Record<ApprovalStatus, string> = {
   PENDING: "Menunggu",
   APPROVED: "Disetujui",
   REJECTED: "Ditolak",
-  NONE: "—",
+  NONE: "-",
 };
 
 function formatDate(iso: string): string {
@@ -77,7 +77,7 @@ function shortId(id: string): string {
 // the card stays scannable; the full value is available in the DOM via title.
 function renderPayload(value: unknown): { text: string; truncated: boolean } {
   if (value === null || value === undefined) {
-    return { text: "—", truncated: false };
+    return { text: "-", truncated: false };
   }
   let text: string;
   try {
@@ -94,7 +94,7 @@ function renderPayload(value: unknown): { text: string; truncated: boolean } {
 
 // Normalize the API response into a flat list. The route currently returns a
 // plain ApprovalSummary[] array; if a future version wraps it in ListResult
-// (items/total/page), unwrap that here. No `as` — narrow via Array.isArray.
+// (items/total/page), unwrap that here. No `as` - narrow via Array.isArray.
 function toItems(
   data: ApprovalItem[] | ListResult<ApprovalItem> | null
 ): ApprovalItem[] {

@@ -58,7 +58,7 @@ export default function MemoryPage() {
   }`;
   const { data, loading, error: fetchError, refresh } = useApi<ListResult<Memory>>(url);
 
-  // Distinct agentIds from the current page — used to populate the filter
+  // Distinct agentIds from the current page - used to populate the filter
   // dropdown. There's no /api/dashboard/agents list route, so we derive the
   // options from what's loaded. Acceptable for the MVP demo.
   const agentOptions = useMemo(() => {

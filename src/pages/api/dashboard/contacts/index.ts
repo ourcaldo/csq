@@ -73,7 +73,7 @@ export default async function handler(
         } else if (c.phone.includes("@s.whatsapp.net") || c.phone.includes("@g.us")) {
           phoneDisplay = c.phone.split("@")[0];
         }
-        // Strip the nested conversations from the response (categories/tags stay —
+        // Strip the nested conversations from the response (categories/tags stay -
         // the UI renders the classification chips from them).
         const { conversations: _drop, ...rest } = c;
         return { ...rest, phoneDisplay };

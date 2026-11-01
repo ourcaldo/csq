@@ -10,7 +10,7 @@ import type { ListResult } from "@/types/dashboard";
 // read-only id/name/role list for a dropdown: assigning a conversation is
 // already a STAFF capability in the inbox, and STAFF can edit scenarios, so
 // any authenticated member of the tenant may read it. Tenant scoping comes
-// from the session (requireTenant), never the query. Explicit select — the
+// from the session (requireTenant), never the query. Explicit select - the
 // passwordHash never leaves the DB. Bounded at 500: a tenant member list is
 // small, and the dropdown degrades to a manual ID input past that.
 

@@ -35,7 +35,7 @@ const TYPE_LABEL: Record<KnowledgeType, string> = {
 
 const TYPE_VALUES: KnowledgeType[] = ["FAQ", "POLICY", "BUSINESS_INFO"];
 
-// Narrow a string from a <select> to KnowledgeType without `as` — fall back to
+// Narrow a string from a <select> to KnowledgeType without `as` - fall back to
 // FAQ if the value is somehow not a known type.
 function toKnowledgeType(v: string): KnowledgeType {
   return TYPE_VALUES.find((t) => t === v) ?? "FAQ";

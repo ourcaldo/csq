@@ -11,7 +11,7 @@ import {
 } from "@/lib/campaign-schedule";
 
 // Campaign engine (feature plan 2026-11-01, section 3.5). Called every minute
-// by the scheduler under withSystemLock("campaign-tick", 300, ...) — the same
+// by the scheduler under withSystemLock("campaign-tick", 300, ...) - the same
 // crash-safe pattern the scenario engine uses: all state lives in rows
 // (CampaignRun + CampaignMessage.scheduledFor), never in memory.
 //
@@ -19,7 +19,7 @@ import {
 // (300s) is deliberately far above a tick's worst case (SEND_PER_TICK sends,
 // each a bounded provider call), so no second instance can start while a tick
 // is in flight. Trade-off, documented: a process crash between the provider
-// send and the row update can re-send one message after the lock expires —
+// send and the row update can re-send one message after the lock expires -
 // one duplicate bubble in a rare crash, never a double blast.
 
 const FIRE_CAMPAIGNS_PER_TICK = 5;
@@ -29,11 +29,11 @@ const CLOSE_RUNS_PER_TICK = 20;
 // a truncated run plus an audit row. UMKM contact lists sit far below it.
 const MAX_RECIPIENTS_PER_FIRE = 5000;
 
-// The public base URL for media links — the same env that powers auth. The
+// The public base URL for media links - the same env that powers auth. The
 // Cloud API needs an HTTPS link Meta can fetch (plan section 3.2.1).
 function publicMediaUrl(assetId: string): string {
   const base = (process.env.NEXTAUTH_URL ?? "").replace(/\/$/, "");
-  if (!base) throw new Error("NEXTAUTH_URL is not set — cannot build the public media link");
+  if (!base) throw new Error("NEXTAUTH_URL is not set - cannot build the public media link");
   return `${base}/api/media/${assetId}`;
 }
 
@@ -183,10 +183,10 @@ async function deliverOne(
   const campaign = run.campaign;
 
   // Pause semantics: PAUSED stops future fires AND holds in-flight PENDING
-  // rows (they resume on activate) — nothing is deleted.
+  // rows (they resume on activate) - nothing is deleted.
   if (campaign.status === "PAUSED") return;
 
-  // Resolve the channel fresh — a disconnected or deleted channel fails this
+  // Resolve the channel fresh - a disconnected or deleted channel fails this
   // recipient with a reason, never the whole tick.
   const channel = await prisma.channel.findUnique({ where: { id: campaign.channelId } });
   if (!channel || channel.status !== "CONNECTED") {
@@ -195,7 +195,7 @@ async function deliverOne(
   }
   const provider = getProvider(channel);
 
-  // The conversation for (channel, phone) — replies land in the shared inbox.
+  // The conversation for (channel, phone) - replies land in the shared inbox.
   const { conversation } = await findOrCreateConversation(
     row.tenantId,
     channel.id,
@@ -241,7 +241,7 @@ async function deliverOne(
 
     // Free-form burst: text message first, then each image as its own media
     // message (plan 3.2.1). The pacing delay applies between contacts, not
-    // within a burst. Delivery order within a burst is best-effort —
+    // within a burst. Delivery order within a burst is best-effort -
     // WhatsApp does not guarantee it (documented platform behavior).
     const burstIds: Array<string | undefined> = [];
     if (campaign.body.trim().length > 0) {

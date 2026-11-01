@@ -7,7 +7,7 @@ import { getWebhookDiags } from "@/lib/webhook-diagnostics";
 
 // Owner-only diagnostic read-out for the WhatsApp webhook: the recent reasons
 // inbound POSTs were rejected (SIG_MISMATCH / NO_SECRET / UNKNOWN_PHONE_ID).
-// Memory-only, capped, resets on redeploy — for live diagnosis, not an audit log.
+// Memory-only, capped, resets on redeploy - for live diagnosis, not an audit log.
 
 export default async function handler(
   req: NextApiRequest,

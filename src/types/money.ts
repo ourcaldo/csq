@@ -7,5 +7,5 @@ export const moneySchema = z
   .union([z.number().nonnegative(), z.string().regex(/^\d+(\.\d{1,2})?$/)])
   .transform((v) => (typeof v === "number" ? v.toFixed(2) : v));
 
-// Output type after transform — always a string.
+// Output type after transform - always a string.
 export type Money = z.infer<typeof moneySchema>;

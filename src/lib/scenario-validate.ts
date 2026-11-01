@@ -2,7 +2,7 @@ import type { ScenarioGraph, ScenarioNode } from "@/types/scenario";
 import { CLOUD_API_WINDOW_MS } from "@/lib/inbox";
 
 // Graph validation at activate/save time. A malformed graph must never reach the
-// runtime — the engine assumes a valid DAG. Returns errors (block activation)
+// runtime - the engine assumes a valid DAG. Returns errors (block activation)
 // and warnings (shown but non-blocking). `cloudApi` controls the 24h send-window
 // warning: only relevant for Cloud API tenants (Baileys has no window).
 export type ValidationResult = {
@@ -21,7 +21,7 @@ export function validateScenarioGraph(
   const edges = graph.edges;
 
   if (nodes.length === 0) {
-    return { errors: ["Graph kosong — tambahkan minimal satu node."], warnings };
+    return { errors: ["Graph kosong - tambahkan minimal satu node."], warnings };
   }
 
   const byId = new Map<string, ScenarioNode>();
@@ -55,7 +55,7 @@ export function validateScenarioGraph(
 
   // At least one end node.
   const hasEnd = nodes.some((n) => n.type === "end");
-  if (!hasEnd) errors.push("Tidak ada node End — setiap cabang harus berakhir di End.");
+  if (!hasEnd) errors.push("Tidak ada node End - setiap cabang harus berakhir di End.");
 
   // Outgoing edges per node.
   const outEdges = (id: string) => edges.filter((e) => e.source === id);
@@ -103,7 +103,7 @@ export function validateScenarioGraph(
   }
   if (trigger) dfs(trigger.id);
   if (cycleFound) {
-    errors.push("Graph memiliki siklus — scenario harus berupa DAG (tanpa loop).");
+    errors.push("Graph memiliki siklus - scenario harus berupa DAG (tanpa loop).");
   }
 
   // Reachability: every node must be reachable from the trigger (no dangling).
@@ -152,7 +152,7 @@ export function validateScenarioGraph(
 
   // 24h window warning (Cloud API only): if a Send or AI-generated send sits
   // behind Waits summing to >= 24h along any path, the runtime will skip it
-  // (window closed). Warn at build time so the owner knows. This is heuristic —
+  // (window closed). Warn at build time so the owner knows. This is heuristic -
   // the real check is at send time against the customer's last inbound timestamp.
   if (opts.cloudApi && trigger) {
     const sendWarned = new Set<string>();
@@ -179,14 +179,14 @@ export function validateScenarioGraph(
   }
 
   // Scheduled-blast window warning (Cloud API only): an ON_SCHEDULE scenario
-  // messages customers who may not have written within 24h — most sends will
+  // messages customers who may not have written within 24h - most sends will
   // be skipped by the runtime window. Templates are the compliant path for
   // out-of-window outreach; warn so the owner knows what to expect.
   if (opts.cloudApi && trigger && trigger.data.triggerType === "ON_SCHEDULE") {
     const hasSend = nodes.some((n) => n.type === "send" || n.type === "ai");
     if (hasSend) {
       warnings.push(
-        "Pemicu Jadwal mengirim ke pelanggan yang mungkin sudah melewati jendela 24 jam Cloud API — pesan tersebut akan dilewati saat runtime (dicatat di audit)."
+        "Pemicu Jadwal mengirim ke pelanggan yang mungkin sudah melewati jendela 24 jam Cloud API - pesan tersebut akan dilewati saat runtime (dicatat di audit)."
       );
     }
   }

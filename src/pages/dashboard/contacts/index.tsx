@@ -57,7 +57,7 @@ function TaxonomyPicker({
       <div className="max-h-32 overflow-y-auto rounded-md border p-2">
         {rows.length === 0 && (
           <p className="px-1 py-0.5 text-xs text-muted-foreground">
-            Belum ada — buat dulu di halaman Tag.
+            Belum ada - buat dulu di halaman Tag.
           </p>
         )}
         {rows.map((r) => (
@@ -228,12 +228,12 @@ export default function ContactsPage() {
                 )}
                 {data?.items.map((c) => (
                   <TableRow key={c.id}>
-                    <TableCell className="font-medium">{c.name ?? "—"}</TableCell>
+                    <TableCell className="font-medium">{c.name ?? "-"}</TableCell>
                     <TableCell>{c.phoneDisplay ?? c.phone}</TableCell>
                     <TableCell className="hidden md:table-cell">
                       <div className="flex max-w-[220px] flex-wrap gap-1">
                         {(c.categories ?? []).length === 0 && (
-                          <span className="text-muted-foreground">—</span>
+                          <span className="text-muted-foreground">-</span>
                         )}
                         {(c.categories ?? []).map((ct) => (
                           <TaxonomyChip
@@ -247,7 +247,7 @@ export default function ContactsPage() {
                     <TableCell className="hidden lg:table-cell">
                       <div className="flex max-w-[220px] flex-wrap gap-1">
                         {(c.tags ?? []).length === 0 && (
-                          <span className="text-muted-foreground">—</span>
+                          <span className="text-muted-foreground">-</span>
                         )}
                         {(c.tags ?? []).map((ct) => (
                           <TaxonomyChip key={ct.id} name={ct.tag.name} color={ct.tag.color} />
@@ -255,7 +255,7 @@ export default function ContactsPage() {
                       </div>
                     </TableCell>
                     <TableCell className="hidden text-muted-foreground xl:table-cell">
-                      {c.email ?? "—"}
+                      {c.email ?? "-"}
                     </TableCell>
                     <TableCell className="text-right">
                       <Button variant="outline" size="sm" onClick={() => openEdit(c)}>

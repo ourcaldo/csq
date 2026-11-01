@@ -4,7 +4,7 @@
 // serializes `Decimal` as a string (Decimal.toJSON) and `DateTime` as an ISO
 // string, and enums as their string values. Importing the Prisma-generated
 // types directly would type these fields as `Decimal` / `Date` / enum classes,
-// which does not match the JSON the browser receives — and reconciling that
+// which does not match the JSON the browser receives - and reconciling that
 // without `as` is impossible. So we declare the exact serialized shapes here
 // and use them on the client. The API layer remains the source of truth; these
 // mirror its output for type-safe rendering.
@@ -77,7 +77,7 @@ export type Knowledge = {
   updatedAt: string;
 };
 
-// Serialized joined classification rows — the shape the API returns for a
+// Serialized joined classification rows - the shape the API returns for a
 // contact's categories/tags (the join rows carry the resolved taxonomy row).
 export type ContactCategoryRef = {
   id: string;

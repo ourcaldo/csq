@@ -1,7 +1,7 @@
 // Standard API response envelope (SDD §5.1). Every API route returns this shape.
 // success:true  → data present, error absent.
 // success:false → error present, data absent (exception: approval-required
-//   responses carry data alongside success:false — see APPROVAL_REQUIRED).
+//   responses carry data alongside success:false - see APPROVAL_REQUIRED).
 
 export type ApiResponse<T = unknown> = {
   success: boolean;

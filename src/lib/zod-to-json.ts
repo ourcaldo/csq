@@ -2,7 +2,7 @@
 
 // Best-effort Zod → JSON Schema converter for the agent function-tools
 // payload. The JSON Schema only GUIDES the model; the real validation is
-// server-side Zod inside executeTool, so an imperfect schema is safe — unknown
+// server-side Zod inside executeTool, so an imperfect schema is safe - unknown
 // nodes fall back to a permissive `{}`.
 //
 // No `as` assertions: every Zod subtype is narrowed with `instanceof`, after
@@ -62,5 +62,5 @@ function convert(node: ZodTypeAny): JsonSchema {
   if (node instanceof z.ZodRecord) {
     return { type: "object", additionalProperties: convert(node.element) };
   }
-  return {}; // permissive fallback — server-side Zod is the real validator
+  return {}; // permissive fallback - server-side Zod is the real validator
 }

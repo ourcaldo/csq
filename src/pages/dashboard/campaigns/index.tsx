@@ -43,7 +43,7 @@ type MessageTemplateRow = {
 const WEEKDAYS = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
 
 function formatDateTime(iso: string | null): string {
-  if (!iso) return "—";
+  if (!iso) return "-";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleString("id-ID", {
@@ -71,7 +71,7 @@ function scheduleLabel(c: CampaignRow): string {
   const cfg = c.scheduleConfig;
   switch (c.scheduleKind) {
     case "ONCE":
-      return `Sekali — ${formatDateTime(cfg.startAt ?? null)}`;
+      return `Sekali - ${formatDateTime(cfg.startAt ?? null)}`;
     case "DAILY":
       return `Setiap hari ${cfg.time}`;
     case "WEEKLY":
@@ -137,7 +137,7 @@ export default function CampaignsPage() {
     [channels.data]
   );
 
-  // Live audience preview (advisory count — the engine resolves fresh at fire).
+  // Live audience preview (advisory count - the engine resolves fresh at fire).
   useEffect(() => {
     if (!wizardOpen || audience === "ALL") {
       setPreviewTotal(null);
@@ -407,7 +407,7 @@ export default function CampaignsPage() {
               <div className="max-h-32 overflow-y-auto rounded-md border p-2">
                 {(categories.data ?? []).length === 0 && (
                   <p className="text-xs text-muted-foreground">
-                    Belum ada kategori — buat dulu di halaman Tag.
+                    Belum ada kategori - buat dulu di halaman Tag.
                   </p>
                 )}
                 {(categories.data ?? []).map((c) => (
@@ -486,7 +486,7 @@ export default function CampaignsPage() {
             {templateKey &&
               (templates.data?.items ?? []).find((t) => t.key === templateKey)?.kind === "META" && (
                 <p className="rounded-md border border-blue-500/30 bg-blue-500/10 p-2 text-xs text-blue-700">
-                  Template Meta dipilih — teks di bawah tetap wajib (dipakai di saluran Baileys
+                  Template Meta dipilih - teks di bawah tetap wajib (dipakai di saluran Baileys
                   dan pratinjau); pelanggan di luar jendela 24 jam menerima template Meta
                   tersebut.
                 </p>
@@ -779,7 +779,7 @@ export default function CampaignsPage() {
       <Dialog
         open={runsFor !== null}
         onClose={() => setRunsFor(null)}
-        title={`Riwayat — ${runsFor?.name ?? ""}`}
+        title={`Riwayat - ${runsFor?.name ?? ""}`}
       >
         <div className="max-h-[60vh] space-y-3 overflow-y-auto">
           {runs === null && <StateNotice variant="loading" message="Memuat riwayat…" />}
@@ -792,7 +792,7 @@ export default function CampaignsPage() {
                 <div>
                   <p className="font-medium">{formatDateTime(r.startedAt)}</p>
                   <p className="text-xs text-muted-foreground">
-                    {r.finishedAt ? `Selesai ${formatDateTime(r.finishedAt)}` : "Sedang berjalan"} —{" "}
+                    {r.finishedAt ? `Selesai ${formatDateTime(r.finishedAt)}` : "Sedang berjalan"} -{" "}
                     total {r.counts?.total ?? 0}, terkirim {r.counts?.sent ?? 0}, gagal{" "}
                     {r.counts?.failed ?? 0}, dilewati {r.counts?.skipped ?? 0}
                   </p>
@@ -828,7 +828,7 @@ export default function CampaignsPage() {
                         }
                       >
                         {m.status === "PENDING" ? "menunggu" : m.status.toLowerCase()}
-                        {m.reason ? ` — ${m.reason}` : ""}
+                        {m.reason ? ` - ${m.reason}` : ""}
                       </span>
                     </div>
                   ))}

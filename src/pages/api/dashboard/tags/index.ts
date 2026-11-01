@@ -28,7 +28,7 @@ export default async function handler(
   }
 
   if (req.method === "POST") {
-    // Tag creation is OWNER-only (PRD §8 — owner controls taxonomy).
+    // Tag creation is OWNER-only (PRD §8 - owner controls taxonomy).
     if (!requireRole(session, "OWNER")) {
       return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat membuat tag.");
     }

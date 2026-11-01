@@ -4,7 +4,7 @@ import { requireTenant, respondError } from "@/lib/queries";
 import { apiOk, type ApiResponse } from "@/types/api";
 import { funnelCounts } from "@/lib/pipeline";
 
-// GET /api/dashboard/pipeline/funnel — per-stage deal counts (+ stage metadata)
+// GET /api/dashboard/pipeline/funnel - per-stage deal counts (+ stage metadata)
 // for the funnel cone view and conversion rates. Any authenticated member.
 type FunnelStage = {
   stageId: string;

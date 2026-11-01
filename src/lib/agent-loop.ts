@@ -6,22 +6,22 @@ import { sendAgentMessage } from "@/lib/agent-outbox";
 import { acquireTurnLease, releaseTurnLease } from "@/lib/turn-lock";
 import type { ChatMessage, ToolCallRecord } from "@/types/chat";
 
-// Fire-and-forget agent auto-reply for an inbound WhatsApp message — the
+// Fire-and-forget agent auto-reply for an inbound WhatsApp message - the
 // Phase 6 ↔ Phase 7 wiring. Called from the webhook AFTER the inbound is
 // recorded, NOT awaited, so Meta's 5s webhook timeout is never at risk. The
 // ACK is sent by the caller before this work finishes.
 //
 // Resolution order for which agent replies:
-//   1. conversation.assignedAgentId  — an explicit per-conversation assignment
-//   2. channel.agentId               — the channel's default agent
+//   1. conversation.assignedAgentId  - an explicit per-conversation assignment
+//   2. channel.agentId               - the channel's default agent
 // If the conversation is assigned to a human (assigneeUserId), the AI stands
 // down (FR-AS-003): a human is handling it, so we do not auto-reply.
 //
-// Tenant always comes from the resolved channel — never from message content.
+// Tenant always comes from the resolved channel - never from message content.
 // All failures are caught and logged: a broken agent reply must never surface
 // as an error to Meta (which would retry and spam the customer).
 //
-// D1 — turn serialization. Turns are serialized per conversation with a LEASE
+// D1 - turn serialization. Turns are serialized per conversation with a LEASE
 // on the Conversation row (src/lib/turn-lock.ts), NOT with a held Postgres
 // transaction. No pooled connection is pinned while the agent waits on the
 // LLM, and a turn that outlives the lease's stale window (crashed process)
@@ -96,12 +96,12 @@ export async function runAgentReply(args: {
   }
 
   // BOUNDED HISTORY WINDOW (no external session state). The recent transcript
-  // is replayed from our own Message rows — the NEWEST AGENT_HISTORY_LIMIT
+  // is replayed from our own Message rows - the NEWEST AGENT_HISTORY_LIMIT
   // messages within the 1h window, in chronological order (fetch desc, take,
   // then reverse). A chat that goes quiet for an hour starts a fresh window,
   // so stale/incorrect facts cannot leak across windows and the prompt stays
   // bounded. The trigger message is excluded here (D4) because it is appended
-  // once as the user message below — without the exclusion the model saw the
+  // once as the user message below - without the exclusion the model saw the
   // customer's last message twice. Continuity beyond the window lives in the
   // CSQ layer the agent pulls via tools on every fresh window: customer.read
   // (name/email), order.list (history), pipeline stage.
@@ -113,7 +113,7 @@ export async function runAgentReply(args: {
       conversationId,
       createdAt: { gte: windowStart },
       isInternal: false,
-      // D6: never replay "[image]"-style placeholders as customer speech —
+      // D6: never replay "[image]"-style placeholders as customer speech -
       // only real text and business-side outbound belong in the transcript.
       OR: [{ direction: "OUTBOUND" }, { kind: "TEXT" }],
       ...(triggerMessageId ? { id: { not: triggerMessageId } } : {}),
@@ -134,7 +134,7 @@ export async function runAgentReply(args: {
 
   // Fresh-window opener: one bounded line of safe structured facts
   // from CSQ so the agent doesn't ask the customer things the system already
-  // knows. NOT a replay — a short summary pulled from the source of truth.
+  // knows. NOT a replay - a short summary pulled from the source of truth.
   let windowContext = "";
   if (isStartOfNewWindow) {
     // The conversation row is already loaded with deal+stage included, so the
@@ -179,7 +179,7 @@ export async function runAgentReply(args: {
 
   const result = await runConversation({
     tenantId,
-    agentId: agent.id, // CSQ UUID — keys executeTool/capability lookup
+    agentId: agent.id, // CSQ UUID - keys executeTool/capability lookup
     conversationId,
     channelId: channel.id, // G1: routing context for approval follow-ups
     systemPrompt,
@@ -224,7 +224,7 @@ export async function processInboundWithAgent(args: {
       `[agent-loop] Failed to process inbound for conversation ${conversationId}: ${message}`
     );
     // G5: don't leave the customer in silence when the agent errors (LLM
-    // down, send failure, etc.). Best-effort canned fallback — the 24h window
+    // down, send failure, etc.). Best-effort canned fallback - the 24h window
     // is open because the inbound that triggered this turn just arrived. Guarded
     // so a second failure here can never throw out of this catch.
     try {
@@ -270,9 +270,9 @@ async function drainUnansweredInbound(
   const attempted = new Set<string>();
 
   for (let i = 0; i < MAX_DRAIN_TURNS; i++) {
-    // Newest unanswered TEXT inbound (D6: media/other never drive a turn —
+    // Newest unanswered TEXT inbound (D6: media/other never drive a turn -
     // media is answered by the debounced courtesy reply at ingest time). Only
-    // AGENT or HUMAN outbound counts as an answer — a SCENARIO message
+    // AGENT or HUMAN outbound counts as an answer - a SCENARIO message
     // (opening greeting, promo) must never mark a customer's question as
     // answered.
     const trigger = await prisma.message.findFirst({
@@ -318,7 +318,7 @@ async function drainUnansweredInbound(
     // mid-thought content. Send a clean "still processing" message instead of
     // a partial reply, so the customer is never left hanging or handed a
     // half-finished answer. A non-truncated empty reply means the model had
-    // nothing to say — nothing to send, and the drain stops on `attempted`.
+    // nothing to say - nothing to send, and the drain stops on `attempted`.
     let replyBody = turn.reply;
     if (turn.truncated) {
       replyBody =
@@ -326,7 +326,7 @@ async function drainUnansweredInbound(
     }
     if (!replyBody.trim()) continue;
 
-    // Reload the channel — if the owner disconnected (Putuskan) while the turn
+    // Reload the channel - if the owner disconnected (Putuskan) while the turn
     // was running, don't send the reply.
     const freshChannel = await prisma.channel.findUnique({
       where: { id: channel.id },

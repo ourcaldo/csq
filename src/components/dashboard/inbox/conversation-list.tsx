@@ -1,5 +1,5 @@
 // Left pane of the CRM inbox: search + Assigned/Unassigned tabs + the
-// conversation list. Presentational — the page owns the fetch/URL state and
+// conversation list. Presentational - the page owns the fetch/URL state and
 // passes items + the selected id. Matches the reference's conversation list.
 import type { ChangeEvent, FormEvent } from "react";
 import { MagnifyingGlass, Faders, Plus, WhatsappLogo } from "@phosphor-icons/react";

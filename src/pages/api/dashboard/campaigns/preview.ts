@@ -7,7 +7,7 @@ import { canRunCampaigns } from "@/lib/campaign-access";
 import { campaignPreviewSchema } from "@/types/campaign";
 
 // Audience preview (plan 3.6): the wizard's live recipient count. The count is
-// advisory — the engine resolves the audience fresh at every fire, so it can
+// advisory - the engine resolves the audience fresh at every fire, so it can
 // change between save and fire.
 
 export default async function handler(

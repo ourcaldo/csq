@@ -8,7 +8,7 @@ import { apiOk, type ApiResponse } from "@/types/api";
 import { canRunCampaigns } from "@/lib/campaign-access";
 import { campaignUpdateSchema, scheduleConfigSchema, type CampaignRow } from "@/types/campaign";
 
-// Campaign detail/update/delete. PUT/DELETE only while DRAFT or PAUSED — an
+// Campaign detail/update/delete. PUT/DELETE only while DRAFT or PAUSED - an
 // ACTIVE campaign is paused first, never edited live (plan 3.6). Access:
 // OWNER, or STAFF with the campaign permission.
 

@@ -1,5 +1,5 @@
 // Right pane of the CRM inbox: contact info, tags, human/AI handoff, status,
-// and the Riwayat lifecycle timeline (first chat, orders, pipeline moves) —
+// and the Riwayat lifecycle timeline (first chat, orders, pipeline moves) -
 // merged server-side by the conversation history endpoint.
 // "Take over" assigns the conversation to the current user (stands the AI down,
 // FR-AS-003); "Release" unassigns so the AI resumes. Tags add/remove via the
@@ -37,7 +37,7 @@ type ContactDetailsProps = {
   /** Mobile slide-over drawer open state (desktop pane is always lg:block). */
   mobileOpen?: boolean;
   onCloseMobile?: () => void;
-  /** Desktop collapsible state — true hides the right panel to give chat room. */
+  /** Desktop collapsible state - true hides the right panel to give chat room. */
   hidden?: boolean;
   onToggleHide?: () => void;
 };
@@ -49,7 +49,7 @@ type CategoryOption = {
   color: string | null;
 };
 
-// Customer lifecycle timeline entry — matches the shape returned by
+// Customer lifecycle timeline entry - matches the shape returned by
 // GET /api/dashboard/inbox/conversations/[id]/history.
 type HistoryEvent = {
   kind: "FIRST_CHAT" | "ORDER" | "STAGE_MOVE";
@@ -71,7 +71,7 @@ const ORDER_STATUS_LABEL: Record<string, string> = {
   CANCELLED: "Dibatalkan",
 };
 
-// "25 Okt 14:30" — short absolute date; relative labels would go stale in an
+// "25 Okt 14:30" - short absolute date; relative labels would go stale in an
 // open panel and full dates waste the narrow column.
 function historyDateLabel(iso: string): string {
   const d = new Date(iso);
@@ -114,7 +114,7 @@ function ContactTaxonomyEditor({
       <div className="max-h-24 overflow-y-auto rounded-lg border border-slate-200 p-2">
         {rows.length === 0 && (
           <p className="px-1 py-0.5 text-xs text-slate-400">
-            Belum ada — buat dulu di halaman Tag.
+            Belum ada - buat dulu di halaman Tag.
           </p>
         )}
         {rows.map((r) => (
@@ -138,7 +138,7 @@ function historyEventText(e: HistoryEvent): string {
     case "FIRST_CHAT":
       return "Percakapan pertama";
     case "ORDER":
-      return `Pesan ${e.orderNumber} dibuat — Rp ${Number(
+      return `Pesan ${e.orderNumber} dibuat - Rp ${Number(
         e.amount ?? 0
       ).toLocaleString("id-ID")}, ${ORDER_STATUS_LABEL[e.status ?? ""] ?? e.status ?? ""}`;
     case "STAGE_MOVE": {
@@ -507,7 +507,7 @@ export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMob
               onChange={(e) => setStage(e.target.value)}
               disabled={busy}
             >
-              <option value="">— pilih tahap —</option>
+              <option value="">- pilih tahap -</option>
               {stages.map((s) => (
                 <option key={s.id} value={s.name}>
                   {s.name}
@@ -585,7 +585,7 @@ export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMob
           )}
         </div>
 
-        {/* Riwayat — customer lifecycle timeline: first chat, orders, and
+        {/* Riwayat - customer lifecycle timeline: first chat, orders, and
             pipeline moves, merged chronologically (newest first, capped
             server-side). Stage moves include who moved it (AI vs human). */}
         <div>
@@ -618,7 +618,7 @@ export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMob
 
   return (
     <>
-      {/* Desktop pane — collapsible. The arrow strip on its left edge toggles
+      {/* Desktop pane - collapsible. The arrow strip on its left edge toggles
           visibility: click CaretRight to collapse (chat expands), CaretLeft to
           bring the panel back. Width transitions so it slides, not jumps. */}
       <div className="hidden shrink-0 lg:flex">
@@ -641,7 +641,7 @@ export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMob
         </aside>
       </div>
 
-      {/* Mobile slide-over drawer — gives phones full feature parity
+      {/* Mobile slide-over drawer - gives phones full feature parity
           (take over / status / tags / stage) that the desktop pane normally
           provides. Renders only while open; lg:hidden so it never shows on
           desktop alongside the static pane. */}

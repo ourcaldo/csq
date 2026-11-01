@@ -5,7 +5,7 @@ import { apiOk, type ApiResponse } from "@/types/api";
 import { listDealsForKanban, type DealWithRelations } from "@/lib/pipeline";
 import type { ListResult } from "@/types/dashboard";
 
-// GET /api/dashboard/pipeline/deals — paginated, filtered deals for the kanban.
+// GET /api/dashboard/pipeline/deals - paginated, filtered deals for the kanban.
 // Filters: ?stage=&assignee=&tag=&page=&pageSize=. Any authenticated member.
 export default async function handler(
   req: NextApiRequest,

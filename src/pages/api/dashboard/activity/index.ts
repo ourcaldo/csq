@@ -14,7 +14,7 @@ const auditLogInclude = {
 
 // Serialized AuditLog row with the agent relation attached. Prisma serializes
 // Json columns as `unknown` and DateTime as an ISO string, matching the shape
-// the browser receives — no `as` needed on either side.
+// the browser receives - no `as` needed on either side.
 type AuditLogItem = Prisma.AuditLogGetPayload<{ include: typeof auditLogInclude }>;
 
 export default async function handler(

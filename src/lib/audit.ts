@@ -14,7 +14,7 @@ export type AuditLogInput = {
   customerPhone?: string;
 };
 
-// Append-only audit (SDD §4.4 / §6.6). Only create() is ever called — there is
+// Append-only audit (SDD §4.4 / §6.6). Only create() is ever called - there is
 // no UPDATE or DELETE path on AuditLog, so entries are immutable [FR-AL-003].
 // Denied and pending attempts are logged here too, not just successful writes
 // [FR-AL-004]. Undefined before/after become SQL NULL via Prisma.DbNull.

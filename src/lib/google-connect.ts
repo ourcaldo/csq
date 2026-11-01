@@ -2,7 +2,7 @@ import prisma from "@/lib/db";
 import type { OAuthCredentials } from "@/types/sheets";
 
 // Tenant-level Google OAuth token store (PRD §8.3). One Google connection
-// per tenant — NOT per DataSource. This is what lets the owner add a second
+// per tenant - NOT per DataSource. This is what lets the owner add a second
 // spreadsheet without re-logging-in: the connection is shared across every
 // GOOGLE_SHEETS source, and the Connect/Disconnect button has a single
 // source of truth.
@@ -37,7 +37,7 @@ export async function getGoogleCreds(
 }
 
 // Persist the Google connection on the tenant. Upsert keyed on
-// (tenantId, provider) — reconnecting replaces the previous tokens.
+// (tenantId, provider) - reconnecting replaces the previous tokens.
 export async function setGoogleCreds(
   tenantId: string,
   creds: OAuthCredentials,
@@ -69,7 +69,7 @@ export async function clearGoogleCreds(tenantId: string): Promise<void> {
   });
 }
 
-// Public status for the dashboard button. Exposes only connected + email —
+// Public status for the dashboard button. Exposes only connected + email -
 // never the tokens.
 export async function isGoogleConnected(
   tenantId: string

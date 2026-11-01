@@ -234,7 +234,7 @@ export default function TagsPage() {
                           style={{ backgroundColor: t.color ?? "#cbd5e1" }}
                           aria-hidden
                         />
-                        <span className="font-mono text-[11px]">{t.color ?? "—"}</span>
+                        <span className="font-mono text-[11px]">{t.color ?? "-"}</span>
                       </span>
                     </TableCell>
                     <TableCell className="text-right">
@@ -248,7 +248,7 @@ export default function TagsPage() {
                           </Button>
                         </div>
                       ) : (
-                        <span className="text-muted-foreground">—</span>
+                        <span className="text-muted-foreground">-</span>
                       )}
                     </TableCell>
                   </TableRow>
@@ -312,7 +312,7 @@ export default function TagsPage() {
                         style={{ backgroundColor: c.color ?? "#cbd5e1" }}
                         aria-hidden
                       />
-                      <span className="font-mono text-[11px]">{c.color ?? "—"}</span>
+                      <span className="font-mono text-[11px]">{c.color ?? "-"}</span>
                     </span>
                   </TableCell>
                   <TableCell className="text-right">
@@ -334,7 +334,7 @@ export default function TagsPage() {
                         </Button>
                       </div>
                     ) : (
-                      <span className="text-muted-foreground">—</span>
+                      <span className="text-muted-foreground">-</span>
                     )}
                   </TableCell>
                 </TableRow>
@@ -361,7 +361,7 @@ export default function TagsPage() {
             <Label htmlFor="tag-color">Warna (opsional)</Label>
             <Input
               id="tag-color"
-              placeholder="mis. #ef4444 — kosongkan untuk acak"
+              placeholder="mis. #ef4444 - kosongkan untuk acak"
               value={color}
               onChange={(e) => setColor(e.target.value)}
               pattern="^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})?$"
@@ -427,7 +427,7 @@ export default function TagsPage() {
             <Label htmlFor="category-color">Warna (opsional)</Label>
             <Input
               id="category-color"
-              placeholder="mis. #22c55e — kosongkan untuk acak"
+              placeholder="mis. #22c55e - kosongkan untuk acak"
               value={catColor}
               onChange={(e) => setCatColor(e.target.value)}
               pattern="^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})?$"

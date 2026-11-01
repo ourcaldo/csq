@@ -5,7 +5,7 @@ import { logAction } from "@/lib/audit";
 import { sendApprovalFollowUp } from "@/lib/agent-outbox";
 import { apiError, apiOk, type ApiResponse } from "@/types/api";
 
-// POST /api/dashboard/approvals/[id]/reject — owner rejects a pending action.
+// POST /api/dashboard/approvals/[id]/reject - owner rejects a pending action.
 // Does NOT execute the action; marks the Approval REJECTED and logs an audit
 // entry. OWNER only [FR-AP-005].
 export default async function handler(
@@ -60,7 +60,7 @@ export default async function handler(
     approvalStatus: "REJECTED",
   });
 
-  // G1: close the loop — tell the customer the owner declined. Best-effort,
+  // G1: close the loop - tell the customer the owner declined. Best-effort,
   // fire-and-forget so the owner's reject response is never delayed or failed
   // by the WhatsApp send.
   void sendApprovalFollowUp({ approvalId: id, approved: false }).catch(

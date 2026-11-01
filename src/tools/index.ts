@@ -4,7 +4,7 @@
 //
 // The map value is the erased ToolDefinition: tools have divergent param
 // shapes, and a heterogeneous collection needs an existential type. `any` here
-// is that bounded existential — it is a type parameter on the collection, not
+// is that bounded existential - it is a type parameter on the collection, not
 // a type assertion. No `as` is used anywhere in this module.
 
 import type { ToolDefinition, ToolSummary } from "@/types/tools";
@@ -46,7 +46,7 @@ export function listToolSummaries(): ToolSummary[] {
   }));
 }
 
-// Register every tool at module load. No name conflicts — registerTool throws
+// Register every tool at module load. No name conflicts - registerTool throws
 // on duplicates. Defaults: *.read allowed/no-approval; customer.update and
 // conversation.handoff allowed/no-approval (customer-volunteered identity
 // capture and customer-requested human escalation); *.update|*.create|

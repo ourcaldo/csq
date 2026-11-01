@@ -7,7 +7,7 @@ import { resolveScopedPhone } from "@/tools/scope";
 // default without approval: capturing identity the customer volunteered
 // (name, email) is part of the CRM conversation loop, not a sensitive business
 // write. Lookup is always tenant + phone. In the agent path the phone comes
-// from ctx.customerPhone (the current conversation), never from the model — so
+// from ctx.customerPhone (the current conversation), never from the model - so
 // the agent never needs to ask for the customer's number and a prompt cannot
 // redirect a read or a write to another customer's record (D2 / PRD 18.1).
 

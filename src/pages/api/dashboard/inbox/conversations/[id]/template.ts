@@ -15,7 +15,7 @@ import { logAction } from "@/lib/audit";
 
 // Human-initiated template send. Templates are pre-approved in Meta Business
 // Manager and are the only way to reach a customer outside the 24h Cloud API
-// customer-service window — so this path deliberately does NOT apply the 24h
+// customer-service window - so this path deliberately does NOT apply the 24h
 // guard that `sendHumanReply` enforces. Baileys' sendTemplate delegates to
 // free-form text (no window restriction either way).
 const sendTemplateSchema = z.object({
@@ -65,7 +65,7 @@ export default async function handler(
 
   try {
     const provider = getProvider(conversation.channel);
-    // Templates are allowed OUTSIDE the 24h window — do not apply the guard.
+    // Templates are allowed OUTSIDE the 24h window - do not apply the guard.
     const result = await provider.sendTemplate({
       to: conversation.customerPhone,
       templateName: parsed.data.templateName,

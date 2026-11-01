@@ -11,7 +11,7 @@ import { scheduleConfigSchema, type CampaignRow } from "@/types/campaign";
 
 // Activate (DRAFT/PAUSED → ACTIVE) and pause (ACTIVE → PAUSED).
 // Activation computes the first nextRunAt from the schedule; ONCE requires a
-// future startAt. Pause holds in-flight PENDING rows — they resume on activate.
+// future startAt. Pause holds in-flight PENDING rows - they resume on activate.
 
 export default async function handler(
   req: NextApiRequest,
@@ -54,7 +54,7 @@ export default async function handler(
   }
   const channel = await prisma.channel.findUnique({ where: { id: existing.channelId } });
   if (!channel || channel.status !== "CONNECTED") {
-    return respondError(res, "VALIDATION_ERROR", "Saluran belum terhubung — sambungkan dulu di halaman Saluran.");
+    return respondError(res, "VALIDATION_ERROR", "Saluran belum terhubung - sambungkan dulu di halaman Saluran.");
   }
   const now = new Date();
   const config = existing.scheduleConfig as ScheduleConfig;

@@ -32,7 +32,7 @@ export function AuthShell({ title, subtitle, children, footer }: AuthShellProps)
           </h2>
           <p className="mt-3 text-green-100">
             Agent CSAI di WhatsApp yang membaca data usaha Anda dan bertindak
-            sesuai izin — baca default, tulis dengan izin.
+            sesuai izin - baca default, tulis dengan izin.
           </p>
           <ul className="mt-6 space-y-3 text-sm text-green-50">
             <li className="flex items-center gap-2">

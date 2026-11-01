@@ -4,7 +4,7 @@ import { requireTenant, respondError } from "@/lib/queries";
 import { apiOk, type ApiResponse } from "@/types/api";
 import { getOrCreatePipeline, type PipelineWithStages } from "@/lib/pipeline";
 
-// GET /api/dashboard/pipeline — the tenant's pipeline + stages. Lazy-seeds the
+// GET /api/dashboard/pipeline - the tenant's pipeline + stages. Lazy-seeds the
 // default template on first call (so unused tenants carry no empty pipeline). Any
 // authenticated member may read.
 export default async function handler(

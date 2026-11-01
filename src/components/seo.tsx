@@ -11,7 +11,7 @@ export const SITE_NAME = "CSQ";
 export const SITE_TAGLINE = "Agen AI WhatsApp untuk UMKM Indonesia";
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "";
 export const DEFAULT_DESCRIPTION =
-  "Platform agen AI self-host untuk UMKM Indonesia. Deploy AI Customer Service di WhatsApp yang memahami data bisnis Anda—baca secara default, tulis dengan izin, bertindak sesuai aturan.";
+  "Platform agen AI self-host untuk UMKM Indonesia. Deploy AI Customer Service di WhatsApp yang memahami data bisnis Anda-baca secara default, tulis dengan izin, bertindak sesuai aturan.";
 
 // Serialize JSON-LD safely: JSON.stringify alone does not escape `<`/`>`/`&`, so
 // a string value containing `</script>` could break out of the script tag. We
@@ -46,7 +46,7 @@ export function Seo({
   noindex = false,
   jsonLd,
 }: SeoProps) {
-  const fullTitle = title ? `${title} · ${SITE_NAME}` : `${SITE_NAME} — ${SITE_TAGLINE}`;
+  const fullTitle = title ? `${title} · ${SITE_NAME}` : `${SITE_NAME} - ${SITE_TAGLINE}`;
   const url = SITE_URL && path ? `${SITE_URL}${path}` : undefined;
   const image = SITE_URL ? `${SITE_URL}/og.svg` : undefined;
 

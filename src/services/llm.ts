@@ -38,7 +38,7 @@ export function isTextLlmConfigured(): boolean {
 // customer-facing copy stays conservative, and an empty completion throws so
 // callers skip + audit rather than sending a blank message. Throws on a
 // missing key or non-2xx response; callers degrade gracefully (scenario run
-// skips the send with an audit row — never a silent drop).
+// skips the send with an audit row - never a silent drop).
 export async function generateText(input: {
   system: string;
   prompt: string;

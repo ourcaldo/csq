@@ -24,7 +24,7 @@ import {
   TableCell,
 } from "@/components/ui/table";
 
-// Local client-side types — mirror the API route's serialized output. The API
+// Local client-side types - mirror the API route's serialized output. The API
 // layer remains the source of truth; these exist so rendering is type-safe
 // without importing Prisma-generated types (whose Date/enum shapes don't match
 // JSON the browser receives).
@@ -203,7 +203,7 @@ export default function TeamPage() {
                       </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {m.name ? m.email : "—"}
+                      {m.name ? m.email : "-"}
                     </TableCell>
                     <TableCell>
                       {m.role === "OWNER" ? (
@@ -294,7 +294,7 @@ export default function TeamPage() {
         </form>
       </Dialog>
 
-      {/* Temp-password reveal — shown once after a successful invite */}
+      {/* Temp-password reveal - shown once after a successful invite */}
       <Dialog
         open={created !== null}
         onClose={closeCreated}

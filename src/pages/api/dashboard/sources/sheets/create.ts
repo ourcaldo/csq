@@ -5,7 +5,7 @@ import { apiOk, type ApiResponse } from "@/types/api";
 import { getGoogleCreds } from "@/lib/google-connect";
 import prisma from "@/lib/db";
 
-// POST /api/dashboard/sources/sheets/create — OWNER only. Creates a placeholder
+// POST /api/dashboard/sources/sheets/create - OWNER only. Creates a placeholder
 // GOOGLE_SHEETS DataSource (empty spreadsheetId) bound to the tenant's existing
 // Google connection, so the owner can add another spreadsheet WITHOUT
 // re-logging-in. The spreadsheet is picked next via /api/import/sheets/connect.

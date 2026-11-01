@@ -48,7 +48,7 @@ export default async function handler(
     const provider = getProvider(channel);
     const result = await provider.sendText({
       to: parsed.data.to,
-      body: "Test dari CSQ dashboard ✅ — channel aktif.",
+      body: "Test dari CSQ dashboard ✅ - channel aktif.",
     });
     return res.status(200).json(apiOk({ ok: true, waMessageId: result.waMessageId }));
   } catch (err) {

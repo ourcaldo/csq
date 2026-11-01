@@ -11,9 +11,9 @@ import { readSourcePriority } from "@/lib/source-priority";
 // as an ordered array of DataSourceType. Tenant.settings is a Json column;
 // read/written through Zod (never `as`). The GET is resilient to legacy
 // stored values that may include entries outside the valid set (e.g. an old
-// "MEMORY" entry) — invalid entries are dropped instead of throwing a 500.
+// "MEMORY" entry) - invalid entries are dropped instead of throwing a 500.
 //
-// readSourcePriority is the single source of truth — shared with the tools/
+// readSourcePriority is the single source of truth - shared with the tools/
 // import layer that actually resolves inventory by priority (src/lib/source-priority.ts).
 
 // Permissive read shape for stored settings (any strings allowed, then filtered).
@@ -45,7 +45,7 @@ export default async function handler(
   }
 
   if (req.method === "PUT") {
-    // Owner-only — priority is a tenant-wide policy (PRD §13).
+    // Owner-only - priority is a tenant-wide policy (PRD §13).
     if (!requireRole(session, "OWNER")) {
       return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengubah prioritas sumber.");
     }

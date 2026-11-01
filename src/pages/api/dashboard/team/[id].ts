@@ -7,7 +7,7 @@ import { requireTenant, respondError } from "@/lib/queries";
 import { apiOk, type ApiResponse } from "@/types/api";
 
 // Per-staff campaign permission toggle (plan decision 2.2). OWNER-only. Only a
-// STAFF member of the owner's own tenant can be toggled — an OWNER's access
+// STAFF member of the owner's own tenant can be toggled - an OWNER's access
 // comes from the role and is not configurable.
 
 export default async function handler(

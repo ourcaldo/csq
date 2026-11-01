@@ -6,9 +6,9 @@ import { apiOk, type ApiResponse } from "@/types/api";
 import prisma from "@/lib/db";
 import type { StageKind } from "@prisma/client";
 
-// PUT  /api/dashboard/pipeline/stages/[id] — update name/order/winProbability/
+// PUT  /api/dashboard/pipeline/stages/[id] - update name/order/winProbability/
 // expectedDays/kind. Enforces one OPENING / one WON / one LOST per pipeline.
-// DELETE /api/dashboard/pipeline/stages/[id] — remove a stage. Rejects deleting
+// DELETE /api/dashboard/pipeline/stages/[id] - remove a stage. Rejects deleting
 // the OPENING/WON/LOST stages (a pipeline must keep one of each), and rejects
 // deleting a stage that still has deals on it (reassign those first).
 
@@ -106,7 +106,7 @@ export default async function handler(
         `Tahap "${stage.name}" berperan "${stage.kind}" dan wajib ada; tidak bisa dihapus.`
       );
     }
-    // Can't delete a stage that still has deals on it — reassign them first.
+    // Can't delete a stage that still has deals on it - reassign them first.
     const dealsOnStage = await prisma.deal.count({
       where: { stageId: id, tenantId },
     });

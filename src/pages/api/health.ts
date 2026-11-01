@@ -7,7 +7,7 @@ import { startScheduler } from "@/services/scheduler";
 // and load balancer probes. Unauthenticated by design. Also the boot hook:
 // Render pings this path on startup (set Health Check Path = /api/health in
 // the dashboard), and each ping starts the in-process scheduler (idempotent)
-// — which reconnects CONNECTED Baileys channels and runs the keepalive
+// - which reconnects CONNECTED Baileys channels and runs the keepalive
 // heartbeat. This guarantees the WhatsApp socket is up on every boot without
 // pulling baileys into the client bundle.
 type Health = { status: "ok"; db: "up" } | { status: "ok"; db: "down" };
@@ -27,7 +27,7 @@ export default async function handler(
     await prisma.$queryRaw`SELECT 1`;
     return res.status(200).json(apiOk({ status: "ok", db: "up" }));
   } catch {
-    // App process is alive but the DB is unreachable — 503 so probes fail fast.
+    // App process is alive but the DB is unreachable - 503 so probes fail fast.
     return res.status(503).json(apiError("INTERNAL_ERROR", "database unreachable"));
   }
 }

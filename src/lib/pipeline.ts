@@ -17,7 +17,7 @@ export type DealWithRelations = Prisma.DealGetPayload<{
   include: { stage: true; conversation: { include: { contact: true; assignee: true } } };
 }>;
 
-// Default pipeline template — copied per tenant on first Pipeline-page open.
+// Default pipeline template - copied per tenant on first Pipeline-page open.
 // Mapped onto the existing order flow: Pesanan ↔ order.create, Menang ↔
 // confirmed order. winProbability/expectedDays are optional metadata the owner
 // can clear; they power the funnel/stuck-deal views.
@@ -41,7 +41,7 @@ const DEFAULT_STAGES: DefaultStage[] = [
 ];
 
 // Lazy-seed the tenant's pipeline from the default template if it doesn't exist.
-// D10b: a database unique on Pipeline.tenantId makes this a real upsert — two
+// D10b: a database unique on Pipeline.tenantId makes this a real upsert - two
 // concurrent callers can no longer both pass the "not exists" check and seed
 // two pipelines; the loser's create turns into a no-op update.
 export async function getOrCreatePipeline(

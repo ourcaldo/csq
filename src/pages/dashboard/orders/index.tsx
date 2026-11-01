@@ -192,7 +192,7 @@ export default function OrdersPage() {
                         {orderNumber(o.id)}
                       </TableCell>
                       <TableCell className="font-medium">
-                        {o.customerName ?? o.customerPhone ?? "—"}
+                        {o.customerName ?? o.customerPhone ?? "-"}
                       </TableCell>
                       <TableCell>
                         <button
@@ -303,7 +303,7 @@ export default function OrdersPage() {
                   <option value="">Pilih produk…</option>
                   {productsData?.items.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.name} — {formatRupiah(p.price)}
+                      {p.name} - {formatRupiah(p.price)}
                     </option>
                   ))}
                 </Select>

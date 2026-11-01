@@ -3,7 +3,7 @@ import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-// Picker for "what kind of data is this source?" — produk, cabang, staff, or a
+// Picker for "what kind of data is this source?" - produk, cabang, staff, or a
 // custom label. Only "produk" triggers the structured product import (mapping
 // editor + Product/Inventory upsert); every other type is reference data the
 // agent reads via source.search. The chosen value is stored as DataSource.dataType

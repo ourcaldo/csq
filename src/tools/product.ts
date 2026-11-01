@@ -3,7 +3,7 @@ import type { Prisma } from "@prisma/client";
 import type { ToolDefinition, ToolResult } from "@/types/tools";
 
 // product.* tools. All reads are allowed by default; product.update is a write
-// (denied + approval by default). Every query filters by tenantId — the agent
+// (denied + approval by default). Every query filters by tenantId - the agent
 // never supplies tenantId, it comes from ToolContext (prompt-injection defense).
 
 type ProductRow = {

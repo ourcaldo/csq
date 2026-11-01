@@ -6,7 +6,7 @@ import { HttpError } from "@/lib/queries";
 // deal.* tools. deal.setStage lets the CS agent move the current conversation's
 // deal to a new stage as the conversation flows (customer asks for price →
 // Penawaran; order.create → Pesanan; order confirmed → Menang; customer
-// declines → Kalah). Allowed without approval — a CRM state change, not a
+// declines → Kalah). Allowed without approval - a CRM state change, not a
 // business write; the human can override via the dashboard PATCH. The stage is
 // resolved by name within the tenant's pipeline; the valid names are injected
 // into the system prompt so the model knows what to pass.

@@ -53,7 +53,7 @@ export default async function handler(
     if (!requireRole(session, "OWNER")) {
       return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat menghapus produk.");
     }
-    // Hard delete for MVP (PRD §15 note — YAGNI soft delete). Cascades inventory.
+    // Hard delete for MVP (PRD §15 note - YAGNI soft delete). Cascades inventory.
     const existing = await prisma.product.findFirst({ where: { id, tenantId } });
     if (!existing) return respondError(res, "NOT_FOUND", "Produk tidak ditemukan.");
     await prisma.product.delete({ where: { id } });

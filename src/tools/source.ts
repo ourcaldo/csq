@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { ToolDefinition, ToolResult } from "@/types/tools";
 
 // source.* tools. source.search lets the CS agent read INSIDE the imported
-// sumber data (Excel/Google Sheets) — every column, not just the five mapped
+// sumber data (Excel/Google Sheets) - every column, not just the five mapped
 // product fields (name/price/quantity/sku/description). It searches the stored
 // SourceRow rows (populated on import and each sync by lib/source-rows) for rows
 // whose cell values contain the query, and returns the matching rows with all
@@ -10,7 +10,7 @@ import type { ToolDefinition, ToolResult } from "@/types/tools";
 //
 // Read-only and allowed by default: the agent only looks up information the
 // owner imported; it can never edit the source. Tenant-scoped (the query filters
-// by tenantId), and only ACTIVE sources are searched — disconnected/disabled
+// by tenantId), and only ACTIVE sources are searched - disconnected/disabled
 // sources' rows are skipped so the agent doesn't quote stale data.
 
 const sourceSearchSchema = z.object({
@@ -19,7 +19,7 @@ const sourceSearchSchema = z.object({
 });
 type SourceSearchParams = z.infer<typeof sourceSearchSchema>;
 
-// Raw SQL result row — external boundary, parsed with Zod (never `as`). `data` is
+// Raw SQL result row - external boundary, parsed with Zod (never `as`). `data` is
 // selected as text and JSON.parsed so the shape is deterministic regardless of
 // how the driver returns JSONB.
 const rawRowSchema = z.object({
@@ -30,7 +30,7 @@ const rawRowSchema = z.object({
   dataText: z.string(),
 });
 
-// The parsed row payload — a flat { column: value } record. Zod-parsed so we
+// The parsed row payload - a flat { column: value } record. Zod-parsed so we
 // never `as` the JSON.parse result.
 const rowDataSchema = z.record(z.unknown());
 
@@ -43,7 +43,7 @@ type SerializedMatch = {
 const sourceSearch: ToolDefinition<SourceSearchParams> = {
   name: "source.search",
   description:
-    "Cari di dalam data sumber (Excel/Google Sheets yang sudah diimpor pemilik) — semua kolom, bukan hanya produk. Pakai saat pelanggan bertanya info yang mungkin ada di spreadsheet toko tetapi bukan field produk standar (mis. kategori, berat, catatan, supplier). Mengembalikan baris yang cocok dengan semua kolomnya.",
+    "Cari di dalam data sumber (Excel/Google Sheets yang sudah diimpor pemilik) - semua kolom, bukan hanya produk. Pakai saat pelanggan bertanya info yang mungkin ada di spreadsheet toko tetapi bukan field produk standar (mis. kategori, berat, catatan, supplier). Mengembalikan baris yang cocok dengan semua kolomnya.",
   category: "source",
   parameters: sourceSearchSchema,
   defaultPermission: { allowed: true, requiresApproval: false },
@@ -52,7 +52,7 @@ const sourceSearch: ToolDefinition<SourceSearchParams> = {
     const limit = p.limit ?? 20;
 
     // Tenant-scoped, DB-side substring search over the stored rows' JSON. Only
-    // ACTIVE sources are searched. Parameterized — no string interpolation of
+    // ACTIVE sources are searched. Parameterized - no string interpolation of
     // user input (prompt-injection / SQL-injection safe).
     const rows = await ctx.prisma.$queryRaw<
       Array<{ dataSourceId: string; sourceName: string; dataType: string; rowIndex: number; dataText: string }>

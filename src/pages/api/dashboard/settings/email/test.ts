@@ -37,7 +37,7 @@ export default async function handler(
     return respondError(
       res,
       "VALIDATION_ERROR",
-      "Email belum diatur — simpan konfigurasi SMTP/Resend terlebih dahulu."
+      "Email belum diatur - simpan konfigurasi SMTP/Resend terlebih dahulu."
     );
   }
 
@@ -45,7 +45,7 @@ export default async function handler(
   try {
     const info = await sendEmailWithProvider(provider, {
       to,
-      subject: "CSQ — tes integrasi email",
+      subject: "CSQ - tes integrasi email",
       text:
         "Ini adalah email percobaan dari CSQ. Jika Anda menerima ini, integrasi email usaha Anda sudah siap dipakai modul Email pada Skenario.",
     });

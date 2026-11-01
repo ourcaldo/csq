@@ -18,7 +18,7 @@ export function normalizeHex(input: string | null | undefined): string | null {
   return `#${h.toLowerCase()}`;
 }
 
-/** Random `#rrggbb` — used when the owner saves a tag without picking a color. */
+/** Random `#rrggbb` - used when the owner saves a tag without picking a color. */
 export function randomHex(): string {
   const n = Math.floor(Math.random() * 0xffffff);
   return `#${n.toString(16).padStart(6, "0")}`;

@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/table";
 
 // ---------------------------------------------------------------------------
-// Local types — the API route returns the Prisma-serialized Agent shape with
+// Local types - the API route returns the Prisma-serialized Agent shape with
 // capabilities included. We mirror the JSON shape here (no `as` assertions,
 // no edits to shared types). Prisma serializes DateTime as ISO strings and
 // enums as their string values.

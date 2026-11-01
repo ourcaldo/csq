@@ -82,7 +82,7 @@ const orderRead: ToolDefinition<OrderReadParams> = {
       where: {
         tenantId: ctx.tenantId,
         id: p.orderId,
-        // D2: agent path — only the conversation's customer's order is
+        // D2: agent path - only the conversation's customer's order is
         // readable. A foreign UUID returns NOT_FOUND, never data.
         ...(ctx.conversationId && ctx.customerPhone
           ? { customerPhone: ctx.customerPhone }
@@ -103,7 +103,7 @@ const orderRead: ToolDefinition<OrderReadParams> = {
   },
 };
 
-// order.list — read-only order search. Filters are all optional and combine
+// order.list - read-only order search. Filters are all optional and combine
 // (AND). `orderNumber` is the 8-char human-friendly prefix ("#ABC12345" or
 // "ABC12345"); `phone`/`email` resolve the Contact first (email lives on
 // Contact, not Order, so an email search maps to the contact's phone) and also
@@ -359,7 +359,7 @@ const orderCreate: ToolDefinition<OrderCreateParams> = {
     proposedBefore: Prisma.InputJsonValue;
     proposedAfter: Prisma.InputJsonValue;
   }> {
-    // No single "before" entity — the proposed result is the order summary.
+    // No single "before" entity - the proposed result is the order summary.
     return {
       proposedBefore: {},
       proposedAfter: {

@@ -9,7 +9,7 @@ import { cloudApiConfigSchema, baileysConfigSchema } from "@/types/whatsapp";
 // List the tenant's WhatsApp channels (plan 7.5). Read-only; any authenticated
 // tenant user may view. The `config` Json blob holds provider secrets (Cloud API
 // token/appSecret), so we sanitize with the existing Zod schemas before
-// returning — only non-secret fields (phoneNumberId for Cloud API,
+// returning - only non-secret fields (phoneNumberId for Cloud API,
 // tosAcknowledged for Baileys) are exposed to the client. No `as` casts: the
 // stored config is parsed at the boundary and only the validated fields leave.
 

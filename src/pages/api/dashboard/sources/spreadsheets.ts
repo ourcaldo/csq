@@ -6,7 +6,7 @@ import { getGoogleCreds } from "@/lib/google-connect";
 import { listSpreadsheets } from "@/services/sheets";
 import type { SpreadsheetRef } from "@/types/sheets";
 
-// GET /api/dashboard/sources/spreadsheets — list the connected Google user's
+// GET /api/dashboard/sources/spreadsheets - list the connected Google user's
 // spreadsheets so the owner can pick one (no re-login; uses the tenant's
 // stored tokens). Any authenticated member may list. 400 when not connected.
 export default async function handler(

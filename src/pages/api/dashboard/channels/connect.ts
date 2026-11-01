@@ -15,11 +15,11 @@ import { generateVerifyToken } from "@/lib/whatsapp-verify-token";
 
 // Connect (or reconfigure) a WhatsApp channel for this tenant (plan 7.5).
 // Owner picks the provider at onboarding. Baileys is gated on tosAcknowledged
-// (ToS/ban risk, FR-WA-011) — enforced HERE in the backend, not just the UI.
+// (ToS/ban risk, FR-WA-011) - enforced HERE in the backend, not just the UI.
 // For Baileys, starts the socket and returns the QR to scan; for Cloud API,
 // stores the credentials and marks CONNECTED. The Cloud API verify token is
 // generated when the owner enters the connect step (saluran page SSP) and is
-// PRESERVED here — see src/lib/whatsapp-verify-token.ts.
+// PRESERVED here - see src/lib/whatsapp-verify-token.ts.
 
 const connectSchema = z.object({
   provider: z.enum(["CLOUD_API", "BAILEYS"]),
@@ -67,7 +67,7 @@ export default async function handler(
       cloudApiConfigSchema.parse(parsed.data.config);
     // The verify token was already generated server-side and shown to the
     // owner when they entered the connect step (they pasted it into Meta's
-    // webhook config). Connect must PRESERVE it, not rotate it — rotating here
+    // webhook config). Connect must PRESERVE it, not rotate it - rotating here
     // would invalidate what Meta already verified. Rotation happens on
     // disconnect (see disconnect.ts).
     const parsedExisting = cloudApiConfigSchema.safeParse(existing?.config);

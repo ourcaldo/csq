@@ -9,7 +9,7 @@ import { categoryCreateSchema } from "@/types/contact";
 import { normalizeHex, randomHex } from "@/lib/tag-color";
 
 // Contact category taxonomy (feature plan 2026-11-01, section 2.4).
-// GET: the tenant's full list (taxonomies are small — no pagination).
+// GET: the tenant's full list (taxonomies are small - no pagination).
 // POST: OWNER-only; upserts by name so the same category cannot duplicate.
 export default async function handler(
   req: NextApiRequest,

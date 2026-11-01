@@ -9,7 +9,7 @@ import { disconnectBaileysChannel } from "@/services/baileys";
 import { generateVerifyToken } from "@/lib/whatsapp-verify-token";
 
 // Disconnect a channel: mark DISCONNECTED and, for Baileys, tear down the
-// socket. For Cloud API, also ROTATE the webhook verify token — a fresh token
+// socket. For Cloud API, also ROTATE the webhook verify token - a fresh token
 // on every disable→enable cycle. OWNER-only, tenant-scoped (plan 7.5).
 export type DisconnectResult = { id: string; status: string };
 

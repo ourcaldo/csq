@@ -33,9 +33,9 @@ import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
 // Channels / WhatsApp onboarding page (gap B). Step-by-step wizard:
-//   1. Pilih Metode  — pick how to connect (white-labeled; no provider names)
-//   2. Sambungkan    — configure the chosen method (creds, or scan QR)
-//   3. Aktif         — connected: test / disconnect / edit credentials
+//   1. Pilih Metode  - pick how to connect (white-labeled; no provider names)
+//   2. Sambungkan    - configure the chosen method (creds, or scan QR)
+//   3. Aktif         - connected: test / disconnect / edit credentials
 // Wires to the existing channels backend (connect / disconnect / test / list).
 // The channel must link to an ACTIVE agent or runAgentReply stands down.
 // ---------------------------------------------------------------------------
@@ -371,7 +371,7 @@ export default function SaluranPage({
                 </div>
                 <p className="mt-1 text-sm text-slate-500">
                   {connected.provider === "CLOUD_API"
-                    ? `Phone Number ID: ${connected.phoneNumberId ?? "—"}`
+                    ? `Phone Number ID: ${connected.phoneNumberId ?? "-"}`
                     : "Terhubung via pindaian QR."}
                 </p>
               </div>
@@ -413,8 +413,8 @@ export default function SaluranPage({
               <ReadOnlyField label="Callback URL" value={webhookUrl} />
               <ReadOnlyField
                 label="Verify Token"
-                value={cloudVerifyToken ?? "—"}
-                hint="Berganti otomatis setiap kali saluran disambungkan ulang — perbarui juga di Meta."
+                value={cloudVerifyToken ?? "-"}
+                hint="Berganti otomatis setiap kali saluran disambungkan ulang - perbarui juga di Meta."
               />
             </div>
           )}
@@ -514,7 +514,7 @@ export default function SaluranPage({
             {/* Webhook setup comes BEFORE Sambungkan: Meta must verify the
                 callback, and the owner needs URL + token on screen while doing
                 the Meta-side config. Verify token is generated server-side on
-                connect — shown here as it will be after Sambungkan. */}
+                connect - shown here as it will be after Sambungkan. */}
             <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50/60 p-4">
               <p className="text-xs font-medium text-slate-600">
                 Setel webhook di Meta App Manager (WhatsApp → Configuration)
@@ -524,8 +524,8 @@ export default function SaluranPage({
               <ReadOnlyField label="Callback URL" value={webhookUrl} />
               <ReadOnlyField
                 label="Verify Token"
-                value={cloudVerifyToken ?? "—"}
-                hint="Token saat ini. Berganti otomatis setiap kali disambungkan ulang — salin nilai terbaru dari kartu saluran setelah Sambungkan."
+                value={cloudVerifyToken ?? "-"}
+                hint="Token saat ini. Berganti otomatis setiap kali disambungkan ulang - salin nilai terbaru dari kartu saluran setelah Sambungkan."
               />
             </div>
 
@@ -658,7 +658,7 @@ export default function SaluranPage({
               </Button>
             </div>
             <p className="text-xs text-slate-400">
-              Menyimpan membuat verify token baru — perbarui token webhook di
+              Menyimpan membuat verify token baru - perbarui token webhook di
               Meta App Manager setelahnya.
             </p>
           </div>
@@ -926,7 +926,7 @@ export const getServerSideProps: GetServerSideProps<SaluranProps> = withAuth<
   // Verify token is sanitized out of the channels list API (secret-adjacent).
   // The Cloud API channel row carries the token; if none exists yet (first
   // connect) or the stored one is missing or still the old predictable default
-  // ("demo-verify-token"), create/persist a freshly generated token NOW — so
+  // ("demo-verify-token"), create/persist a freshly generated token NOW - so
   // the token is on screen before the owner clicks Sambungkan, and Meta's
   // webhook Verify can succeed immediately.
   const session = await getSSRSession(ctx);
@@ -944,7 +944,7 @@ export const getServerSideProps: GetServerSideProps<SaluranProps> = withAuth<
     if (existingToken && !isWeakToken) {
       cloudVerifyToken = existingToken;
     } else if (existing) {
-      // Channel exists but has no token (or still the pre-rotation default) —
+      // Channel exists but has no token (or still the pre-rotation default) -
       // write a fresh one.
       const rawConfig = z.record(z.unknown()).safeParse(existing.config);
       const merged = {

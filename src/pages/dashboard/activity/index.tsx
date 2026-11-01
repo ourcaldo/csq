@@ -61,7 +61,7 @@ function approvalBadge(status: ApprovalStatus): ReactNode {
 }
 
 // Attribute an entry to a named agent, or to "Tim" (the human staff) when
-// agentId is null — human dashboard mutations are logged with agentId null.
+// agentId is null - human dashboard mutations are logged with agentId null.
 function actorLabel(item: AuditLogItem): { label: string; icon: ReactNode } {
   if (item.agentId && item.agent) {
     return { label: item.agent.name, icon: <Robot size={14} /> };
@@ -129,7 +129,7 @@ export default function ActivityPage() {
                         </TableCell>
                         <TableCell>{approvalBadge(item.approvalStatus)}</TableCell>
                         <TableCell className="hidden text-muted-foreground sm:table-cell">
-                          {item.customerPhone ?? "—"}
+                          {item.customerPhone ?? "-"}
                         </TableCell>
                         <TableCell className="text-muted-foreground">
                           {formatDateTime(item.createdAt)}

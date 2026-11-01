@@ -14,7 +14,7 @@ import type { ToolDefinition, ToolResult } from "@/types/tools";
 // assigneeUserId), which re-enables auto-reply.
 //
 // Routing context (conversationId, tenantId, customerPhone) is server-resolved
-// from ToolContext, never agent-supplied — the agent cannot hand off a
+// from ToolContext, never agent-supplied - the agent cannot hand off a
 // conversation other than the one it's in.
 
 const handoffSchema = z.object({

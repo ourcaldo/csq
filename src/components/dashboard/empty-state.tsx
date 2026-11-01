@@ -1,4 +1,4 @@
-// Empty-state placeholder for lists/tables. An icon, a headline, and a hint —
+// Empty-state placeholder for lists/tables. An icon, a headline, and a hint -
 // framed as an invitation to act, not a mood.
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";

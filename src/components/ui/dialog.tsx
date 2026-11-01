@@ -1,4 +1,4 @@
-// Lightweight self-contained modal — no Radix dependency. Handles Escape to
+// Lightweight self-contained modal - no Radix dependency. Handles Escape to
 // close and a backdrop click to close. Callers render their own footer.
 import * as React from "react";
 import { cn } from "@/lib/utils";

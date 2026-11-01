@@ -6,11 +6,11 @@ import { executeTool } from "@/tools/execute";
 import { apiError, apiOk, type ApiResponse } from "@/types/api";
 import type { ApprovalPayload } from "@/types/tools";
 
-// POST /api/tools/[tool] — the agent-facing tool endpoint (SDD §5.2).
+// POST /api/tools/[tool] - the agent-facing tool endpoint (SDD §5.2).
 // Body: { agentId, params }. Auth: a dashboard session. Tools are executed
 // in-process by the agent loop (services/llm-runtime.ts); this HTTP route is
 // the dashboard-side entry point. tenantId is ALWAYS resolved server-side from
-// the session — never from the request body or conversation content.
+// the session - never from the request body or conversation content.
 
 const toolCallSchema = z.object({
   agentId: z.string().uuid(),
@@ -97,7 +97,7 @@ export default async function handler(
           )
         );
     case "approval_required": {
-      // success:false carries data alongside (the approval payload) — SDD §5.1.
+      // success:false carries data alongside (the approval payload) - SDD §5.1.
       const body: ApiResponse<ApprovalPayload> = {
         success: false,
         error: {

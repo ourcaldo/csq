@@ -5,7 +5,7 @@ import type { z } from "zod";
 // Kept free of Prisma and env reads at import time so the assert-based
 // self-check can drive it with a fixed clock. Times are wall-clock in the
 // platform schedule timezone; the mapping to UTC uses Intl (no date library
-// dependency), converging in two iterations — exact for non-DST zones like
+// dependency), converging in two iterations - exact for non-DST zones like
 // Asia/Jakarta, correct elsewhere in practice.
 
 export type ScheduleConfig = z.infer<typeof scheduleConfigSchema>;
@@ -142,7 +142,7 @@ function nextWallMonthly(
 
 // The next fire time for a schedule, strictly after `after` (usually the
 // fire instant or activation time). ONCE returns its fixed instant (may be in
-// the past if the campaign was activated late — the caller checks).
+// the past if the campaign was activated late - the caller checks).
 export function nextCampaignOccurrence(
   kind: ScheduleKind,
   config: ScheduleConfig,
@@ -174,7 +174,7 @@ export function nextCampaignOccurrence(
 
 // INTERVAL recurrence between fires: lastRunAt + everyDays days, keeping the
 // fire's wall-clock time-of-day in the schedule zone (which is exactly what
-// adding whole days does — wall time shifts only on DST, which WIB has none).
+// adding whole days does - wall time shifts only on DST, which WIB has none).
 export function nextIntervalOccurrence(
   lastRunAt: Date,
   everyDays: number,

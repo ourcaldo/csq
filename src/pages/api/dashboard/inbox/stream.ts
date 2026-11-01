@@ -14,7 +14,7 @@ const POLL_INTERVAL_MS = 3000;
 const HEARTBEAT_INTERVAL_MS = 15000;
 
 // D7: a strict `>` cursor silently drops a second message sent in the same
-// second — inbound rows carry the WhatsApp timestamp, which is SECOND
+// second - inbound rows carry the WhatsApp timestamp, which is SECOND
 // precision. Query with a small overlap window and de-duplicate by id: a
 // repeated event is harmless (the client refetches its full history on every
 // event) while a missed one is not.

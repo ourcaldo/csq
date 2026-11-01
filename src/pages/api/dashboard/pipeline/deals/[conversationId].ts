@@ -5,7 +5,7 @@ import { requireTenant, respondError, strQuery, HttpError } from "@/lib/queries"
 import { apiOk, type ApiResponse } from "@/types/api";
 import { setConversationStage } from "@/lib/pipeline";
 
-// PATCH /api/dashboard/pipeline/deals/[conversationId] — OWNER/STAFF. Move a
+// PATCH /api/dashboard/pipeline/deals/[conversationId] - OWNER/STAFF. Move a
 // conversation's deal to a new stage (human manual change). Body: { stage, reason? }.
 type Result = { dealId: string; stageId: string };
 

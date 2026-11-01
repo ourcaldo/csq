@@ -4,7 +4,7 @@ import type { ToolDefinition, ToolResult } from "@/types/tools";
 import { findSimilar } from "@/lib/vector";
 import { embed, isEmbeddingsConfigured } from "@/services/embeddings";
 
-// knowledge.search — allowed by default (read-only). Generates a query
+// knowledge.search - allowed by default (read-only). Generates a query
 // embedding server-side from `query` via the configured embedding provider, then runs pgvector
 // cosine similarity through lib/vector.ts. Falls back to Prisma text `contains`
 // on title + content when embeddings are not configured, the embedding call

@@ -106,7 +106,7 @@ export async function seedDemo(): Promise<void> {
         instructions:
           "Kamu adalah customer service Toko Kopi Nusantara. Jawab dengan ramah dalam Bahasa Indonesia. " +
           "Bantu pelanggan mencari produk, cek stok, dan membuat pesanan. JANGAN pernah mengubah harga " +
-          "tanpa persetujuan owner — perubahan harga selalu butuh approval.",
+          "tanpa persetujuan owner - perubahan harga selalu butuh approval.",
       },
     }));
 
@@ -169,7 +169,7 @@ export async function seedDemo(): Promise<void> {
     });
   }
 
-  // WhatsApp Cloud API channel (DISCONNECTED — owner fills real creds to demo).
+  // WhatsApp Cloud API channel (DISCONNECTED - owner fills real creds to demo).
   const existingChannel = await prisma.channel.findFirst({
     where: { tenantId: tenant.id, provider: "CLOUD_API" },
   });
@@ -220,7 +220,7 @@ async function ensureKnowledge(
 
 // Best-effort embedding so seeded knowledge is semantically retrievable. If
 // LLM_API_KEY is unset (e.g. seeding in an env without embeddings), skip
-// with a warning — the row is already saved and retrieval degrades to keyword.
+// with a warning - the row is already saved and retrieval degrades to keyword.
 async function embedKnowledge(
   tenantId: string,
   knowledgeId: string,
@@ -228,7 +228,7 @@ async function embedKnowledge(
   content: string
 ): Promise<void> {
   if (!isEmbeddingsConfigured()) {
-    console.warn(`[seed] embeddings not configured — skipping "${title}"`);
+    console.warn(`[seed] embeddings not configured - skipping "${title}"`);
     return;
   }
   try {

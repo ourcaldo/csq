@@ -5,7 +5,7 @@ import type { PermissionResult } from "@/types/tools";
 // Capability resolution (SDD §4.4 / §6.2 step 3). An AgentCapability override
 // for (agentId, tool) wins; otherwise the tool's defaultPermission applies.
 // Read tools default to allowed/no-approval; write tools to denied/approval
-// [FR-CP-001..008]. Capability is never inferred from conversation content —
+// [FR-CP-001..008]. Capability is never inferred from conversation content -
 // only from the verified (agentId, toolName) record (prompt-injection defense).
 export async function checkPermission(
   tenantId: string,

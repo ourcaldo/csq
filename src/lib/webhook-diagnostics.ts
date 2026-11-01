@@ -13,7 +13,7 @@ export type WebhookDiag = {
   at: string; // ISO time
   kind: WebhookDiagKind;
   phoneId?: string;
-  // First 16 hex chars only — enough to compare against a locally recomputed
+  // First 16 hex chars only - enough to compare against a locally recomputed
   // HMAC without dumping full signatures into the response.
   receivedSig?: string;
   computedSig?: string;

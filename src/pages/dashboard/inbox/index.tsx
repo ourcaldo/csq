@@ -1,4 +1,4 @@
-// CRM Inbox — the flagship dashboard view. Three panes: conversation list,
+// CRM Inbox - the flagship dashboard view. Three panes: conversation list,
 // chat panel, and contact details. Full-bleed inside the shell (flush mode).
 // Owner/staff see all tenant conversations; selecting one opens the chat.
 // Handoff (take over / release) and tag/status actions live in the details pane.
@@ -91,8 +91,8 @@ export default function InboxPage() {
   }
 
   // Live updates for the conversation LIST (the per-thread SSE in ChatPanel
-  // covers open chats, but the list — last message, ordering, new
-  // conversations — never refreshed, so new inbound traffic was invisible
+  // covers open chats, but the list - last message, ordering, new
+  // conversations - never refreshed, so new inbound traffic was invisible
   // until a manual page reload). Poll at a modest cadence; keepSelection:
   // refreshing must not clobber the open thread.
   useEffect(() => {
@@ -104,7 +104,7 @@ export default function InboxPage() {
 
   return (
     <DashboardShell title="Percakapan" flush>
-      {/* Filter toolbar — status + tag drive the server-side query. */}
+      {/* Filter toolbar - status + tag drive the server-side query. */}
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-4 py-2">
         <Select
           value={status}

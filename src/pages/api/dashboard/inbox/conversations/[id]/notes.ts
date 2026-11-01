@@ -7,7 +7,7 @@ import { requireTenant, respondError } from "@/lib/queries";
 import { apiOk, type ApiResponse } from "@/types/api";
 import { logHuman } from "@/lib/audit";
 
-// Private (internal) note on a conversation — visible to the team in the inbox
+// Private (internal) note on a conversation - visible to the team in the inbox
 // but NOT sent to the customer (isInternal: true, no provider dispatch).
 // OWNER + STAFF can post notes (plan 7.7 / FR-IC-005).
 const noteSchema = z.object({ body: z.string().min(1).max(4096) });

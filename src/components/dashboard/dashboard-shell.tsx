@@ -1,4 +1,4 @@
-// CSQ dashboard shell — clean CRM look matching the reference design.
+// CSQ dashboard shell - clean CRM look matching the reference design.
 // White sidebar (w-64) with grouped Phosphor-icon nav + CSQ wordmark; top header
 // with search, action icons, and an avatar menu (role + Keluar). Each page wraps
 // its content with this shell; the title/description/actions render in a page
@@ -221,7 +221,7 @@ export function DashboardShell({ title, description, actions, headerExtra, flush
             <List size={20} />
           </button>
 
-          {/* Search — hidden on mobile (decorative; no handler) to keep the
+          {/* Search - hidden on mobile (decorative; no handler) to keep the
               header from overflowing on 360px. Visible from sm up. */}
           <div className="relative mx-2 hidden w-full max-w-xl sm:block">
             <MagnifyingGlass

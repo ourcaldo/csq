@@ -30,7 +30,7 @@ export type Contact = {
   name: string | null;
   email: string | null;
   notes: string | null;
-  // Contact classification (feature plan 2026-11-01) — present on the shapes
+  // Contact classification (feature plan 2026-11-01) - present on the shapes
   // returned by the conversations API, which includes the join rows.
   categories?: { categoryId: string; category: { id: string; name: string; color: string | null } }[];
   tags?: { tagId: string; tag: Tag }[];
@@ -53,7 +53,7 @@ export type ConversationListItem = {
   id: string;
   tenantId: string;
   channelId: string;
-  customerPhone: string; // full JID (e.g. <lid>@lid) — used for sending
+  customerPhone: string; // full JID (e.g. <lid>@lid) - used for sending
   customerPhoneDisplay: string; // real phone number for display (LID resolved)
   contactId: string | null;
   assignedAgentId: string | null;

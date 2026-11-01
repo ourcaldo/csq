@@ -186,7 +186,7 @@ export function ChatPanel({ conversationId, customerName, customerPhone, aiActiv
     const es = new EventSource(
       `/api/dashboard/inbox/stream?conversationId=${conversationId}`
     );
-    // The server tracks "last seen" from the moment the SSE connects — any
+    // The server tracks "last seen" from the moment the SSE connects - any
     // message that arrived while the connection was down (proxy timeout,
     // deploy, laptop sleep) is never replayed. Re-fetch the full history on
     // every (re)connect so the panel is always back in sync.
@@ -197,7 +197,7 @@ export function ChatPanel({ conversationId, customerName, customerPhone, aiActiv
       void loadMessages();
     };
     es.onerror = () => {
-      // Transient — the browser auto-reconnects; swallow.
+      // Transient - the browser auto-reconnects; swallow.
     };
     return () => es.close();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -230,7 +230,7 @@ export function ChatPanel({ conversationId, customerName, customerPhone, aiActiv
     }
   }
 
-  // Send an approved WhatsApp template — used to reach a customer outside the
+  // Send an approved WhatsApp template - used to reach a customer outside the
   // 24h Cloud API window. The template must be pre-approved in Meta Business
   // Manager; the operator supplies its name + language code.
   async function sendTemplate() {
@@ -330,7 +330,7 @@ export function ChatPanel({ conversationId, customerName, customerPhone, aiActiv
             />
           ))}
         {/* Agent turn in flight: the last message is a customer inbound with
-            no business reply after it yet — the agent loop is processing it
+            no business reply after it yet - the agent loop is processing it
             (webhook fires the loop on ingest). Show WhatsApp-style dots. */}
         {aiActive && !loading && !error && messages && (() => {
           const last = messages[messages.length - 1];
@@ -418,7 +418,7 @@ export function ChatPanel({ conversationId, customerName, customerPhone, aiActiv
         </div>
       </div>
 
-      {/* Template send dialog — for messaging outside the 24h window. */}
+      {/* Template send dialog - for messaging outside the 24h window. */}
       <Dialog
         open={templateOpen}
         onClose={() => setTemplateOpen(false)}

@@ -1,4 +1,4 @@
-// Dashboard overview — the landing page after login. Stat cards for the key
+// Dashboard overview - the landing page after login. Stat cards for the key
 // counts, plus recent conversations and pending approvals (owner). All cards
 // link into their sections.
 import type { GetServerSideProps } from "next";
@@ -80,7 +80,7 @@ export default function DashboardIndex() {
         />
         <StatCard
           label="Approval Menunggu"
-          value={isOwner ? (approvals.loading ? "…" : pendingApprovals.length) : "—"}
+          value={isOwner ? (approvals.loading ? "…" : pendingApprovals.length) : "-"}
           icon={<SealCheck size={18} />}
           tone="amber"
         />

@@ -5,7 +5,7 @@ import { apiOk, type ApiResponse } from "@/types/api";
 import { getGoogleCreds } from "@/lib/google-connect";
 import { listSheets } from "@/services/sheets";
 
-// GET /api/dashboard/sources/sheets/tabs?spreadsheetId=X — list the tab titles
+// GET /api/dashboard/sources/sheets/tabs?spreadsheetId=X - list the tab titles
 // inside a spreadsheet, so the owner can pick which tab to import. Uses the
 // tenant's stored tokens (no re-login). 400 when not connected or missing id.
 type TabsResult = { tabs: string[] };

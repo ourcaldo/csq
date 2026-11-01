@@ -15,7 +15,7 @@ import { DataTypeSelector } from "./data-type-selector";
 //
 // Phases: (1) pick spreadsheet AND tab on one screen, (2) mapping preview.
 // Previously these were two separate "Lanjut" steps, which read as "the first
-// click did nothing" — collapsed into one step so a single Lanjut reaches the
+// click did nothing" - collapsed into one step so a single Lanjut reaches the
 // preview. `loading` covers fetch operations (list, tabs); `busy` covers
 // action button clicks (connect/confirm), so a fetch never disables the action.
 
@@ -198,7 +198,7 @@ export function SpreadsheetPicker({ sourceId, onClose, onDone }: Props) {
         onChange={(e) => onPickSpreadsheet(e.target.value)}
         disabled={loading || busy}
       >
-        <option value="">— pilih spreadsheet —</option>
+        <option value="">- pilih spreadsheet -</option>
         {spreadsheets.map((s) => (
           <option key={s.id} value={s.id}>
             {s.name}

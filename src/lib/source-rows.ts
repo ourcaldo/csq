@@ -2,7 +2,7 @@ import { Prisma } from "@prisma/client";
 import prisma from "@/lib/db";
 
 // Persists the full parsed rows of an Excel/Google Sheets source so the agent
-// can read inside the sumber data via the `source.search` tool — every column,
+// can read inside the sumber data via the `source.search` tool - every column,
 // not just the five mapped product fields. Called on import and on each sync.
 //
 // Replaces (delete + re-insert) so the stored rows stay in sync with the source.
@@ -13,7 +13,7 @@ import prisma from "@/lib/db";
 const BATCH_SIZE = 500;
 
 // Coerce a row record to a Prisma InputJsonValue for the `data` column without
-// a type assertion — same JSON round-trip pattern as toJson in tools/execute.ts.
+// a type assertion - same JSON round-trip pattern as toJson in tools/execute.ts.
 function toJson(v: unknown): Prisma.InputJsonValue {
   return JSON.parse(JSON.stringify(v));
 }
@@ -31,7 +31,7 @@ export async function replaceSourceRows(
   rows: Record<string, unknown>[]
 ): Promise<void> {
   // M10: wrap delete + re-insert in a single transaction so a crash mid-replace
-  // can't leave SourceRow empty/partial — the whole replace is atomic.
+  // can't leave SourceRow empty/partial - the whole replace is atomic.
   await prisma.$transaction(async (tx) => {
     await tx.sourceRow.deleteMany({ where: { tenantId, dataSourceId } });
 

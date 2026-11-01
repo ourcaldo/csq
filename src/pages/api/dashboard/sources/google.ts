@@ -4,7 +4,7 @@ import { requireTenant, respondError } from "@/lib/queries";
 import { apiOk, type ApiResponse } from "@/types/api";
 import { isGoogleConnected } from "@/lib/google-connect";
 
-// GET /api/dashboard/sources/google — public connection status for the
+// GET /api/dashboard/sources/google - public connection status for the
 // dashboard banner/button. Exposes only `connected` + `email`, never tokens.
 // Any authenticated member (OWNER or STAFF) may read this.
 type GoogleStatusResult = { connected: boolean; email?: string };

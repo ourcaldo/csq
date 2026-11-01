@@ -3,7 +3,7 @@ import { z } from "zod";
 // Embeddings for knowledge semantic retrieval (closes Gap G3). Any
 // OpenAI-compatible provider (LLM_BASE_URL + LLM_API_KEY + a provider-specific
 // LLM_EMBEDDING_MODEL); raw `fetch` + Zod at the boundary (matches the
-// codebase HTTP style — no SDK dependency).
+// codebase HTTP style - no SDK dependency).
 //
 // Pick a multilingual embedding model (works for Bahasa Indonesia
 // content/queries; English-only bge/nomic models were rejected for this

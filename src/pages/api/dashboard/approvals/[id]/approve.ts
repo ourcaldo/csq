@@ -4,7 +4,7 @@ import { executeApprovedAction } from "@/tools/execute";
 import { sendApprovalFollowUp } from "@/lib/agent-outbox";
 import { apiError, apiOk, type ApiResponse } from "@/types/api";
 
-// POST /api/dashboard/approvals/[id]/approve — owner approves a pending action.
+// POST /api/dashboard/approvals/[id]/approve - owner approves a pending action.
 // Executes the original tool handler (audit stamped APPROVED) and marks the
 // Approval resolved. OWNER only [FR-AP-005]. tenantId from the session;
 // executeApprovedAction re-checks the approval belongs to this tenant.
@@ -40,7 +40,7 @@ export default async function handler(
 
   switch (outcome.kind) {
     case "ok":
-      // G1: close the loop — tell the customer the owner approved. Best-effort
+      // G1: close the loop - tell the customer the owner approved. Best-effort
       // and fire-and-forget so the owner's approve response never waits on or
       // fails because of the WhatsApp send.
       void sendApprovalFollowUp({ approvalId: id, approved: true }).catch(

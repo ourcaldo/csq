@@ -1,6 +1,6 @@
-// Email integration section of the Settings page (OWNER-only — the parent
+// Email integration section of the Settings page (OWNER-only - the parent
 // guards rendering). Per-tenant delivery config for the scenario Email module:
-// the store owner brings their own provider — SMTP (host/port/user/pass) or
+// the store owner brings their own provider - SMTP (host/port/user/pass) or
 // Resend (API key). Secrets are write-only: the GET returns masked status, so
 // the form pre-fills the non-secret fields and leaves the secret blank ("keep
 // the saved one") unless the owner types a new value.
@@ -61,7 +61,7 @@ export function EmailSection() {
   const [testInfo, setTestInfo] = useState<string | null>(null);
 
   // Hydrate the form from the masked status once it loads (and on refresh).
-  // Secret fields stay empty — the server keeps the stored one unless a new
+  // Secret fields stay empty - the server keeps the stored one unless a new
   // value is typed.
   useEffect(() => {
     if (!status || !status.configured) {
@@ -159,7 +159,7 @@ export function EmailSection() {
           <div>
             <h2 className="text-base font-semibold text-slate-900">Email</h2>
             <p className="mt-0.5 text-sm text-slate-500">
-              Integrasi email usaha Anda untuk modul Email pada Skenario —
+              Integrasi email usaha Anda untuk modul Email pada Skenario -
               kirim konfirmasi pesanan dan follow-up ke email pelanggan.
               Gunakan SMTP Anda sendiri atau Resend.
             </p>

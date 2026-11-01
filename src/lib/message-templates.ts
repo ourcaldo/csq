@@ -3,12 +3,12 @@ import prisma from "@/lib/db";
 import type { Prisma } from "@prisma/client";
 
 // Per-tenant message templates, stored in Tenant.settings.messageTemplates
-// (Json column) — same pattern as emailProvider/googleSheets.
+// (Json column) - same pattern as emailProvider/googleSheets.
 //
 // Two kinds:
 // - CSQ: free-form text shortcuts the system sends INSIDE the 24h WhatsApp
 //   customer-service window (session-close greeting, agent fallback, etc.).
-//   No Meta approval needed — Meta only requires pre-approved templates for
+//   No Meta approval needed - Meta only requires pre-approved templates for
 //   business-initiated messages OUTSIDE the 24h window.
 // - META: the NAME (+ language) of a template that has been approved in Meta
 //   Business Manager. Used when the system must reach a customer outside the
@@ -38,7 +38,7 @@ export type MessageTemplate = z.infer<typeof messageTemplateSchema>;
 
 export const templatesListSchema = z.array(messageTemplateSchema);
 
-// Tenant.settings wrapper — only the keys we own are written; others merged.
+// Tenant.settings wrapper - only the keys we own are written; others merged.
 const storedSettingsSchema = z.record(z.unknown());
 
 function parseTemplates(raw: unknown): MessageTemplate[] {

@@ -3,7 +3,7 @@ import prisma from "@/lib/db";
 
 // Per-tenant email delivery config for the scenario Email module. Each store
 // owner sets this up on the Settings page (PRD: external integrations are the
-// owner's to bring) — either their own SMTP or a Resend API key. Stored in
+// owner's to bring) - either their own SMTP or a Resend API key. Stored in
 // Tenant.settings.emailProvider (a Json column), the same pattern as
 // sourcePriority and Channel.config: read/written through Zod (never `as`),
 // secrets never leave the server except as masked flags.
@@ -13,7 +13,7 @@ import prisma from "@/lib/db";
 
 // ─────────────────────────── Stored shape ───────────────────────────
 
-// Loose "is an email address" check — provider-side validation is the real
+// Loose "is an email address" check - provider-side validation is the real
 // authority; this only stops obvious garbage at the boundary.
 const emailAddress = z
   .string()
@@ -45,14 +45,14 @@ export const emailProviderSchema = z.discriminatedUnion("type", [
 ]);
 export type EmailProviderConfig = z.infer<typeof emailProviderSchema>;
 
-// Permissive read shape for the whole settings blob — preserves unrelated
+// Permissive read shape for the whole settings blob - preserves unrelated
 // keys (sourcePriority, …) on write.
 const storedSettingsSchema = z.object({}).passthrough();
 
 // ─────────────────────────── Read / write ───────────────────────────
 
 // Read the tenant's email provider config. Returns null when unset or stored
-// in an invalid shape (treated as unconfigured — the Email module skips +
+// in an invalid shape (treated as unconfigured - the Email module skips +
 // audits, and the Settings page shows "not connected" so the owner can fix it).
 export async function getEmailProvider(
   tenantId: string

@@ -9,7 +9,7 @@ import { categoryUpdateSchema } from "@/types/contact";
 import { normalizeHex } from "@/lib/tag-color";
 
 // Category rename/recolor + delete. DELETE removes the join rows only
-// (Cascade on ContactCategory) — contacts are never deleted.
+// (Cascade on ContactCategory) - contacts are never deleted.
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<ApiResponse<Category>>

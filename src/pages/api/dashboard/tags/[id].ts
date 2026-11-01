@@ -21,7 +21,7 @@ export default async function handler(
     return respondError(res, "VALIDATION_ERROR", "ID tag tidak valid.");
   }
 
-  // Rename + delete are OWNER-only (PRD §8 — owner controls taxonomy).
+  // Rename + delete are OWNER-only (PRD §8 - owner controls taxonomy).
   if (req.method === "PUT") {
     if (!requireRole(session, "OWNER")) {
       return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengubah tag.");
@@ -34,7 +34,7 @@ export default async function handler(
     if (!existing) return respondError(res, "NOT_FOUND", "Tag tidak ditemukan.");
     // Build the update payload explicitly so an absent `color` means "leave
     // as-is", while an empty/invalid `color` means "give me a fresh random
-    // one" — matching the create behavior.
+    // one" - matching the create behavior.
     const data: { name?: string; color?: string } = {};
     if (parsed.data.name !== undefined) data.name = parsed.data.name;
     if (parsed.data.color !== undefined) {

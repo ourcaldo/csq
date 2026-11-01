@@ -14,7 +14,7 @@ type ApprovalSummary = {
   createdAt: string;
 };
 
-// GET /api/dashboard/approvals — list PENDING approvals for the tenant.
+// GET /api/dashboard/approvals - list PENDING approvals for the tenant.
 // OWNER only [FR-AP-004]. tenantId from the session, never the query string.
 export default async function handler(
   req: NextApiRequest,

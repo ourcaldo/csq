@@ -19,7 +19,7 @@ import { getTemplateBody } from "@/lib/message-templates";
 import { withSystemLock } from "@/lib/system-lock";
 import { processCampaigns } from "@/lib/campaign-engine";
 
-// In-process periodic sync for Google Sheets sources (PRD §23A — no Redis/queue,
+// In-process periodic sync for Google Sheets sources (PRD §23A - no Redis/queue,
 // node-cron runs inside the Next.js server). Server-only: callers must invoke
 // startScheduler() from a server context; it is a no-op on the client.
 
@@ -35,10 +35,10 @@ export function startScheduler(): void {
   // Auto-reconnect Baileys sockets that get killed by the host proxy so
   // inbound messages don't silently drop.
   startBaileysHeartbeat();
-  // Subscribe the scenario engine to the event bus (triggers). Idempotent —
+  // Subscribe the scenario engine to the event bus (triggers). Idempotent -
   // safe to call on every health-check ping.
   registerScenarioEngine();
-  // Every 5 minutes — bounds Sheets data freshness for the agent. The owner
+  // Every 5 minutes - bounds Sheets data freshness for the agent. The owner
   // can also force a refresh per source via "Sync Sekarang" on the Sumber Data
   // page (hits /api/import/sheets/sync, which reuses syncOne below). D10d: the
   // system lock makes the tick single-instance; the TTL (4 min) is shorter than
@@ -50,7 +50,7 @@ export function startScheduler(): void {
         console.error("[scheduler] sheets-sync tick threw:", err);
       });
   });
-  // Every minute — resume scenario runs paused on a Wait node whose resumeAt
+  // Every minute - resume scenario runs paused on a Wait node whose resumeAt
   // has passed, plus runs deferred at the concurrency cap; and evaluate the
   // scheduler-driven triggers (ON_SCHEDULE time match, ON_NO_REPLY silence
   // windows). Bounded per tick; remaining picked up next tick. Fire-and-forget,
@@ -63,7 +63,7 @@ export function startScheduler(): void {
         console.error("[scheduler] scenario tick threw:", err);
       });
     // Campaign engine (feature plan 2026-11-01): fires due campaigns, delivers
-    // due per-recipient rows, closes finished runs. Same tick, its own lease —
+    // due per-recipient rows, closes finished runs. Same tick, its own lease -
     // the TTL (300s) sits far above a tick's worst case (≤50 bounded provider
     // calls), so a second instance can never start mid-tick (engine comment).
     void withSystemLock("campaign-tick", 300, processCampaigns)
@@ -115,7 +115,7 @@ async function closeIdleSessions(): Promise<void> {
   for (const conversation of conversations) {
     try {
       // Only close on the customer's last inbound (outbound activity alone
-      // must not trigger a close — session TTL counts from customer input).
+      // must not trigger a close - session TTL counts from customer input).
       const last = await prisma.message.findFirst({
         where: { conversationId: conversation.id },
         orderBy: { createdAt: "desc" },
@@ -193,7 +193,7 @@ export async function syncOne(
   tenantId: string,
   rawConfig: unknown
 ): Promise<{ created: number; updated: number; errors: string[] }> {
-  // Parse the Json config with Zod — never `as`. A corrupt config throws and
+  // Parse the Json config with Zod - never `as`. A corrupt config throws and
   // is surfaced by the caller as a sync error (DataSource.status = ERROR).
   const config = sheetsSourceConfigSchema.parse(rawConfig);
   const dataType = (config.dataType ?? "produk").trim().toLowerCase();
@@ -208,7 +208,7 @@ export async function syncOne(
   const sheet = await readSheet(creds, config.spreadsheetId, range);
 
   // Only "produk" sources get structured product/inventory import. Other types
-  // (cabang, staff, ...) are reference data — just refresh the stored rows.
+  // (cabang, staff, ...) are reference data - just refresh the stored rows.
   let summary: { created: number; updated: number; errors: string[] };
   if (isProduct && config.mapping) {
     const products = applyMapping(sheet.rows, config.mapping);

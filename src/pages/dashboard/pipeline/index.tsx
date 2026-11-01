@@ -17,14 +17,14 @@ import { StateNotice } from "@/components/dashboard/state-notice";
 import { StageManager } from "@/components/dashboard/pipeline/stage-manager";
 import { Dialog } from "@/components/ui/dialog";
 
-// Manajemen Pipeline — kanban + funnel views of every conversation's deal stage.
+// Manajemen Pipeline - kanban + funnel views of every conversation's deal stage.
 // Kanban: columns = stages, cards = deals, drag a card to move stage. Funnel:
 // per-stage counts + conversion rates. Filters by assignee + tag + date range.
 // "Atur Tahap" opens the stage customization dialog.
 //
 // A KanbanDeal is the Prisma Deal shape (id = DEAL id, conversationId = the chat,
 // contact/assignee nested under `conversation`). The move PATCH uses
-// `conversationId` (the chat id), not `id` (the deal id) — see bug #3.
+// `conversationId` (the chat id), not `id` (the deal id) - see bug #3.
 
 type KanbanDeal = DealWithRelations;
 
@@ -56,7 +56,7 @@ export default function PipelinePage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [manageOpen, setManageOpen] = useState(false);
-  // Card the user clicked (vs dragged) — shown in the info popup.
+  // Card the user clicked (vs dragged) - shown in the info popup.
   const [popupDeal, setPopupDeal] = useState<KanbanDeal | null>(null);
   // Records the pointer position at mousedown so a click after a drag (which
   // moved beyond a small threshold) is ignored and doesn't open the popup.
@@ -70,7 +70,7 @@ export default function PipelinePage() {
   const [team, setTeam] = useState<{ id: string; name: string }[] | null>(null);
   const [tags, setTags] = useState<Tag[] | null>(null);
 
-  // The dragged deal (HTML5 DnD) — the conversation id being moved.
+  // The dragged deal (HTML5 DnD) - the conversation id being moved.
   const [dragConversationId, setDragConversationId] = useState<string | null>(null);
 
   const pipelineApi = useApi<{ stages: Stage[] }>("/api/dashboard/pipeline");
@@ -425,7 +425,7 @@ export default function PipelinePage() {
               </p>
               <p className="text-slate-600">
                 <span className="text-slate-400">Telepon: </span>
-                {popupDeal.conversation?.customerPhone ?? "—"}
+                {popupDeal.conversation?.customerPhone ?? "-"}
               </p>
               {popupDeal.conversation?.contact?.email && (
                 <p className="text-slate-600">
@@ -441,7 +441,7 @@ export default function PipelinePage() {
               )}
               <p className="text-slate-600">
                 <span className="text-slate-400">Tahap: </span>
-                {popupDeal.stage?.name ?? "—"}
+                {popupDeal.stage?.name ?? "-"}
               </p>
             </div>
             <div className="flex justify-end gap-2">

@@ -5,7 +5,7 @@
 //   used for business-initiated sends OUTSIDE the 24h window.
 // Owner-only writes; staff can view.
 //
-// The template key is a system concern — never surfaced as a free-text field
+// The template key is a system concern - never surfaced as a free-text field
 // on the page. The owner picks a SYSTEM key from a dropdown (with its
 // description) or "Lainnya" to define a custom key (label-only in the UI).
 // Duplicate (key, kind) is rejected by the API POST path; editing an existing
@@ -147,7 +147,7 @@ export default function TemplatesPage() {
     [systemKeys, keyOption]
   );
 
-  // System keys already in use for the current kind — disabled in the dropdown
+  // System keys already in use for the current kind - disabled in the dropdown
   // (one template per key per kind).
   const usedSysKeys = new Set(
     items
@@ -216,7 +216,7 @@ export default function TemplatesPage() {
                 </div>
                 <p className="mb-3 min-h-[3rem] whitespace-pre-line rounded-lg bg-slate-50 p-2 text-xs text-slate-600">
                   {t.kind === "META"
-                    ? `Nama template Meta: ${t.metaName ?? "—"} (${t.metaLanguage ?? "id"})`
+                    ? `Nama template Meta: ${t.metaName ?? "-"} (${t.metaLanguage ?? "id"})`
                     : t.body}
                 </p>
                 {isOwner && (
@@ -259,10 +259,10 @@ export default function TemplatesPage() {
               className={inputCls}
             >
               <option value="CSQ">
-                CSQ — teks bebas (dalam window 24 jam)
+                CSQ - teks bebas (dalam window 24 jam)
               </option>
               <option value="META">
-                Meta — nama template yang sudah di-approve
+                Meta - nama template yang sudah di-approve
               </option>
             </select>
           </div>

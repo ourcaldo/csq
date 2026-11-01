@@ -51,7 +51,7 @@ export default async function handler(
       afterValue: knowledge,
     });
     // Re-embed on update so the vector reflects new title/content. Best-effort
-    // graceful degradation — the update is already persisted above.
+    // graceful degradation - the update is already persisted above.
     if (isEmbeddingsConfigured()) {
       try {
         const vec = await embed(`${knowledge.title}\n${knowledge.content}`);

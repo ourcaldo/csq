@@ -54,7 +54,7 @@ export function GoogleSheetsStep({ connected, email, onConnectionChanged, onOpen
           lalu menyetujui akses ke Google Sheets & Drive.
         </p>
         {/* An <a> rather than next/link: this is an API route that redirects
-            off-site to Google consent — a native anchor is the correct choice. */}
+            off-site to Google consent - a native anchor is the correct choice. */}
         {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
         <a href="/api/import/sheets/auth">
           <Button disabled={busy}>Connect Google Account</Button>
@@ -71,7 +71,7 @@ export function GoogleSheetsStep({ connected, email, onConnectionChanged, onOpen
         <span className="text-sm text-muted-foreground">{email ? `sebagai ${email}` : "akun Google"}</span>
       </div>
       <p className="text-sm text-muted-foreground">
-        Tambah spreadsheet baru tanpa perlu login lagi — Anda cukup memilih dari daftar spreadsheet
+        Tambah spreadsheet baru tanpa perlu login lagi - Anda cukup memilih dari daftar spreadsheet
         Anda.
       </p>
       <div className="flex flex-wrap gap-2">

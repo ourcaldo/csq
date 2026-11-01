@@ -11,7 +11,7 @@ import { validateScenarioGraph } from "@/lib/scenario-validate";
 // Activate a scenario (DRAFT/PAUSED → ACTIVE). OWNER-only. Runs full graph
 // validation first: a malformed graph (cycle, dangling node, missing branch,
 // no End) never goes live. Cloud API tenants also get a 24h-window warning
-// when a Send sits behind Waits summing >= 24h (non-blocking — the runtime
+// when a Send sits behind Waits summing >= 24h (non-blocking - the runtime
 // enforces the real check at send time).
 
 type ActivateResult = { scenario: Scenario; warnings: string[] };

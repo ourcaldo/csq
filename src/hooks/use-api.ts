@@ -1,7 +1,7 @@
 // Reusable data-fetching hook for dashboard list/detail pages. The page owns
 // its filter state and builds the request URL (including query + page); this
 // hook handles loading/error/refresh. `refresh()` bumps an internal nonce to
-// re-run the effect without changing the URL — used after mutations.
+// re-run the effect without changing the URL - used after mutations.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch, ApiError } from "@/lib/api-client";
 

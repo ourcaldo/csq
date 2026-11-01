@@ -4,7 +4,7 @@ import { z } from "zod";
 // Next.js process, no Redis per the stack decision), so triggers dispatch
 // through typed channels here. This is the single chokepoint that the
 // webhook, the tool gateway, and the tag-application path emit into, and
-// the scenario engine subscribes to — keeping emission decoupled from
+// the scenario engine subscribes to - keeping emission decoupled from
 // execution and avoiding scattered direct calls.
 //
 // D10e: channels replace the old EventEmitter wrapper. `emit` validates the
@@ -27,7 +27,7 @@ const conversationNewSchema = z.object({
 const orderPurchasedSchema = z.object({
   tenantId: z.string(),
   orderId: z.string(),
-  // Routing context — present when the order was created from a conversation
+  // Routing context - present when the order was created from a conversation
   // (the agent loop passes conversationId/customerPhone into the tool).
   conversationId: z.string().optional(),
   customerPhone: z.string().optional(),

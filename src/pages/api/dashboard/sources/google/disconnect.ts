@@ -5,7 +5,7 @@ import { apiOk, type ApiResponse } from "@/types/api";
 import { clearGoogleCreds } from "@/lib/google-connect";
 import prisma from "@/lib/db";
 
-// POST /api/dashboard/sources/google/disconnect — OWNER only. Clears the
+// POST /api/dashboard/sources/google/disconnect - OWNER only. Clears the
 // tenant's Google tokens and marks every GOOGLE_SHEETS DataSource INACTIVE
 // (the rows are kept so re-connecting reuses them; imported products/inventory
 // are never touched).

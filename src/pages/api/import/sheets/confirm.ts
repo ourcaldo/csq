@@ -14,7 +14,7 @@ import { replaceSourceRows } from "@/lib/source-rows";
 // Step 4: confirm the selection for a connected Sheet and run the first
 // import. Only dataType "produk" gets structured product/inventory import
 // (needs mapping + transactional tools). Other types (cabang, staff, ...) are
-// stored as raw rows for source.search — no mapping, no product upsert.
+// stored as raw rows for source.search - no mapping, no product upsert.
 type ConfirmResponse = { summary: ImportSummary };
 
 export default async function handler(

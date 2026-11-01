@@ -1,9 +1,9 @@
-# AGENTS.md — CSQ
+# AGENTS.md - CSQ
 
 ## Project Status
 Active project (HackFest origin is historical). Scaffolding through the agent runtime,
 inbox, scenarios, and pipeline has landed; the agent runtime is a direct
-OpenAI-compatible client (`src/services/llm-runtime.ts`) — OpenClaw is gone.
+OpenAI-compatible client (`src/services/llm-runtime.ts`) - OpenClaw is gone.
 **Read `docs/prd-product-requirements-document.md` in full before making any architectural decision.**
 
 ## What We Are Building
@@ -14,25 +14,33 @@ Excel/CSV, Google Sheets) under strictly controlled permissions.
 Core loop: Understand → Retrieve → Reason → Check Permission → Act → Verify → Record.
 Core principle: **Read by default. Write by permission. Act by policy.**
 
-## Agent Behavior — Senior Engineer, Not a Yes-Man
+## Agent Behavior - Senior Engineer, Not a Yes-Man
 - **Never just agree.** If the plan is wrong, risky, over-scoped, or violates a PRD
   constraint, push back with the reason and a better alternative.
 - Non-trivial answers must be short and to the point, but still cover the four things
   that change decisions:
   1. Recommended process (how to proceed),
   2. What already exists / is already built,
-  3. What is NOT recommended — and why,
+  3. What is NOT recommended - and why,
   4. What we should do next (concrete next step).
 - No fluff, no restating the question back. Detail belongs where it informs a decision,
   nowhere else.
 - Fix bugs autonomously: point at logs/errors first, then fix the root cause. Zero
   hand-holding required from the user.
 
-## Coding Style — Lazy Code That Works
+## Coding Style - Lazy Code That Works
 Write the **least code that fully solves the task**. Boring beats clever.
+- **NO em dashes (U+2014) or en dashes (U+2013) anywhere in this repository** - not in code,
+  comments, UI strings, docs, commit messages, or chat replies. Use a basic hyphen `-`, a
+  comma, or a period instead. They are an AI-writing tell, they look wrong in Indonesian text,
+  and (history: the 2026-11-01 D10f mojibake) multi-byte dash characters are what gets
+  corrupted when a file is re-saved with the wrong encoding. `npm run check:encoding` fails
+  on them, so a violation breaks the build gate. Migration `.sql` files under
+  `prisma/migrations/` are the one frozen exception: their bytes are checksummed in
+  `_prisma_migrations` and must never be edited after being applied.
 - YAGNI is law. No speculative abstraction, no "might need later", no dead config or
   placeholder files.
-- Duplicate once, extract on the third occurrence or when there are 2+ real callers —
+- Duplicate once, extract on the third occurrence or when there are 2+ real callers -
   never before.
 - Standard, idiomatic patterns only: vanilla Next.js/Prisma/Tailwind conventions, an
   established library over hand-rolled code (also matches the PRD's AI-assisted coding
@@ -61,13 +69,13 @@ Write the **least code that fully solves the task**. Boring beats clever.
 - Enter plan mode for any non-trivial task (3+ steps, architectural decisions, schema
   changes, auth flow, tool permissions).
 - State the plan before coding. Write checkable items. Mark them complete as you go.
-- If something goes sideways mid-task, STOP and re-plan immediately — don't keep going
+- If something goes sideways mid-task, STOP and re-plan immediately - don't keep going
   on a broken plan.
 
 ### Subagent Strategy
 - Use subagents liberally for research, exploration, and parallel analysis. One task
   per subagent.
-- Keep the main context window clean — offload file searches, doc lookups, and
+- Keep the main context window clean - offload file searches, doc lookups, and
   exploration work to subagents.
 
 ### Verification Before Done
@@ -78,7 +86,7 @@ Write the **least code that fully solves the task**. Boring beats clever.
   4. For API/tool changes: verify the endpoint responds correctly.
 - Never mark a task complete by assumption. Demonstrate it works.
 
-### After Code Changes — Build + Verify
+### After Code Changes - Build + Verify
 - After changes to app code (NOT docs/config-only):
   1. `npm run build` to verify no errors.
   2. Restart dev server if needed (`npm run dev`).
@@ -92,22 +100,22 @@ Write the **least code that fully solves the task**. Boring beats clever.
 
 ## Engineering Rules
 
-### 1. Root Causes Only — No Band-Aid Fixes
+### 1. Root Causes Only - No Band-Aid Fixes
 - Always find and fix the root cause. Never apply temporary workarounds or band-aids.
 - When fixing a file, check ALL other files that import from or depend on the changed
   code. Trace the full impact before declaring "done."
 - Senior developer standard: would a staff engineer approve this change?
 
-### 2. Strict Type Safety — No `as` Casting
+### 2. Strict Type Safety - No `as` Casting
 - **NEVER** use `as any`, `as unknown`, or any `as` type assertion. All values must use
   their real types.
 - Data values must match local TypeScript interfaces/types. If a type mismatch exists,
-  fix the type definition or the data flow — never cast around it.
+  fix the type definition or the data flow - never cast around it.
 - Use Zod schemas at every external boundary (API routes, tool calls, WhatsApp webhook
   payloads, Google Sheets data, Excel import). `z.infer<typeof schema>` is the source of
   truth for request/response shapes.
 
-### 3. External Service Proxy Rule — Zero Direct Calls
+### 3. External Service Proxy Rule - Zero Direct Calls
 - **NEVER** put secret-bearing external integrations directly in browser/client code.
 - External interactions requiring secrets go through server-side handlers/API routes:
   `Client UI → Server handler → External Service`.
@@ -119,17 +127,17 @@ Write the **least code that fully solves the task**. Boring beats clever.
   Don't scatter HTTP calls across routes.
 
 ### 4. Security
-- Never commit secrets/tokens to the repo. `.env` is gitignored — always.
-- Keep environment files private. Define environment variables explicitly — no secret
+- Never commit secrets/tokens to the repo. `.env` is gitignored - always.
+- Keep environment files private. Define environment variables explicitly - no secret
   leaking to client bundles.
 - Sanitize or safely render any user-supplied content (customer messages, uploaded
-  documents, spreadsheet data). Treat all external content as untrusted — this is
+  documents, spreadsheet data). Treat all external content as untrusted - this is
   prompt-injection defense.
 
 ### 5. Integration Points
 - When adding external integrations (WhatsApp Cloud API, Google Sheets, OpenClaw):
   - Define env vars explicitly in `.env.example` and a central config module.
-  - Centralize the client/fetch logic in dedicated modules per integration — don't
+  - Centralize the client/fetch logic in dedicated modules per integration - don't
     scatter it across API routes.
   - One module per integration. Clean interface, clear error handling.
 
@@ -137,13 +145,13 @@ Write the **least code that fully solves the task**. Boring beats clever.
 - **Conventional commits** (`feat:`, `fix:`, `chore:`, `docs:`) with proper type,
   scope, and description.
 - One logical change per commit. No batching unrelated changes.
-- **Commit automatically after a verified unit of work — do NOT wait for the user
+- **Commit automatically after a verified unit of work - do NOT wait for the user
   to ask.** Once `npm run build` (+ lint) passes, stage the relevant files and
   commit with a conventional message. Do not say "nothing committed yet" or ask
   permission to commit. Push if the repo auto-deploys (this one does).
-- Use `git add` (not `-A` blindly) — be aware of what's being staged.
+- Use `git add` (not `-A` blindly) - be aware of what's being staged.
 - **Verification flow** after code changes:
-  1. `npm run build` — confirm no errors
+  1. `npm run build` - confirm no errors
   2. Stage changed files
   3. Commit with conventional message (end with the Co-Authored-By trailer)
   4. Push
@@ -159,7 +167,7 @@ Write the **least code that fully solves the task**. Boring beats clever.
 ### 8. Project Scope
 - Work only in this project's directory. Don't touch files outside it unless explicitly
   asked.
-- Keep docs and instructions comprehensive — do not reduce them to minimal stubs.
+- Keep docs and instructions comprehensive - do not reduce them to minimal stubs.
 
 ### 9. Core Principles
 - **Simplicity First**: Make every change as simple as possible. Minimal code impact.
@@ -167,14 +175,14 @@ Write the **least code that fully solves the task**. Boring beats clever.
 - **Minimal Impact**: Changes touch only what's necessary. Avoid introducing bugs.
 - **Full Traceability**: When changing shared code, verify all consumers still work.
 
-### 10. Production-Ready and Scalable — No "MVP-Only" Excuses
+### 10. Production-Ready and Scalable - No "MVP-Only" Excuses
 - **Every line ships to production standard.** Never justify a flawed or
   unscalable design with "it's fine for the MVP" / "we'll fix it later" / "good
   enough for now." If a design does not scale or is not production-correct, it
-  is wrong — fix the design, not the framing.
+  is wrong - fix the design, not the framing.
 - "Lazy code that works" (see Coding Style) means *minimal code*, never
   *minimal rigor*. The least code that **fully and correctly** solves the task
-  at production scale — not the least code that demos.
+  at production scale - not the least code that demos.
 - If you catch yourself or anyone proposing a shortcut that won't scale (unbounded
   loops, unbounded prompt growth, N+1 queries, no locking, no tenant filter,
   silent failure, hardcoded caps that silently drop work), STOP and redesign.
@@ -191,25 +199,25 @@ Write the **least code that fully solves the task**. Boring beats clever.
   dependency**, not to paper over it with an unscalable substitute. Track the gap
   explicitly (see `docs/report/`) until it is closed.
 
-## Stack — Fixed Constraints (do not substitute)
-- **Next.js with Pages Router — NOT App Router.** This is an explicit PRD decision; do not
+## Stack - Fixed Constraints (do not substitute)
+- **Next.js with Pages Router - NOT App Router.** This is an explicit PRD decision; do not
   scaffold with App Router or suggest migration.
 - Single Next.js process serves both dashboard UI and Tool Gateway API routes. No separate
   backend service (no Fastify etc.).
 - UI: Tailwind CSS + shadcn/ui. Auth: Auth.js (NextAuth), email/password for MVP.
-- PostgreSQL + Prisma + **pgvector** (same Postgres instance; no separate vector DB —
+- PostgreSQL + Prisma + **pgvector** (same Postgres instance; no separate vector DB -
   no Pinecone/Weaviate/Redis/task queue).
 - Data ingestion: `exceljs` or `xlsx` for Excel/CSV; `googleapis` for Google Sheets (OAuth).
 - Agent runtime: **OpenClaw** (HackFest requirement). Integration method (HTTP webhook vs
-  SDK process) NOT yet validated — verify against OpenClaw docs before finalizing backend
+  SDK process) NOT yet validated - verify against OpenClaw docs before finalizing backend
   layout.
-- Channel: WhatsApp is **pluggable** — Cloud API (official, ToS-safe, free test
+- Channel: WhatsApp is **pluggable** - Cloud API (official, ToS-safe, free test
   number, 24h reply window + templates for outbound) and Baileys
   (bring-your-own-number via QR, full parity, ToS/ban risk, opt-in with a UI
   warning). Owner chooses at onboarding; both built in the MVP. The dashboard
   includes a CRM/inbox (shared inbox, assignment, tags, human/AI handoff) for
   owner + staff (OWNER/STAFF roles).
-- Deployment: Docker Compose on Ubuntu VPS — **4 vCPU / 4GB RAM / 20GB SSD**. Keep
+- Deployment: Docker Compose on Ubuntu VPS - **4 vCPU / 4GB RAM / 20GB SSD**. Keep
   process count minimal; `node-cron` in-process for Sheets sync.
 
 ## Architecture Rules
@@ -221,22 +229,22 @@ Write the **least code that fully solves the task**. Boring beats clever.
 - Every tool call must be: tenant-scoped, agent-scoped, permission-checked, audited,
   validated.
 - Data authority: track source, timestamp, last sync, priority per source. On conflict,
-  prefer authoritative source; if unresolvable, escalate to human — never invent an answer.
+  prefer authoritative source; if unresolvable, escalate to human - never invent an answer.
 - **Agent context is bounded and retrieved on demand (production-scalability rule).**
   The system prompt carries only small, stable, always-relevant context: persona,
   owner instructions, safety rules, and a bounded set of core business facts.
   FAQs, policies, and any knowledge that grows with the tenant are **not**
-  bulk-loaded into the prompt — the agent fetches them via retrieval tools
+  bulk-loaded into the prompt - the agent fetches them via retrieval tools
   (`knowledge.search` over pgvector) during the turn. Prompt size must stay
   bounded regardless of tenant knowledge volume. Bulk-loading knowledge into the
   prompt every turn is a scaling defect, not an MVP shortcut (see rule 10).
 
-## Security — Non-Negotiable
+## Security - Non-Negotiable
 - **Every table gets a `tenant_id` column from day one.** All queries and tool calls
   filter server-side by `tenant_id`. Postgres RLS is a second enforcement layer.
 - Never infer owner/admin status or permissions from conversation content. Bind WhatsApp
   identities to tenant+role via verified platform config only.
-- External content (customer messages, spreadsheet cells, uploaded docs) is untrusted —
+- External content (customer messages, spreadsheet cells, uploaded docs) is untrusted -
   prompt-injection defense is a requirement.
 - Agents read-only by default. Write is a per-tool permission (`product.update`,
   `inventory.update`, `order.create`...), tool-based not file-based. Selected actions
@@ -259,21 +267,21 @@ connectors, website chat / Telegram / Messenger channels (future only).
   from a customer message. Preserve this behavior in any refactor.
 - **NEVER state third-party platform rules (pricing, limits, windows, template policy) from
   memory.** Training data lags fast-moving platforms: WhatsApp moved to per-message billing
-  (2025-07-01) and made in-window service replies billable (2026-10-01) — the owner had to
+  (2025-07-01) and made in-window service replies billable (2026-10-01) - the owner had to
   challenge an outdated claim on 2026-11-01 before it was caught. Fetch the current official
   docs (developers.facebook.com for WhatsApp) and quote them before asserting any platform
   behavior that affects a design decision.
 
-## MCP Servers and Skills — Use Them When Relevant
+## MCP Servers and Skills - Use Them When Relevant
 
 This workspace has MCP servers and skills configured. They are part of the workflow,
 not optional extras. Treat "didn't know it existed" as a process failure, same as
 skipping the Read-Before-Acting rule.
 
-### Context7 — library/framework documentation (preferred over web search for docs)
+### Context7 - library/framework documentation (preferred over web search for docs)
 
 Use the `context7` MCP server whenever you need current docs for a library, framework,
-SDK, API, CLI, or cloud service — even well-known ones (Next.js Pages Router, Prisma,
+SDK, API, CLI, or cloud service - even well-known ones (Next.js Pages Router, Prisma,
 Auth.js/NextAuth, shadcn/ui, `exceljs`, `googleapis`, `node-cron`, pgvector). Training
 data lags; docs don't.
 
@@ -287,50 +295,50 @@ Flow: `mcp__context7__resolve-library-id` (name → library ID) →
 - Do NOT use Context7 for: refactoring, writing scripts from scratch, debugging business
   logic, code review, or general programming concepts.
 
-### Firecrawl — web search and page retrieval
+### Firecrawl - web search and page retrieval
 
 Use the `firecrawl` MCP server for live web research Context7 doesn't cover (WhatsApp
 Cloud API webhook setup, Meta for Developers test-number limits, OpenClaw docs when not
 in Context7, current pricing/rate limits, deployment guides).
 
 Match the tool to the task:
-- `firecrawl_search` — find sources on the web.
-- `firecrawl_scrape` — retrieve one known URL (markdown/HTML/JSON).
-- `firecrawl_map` — enumerate a site's URLs without fetching content (find the right doc page).
-- `firecrawl_crawl` — collect many pages from one site.
-- `firecrawl_extract` — structured extraction from URLs with a JSON schema.
-- `firecrawl_agent` — multi-source research; read the result with `firecrawl_agent_status`
+- `firecrawl_search` - find sources on the web.
+- `firecrawl_scrape` - retrieve one known URL (markdown/HTML/JSON).
+- `firecrawl_map` - enumerate a site's URLs without fetching content (find the right doc page).
+- `firecrawl_crawl` - collect many pages from one site.
+- `firecrawl_extract` - structured extraction from URLs with a JSON schema.
+- `firecrawl_agent` - multi-source research; read the result with `firecrawl_agent_status`
   (takes minutes, non-blocking).
-- `firecrawl_parse` — parse a local PDF/DOCX/XLSX into markdown (relevant to the demo's
+- `firecrawl_parse` - parse a local PDF/DOCX/XLSX into markdown (relevant to the demo's
   `return-policy.pdf` / `shipping-policy.pdf` ingestion path, PRD §21 Step 4).
 
 Prefer Context7 for library docs; reach for Firecrawl when you need the live web or a
 specific page. Don't fetch a URL with Firecrawl if Context7 already has the library.
 
-### Skills — invoke when the task fits
+### Skills - invoke when the task fits
 
-Skills are available via the `Skill` tool. Invoke the moment the task matches — do not
+Skills are available via the `Skill` tool. Invoke the moment the task matches - do not
 reinvent what the skill already encodes. Relevant ones for this project:
 
-- **`firecrawl`** — read before heavy scraping/parse work; routes to the right usage path.
-- **`frontend-design`** — before building new dashboard UI or reshaping existing UI
+- **`firecrawl`** - read before heavy scraping/parse work; routes to the right usage path.
+- **`frontend-design`** - before building new dashboard UI or reshaping existing UI
   (aesthetic direction, typography, non-templated choices). Read before the first line of UI code.
-- **`dataviz`** — before ANY chart/graph/dashboard visualization, in any medium. Read
+- **`dataviz`** - before ANY chart/graph/dashboard visualization, in any medium. Read
   before choosing colors, building stat tiles, or laying out a dashboard.
-- **`run`** — launch and drive the app to confirm a change works in the real app, not just tests.
-- **`security-review`** — security review of pending changes. Run before merging anything
+- **`run`** - launch and drive the app to confirm a change works in the real app, not just tests.
+- **`security-review`** - security review of pending changes. Run before merging anything
   touching auth, tool permissions, webhooks, or tenant isolation.
-- **`simplify`** — review changed code for reuse/simplification/efficiency and apply fixes
-  (quality only — not bug-hunting; use `security-review` or code review for that).
-- **`fewer-permission-prompts`** — after a few sessions, scan transcripts and allowlist
+- **`simplify`** - review changed code for reuse/simplification/efficiency and apply fixes
+  (quality only - not bug-hunting; use `security-review` or code review for that).
+- **`fewer-permission-prompts`** - after a few sessions, scan transcripts and allowlist
   common read-only Bash/MCP calls in `.claude/settings.json`.
-- **`update-config`** — for `settings.json`/hooks/permissions changes. Note: any
-  "from now on when X, do Y" automation requires a hook in settings.json — the harness
+- **`update-config`** - for `settings.json`/hooks/permissions changes. Note: any
+  "from now on when X, do Y" automation requires a hook in settings.json - the harness
   executes it, not memory or this file.
-- **`loop`** — recurring task/polling (e.g. "check the deploy every 5 minutes").
-- **`claude-api`** — reference for the Claude/Anthropic API; read before working with
+- **`loop`** - recurring task/polling (e.g. "check the deploy every 5 minutes").
+- **`claude-api`** - reference for the Claude/Anthropic API; read before working with
   model IDs, pricing, tool-use, or MCP/agent definitions.
-- **`init`** — regenerate/refresh `CLAUDE.md` from the codebase when the project structure
+- **`init`** - regenerate/refresh `CLAUDE.md` from the codebase when the project structure
   changes materially (e.g. after Phase 0 scaffolding lands).
 
 When a skill's guidance conflicts with this `AGENTS.md`, this file wins for engineering

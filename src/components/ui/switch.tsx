@@ -1,5 +1,5 @@
 // Toggle switch (capability toggles, settings). Built on a controlled checkbox
-// so it stays a native input — no Radix dependency needed.
+// so it stays a native input - no Radix dependency needed.
 import type { ChangeEvent } from "react";
 import { cn } from "@/lib/utils";
 

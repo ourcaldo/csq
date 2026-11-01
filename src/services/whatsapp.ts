@@ -15,7 +15,7 @@ import {
 } from "@/types/whatsapp";
 import type { z } from "zod";
 
-// WhatsApp Cloud API (official) provider — ToS-safe default.
+// WhatsApp Cloud API (official) provider - ToS-safe default.
 // Graph API version is pinned (memory: v25.0); one service module per
 // integration (CLAUDE.md). All fetch calls are server-side; the bearer token
 // comes from Channel.config and never reaches the client bundle.
@@ -144,7 +144,7 @@ export class CloudApiProvider implements WhatsAppProvider {
     return { waMessageId: data.messages[0].id };
   }
 
-  // Outbound template — required by Cloud API to reach a customer outside the
+  // Outbound template - required by Cloud API to reach a customer outside the
   // 24h customer-service window. The template must be pre-approved in Meta's
   // Business Manager; its name + language come from SendTemplateInput (caller
   // supplies env-configured names). Components are omitted (body-only templates).

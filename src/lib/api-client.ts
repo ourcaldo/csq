@@ -1,7 +1,7 @@
 // Typed browser-side fetch wrapper for the dashboard REST routes.
 //
 // Every dashboard API returns the ApiResponse<T> envelope (src/types/api.ts).
-// This unwraps it generically — no `as` assertions: the JSON body is assigned
+// This unwraps it generically - no `as` assertions: the JSON body is assigned
 // to a typed local via annotation (res.json() is `any` from lib.dom), then the
 // success/data fields are checked before returning data. On failure an ApiError
 // carrying the server's error code + message is thrown.

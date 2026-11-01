@@ -46,7 +46,7 @@ export default async function handler(
     const { categoryIds, tagIds, ...scalarFields } = parsed.data;
 
     // Replace-set semantics: the arrays become the new full set. All ids must
-    // belong to this tenant — an unknown id is a 400, not a silent skip.
+    // belong to this tenant - an unknown id is a 400, not a silent skip.
     const [categoryRows, tagRows] = await Promise.all([
       categoryIds
         ? prisma.category.findMany({ where: { tenantId, id: { in: categoryIds } }, select: { id: true } })

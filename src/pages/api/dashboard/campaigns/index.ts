@@ -50,7 +50,7 @@ export default async function handler(
     const input = parsed.data;
 
     // Channel must belong to this tenant (the engine re-checks CONNECTED at
-    // fire/delivery — a temporarily disconnected channel must not block save).
+    // fire/delivery - a temporarily disconnected channel must not block save).
     const channel = await prisma.channel.findFirst({
       where: { id: input.channelId, tenantId },
     });
@@ -58,7 +58,7 @@ export default async function handler(
       return respondError(res, "VALIDATION_ERROR", "Saluran tidak ditemukan.");
     }
 
-    // Audience references must belong to this tenant — a foreign id would
+    // Audience references must belong to this tenant - a foreign id would
     // silently match nothing, so reject it up front.
     if (input.audience === "CATEGORY" && input.categoryIds.length > 0) {
       const found = await prisma.category.count({
@@ -106,7 +106,7 @@ export default async function handler(
         // The body is still required: it is the Baileys text and the preview
         // (plan 3.2 consequence 1).
         if (!body.trim()) {
-          return respondError(res, "VALIDATION_ERROR", "Isi juga teks pesan — dipakai di saluran Baileys dan pratinjau.");
+          return respondError(res, "VALIDATION_ERROR", "Isi juga teks pesan - dipakai di saluran Baileys dan pratinjau.");
         }
       } else {
         body = template.body;

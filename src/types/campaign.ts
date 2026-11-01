@@ -41,7 +41,7 @@ export const campaignCreateSchema = z
     contactIds: z.array(z.string().uuid()).max(2000).default([]),
     // Content: either a fresh body, or an internal template key whose content
     // is snapshotted at save time (BODY or META kind), or both (a META template
-    // still needs a body — it is the Baileys text and the preview).
+    // still needs a body - it is the Baileys text and the preview).
     templateKey: z.string().max(60).optional(),
     body: z.string().max(1024).optional(),
     imageIds: z.array(z.string().uuid()).max(4).default([]),

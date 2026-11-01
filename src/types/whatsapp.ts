@@ -2,7 +2,7 @@ import { z } from "zod";
 
 // ─────────────────────────── Channel config ───────────────────────────
 // Provider-specific bits of `Channel.config` (Prisma Json). The factory in
-// src/lib/whatsapp-provider.ts parses these with Zod — no `as` narrowing.
+// src/lib/whatsapp-provider.ts parses these with Zod - no `as` narrowing.
 
 // Cloud API (official). Tokens live server-side only; never leak to client.
 // `verifyToken` + `appSecret` are only needed on the channel that receives
@@ -94,9 +94,9 @@ export type WebhookPayload = z.infer<typeof webhookPayloadSchema>;
 //
 // kind (D6): how the content arrived. TEXT = a real text body (including a
 // media caption) and is the only kind that may trigger an agent turn.
-// MEDIA = image/video/document/audio/sticker without a caption — stored for
+// MEDIA = image/video/document/audio/sticker without a caption - stored for
 // the inbox as "[image]" and answered by one debounced courtesy message.
-// OTHER = reactions, unsupported types, system events — stored, no reply.
+// OTHER = reactions, unsupported types, system events - stored, no reply.
 
 export type InboundKind = "text" | "media" | "other";
 
@@ -153,7 +153,7 @@ export const sendTextResponseSchema = z.object({
 // Cloud API requires an approved template to message a customer outside the
 // 24h customer-service window. Templates are pre-approved in the Meta Business
 // Manager; their names are configured via env (WHATSAPP_APPROVAL_TEMPLATE, …).
-// `components` is optional — simple body-only templates need none. Baileys
+// `components` is optional - simple body-only templates need none. Baileys
 // has no 24h restriction, so its `sendTemplate` delegates to free-form text.
 export const sendTemplateSchema = z.object({
   to: z.string().min(1),
@@ -168,7 +168,7 @@ export type SendTemplateInput = z.infer<typeof sendTemplateSchema>;
 // (src/lib/whatsapp-provider.ts) is the single switch point.
 //
 // Baileys has no public HTTP webhook (inbound arrives via socket events), so
-// its `parseInbound` returns [] — that is a Cloud-API-only entry point.
+// its `parseInbound` returns [] - that is a Cloud-API-only entry point.
 // `sendText` is common to both.
 
 export interface WhatsAppProvider {

@@ -226,7 +226,7 @@ export function StageManager({ open, onClose, onChanged }: Props) {
                       />
                     ) : (
                       <span className="text-xs text-slate-600">
-                        {s.winProbability != null ? `${Math.round(s.winProbability * 100)}%` : "—"}
+                        {s.winProbability != null ? `${Math.round(s.winProbability * 100)}%` : "-"}
                       </span>
                     )}
                   </td>
@@ -242,7 +242,7 @@ export function StageManager({ open, onClose, onChanged }: Props) {
                       />
                     ) : (
                       <span className="text-xs text-slate-600">
-                        {s.expectedDays != null ? `${s.expectedDays}h` : "—"}
+                        {s.expectedDays != null ? `${s.expectedDays}h` : "-"}
                       </span>
                     )}
                   </td>

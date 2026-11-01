@@ -1,4 +1,4 @@
-// Prisma schema — CSQ.
+// Prisma schema - CSQ.
 // Multi-tenant from day one: every model carries tenant_id; all queries filter
 // server-side by tenantId (Postgres RLS is the second enforcement layer).
 //
@@ -7,7 +7,7 @@
 // `CREATE EXTENSION IF NOT EXISTS vector;` and creates the column; a later
 // migration alters it to `vector(1024)` (the initially used embedding model;
 // dimension, via the `dimensions` param). All vector reads and writes go
-// through src/lib/vector.ts only — never raw SQL elsewhere.
+// through src/lib/vector.ts only - never raw SQL elsewhere.
 
 generator client {
   provider = "prisma-client-js"
@@ -476,7 +476,7 @@ model DataSource {
 
 // Full parsed rows from an Excel/Google Sheets source, stored on import and on
 // each sync so the agent can read inside the sumber data via the `source.search`
-// tool — every column, not just the five mapped product fields. Replaced (delete
+// tool - every column, not just the five mapped product fields. Replaced (delete
 // + re-insert) on every sync so it stays in sync with the source. `data` is the
 // row as { column: value }.
 model SourceRow {
@@ -738,7 +738,7 @@ model ConversationTag {
   @@index([tagId])
 }
 
-// Sales pipeline for a tenant — one per tenant. Lazily seeded from the default
+// Sales pipeline for a tenant - one per tenant. Lazily seeded from the default
 // template the first time the owner opens the Pipeline page.
 model Pipeline {
   id        String   @id @default(uuid())
@@ -761,7 +761,7 @@ model Pipeline {
 // marks the role: OPENING (the single entry stage), WON/LOST (terminal), NORMAL
 // (intermediate). winProbability (0..1) and expectedDays are optional per stage
 // and power the funnel/stuck-deal views. A pipeline has exactly one OPENING,
-// one WON, one LOST — enforced by a partial unique index in the migration
+// one WON, one LOST - enforced by a partial unique index in the migration
 // (Prisma schema can't express filtered uniques); the app also enforces it.
 model Stage {
   id             String    @id @default(uuid())
@@ -803,7 +803,7 @@ model Deal {
   @@index([tenantId, stageId])
 }
 
-// Audit trail of stage transitions — one row per move. `movedByUserId` for a
+// Audit trail of stage transitions - one row per move. `movedByUserId` for a
 // human move, `movedByAgentId` for an AI auto-move; at least one is set.
 model DealStageHistory {
   id             String   @id @default(uuid())
@@ -841,7 +841,7 @@ model SystemLock {
 // an audience (all contacts / categories / tags / a manual list), carries a
 // content SNAPSHOT resolved at save time, and fires on a schedule with a
 // pacing delay between contacts. Each fire creates a CampaignRun plus one
-// CampaignMessage row per recipient with its own scheduledFor — the minute
+// CampaignMessage row per recipient with its own scheduledFor - the minute
 // tick drains them, so a blast survives restarts and never double-sends.
 
 enum CampaignStatus {
@@ -872,7 +872,7 @@ enum CampaignScheduleKind {
 
 // BODY = free-form internal template / typed text (plus optional images);
 // deliverable on Cloud API only inside the 24h window. META_TEMPLATE = a
-// pre-approved Meta template name (with a snapshot body for Baileys) — the
+// pre-approved Meta template name (with a snapshot body for Baileys) - the
 // only content that reaches out-of-window recipients on Cloud API.
 enum CampaignSendKind {
   BODY
@@ -891,7 +891,7 @@ model MediaAsset {
   tenantId  String
   mimeType  String
   byteSize  Int
-  // Postgres bytea — the app has no S3 and the deploy disk is wiped, so the
+  // Postgres bytea - the app has no S3 and the deploy disk is wiped, so the
   // database is the only durable store. Served publicly (immutable cache) via
   // /api/media/[id] so Meta's fetcher can reach it; UUID ids are the access
   // control (owner round-2 decision, plan section 3.2.1).
@@ -946,7 +946,7 @@ model CampaignRun {
   campaignId String
   startedAt  DateTime  @default(now())
   finishedAt DateTime?
-  // {total,sent,failed,skipped} — stamped when no PENDING rows remain.
+  // {total,sent,failed,skipped} - stamped when no PENDING rows remain.
   counts     Json?
 
   tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -956,7 +956,7 @@ model CampaignRun {
   @@index([tenantId, campaignId, startedAt])
 }
 
-// Per recipient per fire — the pacing and resume log. scheduledFor spreads
+// Per recipient per fire - the pacing and resume log. scheduledFor spreads
 // the blast; the minute tick sends the due ones (bounded).
 model CampaignMessage {
   id           String                @id @default(uuid())
@@ -979,7 +979,7 @@ model CampaignMessage {
 
 // ─────────────────────────── Scenarios ───────────────────────────
 // Scenario automation: a visual drag-and-drop flow the owner/staff builds.
-// Fire-and-forget outbound sequences (surveys, after-sales) — the scenario
+// Fire-and-forget outbound sequences (surveys, after-sales) - the scenario
 // injects messages at trigger times and never owns the conversation; the AI
 // agent handles any reply as normal. Channel-agnostic; on Cloud API no send
 // may land past the 24h customer-service window (enforced at runtime +
@@ -997,7 +997,7 @@ model Scenario {
   status        ScenarioStatus      @default(DRAFT)
   triggerType   ScenarioTriggerType
   triggerConfig Json                @default("{}")
-  // { nodes: ScenarioNode[], edges: ScenarioEdge[] } — validated by Zod in
+  // { nodes: ScenarioNode[], edges: ScenarioEdge[] } - validated by Zod in
   // src/types/scenario.ts, never trusted raw. Stored as Json so the builder
   // can evolve node shapes without a migration.
   graph         Json                @default("{}")
@@ -1018,7 +1018,7 @@ model Scenario {
 // `{{variable}}` interpolation in Send nodes resolves against. `currentNodeId`
 // is the next node to execute. `resumeAt` is set when WAITING on a Wait node;
 // node-cron resumes due runs. `dedupKey` (+ scenarioId) makes trigger firing
-// idempotent — a redelivered webhook or double-fire cannot start a duplicate.
+// idempotent - a redelivered webhook or double-fire cannot start a duplicate.
 model ScenarioRun {
   id             String            @id @default(uuid())
   tenantId       String

@@ -21,7 +21,7 @@ export function Pagination({ page, pageSize, total, onPageChange }: PaginationPr
 
   return (
     <div className="flex flex-col gap-3 py-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-      <span>{`Menampilkan ${from}–${to} dari ${total} item`}</span>
+      <span>{`Menampilkan ${from}-${to} dari ${total} item`}</span>
       <div className="flex items-center gap-2">
         <Button
           variant="outline"

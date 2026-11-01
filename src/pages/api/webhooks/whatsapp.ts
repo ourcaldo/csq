@@ -11,7 +11,7 @@ import {
   getWebhookDiags,
 } from "@/lib/webhook-diagnostics";
 
-// WhatsApp Cloud API webhook. UNAUTHENTICATED — Meta calls it directly, so
+// WhatsApp Cloud API webhook. UNAUTHENTICATED - Meta calls it directly, so
 // tenantId is resolved from the channel config (looked up by phone_number_id),
 // NEVER from the session. Inbound messages are recorded, then the agent loop
 // agent auto-reply loop is fired off (NOT awaited) so the 200 ACK returns
@@ -106,13 +106,13 @@ export default async function handler(
 
     const inboundMessages = parseCloudApiInbound(payload);
     if (inboundMessages.length === 0) {
-      // Status update or unknown type — nothing to ingest. ACK and return.
+      // Status update or unknown type - nothing to ingest. ACK and return.
       res.status(200).send("EVENT_RECEIVED");
       return;
     }
 
     // All messages in one POST should share the same phone_number_id (one
-    // channel per webhook delivery). If they differ, reject — each POST is
+    // channel per webhook delivery). If they differ, reject - each POST is
     // for a single number and routing them under the first channel's tenant
     // would be incorrect.
     const phoneNumberId = inboundMessages[0].phoneNumberId;
@@ -127,7 +127,7 @@ export default async function handler(
       },
     });
     if (!channel) {
-      // Unknown number — ACK to stop retries, but do nothing.
+      // Unknown number - ACK to stop retries, but do nothing.
       recordWebhookDiag({
         at: new Date().toISOString(),
         kind: "UNKNOWN_PHONE_ID",
@@ -137,7 +137,7 @@ export default async function handler(
       return;
     }
 
-    // Signature verification — fail-closed. Resolve the app secret from the
+    // Signature verification - fail-closed. Resolve the app secret from the
     // channel config first, then fall back to WHATSAPP_APP_SECRET. If neither
     // is set, reject (401): never accept unsigned inbound POSTs, since a spoofed
     // message would flow straight into the agent loop. The HMAC is verified
@@ -161,7 +161,7 @@ export default async function handler(
     }
     if (!verifySignature(raw, signature, appSecret)) {
       // Record truncated signatures so the owner can compare what Meta sent vs
-      // what we computed — the fastest way to distinguish "wrong app secret"
+      // what we computed - the fastest way to distinguish "wrong app secret"
       // from "Meta is signing with something else" without server log access.
       const expected = signature?.slice("sha256=".length, "sha256=".length + 16);
       const computed = crypto

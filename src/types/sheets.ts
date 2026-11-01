@@ -2,7 +2,7 @@ import { z } from "zod";
 
 // Google Sheets OAuth + connection types (PRD §8.3). OAuth credentials live
 // at the tenant level in the TenantCredential table (D10c; see
-// lib/google-connect) — one Google connection powers many spreadsheets.
+// lib/google-connect) - one Google connection powers many spreadsheets.
 // DataSource.config holds only the per-spreadsheet selection + column mapping.
 
 export type OAuthCredentials = {
@@ -49,14 +49,14 @@ export const sheetsSyncSchema = z.object({
 });
 export type SheetsSyncInput = z.infer<typeof sheetsSyncSchema>;
 
-// DataSource.config Json shape for GOOGLE_SHEETS sources — the per-spreadsheet
+// DataSource.config Json shape for GOOGLE_SHEETS sources - the per-spreadsheet
 // selection + column mapping only (no OAuth tokens; those live on the tenant).
-// Parsed with Zod (never `as`) at every read — the DB Json column is an
+// Parsed with Zod (never `as`) at every read - the DB Json column is an
 // external boundary. Zod strips unknown keys, so legacy sources that still
 // carry token fields parse fine. mapping is nullish: "produk" sources have a
 // mapping object; other data types (cabang, staff, ...) store `mapping: null`
 // (confirm persists `mapping ?? null`), so the schema must accept null as well
-// as undefined — `.optional()` alone rejects null, which made non-produk sources
+// as undefined - `.optional()` alone rejects null, which made non-produk sources
 // fail config parsing (and thus sync) with a misleading error.
 export const sheetsSourceConfigSchema = z.object({
   spreadsheetId: z.string(),

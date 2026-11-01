@@ -3,7 +3,7 @@ import prisma from "@/lib/db";
 
 // Public media serving (plan 3.2.1). UNAUTHENTICATED by design: Meta's Cloud
 // API fetcher must reach the image over HTTPS, so this route carries the same
-// trust level as any hosted marketing image — the unguessable UUID id is the
+// trust level as any hosted marketing image - the unguessable UUID id is the
 // access control, rows are immutable, and the bytes are tenant promo imagery.
 // Long immutable cache because ids never change content.
 

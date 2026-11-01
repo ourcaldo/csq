@@ -9,7 +9,7 @@ import { getBaileysState } from "@/services/baileys";
 // while a QR is showing). OWNER-only: the QR is a login secret. Baileys
 // rotates the QR periodically, so the page must read the *current* one rather
 // than the QR returned by the initial connect call. Returns qr:null when no
-// socket is running — the caller should re-connect (Tampilkan QR again).
+// socket is running - the caller should re-connect (Tampilkan QR again).
 
 export type QrStateResult = { qr: string | null; open: boolean };
 

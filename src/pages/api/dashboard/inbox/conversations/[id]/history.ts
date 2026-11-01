@@ -4,14 +4,14 @@ import prisma from "@/lib/db";
 import { requireTenant, respondError } from "@/lib/queries";
 import { apiOk, type ApiResponse } from "@/types/api";
 
-// GET /api/dashboard/inbox/conversations/[id]/history — the customer
+// GET /api/dashboard/inbox/conversations/[id]/history - the customer
 // lifecycle timeline for the contact-details panel. Merges three sources the
 // DB already records server-side (one request, no client-side N+1):
-//   1. First chat — conversation createdAt anchor.
-//   2. Orders — by the conversation's customerPhone (the *customer* lifecycle,
+//   1. First chat - conversation createdAt anchor.
+//   2. Orders - by the conversation's customerPhone (the *customer* lifecycle,
 //      so orders from any channel appear; same linkage the agent window
 //      context uses).
-//   3. Pipeline moves — DealStageHistory rows via the conversation's deal,
+//   3. Pipeline moves - DealStageHistory rows via the conversation's deal,
 //      including who moved it (human vs AI auto-move).
 // Bounded: newest-first, capped to HISTORY_LIMIT entries.
 //
@@ -125,12 +125,12 @@ export default async function handler(
   );
 
   const events: HistoryEvent[] = [
-    // First-chat anchor — always present, oldest event.
+    // First-chat anchor - always present, oldest event.
     { kind: "FIRST_CHAT" as const, at: conversation.createdAt.toISOString() },
     ...orders.map((o) => ({
       kind: "ORDER" as const,
       at: o.createdAt.toISOString(),
-      // Human-friendly order number (#<first 8 uuid chars>, uppercase) —
+      // Human-friendly order number (#<first 8 uuid chars>, uppercase) -
       // matches what the agent quotes to the customer (tools/order.ts).
       orderNumber: `#${o.id.slice(0, 8).toUpperCase()}`,
       amount: o.totalAmount.toString(),
@@ -139,8 +139,8 @@ export default async function handler(
     ...stageHistories.map((h) => ({
       kind: "STAGE_MOVE" as const,
       at: h.createdAt.toISOString(),
-      fromStage: stageName.get(h.fromStageId) ?? "—",
-      toStage: stageName.get(h.toStageId) ?? "—",
+      fromStage: stageName.get(h.fromStageId) ?? "-",
+      toStage: stageName.get(h.toStageId) ?? "-",
       actor: h.movedByAgentId
         ? "AI"
         : h.movedByUserId

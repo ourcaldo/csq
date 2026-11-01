@@ -5,7 +5,7 @@ import { requireTenant, respondError, strQuery } from "@/lib/queries";
 import { apiOk, type ApiResponse } from "@/types/api";
 
 // Deploy an agent: mark it ACTIVE so the agent loop picks it up. OWNER-only,
-// tenant-scoped. There is no external runtime to provision — the agent loop
+// tenant-scoped. There is no external runtime to provision - the agent loop
 // (services/llm-runtime.ts) drives the configured OpenAI-compatible provider
 // directly, so deploying is purely a status flip.
 export type DeployResult = {

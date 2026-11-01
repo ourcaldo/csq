@@ -2,7 +2,7 @@ import type { NextApiResponse } from "next";
 import type { Session } from "next-auth";
 import { apiError, type ErrorCode } from "@/types/api";
 
-// Tenant is NEVER read from the request body/query — always from the session.
+// Tenant is NEVER read from the request body/query - always from the session.
 // Called after getAuthSession has confirmed a session exists. A missing
 // tenantId on an authenticated session is an invariant violation (500).
 export function requireTenant(session: Session): string {

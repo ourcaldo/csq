@@ -9,7 +9,7 @@ import { apiOk, type ApiResponse } from "@/types/api";
 // Edit an agent's persona: name and/or instructions (plan 6.6, gap C).
 // OWNER-only, tenant-scoped. Zod-validated at the boundary; only provided
 // fields are updated. Audited (before/after) via logHuman so persona changes
-// are traceable. No `as` casts — the parsed shape drives the Prisma write.
+// are traceable. No `as` casts - the parsed shape drives the Prisma write.
 
 const editSchema = z.object({
   name: z.string().min(1).max(120).optional(),

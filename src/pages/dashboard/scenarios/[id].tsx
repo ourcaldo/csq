@@ -37,7 +37,7 @@ import { edgeTypes } from "@/components/dashboard/scenario/edge";
 
 // Scenario visual builder (React Flow). Drag nodes from the palette onto the
 // canvas, connect them, edit each node's config in the right panel, then Save
-// (draft) or Activate (OWNER — runs graph validation). Fire-and-forget flows:
+// (draft) or Activate (OWNER - runs graph validation). Fire-and-forget flows:
 // the scenario injects outbound messages at trigger times and never owns the
 // conversation.
 
@@ -85,11 +85,11 @@ const INSERTABLE: { type: string; label: string }[] = [
 ];
 
 // Team member option for the assign node's dropdown (from
-// /api/dashboard/scenarios/team — id/name/role only, no secrets).
+// /api/dashboard/scenarios/team - id/name/role only, no secrets).
 type TeamMember = { id: string; name: string; role: string };
 
 // Pipeline stage option for the setStage node's dropdown (from
-// GET /api/dashboard/pipeline — any authenticated member; the route
+// GET /api/dashboard/pipeline - any authenticated member; the route
 // lazy-seeds the default template so the list is never empty in practice).
 type StageOption = { id: string; name: string; order: number; kind: string };
 
@@ -153,7 +153,7 @@ function Builder({ id }: { id: string }) {
     "/api/dashboard/scenarios/team"
   );
   const team: TeamMember[] = teamData?.items ?? [];
-  // setStage-node dropdown options — the tenant's actual pipeline stages.
+  // setStage-node dropdown options - the tenant's actual pipeline stages.
   const { data: pipelineData } = useApi<{ stages: StageOption[] }>(
     "/api/dashboard/pipeline"
   );
@@ -316,7 +316,7 @@ function Builder({ id }: { id: string }) {
   }
 
   // Delete a node and any edges touching it. The trigger is protected (the
-  // graph must keep exactly one); other nodes are removable — validation at
+  // graph must keep exactly one); other nodes are removable - validation at
   // activate time catches any resulting dangling/terminal-less graph.
   function deleteNode(nodeId: string): void {
     const node = nodes.find((n) => n.id === nodeId);
@@ -725,7 +725,7 @@ function Builder({ id }: { id: string }) {
         </div>
       }
     >
-      {/* Mobile notice — the builder canvas is desktop-only. */}
+      {/* Mobile notice - the builder canvas is desktop-only. */}
       <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-6 md:hidden">
         <div className="max-w-sm rounded-lg bg-white p-6 text-center shadow-xl">
           <p className="text-base font-semibold text-slate-900">
@@ -885,7 +885,7 @@ function Builder({ id }: { id: string }) {
                 {runsData.items.map((r) => (
                   <tr key={r.id} className="border-t">
                     <td className="px-3 py-2">{str(r.status)}</td>
-                    <td className="px-3 py-2 text-slate-500">{str(r.dedupKey) || "—"}</td>
+                    <td className="px-3 py-2 text-slate-500">{str(r.dedupKey) || "-"}</td>
                     <td className="px-3 py-2 text-slate-500">
                       {new Date(r.createdAt).toLocaleString()}
                     </td>
@@ -1304,7 +1304,7 @@ function PropertiesPanel({
           </>
         )}
 
-        {type === "end" && <p className="text-xs text-slate-500">Node akhir — tidak ada properti.</p>}
+        {type === "end" && <p className="text-xs text-slate-500">Node akhir - tidak ada properti.</p>}
       </div>
     </div>
   );
@@ -1366,7 +1366,7 @@ function WaitEditor({
 // setStage-node editor: a dropdown of the tenant's actual pipeline stages
 // (from GET /api/dashboard/pipeline) so owners pick from what they configured
 // instead of typing free text. Terminal stages (Menang/Kalah) are offered with
-// a hint — moving INTO them is fine; the engine blocks moving a deal OUT of a
+// a hint - moving INTO them is fine; the engine blocks moving a deal OUT of a
 // terminal stage at runtime (skip + audit). Falls back to a text input only if
 // the stage list hasn't loaded (e.g. fetch failed); the engine resolves the
 // name against the pipeline at runtime either way.
@@ -1393,7 +1393,7 @@ function StageEditor({
             value={inList ? stageName : ""}
             onChange={(e) => onPatch({ stageName: e.target.value })}
           >
-            <option value="">— pilih tahap —</option>
+            <option value="">- pilih tahap -</option>
             {stages.map((s) => (
               <option key={s.id} value={s.name}>
                 {s.name}
@@ -1403,7 +1403,7 @@ function StageEditor({
           </Select>
           {!inList && stageName && (
             <p className="mt-1 text-[11px] text-amber-700">
-              Tahap &quot;{stageName}&quot; tidak ada di pipeline — pilih ulang.
+              Tahap &quot;{stageName}&quot; tidak ada di pipeline - pilih ulang.
             </p>
           )}
         </div>
@@ -1417,7 +1417,7 @@ function StageEditor({
             onChange={(e) => onPatch({ stageName: e.target.value })}
           />
           <p className="mt-1 text-[11px] text-slate-400">
-            Daftar tahap belum termuat — masukkan nama tahap manual.
+            Daftar tahap belum termuat - masukkan nama tahap manual.
           </p>
         </div>
       )}
@@ -1431,7 +1431,7 @@ function StageEditor({
 
 // Assign-node editor: a dropdown of the tenant's members when the team list
 // loaded, degrading to a manual user-ID input otherwise (or when the stored
-// userId isn't in the list — e.g. the member was removed). Selecting a member
+// userId isn't in the list - e.g. the member was removed). Selecting a member
 // stores both userId (engine truth) and userName (card display label).
 function AssignEditor({
   node,
@@ -1462,7 +1462,7 @@ function AssignEditor({
               });
             }}
           >
-            <option value="">— pilih anggota —</option>
+            <option value="">- pilih anggota -</option>
             {team.map((m) => (
               <option key={m.id} value={m.id}>
                 {m.name} ({m.role === "OWNER" ? "Owner" : "Staf"})
@@ -1471,7 +1471,7 @@ function AssignEditor({
           </Select>
           {!inList && userId && (
             <p className="mt-1 text-[11px] text-amber-700">
-              Anggota tersimpan tidak ada di daftar tim — pilih ulang.
+              Anggota tersimpan tidak ada di daftar tim - pilih ulang.
             </p>
           )}
         </div>
@@ -1485,7 +1485,7 @@ function AssignEditor({
             onChange={(e) => onPatch({ userId: e.target.value, userName: "" })}
           />
           <p className="mt-1 text-[11px] text-slate-400">
-            Daftar tim belum termuat — masukkan ID anggota manual.
+            Daftar tim belum termuat - masukkan ID anggota manual.
           </p>
         </div>
       )}

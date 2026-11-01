@@ -5,7 +5,7 @@ import {
   type EmailProviderConfig,
 } from "@/lib/email-config";
 
-// Per-tenant email delivery for the scenario Email module — transactional
+// Per-tenant email delivery for the scenario Email module - transactional
 // customer email (order confirmations, receipts, follow-ups) sent through the
 // store owner's own provider, configured on the Settings page: their SMTP or a
 // Resend API key (src/lib/email-config.ts owns the stored shape). One service

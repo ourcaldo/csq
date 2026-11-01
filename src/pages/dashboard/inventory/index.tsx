@@ -156,7 +156,7 @@ export default function InventoryPage() {
       <Dialog
         open={editing !== null}
         onClose={() => setEditing(null)}
-        title={`Ubah Stok — ${editing?.product.name ?? ""}`}
+        title={`Ubah Stok - ${editing?.product.name ?? ""}`}
       >
         <form onSubmit={onSave} className="flex flex-col gap-4">
           {formError && <p className="text-sm text-destructive">{formError}</p>}

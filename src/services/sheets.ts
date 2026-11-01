@@ -4,7 +4,7 @@ import { MAX_IMPORT_ROWS, ImportTooLargeError } from "@/services/excel";
 import type { OAuthCredentials, SpreadsheetRef } from "@/types/sheets";
 
 // Google Sheets OAuth + read service (PRD §8.3). One module per integration;
-// server-only — GOOGLE_CLIENT_ID/SECRET/REDIRECT_URI are server secrets and
+// server-only - GOOGLE_CLIENT_ID/SECRET/REDIRECT_URI are server secrets and
 // never reach the client bundle.
 
 const SCOPES = [
@@ -47,7 +47,7 @@ function authedClient(creds: OAuthCredentials) {
     expiry_date: creds.expiryDate,
   });
   // google-auth-library auto-refreshes using the refresh_token when the
-  // access_token expires — no manual refresh loop needed.
+  // access_token expires - no manual refresh loop needed.
   return oauth;
 }
 
@@ -113,7 +113,7 @@ export async function readSheet(
 }
 
 // Write values to a range (plan 4.3). Only used when write capability is
-// explicitly enabled for a source — the MVP sync loop is read-only; this is
+// explicitly enabled for a source - the MVP sync loop is read-only; this is
 // here for future "push stock back to the sheet" flows. Values are typed as
 // primitives so the googleapis request body type-checks without a cast.
 type CellValue = string | number | boolean | null;

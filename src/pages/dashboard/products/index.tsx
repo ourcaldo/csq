@@ -170,7 +170,7 @@ export default function ProductsPage() {
                 {data?.items.map((p) => (
                   <TableRow key={p.id}>
                     <TableCell className="font-medium">{p.name}</TableCell>
-                    <TableCell className="text-muted-foreground">{p.sku ?? "—"}</TableCell>
+                    <TableCell className="text-muted-foreground">{p.sku ?? "-"}</TableCell>
                     <TableCell>{formatRupiah(p.price)}</TableCell>
                     <TableCell className="hidden text-muted-foreground sm:table-cell">{formatDate(p.createdAt)}</TableCell>
                     <TableCell className="text-right">

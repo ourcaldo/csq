@@ -77,7 +77,7 @@ export const authOptions: NextAuthOptions = {
   pages: { signIn: "/login" },
 };
 
-// SSR guard for /dashboard/* — NO Next.js middleware (PRD §23B.6).
+// SSR guard for /dashboard/* - NO Next.js middleware (PRD §23B.6).
 // withAuth only guards access; pages that need session data call getSSRSession
 // themselves (avoids prop-merging type casts under the no-`as` rule).
 export function withAuth<P extends Record<string, unknown> = Record<string, unknown>>(
@@ -100,7 +100,7 @@ export async function getSSRSession(ctx: GetServerSidePropsContext): Promise<Ses
   return getServerSession(ctx.req, ctx.res, authOptions);
 }
 
-// API route session helper — call first in every tenant-touching API route.
+// API route session helper - call first in every tenant-touching API route.
 export async function getAuthSession(
   req: NextApiRequest,
   res: NextApiResponse
@@ -127,7 +127,7 @@ export function requireAuth(
   );
 }
 
-// Like withAuth but does NOT redirect when unauthenticated — for pages that
+// Like withAuth but does NOT redirect when unauthenticated - for pages that
 // render for both signed-in and signed-out visitors. The page reads the
 // session via getSSRSession if it needs it.
 export function optionalAuth<P extends Record<string, unknown> = Record<string, unknown>>(

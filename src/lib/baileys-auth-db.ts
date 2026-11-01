@@ -9,14 +9,14 @@ import {
 } from "@whiskeysockets/baileys";
 import prisma from "@/lib/db";
 
-// Database-backed Baileys auth state — mirrors useMultiFileAuthState but
+// Database-backed Baileys auth state - mirrors useMultiFileAuthState but
 // stores the creds + keys in Postgres (BaileysAuth table) instead of the
 // filesystem. This makes the WhatsApp session survive Render restarts
 // without a persistent disk (PRD: always-on, no re-pair on restart).
 //
 // creds: a single object (serialized with BufferJSON.replacer so Buffers
 // round-trip). keys: a flat map keyed by `${type}-${id}`, matching the
-// per-file layout of useMultiFileAuthState. Server-only. No `as` casts —
+// per-file layout of useMultiFileAuthState. Server-only. No `as` casts -
 // JSON.parse returns any, which assigns cleanly into the Baileys types.
 
 // Resolve a WhatsApp LID (Linked Identity) JID to the real phone number,

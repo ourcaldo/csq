@@ -7,7 +7,7 @@ import { getOrCreatePipeline } from "@/lib/pipeline";
 import prisma from "@/lib/db";
 import type { StageKind } from "@prisma/client";
 
-// POST /api/dashboard/pipeline/stages — OWNER/STAFF. Create a stage in the
+// POST /api/dashboard/pipeline/stages - OWNER/STAFF. Create a stage in the
 // tenant's pipeline. Enforces one OPENING / one WON / one LOST per pipeline.
 type StageResult = {
   id: string;

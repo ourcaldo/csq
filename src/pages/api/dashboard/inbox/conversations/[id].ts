@@ -67,7 +67,7 @@ export default async function handler(
 
   if (req.method === "POST") {
     // Mark-as-read: upsert the caller's ConversationRead watermark to now.
-    // Called when the user opens a conversation — clears the unread badge.
+    // Called when the user opens a conversation - clears the unread badge.
     if (!requireRole(session, "OWNER", "STAFF")) {
       return respondError(
         res,

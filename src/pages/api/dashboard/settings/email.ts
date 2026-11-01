@@ -16,13 +16,13 @@ import {
 // Per-tenant email delivery config for the scenario Email module (Settings →
 // Email). The owner brings their own provider: SMTP (host/port/user/pass) or
 // Resend (API key). Stored in Tenant.settings.emailProvider through
-// src/lib/email-config.ts — the single source of truth for the shape.
+// src/lib/email-config.ts - the single source of truth for the shape.
 //
 // OWNER-only for every method: the config contains credentials, and delivery
 // setup is a tenant-wide owner decision (same boundary as source priority).
-// GET never returns the secret — only masked status flags.
+// GET never returns the secret - only masked status flags.
 
-// Input shape for the PUT. `port` arrives as a string from HTML forms —
+// Input shape for the PUT. `port` arrives as a string from HTML forms -
 // coerce to int at the boundary. The secret (password/apiKey) may be omitted
 // to KEEP the stored one (owner editing only the sender or host shouldn't
 // have to re-enter the credential); it is required when no same-type config
@@ -77,7 +77,7 @@ export default async function handler(
     const existing = await getEmailProvider(tenantId);
 
     // Merge: an omitted OR BLANK secret keeps the stored one (same provider
-    // type only — switching SMTP↔Resend always requires the new credential).
+    // type only - switching SMTP↔Resend always requires the new credential).
     let config: unknown;
     if (input.data.type === "SMTP") {
       const password =
@@ -95,7 +95,7 @@ export default async function handler(
       config = { ...input.data, apiKey };
     }
 
-    // Re-validate the merged value against the stored schema — one shape,
+    // Re-validate the merged value against the stored schema - one shape,
     // persisted exactly as every reader expects it.
     const stored = emailProviderSchema.safeParse(config);
     if (!stored.success) {

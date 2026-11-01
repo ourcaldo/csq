@@ -14,7 +14,7 @@ import {
 // app itself drives POST /v1/chat/completions on any OpenAI-compatible
 // provider configured by LLM_BASE_URL/LLM_API_KEY/LLM_CHAT_MODEL. The model returns either a
 // final reply or tool_calls; we execute the tools IN-PROCESS via executeTool
-// (the Tool Gateway — tenant-scoped, permission-checked, audited) and feed
+// (the Tool Gateway - tenant-scoped, permission-checked, audited) and feed
 // `role:"tool"` results back, looping until the model finishes.
 //
 // Server-only. Secrets stay server-side.
@@ -145,7 +145,7 @@ function serializeOutcome(o: ExecuteOutcome): string {
 
 export type RunConversationArgs = {
   tenantId: string;
-  agentId: string; // CSQ Agent.id UUID — keys executeTool/capability lookup
+  agentId: string; // CSQ Agent.id UUID - keys executeTool/capability lookup
   conversationId: string;
   channelId?: string; // G1: routing context for approval follow-ups
   systemPrompt?: string;
@@ -233,7 +233,7 @@ export async function runConversation(args: RunConversationArgs): Promise<RunRes
     }
   }
 
-  // Iteration cap reached — surface the last assistant text if any.
+  // Iteration cap reached - surface the last assistant text if any.
   return {
     reply: lastAssistantText(),
     toolCalls: toolCallLog,
