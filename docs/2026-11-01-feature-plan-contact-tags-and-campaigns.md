@@ -2,7 +2,8 @@
 
 **Date:** 2026-11-01
 **Status:** **APPROVED for implementation** — all decisions closed after owner rounds 1–2
-(sections 5 and 9). Build order is section 6.
+(sections 5, 9, 10); WhatsApp pricing/limits verified against Meta's live docs in round 3
+(section 11). Build order is section 6.
 **Requested by:** owner, 2026-11-01
 **Depends on:** the 2.0.0 defect fixes (`docs/2026-10-31-fix-plan-10-defects.md`) — campaigns reuse the
 system lock, the scheduler tick, the template library, and the outbox's window rules.
@@ -194,10 +195,33 @@ the rejection happens on Meta's servers. Practical consequences built into the p
    Pakai template META untuk menjangkau semua." Reaching *everyone* on the Cloud API needs exactly
    one approved template — a free, one-time submission in Meta Business Manager.
 3. Recipients whose window is closed are recorded `SKIPPED` with a reason — never a silent drop.
-4. **Meta volume limits:** business-initiated messages per 24h are tier-limited (250 for an
-   unverified number, 1k once verified). The create form shows the resolved audience size and a
-   plain-language warning when it exceeds the likely tier. Per-recipient provider failures become
-   `FAILED` rows and the blast continues.
+4. **Cost is per delivered message (verified against Meta's pricing page, Oct 2026).**
+   - Effective July 1, 2025, WhatsApp bills **per message**, not per conversation: rates are per
+     market×category, charged only for messages Meta *delivered*.
+   - Effective **October 1, 2026**, Meta resumed charging for messages that were previously free:
+     **service replies inside the 24h window** and in-window utility templates. Each business
+     phone number gets **1,000 free service messages per month** (no rollover), then they bill.
+     A free-form blast burns that allowance fast — campaigns are real money on the Cloud API now.
+   - Messages that start from a **Click-to-WhatsApp ad** open a free entry point window (up to
+     7 days): everything inside it is free. Relevant for UMKM running FB/IG ads.
+   - The create form shows the resolved audience count with a cost note pointing at Meta's
+     published rate card; v1 does not compute per-recipient prices (rates change quarterly).
+5. **Messaging limits cap business-initiated sends (verified, Oct 2026):** the maximum number of
+   unique recipients a business can message **outside the 24h window** per moving 24h. New
+   portfolios start at **250** and scale to **2,000** (business verification, or 2,000 delivered
+   template messages in a 30-day window at high quality rating), then automatically
+   10,000 → 100,000 → unlimited. This caps *template* blasts specifically — in-window service
+   sends do not count against it. The create form warns when the audience exceeds the current
+   limit (visible in WhatsApp Manager).
+6. **Platform behaviors the engine leans on / documents (verified):**
+   - **Media caching:** the Cloud API caches link-based media for 10 minutes — every campaign
+     recipient reuses the same `/api/media/[id]` URL, so Meta fetches the image once per blast.
+   - **Burst order is not guaranteed:** for a series of messages (text then images) WhatsApp
+     does not guarantee delivery order. Guaranteed order requires webhook-confirmed sequencing —
+     overkill for v1; the wizard notes best-effort ordering ("foto menyusul").
+   - **Opt-in + quality rating:** Meta's policy requires recipients to have opted in; blasting
+     non-opted-in contacts degrades the number's quality rating, which is exactly what gates the
+     messaging-limit scaling above.
 
 ### 3.2.1 Rich content: text, uploaded images, buttons (owner rounds 1–2)
 
@@ -556,4 +580,36 @@ here because the reasoning matters more than the conclusion.
 5. **Inbox panel: editable** tags/categories there.
 
 With those, every open decision is closed and the plan is approved for implementation.
+
+## 11. Round 3 — verification against Meta's live documentation (2026-11-01)
+
+The owner challenged the 24h-window claim and reported that WhatsApp moved to per-bubble
+("per message") pricing on October 1, 2026. Both claims were checked against Meta's own current
+pages (developers.facebook.com — *Pricing on the WhatsApp Business Platform*, *Service messages*,
+*Messaging limits*), which already reflect the October 1, 2026 updates:
+
+- **The owner was right about pricing, and an earlier note in this discussion was outdated.**
+  Billing is per delivered message (since July 1, 2025), and as of **October 1, 2026** Meta
+  resumed charging for messages that were previously free: service replies inside the 24h window
+  and in-window utility templates, with 1,000 free service messages per phone number per month.
+  "Free-form replies inside the window are free" stopped being true 31 days before this plan was
+  written. Plan updated (3.2, consequence 4).
+- **The 24h window is NOT a pricing rule — it is a message-type rule, and it is unchanged.**
+  Meta's current wording, verbatim:
+  - "*Non-template messages (`\"type\":\"text\"`, `\"type\":\"image\"`, and so on) can only be
+    sent in an open 24-hour customer service window … non-template messages cannot be used to
+    reach out to users.*" (Pricing, Non-template messages)
+  - "*If it is not open, businesses can only send template messages to reach out to users.*"
+    (Pricing, Customer service window)
+  - "*When the window closes, you can only send pre-approved template messages.*"
+    (Service messages)
+  Pricing decides what each delivered message **costs**; the window decides which message
+  **types may be sent at all**. After 24h a free-form bubble is rejected by Meta's API
+  (error 131047) — it is not merely billed differently.
+- **Messaging limits corrected in this plan:** new portfolios start at 250 unique out-of-window
+  recipients per moving 24h, scaling to 2,000 / 10,000 / 100,000 / unlimited (an earlier draft
+  said "1k once verified" — wrong tier). This caps template blasts specifically.
+- **Two engine-relevant platform behaviors recorded:** the Cloud API caches link-based media for
+  10 minutes (favorable — every campaign recipient reuses the same `/api/media/[id]` URL), and
+  delivery order for a multi-message burst is not guaranteed (best-effort ordering documented).
 
