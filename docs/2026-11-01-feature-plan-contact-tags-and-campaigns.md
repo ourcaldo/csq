@@ -1,8 +1,8 @@
 # Feature Plan — Contact Tags & Categories + Campaigns (Message Blasting)
 
 **Date:** 2026-11-01
-**Status:** In discussion — round 1 answered and folded in (section 9); the four open decisions in
-section 5 gate implementation.
+**Status:** **APPROVED for implementation** — all decisions closed after owner rounds 1–2
+(sections 5 and 9). Build order is section 6.
 **Requested by:** owner, 2026-11-01
 **Depends on:** the 2.0.0 defect fixes (`docs/2026-10-31-fix-plan-10-defects.md`) — campaigns reuse the
 system lock, the scheduler tick, the template library, and the outbox's window rules.
@@ -168,6 +168,14 @@ entries from exactly this rule:
 | **Baileys** (own number, QR) | **Always.** No window, no Meta templates ever. Trade-off: the number can be banned by WhatsApp (the ToS risk the product already documents and gates behind `tosAcknowledged`). |
 | **Cloud API** (official — the live channel today) | **Only within 24h of that customer's last inbound message.** Outside the window Meta's API rejects free text (error 131047) and only an approved Meta template is accepted. |
 
+**What the customer actually sees:** a Meta-approved template arrives on the customer's phone as
+a normal WhatsApp message from the business — its text (with `{{name}}`-style variables filled),
+its image, its buttons. Nothing marks it as a template. "Template" only names the one-time
+pre-approval step on the business side; the delivery is an ordinary message. What Meta's server
+refuses is the opposite case: text typed at send time (from the internal template library or fresh)
+to a customer silent >24h — Meta cannot pre-check free text, so it blocks it. Customers never see
+the difference; the difference is only which messages Meta lets through to inactive customers.
+
 Per-recipient send policy for a campaign on the Cloud API:
 
 | Recipient state | `body` (internal template / typed text) | `META` template |
@@ -191,41 +199,81 @@ the rejection happens on Meta's servers. Practical consequences built into the p
    plain-language warning when it exceeds the likely tier. Per-recipient provider failures become
    `FAILED` rows and the blast continues.
 
-### 3.2.1 Rich content: text, image, buttons (owner round 1)
+### 3.2.1 Rich content: text, uploaded images, buttons (owner rounds 1–2)
 
-Requested: a campaign message can be image + text + buttons. What is technically possible, per
-channel and window state:
+Requested: a campaign message can be image + text + buttons, with **uploaded** images (not URLs),
+possibly several. Two platform facts shape it:
+
+1. **One image per WhatsApp message.** WhatsApp media messages carry a single image (Cloud API
+   image limit: 5 MB, jpeg/png/webp). Multiple images = the campaign sends them as a short burst
+   of consecutive messages to each contact — exactly like a person sending several photos. The
+   pacing delay applies between CONTACTS, not within one contact's burst.
+2. **Where a burst can go:** free-form images reach customers **inside the 24h window** on the
+   Cloud API and **everyone** on Baileys. Outside the window on the Cloud API only the approved
+   template path exists — and a Meta template carries exactly **one** header image. Buttons
+   likewise live inside approved templates (in-window interactive buttons are a Cloud-API-only
+   v2 idea; Baileys cannot offer them reliably).
 
 | Content | Cloud API, inside 24h | Cloud API, outside 24h | Baileys |
 |---|---|---|---|
 | Text | free | template only | free |
-| Image + caption | free (media send by public image URL) | as the approved template's image header | free (URL fetched in-process) |
-| Buttons (quick reply / CTA) | allowed as an "interactive message", no approval | **only inside an approved Meta template** | unreliable — WhatsApp deprecated buttons for non-template messages; not offered |
+| Images (uploaded, 1–4) | burst of media messages, free | **template only, single header image** | burst of media messages, free |
+| Buttons | interactive message (no approval) — v2 | only inside an approved template | not offered |
 
-Scope decisions that follow:
+**Image storage (round 2 decision — upload, not URL):** the app has no S3 and the container disk
+is wiped on every deploy, so v1 stores campaign images **in Postgres** and serves them from the
+app's own HTTPS domain:
 
-- **Buttons in a blast to inactive customers = a Meta-approved template, always.** The buttons are
-  designed once in Meta Manager; the campaign sends the template by name. There is no free-form
-  button path there.
-- **v1 proposal:** text; text + image by public URL (no upload/storage infrastructure — Meta
-  fetches the URL, Baileys downloads it in-process); buttons via META templates only.
-- In-window interactive buttons (Cloud API) and a real upload flow are deferred to v2 — both are
-  separate provider-code and infrastructure work.
+```prisma
+model MediaAsset {
+  id        String   @id @default(uuid())   // unguessable — the only access control
+  tenantId  String
+  mimeType  String                        // image/jpeg | image/png | image/webp
+  byteSize  Int                           // ≤ 5 MB enforced at upload
+  data      Bytes                        // postgres bytea
+  createdAt DateTime @default(now())
+  @@index([tenantId, createdAt])
+}
+```
+
+- Upload: `POST /api/dashboard/media` reads the raw request body as bytes (`bodyParser: false`,
+  same streaming pattern as the WhatsApp webhook; no multipart parser, no new dependency) with
+  `?filename=` metadata. Hard caps: 5 MB per image, 4 images per campaign message, mime allow-list.
+- Serving: `GET /api/media/[id]` is **public, long-cache (`immutable`), no session** — Meta's fetcher
+  must reach it over HTTPS, and the campaign send passes
+  `https://<app-domain>/api/media/<id>` as the Cloud API image `link`. The app domain comes from the
+  request origin. Security: UUID ids are unguessable, content is tenant promo imagery, rows are
+  immutable — an unauthenticated GET is the same trust level as a public marketing image anywhere.
+  Baileys downloads the same bytes in-process and sends them as a buffer with the caption.
+- No delete in v1 (a campaign references the asset by id; orphaned uploads cost a few MB in
+  Postgres — a cleanup pass is noted for later).
+
+**Campaign content snapshot** therefore carries an ordered image list:
+
+```prisma
+  // in Campaign:
+  imageIds  String[]   // ordered MediaAsset ids, 0–4; sent as a burst after the text
+```
+
+Send order per recipient (free-form path): the text message first (if non-empty), then each image
+as its own media message, back-to-back; every item recorded as its own OUTBOUND `Message` row
+attributed to the run. Template path: one template send (its own header image/buttons, as designed
+in Meta Manager) — no burst.
 
 ### 3.3 Decisions (recommendations in bold)
 
-| # | Decision | Status after owner round 1 (2026-11-01) |
+| # | Decision | Status after owner round 2 (2026-11-01) |
 |---|---|---|
 | 2.1 | Recurring audience | **CONFIRMED by owner** — every fire sends to everyone matching the audience at that moment (category/tag audiences include customers tagged after the campaign was created; MANUAL selection stays a fixed list) |
-| 2.2 | Permissions | **REOPENED** — "OWNER-only" explained in round 1: the app has OWNER (full control) and STAFF (invited inbox team) roles. The question: may a STAFF account create/launch campaigns? **Recommendation: no** — one click messages every customer at once |
+| 2.2 | Permissions | **CONFIRMED (round 2):** OWNER always; STAFF may create/pause campaigns **iff the owner grants it**. There is no permission system today (two hardcoded roles, Team page can only invite), so v1 adds a single per-staff toggle: `User.canRunCampaigns` (default false), set from the Team page. A full permission matrix stays out of scope |
 | 2.3 | Sender identity in the inbox | **New `MessageSenderType.CAMPAIGN`** (not reusing SCENARIO), so campaign sends are distinguishable in the inbox and audit |
 | 2.4 | Does the AI answer replies? | **Yes — unchanged plumbing:** a reply is a normal inbound; the turn lease/drain handles it. Campaign sends deliberately do NOT count as "answered" for the drain (same exclusion as SCENARIO) |
 | 2.5 | Pacing accuracy | **Best-effort with 1-minute scheduler granularity** (a 10s delay sends ~6/min; a crash resumes exactly where the per-recipient rows left off) |
 | 2.6 | Marketing opt-out | **DROPPED by owner.** Meta's marketing templates carry their own opt-out button set in Meta Manager — nothing needed in our code |
 | 2.7 | Schedule timezone | **Reuse `SCENARIO_SCHEDULE_TZ`** (already documented, default Asia/Jakarta) |
-| 2.8 | Channel selection | Campaign stores `channelId`; the form lists CONNECTED channels. **OPEN (round 1):** which channel carries campaigns in practice — see 3.2; it decides whether Meta templates are needed at all |
+| 2.8 | Channel selection | **CONFIRMED (round 2): both channels**, chosen per campaign (`channelId`); the form lists CONNECTED channels and the wizard shows the send matrix so the owner knows which recipients a free-form blast can reach |
 | 2.9 | Menu placement | **"Kampanye" in the Utama group** of the sidebar |
-| 2.10 | Rich content scope | **OPEN (round 1):** proposed v1 = text + optional image by public URL; buttons via META templates. Real upload/storage and in-window interactive buttons deferred (3.2.1) |
+| 2.10 | Rich content | **CONFIRMED (round 2): uploaded images (Postgres-stored, served from the app domain), multiple images as a burst (3.2.1), text, buttons via META templates.** Round-1 URL idea dropped in favor of real upload |
 
 ### 3.4 Schema (one migration, same release as Feature 1 or its own)
 
@@ -252,7 +300,7 @@ model Campaign {
   // silently change a scheduled campaign)
   sendKind     CampaignSendKind
   body         String                        // free-form / CSQ body; also the Baileys text
-  mediaUrl     String?                       // optional public image URL (round 1, 3.2.1)
+  imageIds     String[]                      // ordered MediaAsset ids, 0-4 (round 2, 3.2.1)
   metaName     String?                       // META: approved template name
   metaLanguage String? @default("id")
   // Schedule (interpreted in the platform schedule TZ)
@@ -287,7 +335,10 @@ model CampaignMessage {                       // per recipient per fire — the 
 ```
 
 Round 1 change: categories are many-to-many, so the campaign audience selects one or more
-categories (OR semantics). `marketingOptOut` was dropped by the owner (decision 2.6).
+categories (OR semantics). `marketingOptOut` was dropped by the owner (decision 2.6). Round 2 adds:
+`MediaAsset` (3.2.1), `Campaign.imageIds`, and `User.canRunCampaigns Boolean @default(false)` —
+the per-staff toggle the owner sets from the Team page (decision 2.2); the auth session must carry
+it (jwt + session callbacks + the next-auth type augmentation).
 
 Why `scheduledFor` instead of "loop with sleep": a 500-recipient blast at 30s pacing runs ~4 hours.
 An in-process loop dies with the process and cannot resume. Pre-computed per-recipient rows are the
@@ -314,10 +365,14 @@ withSystemLock("campaign-tick", 90, processCampaigns)
    while the parent campaign is PAUSED):
    - Find-or-create the conversation for (channel, phone) — replies then land in the shared inbox.
    - Send per the policy matrix in 3.2 (Cloud API window check; META template outside the window;
-     Baileys always sends `body`).
-   - Record an `OUTBOUND` Message row (`senderType: CAMPAIGN`, `kind: TEXT`), stamp the
-     conversation `lastMessageAt`, update the recipient row (`SENT`/`FAILED`/`SKIPPED` + reason +
-     `waMessageId`). A recipient error never aborts the batch.
+     Baileys always sends `body`). Free-form sends are a **burst**: the text message (if non-empty)
+     then each image as its own media message (3.2.1) — the pacing delay applies between contacts,
+     not within a contact's burst. Template sends are one template call.
+   - Record an `OUTBOUND` Message row per burst item (`senderType: CAMPAIGN`, `kind: TEXT`), stamp
+     the conversation `lastMessageAt`, update the recipient row (`SENT`/`FAILED`/`SKIPPED` +
+     reason + `waMessageId`). A recipient error never aborts the batch; a partial burst (text sent,
+     image 2 failed) records the failed item's error on the recipient row and still counts the
+     contact as reached-with-errors.
 3. **Close finished runs:** runs with no `PENDING` left get `finishedAt` + counts.
 4. **Audit:** one row per lifecycle event (`campaign.create/update/activate/pause/delete`,
    `campaign.fire` with the audience counts) — per-recipient traceability lives in
@@ -330,14 +385,17 @@ each row flips PENDING→sent-atomically via `updateMany where status=PENDING` b
 
 | Route | Method | Notes |
 |---|---|---|
-| `/api/dashboard/campaigns` | GET, POST | POST validates the audience references and resolves the content snapshot (template → body/metaName) |
+| `/api/dashboard/campaigns` | GET, POST | POST validates the audience references and resolves the content snapshot (template → body/metaName). Allowed for OWNER, or STAFF with `canRunCampaigns` |
 | `/api/dashboard/campaigns/[id]` | GET, PUT, DELETE | PUT only while DRAFT or PAUSED (an ACTIVE campaign is paused first — never edited live) |
 | `/api/dashboard/campaigns/[id]/activate` | POST | DRAFT/PAUSED → ACTIVE; computes the first `nextRunAt` |
 | `/api/dashboard/campaigns/[id]/pause` | POST | ACTIVE → PAUSED (in-flight PENDING rows stay PENDING and resume on activate) |
 | `/api/dashboard/campaigns/[id]/runs` | GET | run list with counts; `?runId=` returns that run's message log (paged) |
 | `/api/dashboard/campaigns/preview` | POST | audience resolution preview: `{total, byCategory}` — powers the form's live count |
+| `/api/dashboard/media` | POST | image upload, raw-bytes body (`bodyParser: false`, streamed, 5 MB cap, mime allow-list); same campaign permission as above. Returns the `MediaAsset` id |
+| `/api/media/[id]` | GET | **public, unauthenticated, immutable cache** — serves the bytes so Meta's fetcher can reach the image (3.2.1) |
+| `/api/dashboard/team/[id]` | PUT | OWNER-only: toggles a STAFF member's `canRunCampaigns` |
 
-All OWNER-only, Zod-validated, tenant-scoped, audited.
+All Zod-validated (media route validates bytes/mime/size), tenant-scoped, audited.
 
 ### 3.7 UI (`/dashboard/campaigns`)
 
@@ -349,16 +407,19 @@ All OWNER-only, Zod-validated, tenant-scoped, audited.
   1. **Nama & saluran** — name + channel picker (CONNECTED channels only).
   2. **Penerima** — audience: Semua / Kategori (multi-select, OR) / Tag (multi) / Pilih manual
      (contact picker); live preview count from `/preview`, the Meta tier warning.
-  3. **Pesan** — from the tenant template library (CSQ or META) or write fresh; optional image URL
-     (round 1: public link, Meta fetches it / Baileys downloads it); body preview with the
-     24h-window warning when the message is free-form on a Cloud API channel; when a META template
-     is chosen, a note that buttons live inside the template as designed in Meta Manager.
+  3. **Pesan** — from the tenant template library (CSQ or META) or write fresh; an **image upload
+     widget** (select files, POST to `/api/dashboard/media`, thumbnails from `/api/media/[id]`,
+     max 4, 5 MB each); body preview with the 24h-window warning when the message is free-form on
+     a Cloud API channel; when a META template is chosen, a note that the template's own image and
+     buttons were designed in Meta Manager (campaign images do not ride inside templates).
   4. **Jadwal & tempo** — schedule kind + time (and weekday/day-of-month/every-N-days as
      applicable), delay seconds (min 10s, default 30s), summary line: "± 120 kontak × 30 dtk ≈
      60 menit per kirim".
 - Reuses `DashboardShell`, the existing Dialog/Badge/Table components, and the Tag page's chip
   styling; one new nav item in `NAV_GROUPS` (decision 2.9).
-- Contact panel (Feature 1) also shows the opt-out toggle for OWNER.
+- Contact panel (Feature 1) shows tags + categories with OWNER/permission edit affordances.
+- **Team page:** a "Boleh jalankan kampanye" toggle per STAFF row (OWNER-only) — the round-2
+  permission design (3.3 #2.2).
 
 ### 3.8 Verification
 
@@ -378,25 +439,27 @@ All OWNER-only, Zod-validated, tenant-scoped, audited.
 | # | Migration | Contents |
 |---|---|---|
 | 1 | `20261101010000_contact_classification` | `Category`, `ContactCategory` join, `ContactTag` join, relations on `Contact`/`Tag`; RLS policies for the three new tenant tables (the D9 coverage rule — verified 30/30 today, becomes 33/33) |
-| 2 | `20261101020000_campaigns` | 5 enums (`MessageSenderType` gains `CAMPAIGN`), `Campaign`, `CampaignRun`, `CampaignMessage`, indexes; RLS policies for the three new tenant tables |
+| 2 | `20261101020000_campaigns_media` | 5 enums (`MessageSenderType` gains `CAMPAIGN`), `Campaign`, `CampaignRun`, `CampaignMessage`, `MediaAsset` (bytea), `User.canRunCampaigns`; indexes; RLS policies for the new tenant tables (`MediaAsset` included; `User` already has a policy — the new column rides on it) |
 
 Additive only; applied to Neon over MCP with `_prisma_migrations` bookkeeping (checksums via
 `npm run db:migration-checksums`), the workflow established in the 2.0.0 fixes.
 
 ---
 
-## 5. Open decisions — remaining after round 1 (2026-11-01)
+## 5. Open decisions — CLOSED (round 2, 2026-11-01)
 
-Answered in round 1: multi-category/multi-tag contacts (confirmed), shared tag taxonomy (confirmed),
-tags/categories shown in the conversation panel (confirmed), recurring audience resolved fresh per
-fire (confirmed), manual opt-out flag (dropped).
+All decisions are answered. Round 1 settled: multi-category/multi-tag contacts, shared tag
+taxonomy, tags/categories in the conversation panel, fresh audience resolution per fire, opt-out
+dropped. Round 2 settled the rest:
 
-| # | Question | Recommendation |
+| # | Question | Owner's answer |
 |---|---|---|
-| 1 | **Which channel carries campaigns in practice?** This single choice decides whether Meta templates are needed at all (3.2). Options: the live Cloud API number (approved templates required for customers silent >24h) or a Baileys number (free text to everyone, ban risk) or both (per-campaign choice — the schema already stores `channelId`). | Support both, per-campaign choice; warn per the send matrix |
-| 2 | **v1 rich content:** text only, or text + image by public URL (no upload infra)? Buttons are META-template-only either way (3.2.1). | Text + image-by-URL in v1 |
-| 3 | May STAFF accounts create/launch campaigns, after the owner-only explanation (round 1, 3.3 #2.2)? | No — OWNER only |
-| 4 | Tags/categories in the inbox panel: OWNER can edit them right there, or view-only in v1? | Editable (reuses the contacts dialog) |
+| 1 | Which channel carries campaigns? | **Both** — per-campaign choice (`channelId`), wizard shows the send matrix |
+| 2 | Rich content scope | **Uploaded images (not URLs), multiple images as a burst** — Postgres-stored `MediaAsset`, served from the app domain (3.2.1); buttons via META templates |
+| 3 | May STAFF run campaigns? | **Yes, when the owner grants it** — new per-staff `canRunCampaigns` toggle on the Team page (the app has no permission system today, so this single toggle is the v1 of one) |
+| 4 | Tags/categories in the inbox panel | **Editable** there |
+
+**The plan is approved for implementation** pending nothing. Build order is section 6.
 
 ---
 
@@ -417,11 +480,11 @@ Phases A and B are independent and can land in either order; C depends on both.
 
 ## 7. Explicitly out of scope (v1)
 
-- Opt-out handling (round 1: the manual flag was dropped; Meta marketing templates carry their own
-  opt-out button). Auto-detecting "STOP"/"berhenti" replies is a possible v2.
-- Real media upload/storage — v1 images come from a public URL pasted by the owner (round 1, 3.2.1).
 - In-window interactive buttons (Cloud API free-form buttons) — buttons reach a blast via META
   templates only in v1.
+- Media deletion/cleanup — uploads are immutable and kept (a few MB each; a cleanup pass noted
+  for later).
+- A general permission matrix — v1 gets the single per-staff campaign toggle only.
 - Campaign analytics beyond run counts (opens, clicks — not available on WhatsApp anyway).
 - A/B testing, per-recipient variable interpolation beyond a name token, drip sequences
   (multi-step campaigns) — one message per fire is the v1 unit.
@@ -436,6 +499,8 @@ Phases A and B are independent and can land in either order; C depends on both.
 |---|---|
 | Owner builds a free-form campaign and most recipients get skipped on Cloud API | Hard warning in the wizard before save + per-recipient `SKIPPED` reasons visible in the run log |
 | Meta tier limit hits mid-blast | Audience-size warning before save; per-recipient FAILED rows; blast continues |
+| Media bytes bloat the database | 5 MB/4-image caps, mime allow-list, immutable storage; Neon's logical limit is far away at UMKM volume; cleanup pass noted for later |
+| Public media route leaks images | UUID ids are unguessable, content is tenant promo imagery, rows immutable — same trust level as any hosted marketing image |
 | Blast marked as spam by recipients | Opt-out handling lives in the Meta marketing template (set in Meta Manager) on Cloud API; on Baileys the owner manages opt-outs manually; pacing keeps volume low |
 | A paused campaign's in-flight messages vanish | PENDING rows persist and resume on activate — nothing is deleted |
 | Process restart mid-blast | Per-recipient rows + minute tick: the blast resumes exactly where it stopped (no double sends — PENDING claim is atomic) |
@@ -466,4 +531,29 @@ here because the reasoning matters more than the conclusion.
    understood — explained and re-asked as open decision 3; manual opt-out dropped (accepted);
    the 24h-window question resolved by the explanation above; recurring audience confirmed
    (fresh resolution per fire for segments, fixed list for MANUAL).
+
+## 10. Round 2 discussion record (2026-11-01)
+
+1. **"We send it as a message, not a template."** Confirmed the owner's instinct about the
+   *experience* and corrected the mechanism (now documented at the top of 3.2): a Meta-approved
+   template is delivered to the customer as a completely normal WhatsApp message — text with
+   variables filled, image, buttons — nothing marks it as a template. "Template" only names the
+   one-time pre-approval on the business side. What Meta refuses is text typed at send time going
+   to customers silent >24h — free text cannot be pre-checked, so only pre-approved content reaches
+   them.
+2. **Channel: both.** Each campaign picks its channel; the wizard shows the send matrix so the
+   owner knows who a free-form blast can reach on each.
+3. **Images: upload, multiple.** Two platform facts recorded in 3.2.1 — one image per WhatsApp
+   message (multi-image = a burst of consecutive messages; 5 MB, jpeg/png/webp caps) and
+   burst-images only reach customers inside the 24h window on Cloud API (an approved template
+   carries exactly one header image). Storage: the app has no S3 and the deploy disk is wiped, so
+   v1 stores bytes in Postgres (`MediaAsset.data bytea`) and serves them from the app's own HTTPS
+   domain via a public, immutable-cache route that Meta fetches. Round-1 "paste a URL" idea dropped.
+4. **Permissions: staff + owner.** The owner assumed a configurable permission system exists — it
+   does not (two hardcoded roles; Team page only invites). v1 adds the single honest piece:
+   `User.canRunCampaigns`, a per-staff toggle on the Team page, set by the owner. A full permission
+   matrix is out of scope.
+5. **Inbox panel: editable** tags/categories there.
+
+With those, every open decision is closed and the plan is approved for implementation.
 
