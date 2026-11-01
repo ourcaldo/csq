@@ -401,7 +401,7 @@ export default function PipelinePage() {
                     </div>
                     <span className="w-10 shrink-0 text-right text-xs text-slate-600">
                       {s.count}
-                      {rate != null && <span className="text-slate-400"> · {rate}%</span>}
+                      {rate != null && <span className="text-slate-400"> - {rate}%</span>}
                     </span>
                   </div>
                 );

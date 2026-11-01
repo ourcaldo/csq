@@ -171,7 +171,7 @@ export default function DashboardIndex() {
                     <span className="text-xs text-slate-400">{timeLabel(a.createdAt)}</span>
                   </div>
                   <p className="mt-1 text-xs text-slate-500">
-                    {a.entityType} · {a.agent?.name ?? "Agent"}
+                    {a.entityType} - {a.agent?.name ?? "Agent"}
                   </p>
                 </Link>
               ))}

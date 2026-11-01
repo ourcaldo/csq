@@ -229,7 +229,7 @@ export default function ApprovalsPage() {
                       </span>
                     </div>
                     <p className="mt-1 text-xs text-slate-500">
-                      {item.entityType} · ID {shortId(item.entityId)}
+                      {item.entityType} - ID {shortId(item.entityId)}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">

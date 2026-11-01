@@ -78,7 +78,7 @@ export const TriggerNode = memo(function TriggerNode({ data, selected }: NodePro
           ? `Tag: ${str(data?.tagName) || "?"}`
           : triggerType === "ON_SCHEDULE"
             ? `Jadwal ${str(data?.scheduleTime) || "?"}${
-                typeof data?.tagName === "string" && data.tagName ? ` · ${data.tagName}` : ""
+                typeof data?.tagName === "string" && data.tagName ? ` - ${data.tagName}` : ""
               }`
             : triggerType === "ON_NO_REPLY"
               ? `Tanpa balasan ${

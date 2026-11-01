@@ -30,14 +30,15 @@ Core principle: **Read by default. Write by permission. Act by policy.**
 
 ## Coding Style - Lazy Code That Works
 Write the **least code that fully solves the task**. Boring beats clever.
-- **NO em dashes (U+2014) or en dashes (U+2013) anywhere in this repository** - not in code,
-  comments, UI strings, docs, commit messages, or chat replies. Use a basic hyphen `-`, a
-  comma, or a period instead. They are an AI-writing tell, they look wrong in Indonesian text,
-  and (history: the 2026-11-01 D10f mojibake) multi-byte dash characters are what gets
-  corrupted when a file is re-saved with the wrong encoding. `npm run check:encoding` fails
-  on them, so a violation breaks the build gate. Migration `.sql` files under
-  `prisma/migrations/` are the one frozen exception: their bytes are checksummed in
-  `_prisma_migrations` and must never be edited after being applied.
+- **NO em dashes (U+2014), en dashes (U+2013), or middle dots (U+00B7) anywhere in this
+  repository** - not in code, comments, UI strings, docs, commit messages, or chat replies.
+  Use a basic hyphen `-`, a comma, or a period instead. They are AI-writing tells,
+  they look wrong in Indonesian text, and (history: the 2026-11-01 D10f mojibake)
+  multi-byte dash characters are what gets corrupted when a file is re-saved with the
+  wrong encoding. `npm run check:encoding` fails on them, so a violation breaks the
+  build gate. Migration `.sql` files under `prisma/migrations/` are the one frozen
+  exception: their bytes are checksummed in `_prisma_migrations` and must never be
+  edited after being applied.
 - YAGNI is law. No speculative abstraction, no "might need later", no dead config or
   placeholder files.
 - Duplicate once, extract on the third occurrence or when there are 2+ real callers -

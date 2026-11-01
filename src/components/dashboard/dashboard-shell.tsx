@@ -135,7 +135,7 @@ export function DashboardShell({ title, description, actions, headerExtra, flush
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-800">
       {/* Document title + meta for this dashboard route. Auth-gated pages are
-          noindex; the title prop becomes the browser-tab title ("… · CSQ"). */}
+          noindex; the title prop becomes the browser-tab title ("… - CSQ"). */}
       <Seo title={title} description={description} path={router.pathname} noindex />
       {/* Sidebar */}
       <aside

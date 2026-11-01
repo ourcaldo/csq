@@ -35,13 +35,13 @@ function isMojibake(text) {
   return null;
 }
 
-// Guard 2 (owner rule, 2026-11-01): em dashes (U+2014) and en dashes (U+2013)
-// are forbidden in code, comments, and UI strings. The regex uses escapes so
-// this file itself contains no dash characters. Migration .sql files are not
-// scanned (never matched by the extension filter) - they are frozen records
-// whose bytes are checksummed in _prisma_migrations.
-function findDash(text) {
-  const idx = text.search(/[\u2014\u2013]/);
+// Guard 2 (owner rule, 2026-11-01): em dashes (U+2014), en dashes (U+2013),
+// and middle dots (U+00B7) are forbidden in code, comments, and UI strings.
+// The regex uses escapes so this file itself contains none of them. Migration
+// .sql files are not scanned (never matched by the extension filter) - they are
+// frozen records whose bytes are checksummed in _prisma_migrations.
+function findForbiddenChar(text) {
+  const idx = text.search(/[\u2014\u2013\u00B7]/);
   if (idx === -1) return null;
   return text.slice(Math.max(0, idx - 20), idx + 10);
 }
@@ -69,13 +69,13 @@ for (const file of files) {
     console.error("FAIL", file, "contains mojibake near:", JSON.stringify(snippet));
     failed++;
   }
-  const dashSnippet = findDash(text);
-  if (dashSnippet) {
+  const badSnippet = findForbiddenChar(text);
+  if (badSnippet) {
     console.error(
       "FAIL",
       file,
-      "contains a forbidden em/en dash (U+2014/U+2013) near:",
-      JSON.stringify(dashSnippet)
+      "contains a forbidden em/en dash or middle dot (U+2014/U+2013/U+00B7) near:",
+      JSON.stringify(badSnippet)
     );
     failed++;
   }
@@ -83,7 +83,7 @@ for (const file of files) {
 
 if (failed > 0) {
   console.error(
-    `${failed} violation(s). Either CP1252-mojibake (re-save as UTF-8) or a forbidden em/en dash (use a basic hyphen, comma, or period instead).`
+    `${failed} violation(s). Either CP1252-mojibake (re-save as UTF-8) or a forbidden em/en dash / middle dot (use a basic hyphen, comma, or period instead).`
   );
   process.exit(1);
 }

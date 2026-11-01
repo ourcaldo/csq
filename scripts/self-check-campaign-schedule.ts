@@ -1,6 +1,6 @@
 // Assert-based self-check for the campaign schedule math (feature plan
 // 2026-11-01, section 3.8). Run: npx tsx scripts/self-check-campaign-schedule.ts
-// Pure functions, fixed clock, fixed timezone (Asia/Jakarta, UTC+7, no DST —
+// Pure functions, fixed clock, fixed timezone (Asia/Jakarta, UTC+7, no DST -
 // same math holds for any zone via the Intl-based conversion).
 import {
   nextCampaignOccurrence,
