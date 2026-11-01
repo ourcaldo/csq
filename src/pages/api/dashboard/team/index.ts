@@ -14,6 +14,7 @@ export type UserItem = {
   email: string;
   name: string | null;
   role: "OWNER" | "STAFF";
+  canRunCampaigns: boolean;
   createdAt: string;
 };
 
@@ -49,6 +50,7 @@ export default async function handler(
         email: true,
         name: true,
         role: true,
+        canRunCampaigns: true,
         createdAt: true,
       },
     }),
@@ -63,6 +65,7 @@ export default async function handler(
     // The ternary branches return string literals, so the result type is
     // "OWNER" | "STAFF" (string-enum ↔ string-literal comparison is allowed).
     role: u.role === "OWNER" ? "OWNER" : "STAFF",
+    canRunCampaigns: u.role === "OWNER" ? true : u.canRunCampaigns,
     createdAt: u.createdAt.toISOString(),
   }));
 

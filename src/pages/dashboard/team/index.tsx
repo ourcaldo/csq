@@ -35,6 +35,7 @@ type TeamMember = {
   email: string;
   name: string | null;
   role: TeamRole;
+  canRunCampaigns: boolean;
   createdAt: string;
 };
 
@@ -115,6 +116,17 @@ export default function TeamPage() {
     setCreated(null);
   }
 
+  // Per-staff campaign permission (feature plan 2026-11-01, decision 2.2).
+  async function onToggleCampaignPermission(member: TeamMember, checked: boolean) {
+    setFormError(null);
+    try {
+      await apiSend(`/api/dashboard/team/${member.id}`, "PUT", { canRunCampaigns: checked });
+      refresh();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Gagal mengubah izin kampanye.");
+    }
+  }
+
   return (
     <DashboardShell
       title="Tim"
@@ -162,6 +174,7 @@ export default function TeamPage() {
                 <TableHead>Email</TableHead>
                 <TableHead>Peran</TableHead>
                 <TableHead className="hidden sm:table-cell">Dibergabung</TableHead>
+                {isOwner && <TableHead className="hidden md:table-cell">Izin Kampanye</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -202,6 +215,23 @@ export default function TeamPage() {
                     <TableCell className="hidden text-muted-foreground sm:table-cell">
                       {formatDate(m.createdAt)}
                     </TableCell>
+                    {isOwner && (
+                      <TableCell className="hidden md:table-cell">
+                        {m.role === "OWNER" ? (
+                          <span className="text-xs text-muted-foreground">Selalu (owner)</span>
+                        ) : (
+                          <label className="flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={m.canRunCampaigns}
+                              onChange={(e) => onToggleCampaignPermission(m, e.target.checked)}
+                              className="h-4 w-4"
+                            />
+                            Boleh jalankan kampanye
+                          </label>
+                        )}
+                      </TableCell>
+                    )}
                   </TableRow>
                 );
               })}

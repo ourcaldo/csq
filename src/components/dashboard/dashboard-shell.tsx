@@ -37,6 +37,7 @@ import {
   Kanban,
   FlowArrow,
   Notepad,
+  Megaphone,
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { Seo } from "@/components/seo";
@@ -50,6 +51,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/dashboard", label: "Ringkasan", icon: <ChartBar size={18} /> },
       { href: "/dashboard/inbox", label: "Percakapan", icon: <ChatCircleDots size={18} /> },
+      { href: "/dashboard/campaigns", label: "Kampanye", icon: <Megaphone size={18} /> },
       { href: "/dashboard/templates", label: "Template Pesan", icon: <Notepad size={18} /> },
       { href: "/dashboard/saluran", label: "Saluran", icon: <WhatsappLogo size={18} /> },
       { href: "/dashboard/pipeline", label: "Manajemen Pipeline", icon: <Kanban size={18} /> },
