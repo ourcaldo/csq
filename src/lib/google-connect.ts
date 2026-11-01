@@ -10,8 +10,10 @@ import type { OAuthCredentials } from "@/types/sheets";
 // D10c: credentials live in the dedicated TenantCredential table, NOT in
 // Tenant.settings. Settings is a config blob several routes read-merge-write,
 // so keeping tokens there made any future `select settings` a credential
-// leak. The legacy `settings.googleSheets` key is left in place for now and
-// removed in a later release once this read path is verified live.
+// leak. The legacy `settings.googleSheets` key was copied here by migration
+// 20261101000600 and dropped from Tenant.settings by migration
+// 20261101000900 (owner-approved 2026-11-01); this table is now the only
+// place tokens exist.
 //
 // Server-only. Tokens are server secrets; never sent to the client (the
 // public status exposes only `connected` + `email`).

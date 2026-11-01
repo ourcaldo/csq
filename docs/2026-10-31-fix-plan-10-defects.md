@@ -28,13 +28,12 @@
   two rapid messages on one conversation (single reply pair), a replayed webhook (single ingest),
   media handling end-to-end, and the 10-concurrency pool check. The error paths these replace are
   gone from the code, but watch the first day of `AuditLog` after deploy.
-- **Pending follow-ups (documented, deliberate):**
-  1. Remove the legacy `settings.googleSheets` key from `Tenant` in a later release, after the
-     new `TenantCredential` read path is confirmed live (D10c, two-release rollout).
-  2. Three pre-existing migrations (`init`, `rls_policies`, `remove_openclaw_cells`) were edited
-     after they were applied, so their stored checksums no longer match the files. Harmless for
-     `migrate deploy` (it does not verify checksums and has succeeded many times since), but it will
-     confuse `migrate dev`/`migrate resolve` workflows some day.
+- **Follow-ups resolved same day (owner-approved):** the legacy `settings.googleSheets` key was
+  dropped from `Tenant` (migration `20261101000900`, verified: key gone, credential row intact), and
+  the three pre-existing migrations whose files were edited after being applied (`init`,
+  `rls_policies`, `remove_openclaw_cells` — comment-only edits) had their `_prisma_migrations`
+  checksums corrected to the current file hashes, so every applied migration now matches its file
+  and `migrate dev`/`migrate resolve` workflows will not choke on stale bookkeeping.
 
 ---
 

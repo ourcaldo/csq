@@ -206,10 +206,9 @@ model Tenant {
 // D10c: per-tenant external OAuth credentials, SEPARATE from Tenant.settings.
 // Tokens are secrets; settings is a config blob several routes read-merge-write,
 // so keeping tokens there made any future `select settings` a credential leak.
-// Only src/lib/google-connect.ts reads this table. The googleSheets key still
-// in Tenant.settings is legacy data copied here by migration
-// 20261101000600_tenant_credential; it is dropped in a later release once the
-// new read path is verified live (rolling back this commit must still work).
+// Only src/lib/google-connect.ts reads this table. The legacy googleSheets key
+// that lived in Tenant.settings was copied here by migration
+// 20261101000600 and dropped by migration 20261101000900.
 model TenantCredential {
   id           String    @id @default(uuid())
   tenantId     String
