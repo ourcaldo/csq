@@ -1,7 +1,8 @@
 # Feature Plan — Contact Tags & Categories + Campaigns (Message Blasting)
 
 **Date:** 2026-11-01
-**Status:** Proposed — awaiting approval of the open decisions in section 5
+**Status:** In discussion — round 1 answered and folded in (section 9); the four open decisions in
+section 5 gate implementation.
 **Requested by:** owner, 2026-11-01
 **Depends on:** the 2.0.0 defect fixes (`docs/2026-10-31-fix-plan-10-defects.md`) — campaigns reuse the
 system lock, the scheduler tick, the template library, and the outbox's window rules.
@@ -44,32 +45,44 @@ categories/tags as they adopt the feature.
 
 ### 2.2 Decisions (recommendations in bold)
 
-| # | Decision | Options |
+| # | Decision | Status after owner round 1 (2026-11-01) |
 |---|---|---|
-| 1.1 | Category multiplicity | **One category per contact** (a classification — multiple groups is what tags are for) vs many-to-many |
-| 1.2 | Tag taxonomy | **Share the existing `Tag` model** with conversations via a new `ContactTag` join — one list to manage, one color system, tags become reusable across contact + conversation |
-| 1.3 | Who may tag/categorize | **OWNER** (matches the existing OWNER-only `PUT /contacts/[id]`); STAFF tagging listed as a follow-up decision |
-| 1.4 | Category management UI | **A "Kategori Kontak" section on the existing Tag page** (one taxonomy screen) rather than a new menu item |
+| 1.1 | Category multiplicity | **CONFIRMED: many-to-many** — a contact can be in multiple categories, same as tags. Schema changed to a join table (2.3). |
+| 1.2 | Tag taxonomy | **CONFIRMED** — one shared `Tag` list for conversations and contacts (`ContactTag` join) |
+| 1.3 | Where tags/categories appear | **CONFIRMED by owner** — contacts page AND the conversation/inbox contact panel, not only the contacts page |
+| 1.4 | Who may tag/categorize | **OWNER** (matches the existing OWNER-only `PUT /contacts/[id]`); STAFF tagging listed as a follow-up decision |
+| 1.5 | Category management UI | **A "Kategori Kontak" section on the existing Tag page** (one taxonomy screen) rather than a new menu item |
 
 ### 2.3 Schema (one migration)
 
+Round 1 change: categories are many-to-many, symmetric with tags — the taxonomy row follows the
+`Tag` pattern and the join follows the `ConversationTag`/`ContactTag` pattern.
+
 ```prisma
-model ContactCategory {
+// Taxonomy row, like Tag: tenant-scoped list of categories ("Reseller", "VIP").
+model Category {
   id        String   @id @default(uuid())
   tenantId  String
   name      String
-  color     String?          // same normalize/random hex pattern as Tag
+  color     String?            // same normalize/random hex pattern as Tag
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  contacts  Contact[]
+  contacts  ContactCategory[]
+
   @@unique([tenantId, name])   // stable names — campaigns reference them by id
 }
 
-model Contact {
-  // existing fields...
-  categoryId String?
-  category   ContactCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  tags       ContactTag[]
+// Join, like ConversationTag: a contact can be in MANY categories.
+model ContactCategory {
+  id         String  @id @default(uuid())
+  tenantId   String
+  contactId  String
+  categoryId String
+  contact    Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([contactId, categoryId])
+  @@index([tenantId, categoryId])
 }
 
 model ContactTag {
@@ -79,34 +92,44 @@ model ContactTag {
   tagId     String
   contact   Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
   tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
   @@unique([contactId, tagId])
   @@index([tenantId, tagId])
+}
+
+model Contact {
+  // existing fields...
+  categories ContactCategory[]   // resolved through the join
+  tags       ContactTag[]
 }
 ```
 
 Tag gains a `contactTags ContactTag[]` relation. RLS: the coverage rule from D9 applies — the new
-`ContactTag`/`ContactCategory` tables carry `tenantId` and the migration adds their policies.
+`Category`, `ContactCategory` and `ContactTag` tables carry `tenantId` and the migration adds their
+policies.
 
 ### 2.4 API
 
 | Route | Method | Notes |
 |---|---|---|
 | `/api/dashboard/contact-categories` | GET, POST | OWNER for POST; POST upserts by name so the same category cannot duplicate |
-| `/api/dashboard/contact-categories/[id]` | PUT, DELETE | DELETE sets `Contact.categoryId` to null (SetNull), never deletes contacts |
-| `/api/dashboard/contacts` | GET | include `category` + `tags`; new filters `?categoryId=`, `?tagId=` (multi-tag = OR within the set, AND across tag+category) |
-| `/api/dashboard/contacts/[id]` | PUT | `contactUpdateSchema` gains optional `categoryId` and `tagIds: string[]` (replace-set semantics, all-or-nothing validation: unknown ids → 400) |
+| `/api/dashboard/contact-categories/[id]` | PUT, DELETE | DELETE removes the join rows only (Cascade) — contacts are never deleted |
+| `/api/dashboard/contacts` | GET | include `categories` + `tags` (via joins); new filters `?categoryId=`, `?tagId=` (OR within a set, AND across tag+category) |
+| `/api/dashboard/contacts/[id]` | PUT | `contactUpdateSchema` gains optional `categoryIds: string[]` and `tagIds: string[]` (replace-set semantics; unknown ids → 400) |
 
 Zod at every boundary; every query tenant-scoped; mutations audited (`contact.update` before/after
 now includes the classification).
 
 ### 2.5 UI
 
-- **Contacts page:** two new columns (category chip, tag chips), a filter bar (category select +
-  tag select), and the edit dialog gains a category select + tag multi-select (reuse the Tag page's
-  chip/color rendering; a small inline "create tag" affordance on OWNER).
+- **Contacts page:** two new columns (category chips, tag chips), a filter bar (category select +
+  tag select), and the edit dialog gains a category multi-select + tag multi-select (round 1: a
+  contact may carry several of each; reuse the Tag page's chip/color rendering; a small inline
+  "create tag"/"create category" affordance on OWNER).
 - **Tag page:** second section "Kategori Kontak" (same table + dialog pattern as tags).
-- **Inbox contact panel (`contact-details.tsx`):** read-only category + tag chips under the contact
-  name, with an OWNER edit affordance reusing the same dialog.
+- **Inbox contact panel (`contact-details.tsx`):** category + tag chips under the contact name —
+  shown in the conversation view per the owner's round-1 answer, with an OWNER edit affordance
+  reusing the same dialog.
 
 ### 2.6 Verification
 
@@ -127,53 +150,82 @@ tags / a hand-picked contact list), a **message** (from the template library or 
 day, or every N days), and a **pacing delay** (send every X seconds). The platform then delivers the
 message to every recipient over WhatsApp, spread over time, with a per-recipient delivery log.
 
-### 3.2 THE constraint: the 24h window decides what can actually be sent
+### 3.2 THE constraint, by channel — and what "template" actually means
 
-This is the single most important design fact, verified in `agent-outbox.ts`/`scenario-engine.ts`:
+Two different things are both called "template":
 
-> On the **Cloud API**, a business may send free-form text only inside the 24h customer-service
-> window of each recipient. A blast is business-initiated: for most recipients that window is
-> closed, and the only legal content is a **pre-approved META template**. On **Baileys** there is
-> no window, but the provider's `sendTemplate` sends the template NAME as text — so a campaign must
-> always carry a body for Baileys.
+- **Internal templates** (the "Template Pesan" page, kind `CSQ`): saved text the owner writes.
+  Meta knows nothing about them; they are sendable as free text **wherever free text is allowed**.
+- **Meta templates** (kind `META`): messages created and submitted for approval in Meta Business
+  Manager. Needed **only when free text is not allowed**.
 
-Send policy per campaign message:
+When is free text allowed? This is Meta's server-side rule, not ours — the app's own outbox already
+enforces it, and the production `AuditLog` contains `conversation.agent_send_skipped_window`
+entries from exactly this rule:
 
-| Channel | Recipient window | `body` (free-form / CSQ template) | `META` template |
-|---|---|---|---|
-| Cloud API | open (<24h since last inbound) | send free-form | send template |
-| Cloud API | closed | **SKIPPED + reason `window_closed`** (Meta rejects free-form) | send template |
-| Baileys | n/a | send body | **send the snapshot body** (never the template name) |
+| Channel | Free text to a customer |
+|---|---|
+| **Baileys** (own number, QR) | **Always.** No window, no Meta templates ever. Trade-off: the number can be banned by WhatsApp (the ToS risk the product already documents and gates behind `tosAcknowledged`). |
+| **Cloud API** (official — the live channel today) | **Only within 24h of that customer's last inbound message.** Outside the window Meta's API rejects free text (error 131047) and only an approved Meta template is accepted. |
 
-Consequences built into the plan:
+Per-recipient send policy for a campaign on the Cloud API:
 
-1. A campaign saves a **content snapshot** at creation time: `body` (resolved from a CSQ template or
-   typed fresh) and, if a META template was chosen, `metaName`/`metaLanguage` too. Editing a
+| Recipient state | `body` (internal template / typed text) | `META` template |
+|---|---|---|
+| chatted < 24h ago | send free-form | send template |
+| no chat ≥ 24h | **SKIPPED + reason `window_closed`** — never sent, Meta would reject | send template |
+
+On Baileys every recipient gets `body`. There is no technical workaround for the Cloud API side:
+the rejection happens on Meta's servers. Practical consequences built into the plan:
+
+1. A campaign saves a **content snapshot** at creation time: `body` (from an internal template or
+   typed fresh) and, when a META template is chosen, `metaName`/`metaLanguage` too. Editing a
    template later must not silently change a scheduled campaign.
-2. The create form **must** require a body even when a META template is chosen (it is the Baileys
-   text and the preview), and **must warn** when a free-form-only campaign runs on a Cloud API
-   channel: "hanya pelanggan yang chat <24 jam terakhir yang bisa menerima pesan bebas; sisanya
-   akan dilewati. Pakai template META untuk menjangkau semua."
-3. Recipients whose window is closed are recorded `SKIPPED` with a reason — never a silent drop,
-   never a send Meta would reject.
+2. The create form warns in plain language when a free-form campaign runs on a Cloud API channel:
+   "hanya pelanggan yang chat <24 jam terakhir yang bisa menerima pesan bebas; sisanya dilewati.
+   Pakai template META untuk menjangkau semua." Reaching *everyone* on the Cloud API needs exactly
+   one approved template — a free, one-time submission in Meta Business Manager.
+3. Recipients whose window is closed are recorded `SKIPPED` with a reason — never a silent drop.
 4. **Meta volume limits:** business-initiated messages per 24h are tier-limited (250 for an
    unverified number, 1k once verified). The create form shows the resolved audience size and a
    plain-language warning when it exceeds the likely tier. Per-recipient provider failures become
    `FAILED` rows and the blast continues.
 
+### 3.2.1 Rich content: text, image, buttons (owner round 1)
+
+Requested: a campaign message can be image + text + buttons. What is technically possible, per
+channel and window state:
+
+| Content | Cloud API, inside 24h | Cloud API, outside 24h | Baileys |
+|---|---|---|---|
+| Text | free | template only | free |
+| Image + caption | free (media send by public image URL) | as the approved template's image header | free (URL fetched in-process) |
+| Buttons (quick reply / CTA) | allowed as an "interactive message", no approval | **only inside an approved Meta template** | unreliable — WhatsApp deprecated buttons for non-template messages; not offered |
+
+Scope decisions that follow:
+
+- **Buttons in a blast to inactive customers = a Meta-approved template, always.** The buttons are
+  designed once in Meta Manager; the campaign sends the template by name. There is no free-form
+  button path there.
+- **v1 proposal:** text; text + image by public URL (no upload/storage infrastructure — Meta
+  fetches the URL, Baileys downloads it in-process); buttons via META templates only.
+- In-window interactive buttons (Cloud API) and a real upload flow are deferred to v2 — both are
+  separate provider-code and infrastructure work.
+
 ### 3.3 Decisions (recommendations in bold)
 
-| # | Decision | Options |
+| # | Decision | Status after owner round 1 (2026-11-01) |
 |---|---|---|
-| 2.1 | Recurring audience | **Resolved fresh at every fire** for ALL/CATEGORY/TAGS (new customers get included; that is the point of segments). MANUAL selection is the only snapshot mode. |
-| 2.2 | Permissions | **OWNER-only** for create/edit/activate/pause/delete; the list and run logs are OWNER-only too (blasting reaches every customer — it is configuration, not inbox work) |
-| 2.3 | Sender identity in the inbox | **New `MessageSenderType.CAMPAIGN`** (not reusing SCENARIO), so campaign sends are distinguishable from scenario sends in the inbox and audit |
-| 2.4 | Does the AI answer replies? | **Yes — unchanged plumbing:** a reply is a normal inbound; the turn lease/drain handles it. Campaign sends deliberately do NOT count as "answered" for the drain (same exclusion as SCENARIO), so a pending customer question is never suppressed by a blast. |
-| 2.5 | Pacing accuracy | **Best-effort with 1-minute scheduler granularity** (a 10s delay sends ~6/min; a crash resumes exactly where the per-recipient rows left off). Exact sub-minute spacing is not promised. |
-| 2.6 | Marketing opt-out | **v1: manual `marketingOptOut` flag per contact** (excluded from every audience, shown in the contact panel). Auto-detecting "STOP" replies is a documented follow-up. This exists because Meta's marketing policy requires an opt-out path. |
-| 2.7 | Schedule timezone | **Reuse `SCENARIO_SCHEDULE_TZ`** (already documented, default Asia/Jakarta) rather than a second env var |
-| 2.8 | Channel selection | Campaign stores `channelId`; the form lists CONNECTED channels (most tenants have one). Default: the connected Cloud API channel, or the only connected channel. |
-| 2.9 | Menu placement | **"Kampanye" in the Utama group** of the sidebar (customer-facing comms, next to Percakapan/Template) |
+| 2.1 | Recurring audience | **CONFIRMED by owner** — every fire sends to everyone matching the audience at that moment (category/tag audiences include customers tagged after the campaign was created; MANUAL selection stays a fixed list) |
+| 2.2 | Permissions | **REOPENED** — "OWNER-only" explained in round 1: the app has OWNER (full control) and STAFF (invited inbox team) roles. The question: may a STAFF account create/launch campaigns? **Recommendation: no** — one click messages every customer at once |
+| 2.3 | Sender identity in the inbox | **New `MessageSenderType.CAMPAIGN`** (not reusing SCENARIO), so campaign sends are distinguishable in the inbox and audit |
+| 2.4 | Does the AI answer replies? | **Yes — unchanged plumbing:** a reply is a normal inbound; the turn lease/drain handles it. Campaign sends deliberately do NOT count as "answered" for the drain (same exclusion as SCENARIO) |
+| 2.5 | Pacing accuracy | **Best-effort with 1-minute scheduler granularity** (a 10s delay sends ~6/min; a crash resumes exactly where the per-recipient rows left off) |
+| 2.6 | Marketing opt-out | **DROPPED by owner.** Meta's marketing templates carry their own opt-out button set in Meta Manager — nothing needed in our code |
+| 2.7 | Schedule timezone | **Reuse `SCENARIO_SCHEDULE_TZ`** (already documented, default Asia/Jakarta) |
+| 2.8 | Channel selection | Campaign stores `channelId`; the form lists CONNECTED channels. **OPEN (round 1):** which channel carries campaigns in practice — see 3.2; it decides whether Meta templates are needed at all |
+| 2.9 | Menu placement | **"Kampanye" in the Utama group** of the sidebar |
+| 2.10 | Rich content scope | **OPEN (round 1):** proposed v1 = text + optional image by public URL; buttons via META templates. Real upload/storage and in-window interactive buttons deferred (3.2.1) |
 
 ### 3.4 Schema (one migration, same release as Feature 1 or its own)
 
@@ -193,13 +245,14 @@ model Campaign {
   status       CampaignStatus @default(DRAFT)
   // Audience
   audience     CampaignAudience
-  categoryId   String?                      // CATEGORY mode
+  categoryIds  String[]                     // CATEGORY mode (OR across selected categories)
   tagIds       String[]                     // TAGS mode (OR)
   contactIds   String[]                      // MANUAL mode (snapshot)
   // Content snapshot (resolved at save time — later template edits never
   // silently change a scheduled campaign)
   sendKind     CampaignSendKind
   body         String                        // free-form / CSQ body; also the Baileys text
+  mediaUrl     String?                       // optional public image URL (round 1, 3.2.1)
   metaName     String?                       // META: approved template name
   metaLanguage String? @default("id")
   // Schedule (interpreted in the platform schedule TZ)
@@ -233,7 +286,8 @@ model CampaignMessage {                       // per recipient per fire — the 
 }
 ```
 
-Also: `Contact.marketingOptOut Boolean @default(false)` (decision 2.6).
+Round 1 change: categories are many-to-many, so the campaign audience selects one or more
+categories (OR semantics). `marketingOptOut` was dropped by the owner (decision 2.6).
 
 Why `scheduledFor` instead of "loop with sleep": a 500-recipient blast at 30s pacing runs ~4 hours.
 An in-process loop dies with the process and cannot resume. Pre-computed per-recipient rows are the
@@ -281,7 +335,7 @@ each row flips PENDING→sent-atomically via `updateMany where status=PENDING` b
 | `/api/dashboard/campaigns/[id]/activate` | POST | DRAFT/PAUSED → ACTIVE; computes the first `nextRunAt` |
 | `/api/dashboard/campaigns/[id]/pause` | POST | ACTIVE → PAUSED (in-flight PENDING rows stay PENDING and resume on activate) |
 | `/api/dashboard/campaigns/[id]/runs` | GET | run list with counts; `?runId=` returns that run's message log (paged) |
-| `/api/dashboard/campaigns/preview` | POST | audience resolution preview: `{total, optOutExcluded, byCategory?}` — powers the form's live count |
+| `/api/dashboard/campaigns/preview` | POST | audience resolution preview: `{total, byCategory}` — powers the form's live count |
 
 All OWNER-only, Zod-validated, tenant-scoped, audited.
 
@@ -293,10 +347,12 @@ All OWNER-only, Zod-validated, tenant-scoped, audited.
   (per-run counts + a paged message log with statuses and skip reasons).
 - **Create/edit wizard dialog** (steps mirroring the owner's mental model):
   1. **Nama & saluran** — name + channel picker (CONNECTED channels only).
-  2. **Penerima** — audience: Semua / Kategori (select) / Tag (multi) / Pilih manual (contact
-     picker); live preview count from `/preview`, the Meta tier warning, and the opt-out note.
-  3. **Pesan** — from the tenant template library (CSQ or META) or write fresh; body preview with
-     the 24h-window warning when the message is free-form on a Cloud API channel.
+  2. **Penerima** — audience: Semua / Kategori (multi-select, OR) / Tag (multi) / Pilih manual
+     (contact picker); live preview count from `/preview`, the Meta tier warning.
+  3. **Pesan** — from the tenant template library (CSQ or META) or write fresh; optional image URL
+     (round 1: public link, Meta fetches it / Baileys downloads it); body preview with the
+     24h-window warning when the message is free-form on a Cloud API channel; when a META template
+     is chosen, a note that buttons live inside the template as designed in Meta Manager.
   4. **Jadwal & tempo** — schedule kind + time (and weekday/day-of-month/every-N-days as
      applicable), delay seconds (min 10s, default 30s), summary line: "± 120 kontak × 30 dtk ≈
      60 menit per kirim".
@@ -321,7 +377,7 @@ All OWNER-only, Zod-validated, tenant-scoped, audited.
 
 | # | Migration | Contents |
 |---|---|---|
-| 1 | `20261101010000_contact_categories` | `ContactCategory`, `ContactTag`, `Contact.categoryId`, `Contact.marketingOptOut`, relations; RLS policies for the two new tenant tables (the D9 coverage rule — verified 30/30 today, becomes 32/32) |
+| 1 | `20261101010000_contact_classification` | `Category`, `ContactCategory` join, `ContactTag` join, relations on `Contact`/`Tag`; RLS policies for the three new tenant tables (the D9 coverage rule — verified 30/30 today, becomes 33/33) |
 | 2 | `20261101020000_campaigns` | 5 enums (`MessageSenderType` gains `CAMPAIGN`), `Campaign`, `CampaignRun`, `CampaignMessage`, indexes; RLS policies for the three new tenant tables |
 
 Additive only; applied to Neon over MCP with `_prisma_migrations` bookkeeping (checksums via
@@ -329,16 +385,18 @@ Additive only; applied to Neon over MCP with `_prisma_migrations` bookkeeping (c
 
 ---
 
-## 5. Open decisions to confirm
+## 5. Open decisions — remaining after round 1 (2026-11-01)
 
-| # | Question | Recommended |
+Answered in round 1: multi-category/multi-tag contacts (confirmed), shared tag taxonomy (confirmed),
+tags/categories shown in the conversation panel (confirmed), recurring audience resolved fresh per
+fire (confirmed), manual opt-out flag (dropped).
+
+| # | Question | Recommendation |
 |---|---|---|
-| 1 | One category per contact (2.2 #1.1)? | Yes — multiple groupings is what tags are for |
-| 2 | Share the existing tag list with conversations (2.2 #1.2)? | Yes — one taxonomy, one management page |
-| 3 | Campaigns OWNER-only (3.3 #2.2)? | Yes |
-| 4 | Marketing opt-out flag included in v1 (3.3 #2.6)? | Yes — it is one column + one filter, and Meta's marketing policy expects an opt-out path |
-| 5 | Free-form campaigns on Cloud API: skip out-of-window recipients with a logged reason (3.2)? | Yes — the compliant alternative does not exist |
-| 6 | Recurring audiences resolved fresh at each fire (3.3 #2.1)? | Yes |
+| 1 | **Which channel carries campaigns in practice?** This single choice decides whether Meta templates are needed at all (3.2). Options: the live Cloud API number (approved templates required for customers silent >24h) or a Baileys number (free text to everyone, ban risk) or both (per-campaign choice — the schema already stores `channelId`). | Support both, per-campaign choice; warn per the send matrix |
+| 2 | **v1 rich content:** text only, or text + image by public URL (no upload infra)? Buttons are META-template-only either way (3.2.1). | Text + image-by-URL in v1 |
+| 3 | May STAFF accounts create/launch campaigns, after the owner-only explanation (round 1, 3.3 #2.2)? | No — OWNER only |
+| 4 | Tags/categories in the inbox panel: OWNER can edit them right there, or view-only in v1? | Editable (reuses the contacts dialog) |
 
 ---
 
@@ -359,7 +417,11 @@ Phases A and B are independent and can land in either order; C depends on both.
 
 ## 7. Explicitly out of scope (v1)
 
-- Auto-detecting opt-out replies ("STOP", "berhenti") — flag exists, detection is a follow-up.
+- Opt-out handling (round 1: the manual flag was dropped; Meta marketing templates carry their own
+  opt-out button). Auto-detecting "STOP"/"berhenti" replies is a possible v2.
+- Real media upload/storage — v1 images come from a public URL pasted by the owner (round 1, 3.2.1).
+- In-window interactive buttons (Cloud API free-form buttons) — buttons reach a blast via META
+  templates only in v1.
 - Campaign analytics beyond run counts (opens, clicks — not available on WhatsApp anyway).
 - A/B testing, per-recipient variable interpolation beyond a name token, drip sequences
   (multi-step campaigns) — one message per fire is the v1 unit.
@@ -374,7 +436,34 @@ Phases A and B are independent and can land in either order; C depends on both.
 |---|---|
 | Owner builds a free-form campaign and most recipients get skipped on Cloud API | Hard warning in the wizard before save + per-recipient `SKIPPED` reasons visible in the run log |
 | Meta tier limit hits mid-blast | Audience-size warning before save; per-recipient FAILED rows; blast continues |
-| Blast marked as spam by recipients | Opt-out flag excluded from audiences; opt-out note in the wizard; pacing keeps volume low |
+| Blast marked as spam by recipients | Opt-out handling lives in the Meta marketing template (set in Meta Manager) on Cloud API; on Baileys the owner manages opt-outs manually; pacing keeps volume low |
 | A paused campaign's in-flight messages vanish | PENDING rows persist and resume on activate — nothing is deleted |
 | Process restart mid-blast | Per-recipient rows + minute tick: the blast resumes exactly where it stopped (no double sends — PENDING claim is atomic) |
 | Campaign traffic drowns the inbox | CAMPAIGN sender type is filterable; campaign sends never trigger the AI agent |
+
+---
+
+## 9. Round 1 discussion record (2026-11-01)
+
+The owner asked four things; answers and corrections are folded into the sections above. Recorded
+here because the reasoning matters more than the conclusion.
+
+1. **"Do we really need a Meta-approved template? I meant our internal template."**
+   Answered: the two are different things (3.2). On Baileys, internal templates / free text reach
+   everyone, always — no Meta templates ever. On the Cloud API (the live channel today), free text
+   only reaches customers who messaged within the last 24h; beyond that Meta's server rejects it
+   and only an approved template passes. Proof shown from this system's own production `AuditLog`
+   (`conversation.agent_send_skipped_window` entries) and the existing enforcement in
+   `agent-outbox.ts`. Meta approval is a free one-time submission, so the campaign carries both
+   forms and the form warns in plain language.
+2. **"The message can be image, text and custom buttons."**
+   Answered with the per-channel matrix (3.2.1): image+caption is free in-window on Cloud API and
+   free on Baileys (public URL, no upload infra); buttons outside the window exist only inside
+   approved templates (designed in Meta Manager); free-form buttons are Cloud-API-in-window
+   interactive messages (deferred to v2); Baileys cannot realistically offer buttons.
+3. **Answers to the six decisions:** multi-category + multi-tag (accepted, schema now two symmetric
+   joins); tags/categories shown in the conversation panel (accepted); "owner-only" was not
+   understood — explained and re-asked as open decision 3; manual opt-out dropped (accepted);
+   the 24h-window question resolved by the explanation above; recurring audience confirmed
+   (fresh resolution per fire for segments, fixed list for MANUAL).
+
