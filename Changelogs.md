@@ -2,6 +2,35 @@
 
 Version format: `XX.YY.ZZ` — YY (minor) and ZZ (patch) stay within 0–10; XX (major) may grow beyond. Minor = new feature/behavior change, patch = fix, major = breaking change (schema, API contract, env vars).
 
+## 3.0.0 — 2026-11-01 (branch `feat/contact-tags-and-campaigns`)
+
+Contact classification + campaigns (message blasting). Design + all owner decisions:
+`docs/2026-11-01-feature-plan-contact-tags-and-campaigns.md`. Major: schema changes.
+
+- **Contact tags & categories:** a contact may belong to multiple categories and multiple tags
+  (`Category` taxonomy + `ContactCategory`/`ContactTag` joins, mirroring `ConversationTag`).
+  Category CRUD (upsert-by-name, OWNER-only, delete detaches never deletes), contacts list
+  filters by category/tag, contact PUT with replace-set semantics (unknown ids → 400, one
+  transaction), chips + multi-select editors on the contacts page, a "Kategori Kontak" section
+  on the Tag page, and category/tag chips with editors in the inbox contact panel.
+- **Campaigns:** per-tenant message blasting over any connected WhatsApp channel. Audience =
+  all contacts / categories / tags (resolved fresh at each fire) / a manual snapshot; content =
+  internal template or fresh text with up to 4 uploaded images (stored in Postgres, served from
+  the app's own domain so Meta can fetch them); schedule = once / daily / weekly / monthly /
+  every N days in the platform timezone; a pacing delay spreads recipients via per-recipient
+  `CampaignMessage` rows drained by the minute tick under a `SystemLock` lease — a blast
+  survives restarts and resumes exactly where it stopped. Send policy per channel: Cloud API
+  delivers free-form text/images inside the 24h customer-service window only (outside it,
+  recipients are SKIPPED with a logged reason unless the campaign carries a pre-approved META
+  template), Baileys delivers everything any time. Run history shows per-recipient statuses and
+  skip reasons. Schedule math is pure with a 13/13 self-check.
+- **Media:** raw-bytes image upload (5 MB, JPEG/PNG/WebP, no multipart parser) + a public
+  immutable-cache serve route; `sendImage` added to both WhatsApp providers.
+- **Permissions:** `User.canRunCampaigns` — the OWNER always runs campaigns; staff only when the
+  owner toggles "Boleh jalankan kampanye" on the Team page. Carried through the auth session.
+- **Inbox:** new `CAMPAIGN` message sender type (distinct from scenario sends; never triggers the
+  AI agent and never marks a pending question as answered).
+
 ## 2.0.0 — 2026-11-01
 
 All 10 defects from the 2026-10-31 deep dive fixed (design + evidence: `docs/2026-10-31-fix-plan-10-defects.md`). Major because the schema changed and one API route was removed.

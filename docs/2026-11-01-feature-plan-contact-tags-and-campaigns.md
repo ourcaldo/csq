@@ -1,8 +1,9 @@
 # Feature Plan — Contact Tags & Categories + Campaigns (Message Blasting)
 
 **Date:** 2026-11-01
-**Status:** **APPROVED for implementation — fully decided** (owner rounds 1–3; WhatsApp
-pricing/limits verified against Meta's live docs in round 3, section 11). Build order: section 6.
+**Status:** **IMPLEMENTED on `feat/contact-tags-and-campaigns`** (`6787ba8` Phase A,
+`2b50de4` Phase B, `df71623` Phase C) — awaiting merge to `main`. All decisions closed after owner
+rounds 1–3; WhatsApp pricing/limits verified against Meta's live docs (round 3, section 11).
 **Requested by:** owner, 2026-11-01
 **Depends on:** the 2.0.0 defect fixes (`docs/2026-10-31-fix-plan-10-defects.md`) — campaigns reuse the
 system lock, the scheduler tick, the template library, and the outbox's window rules.
@@ -619,4 +620,34 @@ pages (developers.facebook.com — *Pricing on the WhatsApp Business Platform*, 
 that requires a template (i.e. reaching a recipient outside the 24h window) is sent as an
 approved META template; for Baileys, the campaign uses internal template content sent as normal
 messages. That closes the last open question — the plan is fully decided and ready to build.
+
+---
+
+## 12. Implementation status (2026-11-01)
+
+Built on branch `feat/contact-tags-and-campaigns`, pushed to origin. All three phases landed with
+`npm run build` green, `npm run check:encoding` green (236 files), migrations applied to Neon over
+MCP with matching `_prisma_migrations` bookkeeping, and RLS coverage re-verified
+(33/33 tenant tables after Phase A, 37/37 after Phase B).
+
+| Phase | Commit | What landed |
+|---|---|---|
+| A — contact classification | `6787ba8` | `Category` + `ContactCategory`/`ContactTag` joins (multi-category, multi-tag per contact); category CRUD; contacts list filters (`categoryId`/`tagId`) + classification includes; contact PUT with replace-set inside a transaction (unknown ids → 400); contacts page chip columns + filters + multi-select edit; "Kategori Kontak" section on the Tag page; category/tag chips + editors in the inbox contact panel |
+| B — campaign core | `2b50de4` | Campaign/CampaignRun/CampaignMessage/MediaAsset + `User.canRunCampaigns` + `MessageSenderType.CAMPAIGN`; `campaign-engine.ts` (fire → paced per-recipient rows → deliver → close) under `withSystemLock("campaign-tick", 300s)` in the existing minute tick; pure schedule math (`campaign-schedule.ts`, Intl-based, no date library) with a 13/13 self-check (`scripts/self-check-campaign-schedule.ts`); `sendImage` on both providers (Cloud API link, Baileys bytes); media bytes cached per tick; `canRunCampaigns` in the auth session |
+| C — campaign surface | `df71623` | Campaigns API (create with content snapshot, edit DRAFT/PAUSED only, activate/pause, runs + per-recipient logs, audience preview); raw-bytes media upload (streamed, 5 MB, JPEG/PNG/WebP) + public immutable-cache serve route; Team page permission toggle (OWNER-only, staff-only); the Kampanye wizard page (4 steps, live audience count, image upload, run history with skip reasons) + nav item |
+
+Verification performed: build + lint + encoding after every phase; the schedule self-check; live-SQL
+migration checks on Neon (tables, columns, indexes, policies, `MessageSenderType` gains
+`CAMPAIGN`). **Not yet exercised with live WhatsApp traffic** — the same open item as the 2.0.0
+fixes: the first real campaign should be watched in the run history (statuses + skip reasons) and
+the AuditLog (`campaign.fire`).
+
+Deviations from the plan, all minor:
+
+- Campaign activate/pause share one route file (`[id]/[action].ts`) instead of two — one permission
+  block, half the surface.
+- The team list API reports `canRunCampaigns: true` for the OWNER row (access comes from the role;
+  the toggle only appears on STAFF rows).
+- Contact edit stays OWNER-only as before; STAFF may tag **conversations** but not reclassify
+  contacts in v1 (widening is a one-line decision later).
 
