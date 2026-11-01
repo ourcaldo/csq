@@ -257,6 +257,12 @@ connectors, website chat / Telegram / Messenger channels (future only).
 - MVP demos a single tenant (Toko Kopi Nusantara) even though the schema is multi-tenant.
 - Demo success hinges on the safety moment: agent must refuse an unauthorized price change
   from a customer message. Preserve this behavior in any refactor.
+- **NEVER state third-party platform rules (pricing, limits, windows, template policy) from
+  memory.** Training data lags fast-moving platforms: WhatsApp moved to per-message billing
+  (2025-07-01) and made in-window service replies billable (2026-10-01) — the owner had to
+  challenge an outdated claim on 2026-11-01 before it was caught. Fetch the current official
+  docs (developers.facebook.com for WhatsApp) and quote them before asserting any platform
+  behavior that affects a design decision.
 
 ## MCP Servers and Skills — Use Them When Relevant
 

@@ -1,9 +1,8 @@
 # Feature Plan — Contact Tags & Categories + Campaigns (Message Blasting)
 
 **Date:** 2026-11-01
-**Status:** **APPROVED for implementation** — all decisions closed after owner rounds 1–2
-(sections 5, 9, 10); WhatsApp pricing/limits verified against Meta's live docs in round 3
-(section 11). Build order is section 6.
+**Status:** **APPROVED for implementation — fully decided** (owner rounds 1–3; WhatsApp
+pricing/limits verified against Meta's live docs in round 3, section 11). Build order: section 6.
 **Requested by:** owner, 2026-11-01
 **Depends on:** the 2.0.0 defect fixes (`docs/2026-10-31-fix-plan-10-defects.md`) — campaigns reuse the
 system lock, the scheduler tick, the template library, and the outbox's window rules.
@@ -298,6 +297,7 @@ in Meta Manager) — no burst.
 | 2.8 | Channel selection | **CONFIRMED (round 2): both channels**, chosen per campaign (`channelId`); the form lists CONNECTED channels and the wizard shows the send matrix so the owner knows which recipients a free-form blast can reach |
 | 2.9 | Menu placement | **"Kampanye" in the Utama group** of the sidebar |
 | 2.10 | Rich content | **CONFIRMED (round 2): uploaded images (Postgres-stored, served from the app domain), multiple images as a burst (3.2.1), text, buttons via META templates.** Round-1 URL idea dropped in favor of real upload |
+| 2.11 | Out-of-window send policy | **CONFIRMED (round 3, owner):** Cloud API — anything that requires a template (i.e. reaching a recipient whose 24h window is closed) goes as an **approved META template**, per the send matrix in 3.2; Baileys — internal template content only, sent as normal messages, no Meta templates involved anywhere |
 
 ### 3.4 Schema (one migration, same release as Feature 1 or its own)
 
@@ -483,7 +483,9 @@ dropped. Round 2 settled the rest:
 | 3 | May STAFF run campaigns? | **Yes, when the owner grants it** — new per-staff `canRunCampaigns` toggle on the Team page (the app has no permission system today, so this single toggle is the v1 of one) |
 | 4 | Tags/categories in the inbox panel | **Editable** there |
 
-**The plan is approved for implementation** pending nothing. Build order is section 6.
+Round 3 settled the last one: on the Cloud API, anything needing a template (recipients outside
+the 24h window) uses an approved META template; on Baileys, internal template content is sent as
+normal messages — decision 2.11. The plan is fully decided.
 
 ---
 
@@ -612,4 +614,9 @@ pages (developers.facebook.com — *Pricing on the WhatsApp Business Platform*, 
 - **Two engine-relevant platform behaviors recorded:** the Cloud API caches link-based media for
   10 minutes (favorable — every campaign recipient reuses the same `/api/media/[id]` URL), and
   delivery order for a multi-message burst is not guaranteed (best-effort ordering documented).
+
+**Round 3 close — the owner's decision (2.11):** for the official Cloud API channel, everything
+that requires a template (i.e. reaching a recipient outside the 24h window) is sent as an
+approved META template; for Baileys, the campaign uses internal template content sent as normal
+messages. That closes the last open question — the plan is fully decided and ready to build.
 
