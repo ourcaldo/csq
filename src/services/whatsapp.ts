@@ -1,6 +1,7 @@
 import type {
   CloudApiConfig,
   ParsedInbound,
+  SendImageInput,
   SendTemplateInput,
   SendTextInput,
   SendTextResult,
@@ -109,6 +110,34 @@ export class CloudApiProvider implements WhatsAppProvider {
       // 429/rate-limit and other failures are logged by the caller; we do not
       // auto-retry (avoid spamming the customer).
       throw new Error(`WhatsApp Cloud API send failed (${res.status}): ${text}`);
+    }
+    const json: unknown = await res.json();
+    const data = sendTextResponseSchema.parse(json);
+    return { waMessageId: data.messages[0].id };
+  }
+
+  // Image send for campaign bursts (plan section 3.2.1): Meta fetches the
+  // public link server-side and caches it ~10 minutes, so a blast to many
+  // recipients fetches the asset once.
+  async sendImage(input: SendImageInput): Promise<SendTextResult> {
+    const url = `https://graph.facebook.com/${GRAPH_API_VERSION}/${this.config.phoneNumberId}/messages`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.config.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: input.to,
+        type: "image",
+        image: { link: input.link },
+      }),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`WhatsApp Cloud API image send failed (${res.status}): ${text}`);
     }
     const json: unknown = await res.json();
     const data = sendTextResponseSchema.parse(json);

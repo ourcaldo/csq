@@ -133,6 +133,17 @@ export type SendTextInput = z.infer<typeof sendTextSchema>;
 
 export type SendTextResult = { waMessageId?: string };
 
+// Image send (campaign bursts, feature plan 2026-11-01, section 3.2.1).
+// Cloud API sends the public `link` (Meta fetches it, caching for ~10 min, so
+// a blast reuses one fetch); Baileys needs the actual `bytes` in-process.
+// The engine passes both, so neither provider hits the other's requirement.
+export type SendImageInput = {
+  to: string;
+  link: string;
+  bytes?: Buffer;
+  mimeType?: string;
+};
+
 // Meta's response to POST /messages: { messaging_product, contacts[], messages[{id}] }.
 export const sendTextResponseSchema = z.object({
   messages: z.array(z.object({ id: z.string() })).min(1),
@@ -163,5 +174,6 @@ export type SendTemplateInput = z.infer<typeof sendTemplateSchema>;
 export interface WhatsAppProvider {
   parseInbound(payload: unknown): ParsedInbound[];
   sendText(input: SendTextInput): Promise<SendTextResult>;
+  sendImage(input: SendImageInput): Promise<SendTextResult>;
   sendTemplate(input: SendTemplateInput): Promise<SendTextResult>;
 }

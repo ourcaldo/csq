@@ -124,6 +124,7 @@ enum MessageSenderType {
   AGENT
   HUMAN
   SCENARIO
+  CAMPAIGN
 }
 
 // How an inbound message's content arrived (D6). TEXT carries a real text
@@ -203,6 +204,10 @@ model Tenant {
   scenarios           Scenario[]
   scenarioRuns        ScenarioRun[]
   scenarioRunSteps    ScenarioRunStep[]
+  campaigns           Campaign[]
+  campaignRuns        CampaignRun[]
+  campaignMessages    CampaignMessage[]
+  mediaAssets         MediaAsset[]
   credentials         TenantCredential[]
 }
 
@@ -230,14 +235,18 @@ model TenantCredential {
 }
 
 model User {
-  id           String   @id @default(uuid())
-  email        String   @unique
-  name         String?
-  passwordHash String
-  role         UserRole @default(OWNER)
-  tenantId     String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String   @id @default(uuid())
+  email           String   @unique
+  name            String?
+  passwordHash    String
+  role            UserRole @default(OWNER)
+  tenantId        String
+  // Campaign permission (feature plan 2026-11-01, decision 2.2): OWNER may
+  // always run campaigns; STAFF may create/pause them only when the owner
+  // grants this per-staff toggle from the Team page.
+  canRunCampaigns Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   tenant                Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   assignedConversations Conversation[]     @relation("ConversationAssignee")
@@ -825,6 +834,147 @@ model SystemLock {
   token       String
   lockedUntil DateTime
   updatedAt   DateTime @updatedAt
+}
+
+// ─────────────────────────── Campaigns ───────────────────────────
+// Message blasting (feature plan 2026-11-01, section 3). A campaign targets
+// an audience (all contacts / categories / tags / a manual list), carries a
+// content SNAPSHOT resolved at save time, and fires on a schedule with a
+// pacing delay between contacts. Each fire creates a CampaignRun plus one
+// CampaignMessage row per recipient with its own scheduledFor — the minute
+// tick drains them, so a blast survives restarts and never double-sends.
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum CampaignAudience {
+  ALL
+  CATEGORY
+  TAGS
+  MANUAL
+}
+
+// Schedule kinds (owner round 1: once, daily, weekly, monthly, "other" = every
+// N days). Times are interpreted in SCENARIO_SCHEDULE_TZ. Config shape is
+// validated by Zod in src/types/campaign.ts.
+enum CampaignScheduleKind {
+  ONCE
+  DAILY
+  WEEKLY
+  MONTHLY
+  INTERVAL
+}
+
+// BODY = free-form internal template / typed text (plus optional images);
+// deliverable on Cloud API only inside the 24h window. META_TEMPLATE = a
+// pre-approved Meta template name (with a snapshot body for Baileys) — the
+// only content that reaches out-of-window recipients on Cloud API.
+enum CampaignSendKind {
+  BODY
+  META_TEMPLATE
+}
+
+enum CampaignMessageStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+model MediaAsset {
+  id        String   @id @default(uuid())
+  tenantId  String
+  mimeType  String
+  byteSize  Int
+  // Postgres bytea — the app has no S3 and the deploy disk is wiped, so the
+  // database is the only durable store. Served publicly (immutable cache) via
+  // /api/media/[id] so Meta's fetcher can reach it; UUID ids are the access
+  // control (owner round-2 decision, plan section 3.2.1).
+  data      Bytes
+  createdAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+}
+
+model Campaign {
+  id            String               @id @default(uuid())
+  tenantId      String
+  // Plain scalar, not a relation: a deleted channel leaves a campaign that
+  // fails its fire-time channel check instead of cascading away history.
+  channelId     String
+  name          String
+  status        CampaignStatus      @default(DRAFT)
+  // Audience. CATEGORY/TAGS resolve FRESH at every fire (round-1 decision);
+  // MANUAL is the stored snapshot.
+  audience      CampaignAudience
+  categoryIds   String[]            @default([])
+  tagIds        String[]            @default([])
+  contactIds    String[]             @default([])
+  // Content snapshot (resolved at save time so later template edits never
+  // silently change a scheduled campaign).
+  sendKind      CampaignSendKind
+  body          String
+  imageIds      String[]            @default([])
+  metaName      String?
+  metaLanguage  String?
+  // Schedule (plan section 3.4). delaySeconds paces contacts apart.
+  scheduleKind  CampaignScheduleKind
+  scheduleConfig Json               @default("{}")
+  delaySeconds  Int                 @default(30)
+  nextRunAt     DateTime?
+  lastRunAt     DateTime?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  tenant Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  runs   CampaignRun[]
+
+  @@index([tenantId, status, nextRunAt])
+}
+
+// One fire of one campaign.
+model CampaignRun {
+  id         String    @id @default(uuid())
+  tenantId   String
+  campaignId String
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  // {total,sent,failed,skipped} — stamped when no PENDING rows remain.
+  counts     Json?
+
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  campaign Campaign         @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  messages CampaignMessage[]
+
+  @@index([tenantId, campaignId, startedAt])
+}
+
+// Per recipient per fire — the pacing and resume log. scheduledFor spreads
+// the blast; the minute tick sends the due ones (bounded).
+model CampaignMessage {
+  id           String                @id @default(uuid())
+  tenantId     String
+  runId        String
+  contactId    String
+  phone        String
+  status       CampaignMessageStatus @default(PENDING)
+  scheduledFor DateTime
+  sentAt       DateTime?
+  waMessageId  String?
+  reason       String?
+
+  run    CampaignRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  tenant Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([runId, status, scheduledFor])
+  @@index([tenantId, runId])
 }
 
 // ─────────────────────────── Scenarios ───────────────────────────

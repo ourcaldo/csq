@@ -17,6 +17,7 @@ import {
 import { sendAgentMessage } from "@/lib/agent-outbox";
 import { getTemplateBody } from "@/lib/message-templates";
 import { withSystemLock } from "@/lib/system-lock";
+import { processCampaigns } from "@/lib/campaign-engine";
 
 // In-process periodic sync for Google Sheets sources (PRD §23A — no Redis/queue,
 // node-cron runs inside the Next.js server). Server-only: callers must invoke
@@ -60,6 +61,14 @@ export function startScheduler(): void {
     void withSystemLock("scenario-tick", 90, runScenarioTick)
       .catch((err: unknown) => {
         console.error("[scheduler] scenario tick threw:", err);
+      });
+    // Campaign engine (feature plan 2026-11-01): fires due campaigns, delivers
+    // due per-recipient rows, closes finished runs. Same tick, its own lease —
+    // the TTL (300s) sits far above a tick's worst case (≤50 bounded provider
+    // calls), so a second instance can never start mid-tick (engine comment).
+    void withSystemLock("campaign-tick", 300, processCampaigns)
+      .catch((err: unknown) => {
+        console.error("[scheduler] campaign tick threw:", err);
       });
   });
 }

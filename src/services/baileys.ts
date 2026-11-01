@@ -17,6 +17,7 @@ import type {
   BaileysConfig,
   InboundKind,
   ParsedInbound,
+  SendImageInput,
   SendTemplateInput,
   SendTextInput,
   SendTextResult,
@@ -381,6 +382,27 @@ export class BaileysProvider implements WhatsAppProvider {
     }
     const sent = await entry.sock.sendMessage(toJid(input.to), { text: input.body });
     // Zod-parse the returned key.id (no `as` casts on the send result).
+    const sentKeySchema = z.object({ key: z.object({ id: z.string() }).optional() });
+    const parsed = sentKeySchema.safeParse(sent);
+    return { waMessageId: parsed.success ? parsed.data.key?.id : undefined };
+  }
+
+  // Image send for campaign bursts: Baileys sends the bytes in-process (no
+  // window restriction on this provider).
+  async sendImage(input: SendImageInput): Promise<SendTextResult> {
+    const entry = sockets.get(this.channelId);
+    if (!entry || !entry.open) {
+      throw new Error(
+        `Baileys channel ${this.channelId} is not connected. Scan the QR via /api/dashboard/channels/connect first.`
+      );
+    }
+    if (!input.bytes) {
+      throw new Error("Baileys image send requires the image bytes.");
+    }
+    const sent = await entry.sock.sendMessage(toJid(input.to), {
+      image: input.bytes,
+      mimetype: input.mimeType,
+    });
     const sentKeySchema = z.object({ key: z.object({ id: z.string() }).optional() });
     const parsed = sentKeySchema.safeParse(sent);
     return { waMessageId: parsed.success ? parsed.data.key?.id : undefined };

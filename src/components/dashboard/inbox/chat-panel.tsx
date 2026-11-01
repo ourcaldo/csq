@@ -74,7 +74,7 @@ function MessageBubble({ m, readByAgent }: { m: Message; readByAgent: boolean })
     );
   }
   const isAi = m.senderType === "AGENT";
-  const isScenario = m.senderType === "SCENARIO";
+  const isScenario = m.senderType === "SCENARIO" || m.senderType === "CAMPAIGN";
   return (
     <div className="my-1 flex max-w-[80%] items-end justify-end gap-2 self-end">
       <div>

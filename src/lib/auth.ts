@@ -48,6 +48,7 @@ export const authOptions: NextAuthOptions = {
           name: user.name,
           tenantId: user.tenantId,
           role: user.role,
+          canRunCampaigns: user.canRunCampaigns,
         };
       },
     }),
@@ -59,6 +60,7 @@ export const authOptions: NextAuthOptions = {
         token.userId = user.id;
         token.tenantId = user.tenantId;
         token.role = user.role;
+        token.canRunCampaigns = user.canRunCampaigns;
       }
       return token;
     },
@@ -67,6 +69,7 @@ export const authOptions: NextAuthOptions = {
         session.user.id = token.userId;
         session.user.tenantId = token.tenantId;
         session.user.role = token.role;
+        session.user.canRunCampaigns = token.canRunCampaigns ?? false;
       }
       return session;
     },
