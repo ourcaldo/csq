@@ -54,6 +54,13 @@ function formatDateTime(iso: string | null): string {
   });
 }
 
+// Local-time "YYYY-MM-DDTHH:MM" for the datetime-local input (it is parsed
+// back with `new Date(value)` in the browser's timezone, matching the market).
+function localDateTimeString(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function audienceLabel(c: CampaignRow): string {
   if (c.audience === "ALL") return "Semua kontak";
   if (c.audience === "MANUAL") return `${c.contactIds.length} kontak terpilih`;
@@ -552,6 +559,19 @@ export default function CampaignsPage() {
                 value={onceAt}
                 onChange={(e) => setOnceAt(e.target.value)}
               />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="self-start"
+                onClick={() =>
+                  // "Instant": the engine tick runs every minute, so now+2min
+                  // fires within about two minutes of saving + activating.
+                  setOnceAt(localDateTimeString(new Date(Date.now() + 2 * 60_000)))
+                }
+              >
+                Kirim sekarang (± 2 menit)
+              </Button>
             </div>
           )}
           {scheduleKind !== "ONCE" && (
