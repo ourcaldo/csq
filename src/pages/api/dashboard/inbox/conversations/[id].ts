@@ -48,7 +48,12 @@ export default async function handler(
     const conv = await prisma.conversation.findFirst({
       where: { id, tenantId },
       include: {
-        contact: true,
+        contact: {
+          include: {
+            categories: { include: { category: true } },
+            tags: { include: { tag: true } },
+          },
+        },
         assignedAgent: true,
         assignee: true,
         tags: { include: { tag: true } },

@@ -42,6 +42,13 @@ type ContactDetailsProps = {
   onToggleHide?: () => void;
 };
 
+// Contact category taxonomy row, as returned by /api/dashboard/contact-categories.
+type CategoryOption = {
+  id: string;
+  name: string;
+  color: string | null;
+};
+
 // Customer lifecycle timeline entry — matches the shape returned by
 // GET /api/dashboard/inbox/conversations/[id]/history.
 type HistoryEvent = {
@@ -75,6 +82,55 @@ function historyDateLabel(iso: string): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+// Small colored chip for a contact category/tag (read view in the panel).
+function ChipPill({ name, color }: { name: string; color: string | null }) {
+  return (
+    <span
+      className="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium"
+      style={color ? { backgroundColor: color, color: readableTextColor(color) ?? undefined } : undefined}
+    >
+      {name}
+    </span>
+  );
+}
+
+// Checkbox list for one contact taxonomy inside the edit form.
+function ContactTaxonomyEditor({
+  label,
+  rows,
+  selectedIds,
+  onToggle,
+}: {
+  label: string;
+  rows: CategoryOption[];
+  selectedIds: string[];
+  onToggle: (id: string) => void;
+}) {
+  return (
+    <div>
+      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{label}</p>
+      <div className="max-h-24 overflow-y-auto rounded-lg border border-slate-200 p-2">
+        {rows.length === 0 && (
+          <p className="px-1 py-0.5 text-xs text-slate-400">
+            Belum ada — buat dulu di halaman Tag.
+          </p>
+        )}
+        {rows.map((r) => (
+          <label key={r.id} className="flex cursor-pointer items-center gap-2 px-1 py-0.5 text-xs text-slate-600">
+            <input
+              type="checkbox"
+              checked={selectedIds.includes(r.id)}
+              onChange={() => onToggle(r.id)}
+              className="h-3.5 w-3.5"
+            />
+            <ChipPill name={r.name} color={r.color} />
+          </label>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function historyEventText(e: HistoryEvent): string {
@@ -117,6 +173,11 @@ export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMob
   const [savingContact, setSavingContact] = useState(false);
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [history, setHistory] = useState<HistoryEvent[] | null>(null);
+  // Contact classification (feature plan 2026-11-01): taxonomy lists + the
+  // id sets being edited in the contact form.
+  const [categories, setCategories] = useState<CategoryOption[] | null>(null);
+  const [editCategoryIds, setEditCategoryIds] = useState<string[]>([]);
+  const [editTagIds, setEditTagIds] = useState<string[]>([]);
 
   // Load the lifecycle timeline for this conversation. Refresh with the
   // parent's onChanged cadence so new orders/stage moves appear after the
@@ -156,10 +217,20 @@ export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMob
     }
   }
 
-  // Load tenant tags + pipeline stages once.
+  async function loadCategories() {
+    try {
+      const data = await apiFetch<CategoryOption[]>("/api/dashboard/contact-categories");
+      setCategories(data);
+    } catch {
+      setCategories([]);
+    }
+  }
+
+  // Load tenant tags + contact categories + pipeline stages once.
   useEffect(() => {
     void loadTags();
     void loadStages();
+    void loadCategories();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -200,6 +271,8 @@ export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMob
         name: editName.trim() || null,
         email: editEmail.trim() || null,
         notes: editNotes.trim() || null,
+        categoryIds: editCategoryIds,
+        tagIds: editTagIds,
       });
       setEditing(false);
       onChanged();
@@ -214,6 +287,8 @@ export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMob
     setEditName(contact?.name ?? "");
     setEditEmail(contact?.email ?? "");
     setEditNotes(contact?.notes ?? "");
+    setEditCategoryIds((contact?.categories ?? []).map((c) => c.categoryId));
+    setEditTagIds((contact?.tags ?? []).map((t) => t.tagId));
     setEditing(true);
   }
 
@@ -277,6 +352,22 @@ export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMob
               rows={2}
               className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20"
             />
+            <ContactTaxonomyEditor
+              label="Kategori"
+              rows={categories ?? []}
+              selectedIds={editCategoryIds}
+              onToggle={(id) =>
+                setEditCategoryIds((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id]))
+              }
+            />
+            <ContactTaxonomyEditor
+              label="Tag"
+              rows={(tags ?? []).map((t) => ({ id: t.id, name: t.name, color: t.color }))}
+              selectedIds={editTagIds}
+              onToggle={(id) =>
+                setEditTagIds((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id]))
+              }
+            />
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setEditing(false)}
@@ -304,6 +395,16 @@ export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMob
             >
               <PencilSimple size={14} /> Edit Kontak
             </button>
+            {((contact?.categories ?? []).length > 0 || (contact?.tags ?? []).length > 0) && (
+              <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+                {(contact?.categories ?? []).map((c) => (
+                  <ChipPill key={`c-${c.categoryId}`} name={c.category.name} color={c.category.color} />
+                ))}
+                {(contact?.tags ?? []).map((t) => (
+                  <ChipPill key={`t-${t.tagId}`} name={t.tag.name} color={t.tag.color} />
+                ))}
+              </div>
+            )}
           </>
         )}
       </div>

@@ -34,9 +34,62 @@ export default async function handler(
     if (!parsed.success) {
       return respondError(res, "VALIDATION_ERROR", parsed.error.message);
     }
-    const existing = await prisma.contact.findFirst({ where: { id, tenantId } });
+    const existing = await prisma.contact.findFirst({
+      where: { id, tenantId },
+      include: {
+        categories: { include: { category: true } },
+        tags: { include: { tag: true } },
+      },
+    });
     if (!existing) return respondError(res, "NOT_FOUND", "Kontak tidak ditemukan.");
-    const contact = await prisma.contact.update({ where: { id }, data: parsed.data });
+
+    const { categoryIds, tagIds, ...scalarFields } = parsed.data;
+
+    // Replace-set semantics: the arrays become the new full set. All ids must
+    // belong to this tenant — an unknown id is a 400, not a silent skip.
+    const [categoryRows, tagRows] = await Promise.all([
+      categoryIds
+        ? prisma.category.findMany({ where: { tenantId, id: { in: categoryIds } }, select: { id: true } })
+        : Promise.resolve([]),
+      tagIds
+        ? prisma.tag.findMany({ where: { tenantId, id: { in: tagIds } }, select: { id: true } })
+        : Promise.resolve([]),
+    ]);
+    if (categoryIds && categoryRows.length !== categoryIds.length) {
+      return respondError(res, "VALIDATION_ERROR", "Ada kategori yang tidak dikenal.");
+    }
+    if (tagIds && tagRows.length !== tagIds.length) {
+      return respondError(res, "VALIDATION_ERROR", "Ada tag yang tidak dikenal.");
+    }
+
+    const contact = await prisma.$transaction(async (tx) => {
+      const updated = await tx.contact.update({
+        where: { id },
+        data: {
+          ...(scalarFields.name !== undefined ? { name: scalarFields.name } : {}),
+          ...(scalarFields.email !== undefined ? { email: scalarFields.email } : {}),
+          ...(scalarFields.notes !== undefined ? { notes: scalarFields.notes } : {}),
+        },
+      });
+      if (categoryIds) {
+        await tx.contactCategory.deleteMany({ where: { contactId: id, tenantId } });
+        if (categoryIds.length > 0) {
+          await tx.contactCategory.createMany({
+            data: categoryIds.map((cid) => ({ tenantId, contactId: id, categoryId: cid })),
+          });
+        }
+      }
+      if (tagIds) {
+        await tx.contactTag.deleteMany({ where: { contactId: id, tenantId } });
+        if (tagIds.length > 0) {
+          await tx.contactTag.createMany({
+            data: tagIds.map((tid) => ({ tenantId, contactId: id, tagId: tid })),
+          });
+        }
+      }
+      return updated;
+    });
+
     await logHuman({
       tenantId,
       action: "contact.update",

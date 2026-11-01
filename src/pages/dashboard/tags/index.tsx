@@ -5,7 +5,7 @@ import { useSession } from "next-auth/react";
 import { withAuth } from "@/lib/auth";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
-import type { ListResult, Tag } from "@/types/dashboard";
+import type { Category, ListResult, Tag } from "@/types/dashboard";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { StateNotice } from "@/components/dashboard/state-notice";
 import { Pagination } from "@/components/dashboard/pagination";
@@ -19,10 +19,22 @@ import { readableTextColor } from "@/lib/tag-color";
 
 const PAGE_SIZE = 20;
 
+function ChipCell({ name, color }: { name: string; color: string | null }) {
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium"
+      style={color ? { backgroundColor: color, color: readableTextColor(color) ?? undefined } : undefined}
+    >
+      {name}
+    </span>
+  );
+}
+
 export default function TagsPage() {
   const { data: session } = useSession();
   const isOwner = session?.user?.role === "OWNER";
 
+  // ── Conversation tags ──
   const [page, setPage] = useState(1);
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -40,6 +52,22 @@ export default function TagsPage() {
 
   const url = `/api/dashboard/tags?page=${page}&pageSize=${PAGE_SIZE}`;
   const { data, loading, error, refresh } = useApi<ListResult<Tag>>(url);
+
+  // ── Contact categories (feature plan 2026-11-01, section 2.5) ──
+  const [catCreateOpen, setCatCreateOpen] = useState(false);
+  const [catName, setCatName] = useState("");
+  const [catColor, setCatColor] = useState("");
+  const [catSaving, setCatSaving] = useState(false);
+  const [catError, setCatError] = useState<string | null>(null);
+
+  const [catRenaming, setCatRenaming] = useState<Category | null>(null);
+  const [catRenameName, setCatRenameName] = useState("");
+  const [catRenameColor, setCatRenameColor] = useState("");
+
+  const [catToDelete, setCatToDelete] = useState<Category | null>(null);
+  const [catDeleting, setCatDeleting] = useState(false);
+
+  const categories = useApi<Category[]>("/api/dashboard/contact-categories");
 
   async function onCreate(e: FormEvent) {
     e.preventDefault();
@@ -101,19 +129,64 @@ export default function TagsPage() {
     }
   }
 
+  async function onCategoryCreate(e: FormEvent) {
+    e.preventDefault();
+    setCatSaving(true);
+    setCatError(null);
+    try {
+      await apiSend("/api/dashboard/contact-categories", "POST", {
+        name: catName,
+        color: catColor || undefined,
+      });
+      setCatCreateOpen(false);
+      setCatName("");
+      setCatColor("");
+      categories.refresh();
+    } catch (err) {
+      setCatError(err instanceof Error ? err.message : "Gagal membuat kategori.");
+    } finally {
+      setCatSaving(false);
+    }
+  }
+
+  async function onCategoryRename(e: FormEvent) {
+    e.preventDefault();
+    if (!catRenaming) return;
+    setCatSaving(true);
+    setCatError(null);
+    try {
+      await apiSend(`/api/dashboard/contact-categories/${catRenaming.id}`, "PUT", {
+        name: catRenameName,
+        color: catRenameColor || undefined,
+      });
+      setCatRenaming(null);
+      categories.refresh();
+    } catch (err) {
+      setCatError(err instanceof Error ? err.message : "Gagal mengubah kategori.");
+    } finally {
+      setCatSaving(false);
+    }
+  }
+
+  async function onCategoryDelete() {
+    if (!catToDelete) return;
+    setCatDeleting(true);
+    try {
+      await apiSend(`/api/dashboard/contact-categories/${catToDelete.id}`, "DELETE");
+      setCatToDelete(null);
+      categories.refresh();
+    } catch (err) {
+      setCatError(err instanceof Error ? err.message : "Gagal menghapus kategori.");
+    } finally {
+      setCatDeleting(false);
+    }
+  }
+
   return (
-    <DashboardShell
-      title="Tag"
-      description="Taksonomi untuk melabeli percakapan."
-      actions={
-        isOwner ? (
-          <Button onClick={() => setCreateOpen(true)}>Tambah Tag</Button>
-        ) : undefined
-      }
-    >
+    <DashboardShell title="Tag" description="Taksonomi untuk melabeli percakapan dan mengelompokkan kontak.">
       {!isOwner && (
         <p className="mb-4 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700">
-          Hanya owner yang dapat membuat, mengubah, atau menghapus tag.
+          Hanya owner yang dapat membuat, mengubah, atau menghapus tag dan kategori.
         </p>
       )}
 
@@ -122,6 +195,16 @@ export default function TagsPage() {
       {error && <StateNotice variant="error" message={error} />}
       {!loading && !error && (
         <>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Tag Percakapan
+            </h2>
+            {isOwner ? (
+              <Button size="sm" onClick={() => setCreateOpen(true)}>
+                Tambah Tag
+              </Button>
+            ) : undefined}
+          </div>
           <div className="rounded-lg border">
             <Table>
               <TableHeader>
@@ -142,16 +225,7 @@ export default function TagsPage() {
                 {data?.items.map((t) => (
                   <TableRow key={t.id}>
                     <TableCell>
-                      <span
-                        className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium"
-                        style={
-                          t.color
-                            ? { backgroundColor: t.color, color: readableTextColor(t.color) ?? undefined }
-                            : undefined
-                        }
-                      >
-                        {t.name}
-                      </span>
+                      <ChipCell name={t.name} color={t.color} />
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       <span className="inline-flex items-center gap-1.5">
@@ -193,6 +267,84 @@ export default function TagsPage() {
         </>
       )}
 
+      {/* Kategori kontak */}
+      <div className="mt-10">
+        {catError && <p className="mb-4 text-sm text-destructive">{catError}</p>}
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Kategori Kontak
+          </h2>
+          {isOwner ? (
+            <Button size="sm" onClick={() => setCatCreateOpen(true)}>
+              Tambah Kategori
+            </Button>
+          ) : undefined}
+        </div>
+        <div className="rounded-lg border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nama</TableHead>
+                <TableHead>Warna</TableHead>
+                <TableHead className="text-right">Aksi</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(categories.data ?? []).length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={3}>
+                    <StateNotice
+                      variant="empty"
+                      message="Belum ada kategori. Kategori dipakai untuk mengelompokkan kontak dan menjadi target kampanye."
+                    />
+                  </TableCell>
+                </TableRow>
+              )}
+              {(categories.data ?? []).map((c) => (
+                <TableRow key={c.id}>
+                  <TableCell>
+                    <ChipCell name={c.name} color={c.color} />
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    <span className="inline-flex items-center gap-1.5">
+                      <span
+                        className="h-3.5 w-3.5 rounded-full border border-black/10"
+                        style={{ backgroundColor: c.color ?? "#cbd5e1" }}
+                        aria-hidden
+                      />
+                      <span className="font-mono text-[11px]">{c.color ?? "—"}</span>
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {isOwner ? (
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setCatRenaming(c);
+                            setCatRenameName(c.name);
+                            setCatRenameColor(c.color ?? "");
+                          }}
+                        >
+                          Ubah Nama
+                        </Button>
+                        <Button variant="destructive" size="sm" onClick={() => setCatToDelete(c)}>
+                          Hapus
+                        </Button>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+
+      {/* Tag dialogs */}
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} title="Tambah Tag">
         <form onSubmit={onCreate} className="flex flex-col gap-4">
           {formError && <p className="text-sm text-destructive">{formError}</p>}
@@ -257,6 +409,72 @@ export default function TagsPage() {
         </form>
       </Dialog>
 
+      {/* Category dialogs */}
+      <Dialog open={catCreateOpen} onClose={() => setCatCreateOpen(false)} title="Tambah Kategori">
+        <form onSubmit={onCategoryCreate} className="flex flex-col gap-4">
+          {catError && <p className="text-sm text-destructive">{catError}</p>}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="category-name">Nama</Label>
+            <Input
+              id="category-name"
+              required
+              value={catName}
+              onChange={(e) => setCatName(e.target.value)}
+              placeholder="mis. Reseller, Grosir, VIP"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="category-color">Warna (opsional)</Label>
+            <Input
+              id="category-color"
+              placeholder="mis. #22c55e — kosongkan untuk acak"
+              value={catColor}
+              onChange={(e) => setCatColor(e.target.value)}
+              pattern="^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})?$"
+              title="Kode hex, contoh: #22c55e atau #fff"
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setCatCreateOpen(false)}>
+              Batal
+            </Button>
+            <Button type="submit" disabled={catSaving}>
+              {catSaving ? "Menyimpan…" : "Simpan"}
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+
+      <Dialog open={catRenaming !== null} onClose={() => setCatRenaming(null)} title="Ubah Kategori">
+        <form onSubmit={onCategoryRename} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="category-rename-name">Nama</Label>
+            <Input
+              id="category-rename-name"
+              required
+              value={catRenameName}
+              onChange={(e) => setCatRenameName(e.target.value)}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="category-rename-color">Warna (opsional)</Label>
+            <Input
+              id="category-rename-color"
+              value={catRenameColor}
+              onChange={(e) => setCatRenameColor(e.target.value)}
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setCatRenaming(null)}>
+              Batal
+            </Button>
+            <Button type="submit" disabled={catSaving}>
+              {catSaving ? "Menyimpan…" : "Simpan"}
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+
       <ConfirmDialog
         open={toDelete !== null}
         title="Hapus Tag"
@@ -266,6 +484,17 @@ export default function TagsPage() {
         loading={deleting}
         onConfirm={onConfirmDelete}
         onCancel={() => setToDelete(null)}
+      />
+
+      <ConfirmDialog
+        open={catToDelete !== null}
+        title="Hapus Kategori"
+        description={`Yakin ingin menghapus kategori "${catToDelete?.name}"? Kontak di dalamnya tidak ikut terhapus, hanya dilepas dari kategori ini.`}
+        confirmLabel="Hapus"
+        destructive
+        loading={catDeleting}
+        onConfirm={onCategoryDelete}
+        onCancel={() => setCatToDelete(null)}
       />
     </DashboardShell>
   );

@@ -77,6 +77,20 @@ export type Knowledge = {
   updatedAt: string;
 };
 
+// Serialized joined classification rows — the shape the API returns for a
+// contact's categories/tags (the join rows carry the resolved taxonomy row).
+export type ContactCategoryRef = {
+  id: string;
+  categoryId: string;
+  category: Category;
+};
+
+export type ContactTagRef = {
+  id: string;
+  tagId: string;
+  tag: Tag;
+};
+
 export type Contact = {
   id: string;
   tenantId: string;
@@ -85,6 +99,17 @@ export type Contact = {
   name: string | null;
   email: string | null;
   notes: string | null;
+  categories?: ContactCategoryRef[];
+  tags?: ContactTagRef[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Category = {
+  id: string;
+  tenantId: string;
+  name: string;
+  color: string | null;
   createdAt: string;
   updatedAt: string;
 };

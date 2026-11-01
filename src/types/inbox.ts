@@ -30,6 +30,10 @@ export type Contact = {
   name: string | null;
   email: string | null;
   notes: string | null;
+  // Contact classification (feature plan 2026-11-01) — present on the shapes
+  // returned by the conversations API, which includes the join rows.
+  categories?: { categoryId: string; category: { id: string; name: string; color: string | null } }[];
+  tags?: { tagId: string; tag: Tag }[];
 };
 
 export type ConversationTag = { tag: Tag };

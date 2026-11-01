@@ -25,6 +25,8 @@ export default async function handler(
   if (req.method === "GET") {
     const { skip, take, page, pageSize } = paginate(req.query);
     const search = strQuery(req.query, "search");
+    const categoryId = strQuery(req.query, "categoryId");
+    const tagId = strQuery(req.query, "tagId");
     const where: Prisma.ContactWhereInput = {
       tenantId,
       ...(search
@@ -36,6 +38,10 @@ export default async function handler(
             ],
           }
         : {}),
+      // Classification filters (feature plan 2026-11-01, section 2.4): OR
+      // within a set, AND across tag+category.
+      ...(categoryId ? { categories: { some: { categoryId } } } : {}),
+      ...(tagId ? { tags: { some: { tagId } } } : {}),
     };
     const [rows, total] = await Promise.all([
       prisma.contact.findMany({
@@ -43,7 +49,11 @@ export default async function handler(
         skip,
         take,
         orderBy: { createdAt: "desc" },
-        include: { conversations: { take: 1, select: { channelId: true } } },
+        include: {
+          conversations: { take: 1, select: { channelId: true } },
+          categories: { include: { category: true } },
+          tags: { include: { tag: true } },
+        },
       }),
       prisma.contact.count({ where }),
     ]);
@@ -63,7 +73,8 @@ export default async function handler(
         } else if (c.phone.includes("@s.whatsapp.net") || c.phone.includes("@g.us")) {
           phoneDisplay = c.phone.split("@")[0];
         }
-        // Strip the nested conversations from the response.
+        // Strip the nested conversations from the response (categories/tags stay —
+        // the UI renders the classification chips from them).
         const { conversations: _drop, ...rest } = c;
         return { ...rest, phoneDisplay };
       })

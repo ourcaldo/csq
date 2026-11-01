@@ -77,7 +77,12 @@ export default async function handler(
         skip,
         take,
         include: {
-          contact: true,
+          contact: {
+            include: {
+              categories: { include: { category: true } },
+              tags: { include: { tag: true } },
+            },
+          },
           assignedAgent: true,
           assignee: true,
           tags: { include: { tag: true } },
