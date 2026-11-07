@@ -54,9 +54,23 @@ type SocketEntry = {
 };
 const sockets = new Map<string, SocketEntry>();
 
-// Normalize a bare number to a WhatsApp JID.
-function toJid(number: string): string {
-  return number.includes("@") ? number : `${number}@s.whatsapp.net`;
+// Normalize a bare number to a WhatsApp JID. JIDs pass through unchanged.
+// Indonesian owners type numbers in local form ("0812...", "812...", "+62 812...")
+// - appending the domain raw makes "0812...@s.whatsapp.net", a non-existent
+// user WhatsApp accepts silently and never delivers (no echo, no error).
+// PRD market is Indonesian, so: strip non-digits, "0..." -> "62...", bare
+// "8xxxxxxxxxx" (9-12 digits, an Indonesian mobile without prefix) -> "62...".
+// Exported for the JID self-check (scripts/self-check-baileys-jid.ts).
+export function toJid(number: string): string {
+  if (number.includes("@")) return number;
+  const digits = number.replace(/\D/g, "");
+  let normalized = digits;
+  if (normalized.startsWith("0")) {
+    normalized = `62${normalized.slice(1)}`;
+  } else if (/^8\d{8,11}$/.test(normalized)) {
+    normalized = `62${normalized}`;
+  }
+  return `${normalized}@s.whatsapp.net`;
 }
 
 // Bare number from a JID (strip @s.whatsapp.net / @lid).
@@ -435,7 +449,11 @@ export class BaileysProvider implements WhatsAppProvider {
         `Baileys channel ${this.channelId} is not connected. Scan the QR via /api/dashboard/channels/connect first.`
       );
     }
-    const sent = await entry.sock.sendMessage(toJid(input.to), { text: input.body });
+    // Log the resolved JID: a send to a non-existent user is silently dropped
+    // by WhatsApp (no echo, no error) - the destination is the only clue.
+    const jid = toJid(input.to);
+    console.log(`[baileys:${this.channelId}] sendText to=${jid}`);
+    const sent = await entry.sock.sendMessage(jid, { text: input.body });
     // Zod-parse the returned key.id (no `as` casts on the send result).
     const sentKeySchema = z.object({ key: z.object({ id: z.string() }).optional() });
     const parsed = sentKeySchema.safeParse(sent);
@@ -454,7 +472,9 @@ export class BaileysProvider implements WhatsAppProvider {
     if (!input.bytes) {
       throw new Error("Baileys image send requires the image bytes.");
     }
-    const sent = await entry.sock.sendMessage(toJid(input.to), {
+    const jid = toJid(input.to);
+    console.log(`[baileys:${this.channelId}] sendImage to=${jid}`);
+    const sent = await entry.sock.sendMessage(jid, {
       image: input.bytes,
       mimetype: input.mimeType,
     });
