@@ -6,12 +6,14 @@ import makeWASocket, {
   type WASocket,
 } from "@whiskeysockets/baileys";
 import { pino } from "pino";
+import { randomUUID } from "crypto";
 import { z } from "zod";
 import prisma from "@/lib/db";
 import { ingestInboundMessage } from "@/lib/inbox";
 import { processInboundWithAgent } from "@/lib/agent-loop";
 import { replyToNonText } from "@/lib/agent-outbox";
 import { loadDbAuthState, getPnForLid, storeLidPnMapping } from "@/lib/baileys-auth-db";
+import { acquireSystemLease, releaseSystemLease } from "@/lib/system-lock";
 import type { Channel } from "@prisma/client";
 import type {
   BaileysConfig,
@@ -39,6 +41,19 @@ import type {
 // standalone Node deploy target (long-lived process).
 
 const logger = pino({ level: "silent" });
+
+// This process's identity as a WhatsApp-session lease owner. WhatsApp allows
+// ONE connection per session: when two service instances (a deploy overlap, a
+// replacing instance kept draining by open SSE streams) each hold a socket,
+// they 440-conflict-loop and every send is lost. Only the lease holder below
+// may connect; peers stand down until the holder's process dies and its lease
+// expires.
+const instanceToken = randomUUID();
+const SOCKET_LEASE_TTL_SECONDS = 45; // heartbeat renews every 20s
+
+function leaseKey(channelId: string): string {
+  return `baileys-socket:${channelId}`;
+}
 
 type SocketEntry = {
   sock: WASocket;
@@ -149,9 +164,27 @@ function extractContent(
 // Start (or reattach) the socket for a Baileys channel. Returns the current QR
 // string when login is pending, or null once connected. Called by the channels
 // connect route and at boot for already-CONNECTED Baileys channels.
+// stealLease: set by the connect route (the owner's explicit action) to take
+// the session over from a peer instance that is still draining.
 export async function connectBaileysChannel(
-  channel: Channel
+  channel: Channel,
+  opts?: { stealLease?: boolean }
 ): Promise<{ qr: string | null; open: boolean; closeCode: number | null }> {
+  // Only one instance may hold the WhatsApp session. A failed acquire means
+  // another live instance owns it - connecting a duplicate would 440-conflict
+  // and kill both sockets.
+  const owns = await acquireSystemLease(
+    leaseKey(channel.id),
+    instanceToken,
+    SOCKET_LEASE_TTL_SECONDS,
+    opts?.stealLease ?? false
+  );
+  if (!owns) {
+    console.log(
+      `[baileys:${channel.id}] another instance holds the WhatsApp session - standing down`
+    );
+    return { qr: null, open: false, closeCode: null };
+  }
   const existing = sockets.get(channel.id);
   console.log(
     `[baileys:${channel.id}] connect requested; existing=${!!existing} open=${existing?.open ?? false} qr=${!!existing?.qr}`
@@ -265,6 +298,12 @@ export async function connectBaileysChannel(
                 err
               )
             );
+          // The session is gone - give up the lease so a peer (or this
+          // instance's next user-initiated connect) can take over cleanly.
+          void releaseSystemLease(leaseKey(channel.id), instanceToken).catch(
+            (err: unknown) =>
+              console.error(`[baileys:${channel.id}] lease release failed:`, err)
+          );
         } else {
           // Reconnect on transient close; reload the channel row for fresh state.
           prisma.channel
@@ -457,6 +496,19 @@ export function startBaileysHeartbeat(): void {
       where: { provider: "BAILEYS", status: "CONNECTED" },
     });
     for (const c of channels) {
+      // Renew the session lease; a non-holder stands down entirely (its peer
+      // instance owns the socket - reconnecting would 440-conflict both).
+      const owns = await acquireSystemLease(
+        leaseKey(c.id),
+        instanceToken,
+        SOCKET_LEASE_TTL_SECONDS
+      );
+      if (!owns) {
+        console.log(
+          `[baileys:${c.id}] another instance holds the WhatsApp session - standing down`
+        );
+        continue;
+      }
       const entry = sockets.get(c.id);
       if (!entry || (!entry.open && !entry.qr)) {
         console.log(`[baileys:${c.id}] heartbeat: socket dead, reconnecting`);
@@ -488,6 +540,8 @@ export async function disconnectBaileysChannel(channelId: string): Promise<void>
   }
   // Destroy the saved creds so reconnect requires a fresh QR scan.
   await prisma.baileysAuth.delete({ where: { channelId } }).catch(() => undefined);
+  // Owner ended the session - release the lease immediately.
+  await releaseSystemLease(leaseKey(channelId), instanceToken).catch(() => undefined);
 }
 
 // Pure send-destination rewrite (self-check covered): a "<lid>@lid"

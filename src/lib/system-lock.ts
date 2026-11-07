@@ -43,3 +43,40 @@ export async function withSystemLock<T>(
     `;
   }
 }
+
+// Acquire-or-renew a lease WITHOUT withSystemLock's run-and-release
+// semantics - for long-held ownership like the Baileys WhatsApp socket, where
+// the holder must keep renewing for as long as its process lives. Non-force
+// succeeds only when the lease is free, expired, or already held by this
+// owner (renewal). force=true steals it - used when the owner explicitly
+// re-connects a channel, to take over from a peer that is still draining
+// after a deploy.
+export async function acquireSystemLease(
+  key: string,
+  ownerToken: string,
+  ttlSeconds: number,
+  force = false
+): Promise<boolean> {
+  const acquired = await prisma.$executeRaw`
+    INSERT INTO "SystemLock" ("key", "token", "lockedUntil", "updatedAt")
+    VALUES (${key}, ${ownerToken}, NOW() + (${ttlSeconds}::text || ' seconds')::interval, NOW())
+    ON CONFLICT ("key") DO UPDATE
+      SET "token" = EXCLUDED."token",
+          "lockedUntil" = EXCLUDED."lockedUntil",
+          "updatedAt" = NOW()
+      WHERE ${force} OR "SystemLock"."token" = ${ownerToken} OR "SystemLock"."lockedUntil" < NOW()
+  `;
+  return acquired === 1;
+}
+
+// Release a lease this owner still holds (a stale token never deletes a
+// lease another owner has re-acquired).
+export async function releaseSystemLease(
+  key: string,
+  ownerToken: string
+): Promise<void> {
+  await prisma.$executeRaw`
+    DELETE FROM "SystemLock"
+    WHERE "key" = ${key} AND "token" = ${ownerToken}
+  `;
+}

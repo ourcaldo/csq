@@ -118,7 +118,9 @@ export default async function handler(
   let qr: string | null = null;
   let open = false;
   if (provider === "BAILEYS") {
-    const result = await connectBaileysChannel(channel);
+    // stealLease: the owner explicitly asked to connect - take the session
+    // over from any peer instance still draining from a deploy.
+    const result = await connectBaileysChannel(channel, { stealLease: true });
     qr = result.qr;
     open = result.open;
     if (!qr && !open) {
