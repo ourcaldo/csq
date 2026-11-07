@@ -88,17 +88,18 @@ export function disconnectCode(err: unknown): number | undefined {
   return parsed.success ? parsed.data?.output?.statusCode : undefined;
 }
 
-// Fatal closes mean the WhatsApp session is dead server-side (device unlinked,
-// session replaced by another login, corrupt creds, account blocked).
-// Reconnecting is pointless, and resuming with the saved creds can never
-// produce a QR - the close handler clears creds so the next connect starts a
-// fresh QR pairing. Everything else (timedOut, connectionClosed,
-// connectionLost, restartRequired, ...) is transient: auto-reconnect keeps
-// the agent on 24/7.
+// Fatal closes mean the WhatsApp session is dead server-side (device
+// unlinked, corrupt creds, account blocked). Reconnecting is pointless, and
+// resuming with the saved creds can never produce a QR - the close handler
+// clears creds so the next connect starts a fresh QR pairing. 440
+// (connectionReplaced) is NOT fatal and is handled separately in the close
+// handler: another connection took over, the creds may still be valid, so we
+// stand down without touching them. Everything else (timedOut,
+// connectionClosed, connectionLost, restartRequired, ...) is transient:
+// auto-reconnect keeps the agent on 24/7.
 export function isFatalDisconnect(code: number | null | undefined): boolean {
   return (
     code === DisconnectReason.loggedOut || // 401: device unlinked / logged out
-    code === DisconnectReason.connectionReplaced || // 440: another login took over
     code === DisconnectReason.badSession || // 500: corrupt session
     code === DisconnectReason.forbidden // 403: account blocked
   );
@@ -168,6 +169,14 @@ export async function connectBaileysChannel(
     entry = existing;
   } else {
     const { state, saveCreds } = await loadDbAuthState(channel.id);
+    // Re-check after the await: a concurrent connect (heartbeat racing the
+    // close-handler reconnect) may have registered while we loaded creds -
+    // report it instead of creating a second socket with the same session
+    // (WhatsApp kills one of the two with 440).
+    const raced = sockets.get(channel.id);
+    if (raced) {
+      return { qr: raced.qr, open: raced.open, closeCode: raced.closeCode };
+    }
     const sock = makeWASocket({
       auth: state,
       logger,
@@ -208,10 +217,27 @@ export async function connectBaileysChannel(
         const code = disconnectCode(update.lastDisconnect?.error);
         console.log(`[baileys:${channel.id}] CLOSE code=${code}`);
         entry.closeCode = code ?? null;
-        sockets.delete(channel.id);
+        // Remove the registry entry only if it still belongs to THIS socket.
+        // A close event can arrive after a successor socket already
+        // registered (heartbeat reconnect, deploy overlap) - deleting the
+        // successor made the heartbeat see a live channel as dead, connect a
+        // duplicate session, and 440-conflict-loop forever.
+        if (sockets.get(channel.id) === entry) {
+          sockets.delete(channel.id);
+        }
         // Owner-initiated disconnect (Putuskan): don't reconnect or rewrite
         // status - the disconnect API owns both.
         if (entry.intentional) return;
+        if (code === DisconnectReason.connectionReplaced) {
+          // 440: another connection took over the session (deploy overlap, or
+          // a re-link elsewhere). The creds may still be valid for our own
+          // successor, so keep them and leave the row alone - stand down and
+          // let the survivor, the heartbeat, or the owner reconcile.
+          console.log(
+            `[baileys:${channel.id}] connection replaced - standing down`
+          );
+          return;
+        }
         if (isFatalDisconnect(code)) {
           // Session is dead server-side. Mark the row so the dashboard stops
           // claiming "Terhubung", and destroy the saved creds - they can never

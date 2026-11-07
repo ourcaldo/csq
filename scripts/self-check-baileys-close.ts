@@ -6,10 +6,12 @@
 // Why this exists: a production incident (2026-11-07, Render logs) showed a
 // dead WhatsApp session (code 401) reconnect-churning forever because stale
 // creds were never cleared, while the dashboard kept showing "Terhubung".
-// The fix classifies close codes into fatal (clear creds, mark DISCONNECTED,
-// stop) vs transient (auto-reconnect). This pins the classification AND the
-// runtime enum values, so a package update that shifts a code can't silently
-// reopen the bug.
+// The close handler classifies codes into fatal (clear creds, mark
+// DISCONNECTED, stop), replaced (440: stand down, keep creds - another
+// connection took over, possibly our own successor), and transient
+// (auto-reconnect). This pins the classification AND the runtime enum
+// values, so a package update that shifts a code can't silently reopen the
+// bug.
 import { DisconnectReason } from "@whiskeysockets/baileys";
 import { disconnectCode, isFatalDisconnect } from "../src/services/baileys";
 
@@ -32,9 +34,13 @@ const checks: Array<[string, boolean]> = [
   ["disconnectCode(non-boom) === undefined", disconnectCode({}) === undefined],
   // Fatal: session is dead server-side - must NOT auto-reconnect.
   ["401 loggedOut is fatal", isFatalDisconnect(disconnectCode(boom(401)))],
-  ["440 connectionReplaced is fatal", isFatalDisconnect(disconnectCode(boom(440)))],
   ["500 badSession is fatal", isFatalDisconnect(disconnectCode(boom(500)))],
   ["403 forbidden is fatal", isFatalDisconnect(disconnectCode(boom(403)))],
+  // 440 is NOT fatal: another connection replaced this one (often our own
+  // successor) - the creds may still be valid, so the handler stands down
+  // without deleting them. Deleting them here caused a creds-wipe every
+  // conflict cycle in the 2026-11-08 churn incident.
+  ["440 connectionReplaced is stand-down, NOT fatal", !isFatalDisconnect(disconnectCode(boom(440)))],
   // Transient: auto-reconnect keeps the agent on 24/7.
   ["515 restartRequired is transient", !isFatalDisconnect(disconnectCode(boom(515)))],
   ["408 timedOut is transient", !isFatalDisconnect(disconnectCode(boom(408)))],
