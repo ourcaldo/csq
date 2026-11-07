@@ -123,6 +123,10 @@ export default function SaluranPage({
   const [qrAt, setQrAt] = useState<number | null>(null);
   const [byoChannelId, setByoChannelId] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
+  // Consecutive /qr polls that found no socket at all (qr:null + open:false).
+  // Two in a row (~6s) means the pending session died server-side - the QR on
+  // screen is dead and must not sit there forever.
+  const deadPolls = useRef(0);
   const [testTo, setTestTo] = useState<Record<string, string>>({});
   const [testing, setTesting] = useState<string | null>(null);
   const [toast, setToast] = useState<{
@@ -150,12 +154,23 @@ export default function SaluranPage({
         );
         if (!active) return;
         if (state.open) {
+          deadPolls.current = 0;
           setQr(null);
           setQrAt(null);
           refresh();
         } else if (state.qr) {
+          deadPolls.current = 0;
           setQr(state.qr);
           setQrAt((prev) => prev ?? Date.now());
+        } else if (++deadPolls.current >= 2) {
+          // No live socket and no QR: the pending login session is gone
+          // (e.g. WhatsApp restarted it and the reconnect failed).
+          deadPolls.current = 0;
+          setQr(null);
+          setQrAt(null);
+          setPageError(
+            "Sesi QR berakhir. Klik Tampilkan QR untuk memulai ulang."
+          );
         }
       } catch {
         /* ignore transient poll errors */

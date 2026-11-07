@@ -29,9 +29,11 @@ export function startScheduler(): void {
   if (started) return;
   if (typeof window !== "undefined") return; // never schedule on the client
   started = true;
-  // Reconnect any already-CONNECTED Baileys channels (session keys persist on
-  // disk, so no re-scan unless logged out). Fire-and-forget.
-  void startBaileysChannels().catch(() => undefined);
+  // Reconnect any already-CONNECTED Baileys channels (session keys persist in
+  // the BaileysAuth table, so no re-scan unless logged out). Fire-and-forget.
+  void startBaileysChannels().catch((err: unknown) => {
+    console.error("[scheduler] Baileys boot reconnect failed:", err);
+  });
   // Auto-reconnect Baileys sockets that get killed by the host proxy so
   // inbound messages don't silently drop.
   startBaileysHeartbeat();

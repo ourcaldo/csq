@@ -40,13 +40,16 @@ import type {
 
 const logger = pino({ level: "silent" });
 
-type SocketEntry = { sock: WASocket; qr: string | null; open: boolean };
+type SocketEntry = {
+  sock: WASocket;
+  qr: string | null;
+  open: boolean;
+  // Owner-initiated disconnect (Putuskan): this socket's close event must not
+  // auto-reconnect. Per-socket flag, so a logout can never suppress the
+  // reconnect of a later session (a channel-level Set went stale and did).
+  intentional: boolean;
+};
 const sockets = new Map<string, SocketEntry>();
-// Channels the owner intentionally disconnected (Putuskan). The close
-// handler checks this so it doesn't auto-reconnect on the end() -
-// without this, disconnect bounces back to CONNECTED because the saved
-// creds let the socket reopen.
-const disconnecting = new Set<string>();
 
 // Normalize a bare number to a WhatsApp JID.
 function toJid(number: string): string {
@@ -62,9 +65,26 @@ function fromJid(jid: string | undefined | null): string {
 const boomSchema = z.object({
   output: z.object({ statusCode: z.number() }).optional(),
 });
-function disconnectCode(err: unknown): number | undefined {
+// Exported for the close-handling self-check (scripts/self-check-baileys-close.ts).
+export function disconnectCode(err: unknown): number | undefined {
   const parsed = boomSchema.safeParse(err);
   return parsed.success ? parsed.data?.output?.statusCode : undefined;
+}
+
+// Fatal closes mean the WhatsApp session is dead server-side (device unlinked,
+// session replaced by another login, corrupt creds, account blocked).
+// Reconnecting is pointless, and resuming with the saved creds can never
+// produce a QR - the close handler clears creds so the next connect starts a
+// fresh QR pairing. Everything else (timedOut, connectionClosed,
+// connectionLost, restartRequired, ...) is transient: auto-reconnect keeps
+// the agent on 24/7.
+export function isFatalDisconnect(code: number | undefined): boolean {
+  return (
+    code === DisconnectReason.loggedOut || // 401: device unlinked / logged out
+    code === DisconnectReason.connectionReplaced || // 440: another login took over
+    code === DisconnectReason.badSession || // 500: corrupt session
+    code === DisconnectReason.forbidden // 403: account blocked
+  );
 }
 
 // Extract the inbound content from a Baileys message: a display body plus the
@@ -143,7 +163,7 @@ export async function connectBaileysChannel(
       retryRequestDelayMs: 2_000,
     });
 
-    entry = { sock, qr: null, open: false };
+    entry = { sock, qr: null, open: false, intentional: false };
     sockets.set(channel.id, entry);
 
     sock.ev.on("connection.update", (update) => {
@@ -171,23 +191,46 @@ export async function connectBaileysChannel(
         const code = disconnectCode(update.lastDisconnect?.error);
         console.log(`[baileys:${channel.id}] CLOSE code=${code}`);
         sockets.delete(channel.id);
-        // Owner-initiated disconnect (Putuskan): don't reconnect.
-        if (disconnecting.has(channel.id)) {
-          disconnecting.delete(channel.id);
-          return;
-        }
-        if (code !== DisconnectReason.loggedOut) {
+        // Owner-initiated disconnect (Putuskan): don't reconnect or rewrite
+        // status - the disconnect API owns both.
+        if (entry.intentional) return;
+        if (isFatalDisconnect(code)) {
+          // Session is dead server-side. Mark the row so the dashboard stops
+          // claiming "Terhubung", and destroy the saved creds - they can never
+          // resume, and as long as they exist Baileys retries the dead session
+          // instead of showing a fresh QR.
+          console.log(
+            `[baileys:${channel.id}] session dead (code=${code}) - marking DISCONNECTED, clearing creds`
+          );
+          prisma.channel
+            .update({
+              where: { id: channel.id },
+              data: { status: "DISCONNECTED" },
+            })
+            .catch((err: unknown) =>
+              console.error(
+                `[baileys:${channel.id}] failed to mark DISCONNECTED:`,
+                err
+              )
+            );
+          prisma.baileysAuth
+            .delete({ where: { channelId: channel.id } })
+            .catch((err: unknown) =>
+              console.error(
+                `[baileys:${channel.id}] creds cleanup failed:`,
+                err
+              )
+            );
+        } else {
           // Reconnect on transient close; reload the channel row for fresh state.
-          void prisma.channel
+          prisma.channel
             .findUnique({ where: { id: channel.id } })
             .then((fresh) => {
               if (fresh) void connectBaileysChannel(fresh);
-            });
-        } else {
-          void prisma.channel.update({
-            where: { id: channel.id },
-            data: { status: "DISCONNECTED" },
-          });
+            })
+            .catch((err: unknown) =>
+              console.error(`[baileys:${channel.id}] reconnect failed:`, err)
+            );
         }
       }
     });
@@ -278,9 +321,12 @@ export async function connectBaileysChannel(
 
   // The QR arrives asynchronously via connection.update; wait briefly so the
   // FIRST connect call returns it instead of null (which forced a second
-  // click). Give up after 15s and return whatever we have.
+  // click). Give up after 15s and return whatever we have. If the socket died
+  // while waiting (the close handler removes it from the map), stop early -
+  // polling a dead entry for the full 15s just delayed the caller's error.
   const deadline = Date.now() + 15_000;
   while (!entry.qr && !entry.open && Date.now() < deadline) {
+    if (sockets.get(channel.id) !== entry) break;
     await new Promise((r) => setTimeout(r, 300));
   }
   return { qr: entry.qr, open: entry.open };
@@ -299,14 +345,16 @@ export function getBaileysState(
 }
 
 // At boot, reconnect every already-CONNECTED Baileys channel (session keys
-// persist on disk, so no re-scan needed unless logged out). Called from the
-// scheduler start.
+// persist in the BaileysAuth table, so no re-scan unless logged out). Called
+// from the scheduler start.
 export async function startBaileysChannels(): Promise<void> {
   const channels = await prisma.channel.findMany({
     where: { provider: "BAILEYS", status: "CONNECTED" },
   });
   for (const c of channels) {
-    void connectBaileysChannel(c);
+    void connectBaileysChannel(c).catch((err: unknown) =>
+      console.error(`[baileys:${c.id}] boot reconnect failed:`, err)
+    );
   }
 }
 
@@ -314,7 +362,7 @@ export async function startBaileysChannels(): Promise<void> {
 // long-lived WebSocket to WhatsApp's servers minutes after it opens, and the
 // raw close sometimes doesn't surface as a connection.update event - so the
 // auto-reconnect in the close handler never fires and the socket stays dead
-// (inbound messages silently drop). Poll every 45s: for each CONNECTED
+// (inbound messages silently drop). Poll every 20s: for each CONNECTED
 // Baileys channel, reconnect if the socket entry is missing or stuck (not
 // open, no pending QR). On the production VPS (direct connection) this is a
 // harmless no-op once stable.
@@ -329,7 +377,9 @@ export function startBaileysHeartbeat(): void {
       const entry = sockets.get(c.id);
       if (!entry || (!entry.open && !entry.qr)) {
         console.log(`[baileys:${c.id}] heartbeat: socket dead, reconnecting`);
-        void connectBaileysChannel(c);
+        void connectBaileysChannel(c).catch((err: unknown) =>
+          console.error(`[baileys:${c.id}] heartbeat reconnect failed:`, err)
+        );
       }
     }
   }, 20_000);
@@ -342,9 +392,10 @@ export function startBaileysHeartbeat(): void {
 // requires a fresh QR. This is a FULL disconnect, not just pausing the
 // socket.
 export async function disconnectBaileysChannel(channelId: string): Promise<void> {
-  disconnecting.add(channelId);
   const entry = sockets.get(channelId);
   if (entry) {
+    // Flag THIS socket so its close event doesn't trigger auto-reconnect.
+    entry.intentional = true;
     try {
       await entry.sock.logout();
     } catch {

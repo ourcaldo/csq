@@ -92,10 +92,17 @@ export default async function handler(
 
   // Upsert the tenant's channel for this provider (one per provider for MVP).
   // `existing` was already fetched above for the token-preserve path.
+  // Baileys: do NOT write status here. The socket events own it (open writes
+  // CONNECTED, a fatal close writes DISCONNECTED) - writing DISCONNECTED on
+  // every connect call desynced the row when the owner re-clicked connect on
+  // an already-open socket, and nothing repaired it.
   const channel = existing
     ? await prisma.channel.update({
         where: { id: existing.id },
-        data: { agentId: agentId ?? existing.agentId, config, status },
+        data:
+          provider === "BAILEYS"
+            ? { agentId: agentId ?? existing.agentId, config }
+            : { agentId: agentId ?? existing.agentId, config, status },
       })
     : await prisma.channel.create({
         data: {
@@ -109,16 +116,27 @@ export default async function handler(
       });
 
   let qr: string | null = null;
+  let open = false;
   if (provider === "BAILEYS") {
     const result = await connectBaileysChannel(channel);
     qr = result.qr;
+    open = result.open;
+    if (!qr && !open) {
+      // WhatsApp refused the session (dead creds, rejected pairing). A silent
+      // qr:null left the Saluran page showing nothing at all.
+      return respondError(
+        res,
+        "VALIDATION_ERROR",
+        "QR tidak berhasil dibuat. Tunggu sebentar, lalu klik Tampilkan QR lagi."
+      );
+    }
   }
 
   return res.status(200).json(
     apiOk({
       channelId: channel.id,
       provider: channel.provider,
-      status: channel.provider === "BAILEYS" ? status : channel.status,
+      status: open ? "CONNECTED" : channel.status,
       qr,
     })
   );
