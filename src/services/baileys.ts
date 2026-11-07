@@ -44,6 +44,9 @@ type SocketEntry = {
   sock: WASocket;
   qr: string | null;
   open: boolean;
+  // Close code from the last connection.update close, surfaced to the connect
+  // route so it can tell the owner WHY the QR never appeared.
+  closeCode: number | null;
   // Owner-initiated disconnect (Putuskan): this socket's close event must not
   // auto-reconnect. Per-socket flag, so a logout can never suppress the
   // reconnect of a later session (a channel-level Set went stale and did).
@@ -78,7 +81,7 @@ export function disconnectCode(err: unknown): number | undefined {
 // fresh QR pairing. Everything else (timedOut, connectionClosed,
 // connectionLost, restartRequired, ...) is transient: auto-reconnect keeps
 // the agent on 24/7.
-export function isFatalDisconnect(code: number | undefined): boolean {
+export function isFatalDisconnect(code: number | null | undefined): boolean {
   return (
     code === DisconnectReason.loggedOut || // 401: device unlinked / logged out
     code === DisconnectReason.connectionReplaced || // 440: another login took over
@@ -133,14 +136,14 @@ function extractContent(
 // connect route and at boot for already-CONNECTED Baileys channels.
 export async function connectBaileysChannel(
   channel: Channel
-): Promise<{ qr: string | null; open: boolean }> {
+): Promise<{ qr: string | null; open: boolean; closeCode: number | null }> {
   const existing = sockets.get(channel.id);
   console.log(
     `[baileys:${channel.id}] connect requested; existing=${!!existing} open=${existing?.open ?? false} qr=${!!existing?.qr}`
   );
   if (existing && existing.open) {
     // Already connected.
-    return { qr: null, open: true };
+    return { qr: null, open: true, closeCode: null };
   }
 
   let entry: SocketEntry;
@@ -163,7 +166,7 @@ export async function connectBaileysChannel(
       retryRequestDelayMs: 2_000,
     });
 
-    entry = { sock, qr: null, open: false, intentional: false };
+    entry = { sock, qr: null, open: false, closeCode: null, intentional: false };
     sockets.set(channel.id, entry);
 
     sock.ev.on("connection.update", (update) => {
@@ -190,6 +193,7 @@ export async function connectBaileysChannel(
       } else if (update.connection === "close") {
         const code = disconnectCode(update.lastDisconnect?.error);
         console.log(`[baileys:${channel.id}] CLOSE code=${code}`);
+        entry.closeCode = code ?? null;
         sockets.delete(channel.id);
         // Owner-initiated disconnect (Putuskan): don't reconnect or rewrite
         // status - the disconnect API owns both.
@@ -329,7 +333,7 @@ export async function connectBaileysChannel(
     if (sockets.get(channel.id) !== entry) break;
     await new Promise((r) => setTimeout(r, 300));
   }
-  return { qr: entry.qr, open: entry.open };
+  return { qr: entry.qr, open: entry.open, closeCode: entry.closeCode };
 }
 
 // Read the live state of a Baileys channel's socket (current QR + open flag)

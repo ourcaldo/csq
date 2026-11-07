@@ -10,7 +10,7 @@ import {
   type CloudApiConfig,
   type BaileysConfig,
 } from "@/types/whatsapp";
-import { connectBaileysChannel } from "@/services/baileys";
+import { connectBaileysChannel, isFatalDisconnect } from "@/services/baileys";
 import { generateVerifyToken } from "@/lib/whatsapp-verify-token";
 
 // Connect (or reconfigure) a WhatsApp channel for this tenant (plan 7.5).
@@ -122,8 +122,17 @@ export default async function handler(
     qr = result.qr;
     open = result.open;
     if (!qr && !open) {
-      // WhatsApp refused the session (dead creds, rejected pairing). A silent
-      // qr:null left the Saluran page showing nothing at all.
+      // A silent qr:null left the Saluran page showing nothing at all. A 401
+      // means WhatsApp's server REFUSED the pairing handshake (rate-limited
+      // or flagged number, or a stale linked device still registered on the
+      // phone) - point the owner at the two things that actually clear it.
+      if (isFatalDisconnect(result.closeCode)) {
+        return respondError(
+          res,
+          "VALIDATION_ERROR",
+          "WhatsApp menolak koneksi (401). Di telepon: hapus perangkat lama CSQ dari WhatsApp > Setelan > Perangkat Tertaut, tunggu sekitar 1 jam tanpa mencoba lagi, lalu klik Tampilkan QR sekali lagi."
+        );
+      }
       return respondError(
         res,
         "VALIDATION_ERROR",
