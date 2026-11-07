@@ -7,7 +7,7 @@
 // number in local form; the raw append produced "0812...@s.whatsapp.net" -
 // a non-existent user WhatsApp accepts silently and never delivers (no echo,
 // no error). Sends to a live JID always echo back as a fromMe sync.
-import { toJid } from "../src/services/baileys";
+import { resolveSendJid, toJid } from "../src/services/baileys";
 
 const checks: Array<[string, string, string]> = [
   // [input, expected, name]
@@ -22,6 +22,14 @@ const checks: Array<[string, string, string]> = [
   ["120363023070965411@g.us", "120363023070965411@g.us", "group JID unchanged"],
 ];
 
+// LID->PN rewrite at send time (Baileys 6.7.x drops raw LID sends).
+const lidChecks: Array<[string, string | null, string, string]> = [
+  // [lidJid, pn, expected, name]
+  ["127642938413286@lid", "6281234567890", "6281234567890@s.whatsapp.net", "known LID mapping -> phone JID"],
+  ["127642938413286@lid", null, "127642938413286@lid", "unknown LID stays raw (last resort)"],
+  ["6281234567890@s.whatsapp.net", "6281234567890", "6281234567890@s.whatsapp.net", "phone JID never rewritten"],
+];
+
 let failed = 0;
 for (const [input, expected, name] of checks) {
   const got = toJid(input);
@@ -32,9 +40,18 @@ for (const [input, expected, name] of checks) {
     console.error(`FAIL  ${name}: toJid("${input}") = "${got}", expected "${expected}"`);
   }
 }
+for (const [lidJid, pn, expected, name] of lidChecks) {
+  const got = resolveSendJid(lidJid, pn);
+  if (got === expected) {
+    console.log(`PASS  ${name}`);
+  } else {
+    failed += 1;
+    console.error(`FAIL  ${name}: resolveSendJid("${lidJid}", ${JSON.stringify(pn)}) = "${got}", expected "${expected}"`);
+  }
+}
 
 if (failed > 0) {
   console.error(`\n${failed} check(s) failed.`);
   process.exit(1);
 }
-console.log(`\nAll ${checks.length} checks passed.`);
+console.log(`\nAll ${checks.length + lidChecks.length} checks passed.`);

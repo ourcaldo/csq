@@ -11,7 +11,7 @@ import prisma from "@/lib/db";
 import { ingestInboundMessage } from "@/lib/inbox";
 import { processInboundWithAgent } from "@/lib/agent-loop";
 import { replyToNonText } from "@/lib/agent-outbox";
-import { loadDbAuthState } from "@/lib/baileys-auth-db";
+import { loadDbAuthState, getPnForLid, storeLidPnMapping } from "@/lib/baileys-auth-db";
 import type { Channel } from "@prisma/client";
 import type {
   BaileysConfig,
@@ -281,6 +281,25 @@ export async function connectBaileysChannel(
 
     sock.ev.on("creds.update", saveCreds);
 
+    // Real delivery failures surface here, ASYNC, after sendMessage already
+    // resolved: WhatsApp rejects a send with status ERROR and a stub reason
+    // (e.g. "463") in messages.update (WhiskeySockets/Baileys#2653). Without
+    // this listener a silently undelivered send is indistinguishable from a
+    // delivered one.
+    sock.ev.on("messages.update", (updates) => {
+      for (const u of updates) {
+        const stubs = u.update?.messageStubParameters;
+        if (
+          u.update?.status === proto.WebMessageInfo.Status.ERROR ||
+          (stubs && stubs.length > 0)
+        ) {
+          console.log(
+            `[baileys:${channel.id}] delivery failure id=${u.key.id} to=${u.key.remoteJid} status=${u.update?.status} stubs=${JSON.stringify(stubs ?? [])}`
+          );
+        }
+      }
+    });
+
     sock.ev.on("messages.upsert", (event) => {
       console.log(
         `[baileys:${channel.id}] messages.upsert type=${event.type} count=${event.messages?.length ?? 0}`
@@ -319,6 +338,26 @@ export async function connectBaileysChannel(
         // non-existent user and the reply is silently lost.
         const from = m.key.remoteJid ?? "";
         if (!from) continue;
+        // Capture the LID -> phone-number mapping from this inbound
+        // (key.senderPn carries the sender's real number even when the chat
+        // is LID-addressed). Baileys 6.7.x accepts sends to a raw
+        // "<lid>@lid" JID but WhatsApp never delivers them
+        // (WhiskeySockets/Baileys#1950, #1964), so every outbound send is
+        // re-routed to the real number via this mapping - see
+        // BaileysProvider.sendText.
+        if (from.endsWith("@lid") && m.key.senderPn) {
+          const lidUser = from.split("@")[0].split(":")[0];
+          const pnUser = m.key.senderPn.split("@")[0].split(":")[0];
+          if (lidUser && pnUser) {
+            void storeLidPnMapping(channel.id, lidUser, pnUser).catch(
+              (err: unknown) =>
+                console.error(
+                  `[baileys:${channel.id}] lid-mapping store failed:`,
+                  err
+                )
+            );
+          }
+        }
         const tenantId = channel.tenantId;
         void (async () => {
           const recorded = await ingestInboundMessage({
@@ -451,11 +490,37 @@ export async function disconnectBaileysChannel(channelId: string): Promise<void>
   await prisma.baileysAuth.delete({ where: { channelId } }).catch(() => undefined);
 }
 
+// Pure send-destination rewrite (self-check covered): a "<lid>@lid"
+// destination is rewritten to the real phone number when the mapping is
+// known. Phone-JID sends are the proven delivery path; raw LID sends are
+// accepted by WhatsApp but never delivered on Baileys 6.7.x
+// (WhiskeySockets/Baileys#1950, #1964).
+export function resolveSendJid(jid: string, pn: string | null): string {
+  return jid.endsWith("@lid") && pn ? `${pn}@s.whatsapp.net` : jid;
+}
+
 export class BaileysProvider implements WhatsAppProvider {
   private readonly channelId: string;
 
   constructor(channelId: string, _config: BaileysConfig) {
     this.channelId = channelId;
+  }
+
+  // Resolve the send destination: a LID JID is rewritten to the sender's
+  // real phone number when we captured the mapping from an inbound
+  // (key.senderPn). Without a mapping the raw LID is kept - last resort,
+  // WhatsApp drops it silently.
+  private async destination(to: string): Promise<string> {
+    const jid = toJid(to);
+    if (!jid.endsWith("@lid")) return jid;
+    const pn = await getPnForLid(this.channelId, jid).catch(() => null);
+    const resolved = resolveSendJid(jid, pn);
+    if (resolved !== jid) {
+      console.log(
+        `[baileys:${this.channelId}] lid ${jid} -> pn ${resolved}`
+      );
+    }
+    return resolved;
   }
 
   // Baileys has no public HTTP webhook to verify.
@@ -477,7 +542,7 @@ export class BaileysProvider implements WhatsAppProvider {
     }
     // Log the resolved JID: a send to a non-existent user is silently dropped
     // by WhatsApp (no echo, no error) - the destination is the only clue.
-    const jid = toJid(input.to);
+    const jid = await this.destination(input.to);
     console.log(`[baileys:${this.channelId}] sendText to=${jid}`);
     const sent = await entry.sock.sendMessage(jid, { text: input.body });
     // Zod-parse the returned key.id (no `as` casts on the send result).
@@ -498,7 +563,7 @@ export class BaileysProvider implements WhatsAppProvider {
     if (!input.bytes) {
       throw new Error("Baileys image send requires the image bytes.");
     }
-    const jid = toJid(input.to);
+    const jid = await this.destination(input.to);
     console.log(`[baileys:${this.channelId}] sendImage to=${jid}`);
     const sent = await entry.sock.sendMessage(jid, {
       image: input.bytes,
