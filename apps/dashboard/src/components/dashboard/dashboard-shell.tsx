@@ -48,7 +48,7 @@ import {
   EntitlementsProvider,
   type EntitlementsView,
 } from "@/components/dashboard/entitlements-context";
-import { PlanBanner } from "@/components/dashboard/plan-banner";
+import { QuotaMenu } from "@/components/dashboard/quota-menu";
 
 type NavItem = {
   href: string;
@@ -267,6 +267,7 @@ export function DashboardShell({ title, description, actions, headerExtra, flush
 
           {/* Right actions */}
           <div className="flex items-center gap-3 md:gap-4">
+            {role === "OWNER" && <QuotaMenu entitlements={entitlements ?? null} />}
             <button className="relative text-slate-400 transition-colors hover:text-slate-600">
               <Bell size={22} />
               <span className="absolute right-0 top-0 h-2 w-2 rounded-full border-2 border-white bg-red-500" />
@@ -335,9 +336,6 @@ export function DashboardShell({ title, description, actions, headerExtra, flush
           )}
 
           <div className={flush ? "flex min-h-0 flex-1 flex-col" : "p-4 md:p-6"}>
-            {!flush && role === "OWNER" && router.pathname !== "/dashboard/plan" && (
-              <PlanBanner entitlements={entitlements ?? null} />
-            )}
             {children}
           </div>
         </main>
