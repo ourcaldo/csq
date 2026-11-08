@@ -211,6 +211,7 @@ model Tenant {
   credentials         TenantCredential[]
   outboundMessages    OutboundMessage[]
   channelCommands     ChannelCommand[]
+  apiKeys             ApiKey[]
 }
 
 // D10c: per-tenant external OAuth credentials, SEPARATE from Tenant.settings.
@@ -412,6 +413,26 @@ model ChannelCommand {
   channel  Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
 
   @@index([status, createdAt])
+  @@index([tenantId])
+}
+
+// Tenant API key for the /api/v1 surface (PRD 23C Phase 7). The plaintext
+// token is shown exactly once at mint time; only the sha256 hash is stored.
+// `prefix` (first chars of the token) identifies the key in the UI without
+// exposing it. Revocation is soft (revokedAt) - audit history stays intact.
+model ApiKey {
+  id         String    @id @default(uuid())
+  tenantId   String
+  name       String
+  tokenHash  String    @unique
+  prefix     String    @unique
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
   @@index([tenantId])
 }
 

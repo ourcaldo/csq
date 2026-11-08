@@ -29,11 +29,13 @@ const CLOSE_RUNS_PER_TICK = 20;
 // a truncated run plus an audit row. UMKM contact lists sit far below it.
 const MAX_RECIPIENTS_PER_FIRE = 5000;
 
-// The public base URL for media links - the same env that powers auth. The
-// Cloud API needs an HTTPS link Meta can fetch (plan section 3.2.1).
+// The public base URL for media links - the API service (PRD 23C Phase 7:
+// media serving moved to apps/api, so links must point at its domain, not
+// the dashboard's). The Cloud API needs an HTTPS link Meta can fetch (plan
+// section 3.2.1).
 function publicMediaUrl(assetId: string): string {
-  const base = (process.env.NEXTAUTH_URL ?? "").replace(/\/$/, "");
-  if (!base) throw new Error("NEXTAUTH_URL is not set - cannot build the public media link");
+  const base = (process.env.API_URL ?? "").replace(/\/$/, "");
+  if (!base) throw new Error("API_URL is not set - cannot build the public media link");
   return `${base}/api/media/${assetId}`;
 }
 

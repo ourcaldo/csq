@@ -3,8 +3,11 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import prisma from "@csq/core/lib/db";
 import { getProvider } from "@csq/core/lib/whatsapp-provider";
+import { hasBaileysSocket } from "@csq/core/services/baileys";
+import { enqueueOutbound, awaitOutbound } from "@csq/core/lib/outbox";
 import { logAction } from "@csq/core/lib/audit";
 import { CLOUD_API_WINDOW_MS } from "@csq/core/lib/inbox";
+import type { SendTextResult } from "@csq/core/types/whatsapp";
 
 // Conversation.settings is a Json column; read it as a plain record so
 // debounce keys can be merged without a type assertion (same pattern as the
@@ -106,13 +109,38 @@ export async function sendAgentMessage(
     }
   }
 
-  const sendResult = useTemplate && templateToSend
-    ? await provider.sendTemplate({
-        to: customerPhone,
-        templateName: templateToSend,
-        languageCode: process.env.WHATSAPP_TEMPLATE_LANG ?? "id",
-      })
-    : await provider.sendText({ to: customerPhone, body });
+  // Phase 7: web processes (dashboard/api) hold no Baileys socket - a
+  // Baileys send from them flows through the worker's outbox. Inside the
+  // worker (the socket owner) the direct path runs as before. Template
+  // sends are Cloud API only (Baileys delegates to text), so the outbox
+  // path always carries the plain body.
+  let sendResult: SendTextResult;
+  if (
+    channel.provider === "BAILEYS" &&
+    !useTemplate &&
+    !hasBaileysSocket(channel.id)
+  ) {
+    const outboxId = await enqueueOutbound({
+      tenantId,
+      channelId: channel.id,
+      to: customerPhone,
+      body,
+      source: "REPLY",
+    });
+    const outboxResult = await awaitOutbound(outboxId);
+    if (outboxResult.status !== "SENT") {
+      throw new Error(outboxResult.error ?? "Gagal mengirim balasan agent.");
+    }
+    sendResult = { waMessageId: outboxResult.waMessageId ?? undefined };
+  } else {
+    sendResult = useTemplate && templateToSend
+      ? await provider.sendTemplate({
+          to: customerPhone,
+          templateName: templateToSend,
+          languageCode: process.env.WHATSAPP_TEMPLATE_LANG ?? "id",
+        })
+      : await provider.sendText({ to: customerPhone, body });
+  }
 
   const message = await prisma.message.create({
     data: {

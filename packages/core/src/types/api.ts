@@ -9,7 +9,8 @@ export type ApiResponse<T = unknown> = {
   error?: { code: ErrorCode; message: string };
 };
 
-// Consolidated error codes (SDD §5.2 / §6.6).
+// Consolidated error codes (SDD §5.2 / §6.6). METHOD_NOT_ALLOWED and
+// RATE_LIMITED joined with the /api/v1 token realm (PRD 23C Phase 7).
 export type ErrorCode =
   | "UNAUTHORIZED"
   | "PERMISSION_DENIED"
@@ -17,6 +18,8 @@ export type ErrorCode =
   | "VALIDATION_ERROR"
   | "NOT_FOUND"
   | "TOOL_NOT_FOUND"
+  | "METHOD_NOT_ALLOWED"
+  | "RATE_LIMITED"
   | "INTERNAL_ERROR";
 
 export const ErrorCodes: Record<ErrorCode, ErrorCode> = {
@@ -26,6 +29,8 @@ export const ErrorCodes: Record<ErrorCode, ErrorCode> = {
   VALIDATION_ERROR: "VALIDATION_ERROR",
   NOT_FOUND: "NOT_FOUND",
   TOOL_NOT_FOUND: "TOOL_NOT_FOUND",
+  METHOD_NOT_ALLOWED: "METHOD_NOT_ALLOWED",
+  RATE_LIMITED: "RATE_LIMITED",
   INTERNAL_ERROR: "INTERNAL_ERROR",
 };
 

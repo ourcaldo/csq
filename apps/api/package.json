@@ -1,0 +1,26 @@
+{
+  "name": "@csq/api",
+  "version": "4.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=20 <21"
+  },
+  "scripts": {
+    "dev": "next dev -p 3001",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@csq/core": "*",
+    "next": "14.2",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.16.11",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.0",
+    "typescript": "^5.6.3"
+  }
+}

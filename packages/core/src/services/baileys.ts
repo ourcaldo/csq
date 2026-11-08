@@ -466,6 +466,13 @@ export function getBaileysState(
   return { qr: entry?.qr ?? null, open: entry?.open ?? false };
 }
 
+// Live socket check for cross-process send routing (Phase 7): the worker is
+// the only process where this returns true.
+export function hasBaileysSocket(channelId: string): boolean {
+  const entry = sockets.get(channelId);
+  return !!entry && entry.open;
+}
+
 // At boot, reconnect every already-CONNECTED Baileys channel (session keys
 // persist in the BaileysAuth table, so no re-scan unless logged out). Called
 // from the scheduler start.

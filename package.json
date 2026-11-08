@@ -17,6 +17,8 @@
     "build": "npm run db:generate -w packages/core && npm run build -w apps/dashboard",
     "start": "npm run db:deploy -w packages/core && npm run start -w apps/dashboard",
     "start:worker": "npm run db:deploy -w packages/core && npm run start -w apps/worker",
+    "build:api": "npm run build -w apps/api",
+    "start:api": "npm run db:deploy -w packages/core && npm run start -w apps/api",
     "lint": "npm run lint -w apps/dashboard",
     "check:encoding": "node scripts/check-encoding.mjs",
     "db:migration-checksums": "node scripts/migration-checksums.mjs",

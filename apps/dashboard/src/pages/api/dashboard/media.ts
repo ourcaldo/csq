@@ -73,7 +73,12 @@ export default async function handler(
     data: { tenantId, mimeType, byteSize: bytes.length, data: bytes },
   });
 
-  const base = (process.env.NEXTAUTH_URL ?? "").replace(/\/$/, "");
+  // Phase 7: media serving lives in apps/api - the public URL must point at
+  // its domain so Meta's fetcher can reach the image.
+  const base = (process.env.API_URL ?? "").replace(/\/$/, "");
+  if (!base) {
+    return respondError(res, "INTERNAL_ERROR", "API_URL belum dikonfigurasi.");
+  }
   const url = `${base}/api/media/${asset.id}`;
   return res.status(201).json(apiOk({ id: asset.id, url }));
 }

@@ -10,6 +10,7 @@ import {
   recordWebhookDiag,
   getWebhookDiags,
 } from "@csq/core/lib/webhook-diagnostics";
+import { checkRateLimit } from "@csq/core/lib/rate-limit";
 
 // WhatsApp Cloud API webhook. UNAUTHENTICATED - Meta calls it directly, so
 // tenantId is resolved from the channel config (looked up by phone_number_id),
@@ -85,6 +86,17 @@ export default async function handler(
 
   // ── POST: inbound events ──
   if (req.method === "POST") {
+    // Phase 7: per-IP burst guard on the unauthenticated inbound path
+    // (in-memory, per-instance). Meta's real traffic sits far below this.
+    const ipRaw = req.headers["x-forwarded-for"];
+    const ip = ((Array.isArray(ipRaw) ? ipRaw[0] : ipRaw) ?? "unknown")
+      .split(",")[0]
+      .trim();
+    if (!checkRateLimit(`wh:${ip}`, 120, 60_000)) {
+      res.status(429).send("Too Many Requests");
+      return;
+    }
+
     // Always read the body (needed for HMAC), and always ACK 200 quickly to
     // stay within Meta's 5s timeout. Invalid payloads → 200 + log, never an
     // error code (Meta would retry and spam).

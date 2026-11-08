@@ -933,10 +933,13 @@ type SaluranProps = {
 export const getServerSideProps: GetServerSideProps<SaluranProps> = withAuth<
   SaluranProps
 >(async (ctx) => {
-  // Webhook URL shown in the UI is derived from the request origin, so dev
-  // shows localhost and prod shows the deployed domain (no hardcoded host).
-  const origin = process.env.NEXTAUTH_URL ?? `https://${ctx.req.headers.host}`;
-  const webhookUrl = `${origin.replace(/\/$/, "")}/api/webhooks/whatsapp`;
+  // Webhook URL shown in the UI: the webhook lives in apps/api (Phase 7), so
+  // its URL comes from API_URL; the request-origin fallback only serves dev.
+  const apiBase = (process.env.API_URL ?? "").replace(/\/$/, "");
+  const fallback = (
+    process.env.NEXTAUTH_URL ?? `https://${ctx.req.headers.host}`
+  ).replace(/\/$/, "");
+  const webhookUrl = `${apiBase || fallback}/api/webhooks/whatsapp`;
 
   // Verify token is sanitized out of the channels list API (secret-adjacent).
   // The Cloud API channel row carries the token; if none exists yet (first
