@@ -16,7 +16,6 @@ const planInputSchema = z.object({
   mauLimit: z.number().int().positive().nullable(),
   staffLimit: z.number().int().positive().nullable(),
   channelLimit: z.number().int().positive().nullable(),
-  tenantLimit: z.number().int().positive(),
   features: z.array(z.enum(PLAN_FEATURE_KEYS)),
 });
 
@@ -48,7 +47,6 @@ export default async function handler(
         mauLimit: p.mauLimit,
         staffLimit: p.staffLimit,
         channelLimit: p.channelLimit,
-        tenantLimit: p.tenantLimit,
         features: p.features,
         tenantCount: p._count.tenants,
         createdAt: p.createdAt.toISOString(),

@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import type { Scenario } from "@prisma/client";
 import { z } from "zod";
 import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { requireFeatureApi } from "@csq/core/lib/feature-guard";
 import prisma from "@csq/core/lib/db";
 import { logHuman } from "@csq/core/lib/audit";
 import { paginate, requireTenant, respondError } from "@csq/core/lib/queries";
@@ -71,6 +72,8 @@ export default async function handler(
 ) {
   const session = await getAuthSession(req, res);
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
+
+  if (!(await requireFeatureApi(session, res, "scenarios"))) return;
   const tenantId = requireTenant(session);
 
   if (req.method === "GET") {

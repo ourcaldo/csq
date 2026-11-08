@@ -14,6 +14,7 @@ export type ApiResponse<T = unknown> = {
 export type ErrorCode =
   | "UNAUTHORIZED"
   | "PERMISSION_DENIED"
+  | "FEATURE_DISABLED"
   | "APPROVAL_REQUIRED"
   | "VALIDATION_ERROR"
   | "NOT_FOUND"
@@ -25,6 +26,7 @@ export type ErrorCode =
 export const ErrorCodes: Record<ErrorCode, ErrorCode> = {
   UNAUTHORIZED: "UNAUTHORIZED",
   PERMISSION_DENIED: "PERMISSION_DENIED",
+  FEATURE_DISABLED: "FEATURE_DISABLED",
   APPROVAL_REQUIRED: "APPROVAL_REQUIRED",
   VALIDATION_ERROR: "VALIDATION_ERROR",
   NOT_FOUND: "NOT_FOUND",

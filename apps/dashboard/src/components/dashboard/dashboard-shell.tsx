@@ -29,6 +29,7 @@ import {
   ClockCounterClockwise,
   Gear,
   Users,
+  Wallet,
   Bell,
   MagnifyingGlass,
   CaretDown,
@@ -43,8 +44,19 @@ import { cn } from "@csq/ui/lib/utils";
 import { Seo } from "@csq/ui/components/seo";
 import type { PlanFeature } from "@csq/core/types/entitlements";
 import { useApi } from "@/hooks/use-api";
+import {
+  EntitlementsProvider,
+  type EntitlementsView,
+} from "@/components/dashboard/entitlements-context";
+import { PlanBanner } from "@/components/dashboard/plan-banner";
 
-type NavItem = { href: string; label: string; icon: ReactNode; feature?: PlanFeature };
+type NavItem = {
+  href: string;
+  label: string;
+  icon: ReactNode;
+  feature?: PlanFeature;
+  ownerOnly?: boolean;
+};
 type NavGroup = { label: string; items: NavItem[] };
 
 const NAV_GROUPS: NavGroup[] = [
@@ -91,6 +103,7 @@ const NAV_GROUPS: NavGroup[] = [
 const NAV_BOTTOM: NavItem[] = [
   { href: "/dashboard/settings", label: "Pengaturan", icon: <Gear size={18} /> },
   { href: "/dashboard/team", label: "Tim", icon: <Users size={18} /> },
+  { href: "/dashboard/plan", label: "Paket & Kuota", icon: <Wallet size={18} />, ownerOnly: true },
 ];
 
 type DashboardShellProps = {
@@ -137,7 +150,7 @@ export function DashboardShell({ title, description, actions, headerExtra, flush
   // Feature visibility follows the tenant's plan. While entitlements load we
   // show the full nav (no flicker for legacy tenants); a plan without a
   // feature removes its entry. The page guard is the real gate.
-  const { data: entitlements } = useApi<{ features: PlanFeature[] }>(
+  const { data: entitlements } = useApi<EntitlementsView>(
     "/api/dashboard/entitlements"
   );
   const canUse = (feature?: PlanFeature) =>
@@ -146,9 +159,11 @@ export function DashboardShell({ title, description, actions, headerExtra, flush
     ...group,
     items: group.items.filter((item) => canUse(item.feature)),
   })).filter((group) => group.items.length > 0);
+  const bottomItems = NAV_BOTTOM.filter((item) => !item.ownerOnly || role === "OWNER");
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-800">
+    <EntitlementsProvider value={entitlements ?? null}>
+      <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-800">
       {/* Document title + meta for this dashboard route. Auth-gated pages are
           noindex; the title prop becomes the browser-tab title ("… - CSQ"). */}
       <Seo title={title} description={description} path={router.pathname} noindex />
@@ -198,7 +213,7 @@ export function DashboardShell({ title, description, actions, headerExtra, flush
 
         {/* Bottom actions */}
         <div className="space-y-0.5 border-t border-slate-200 p-3">
-          {NAV_BOTTOM.map((item) => (
+          {bottomItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
@@ -319,9 +334,13 @@ export function DashboardShell({ title, description, actions, headerExtra, flush
             </div>
           )}
 
-          <div className={flush ? "flex min-h-0 flex-1 flex-col" : "p-4 md:p-6"}>{children}</div>
+          <div className={flush ? "flex min-h-0 flex-1 flex-col" : "p-4 md:p-6"}>
+            {!flush && role === "OWNER" && <PlanBanner entitlements={entitlements ?? null} />}
+            {children}
+          </div>
         </main>
       </div>
-    </div>
+      </div>
+    </EntitlementsProvider>
   );
 }

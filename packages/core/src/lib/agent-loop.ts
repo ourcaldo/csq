@@ -1,9 +1,13 @@
 import type { Channel } from "@prisma/client";
+import { randomUUID } from "crypto";
+import { z } from "zod";
 import prisma from "@csq/core/lib/db";
 import { buildSystemPrompt } from "@csq/core/lib/prompt-builder";
 import { runConversation } from "@csq/core/services/llm-runtime";
 import { sendAgentMessage } from "@csq/core/lib/agent-outbox";
 import { acquireTurnLease, releaseTurnLease } from "@csq/core/lib/turn-lock";
+import { chargeCredits, getCreditStatus } from "@csq/core/lib/credits";
+import { logAction } from "@csq/core/lib/audit";
 import type { ChatMessage, ToolCallRecord } from "@csq/core/types/chat";
 
 // Fire-and-forget agent auto-reply for an inbound WhatsApp message - the
@@ -101,6 +105,38 @@ export async function runAgentReply(args: {
     return { reply: "", toolCalls: [], stoodDown: true };
   }
 
+  // AI credit gate (PRD 14). At or above the monthly limit the agent stands
+  // down before any LLM call; inbound keeps ingesting and staff can reply.
+  // A failed check fails open: a billing read must not silence the agent.
+  let credits: Awaited<ReturnType<typeof getCreditStatus>> | null = null;
+  try {
+    credits = await getCreditStatus(tenantId);
+  } catch (err) {
+    console.error(`[agent-loop] credit check failed for tenant ${tenantId}:`, err);
+  }
+  if (credits?.exhausted) {
+    const settingsParsed = z.record(z.unknown()).safeParse(conversation.settings ?? {});
+    const settings = settingsParsed.success ? settingsParsed.data : {};
+    const monthKey = new Date().toISOString().slice(0, 7);
+    if (settings.creditsExhaustedFor !== monthKey) {
+      await logAction({
+        tenantId,
+        agentId: agent.id,
+        action: "agent.credits_exhausted",
+        entityType: "Conversation",
+        entityId: conversationId,
+        approvalStatus: "NONE",
+        customerPhone,
+        afterValue: { month: monthKey, limit: credits.limit, used: credits.used },
+      });
+      await prisma.conversation.update({
+        where: { id: conversationId },
+        data: { settings: { ...settings, creditsExhaustedFor: monthKey } },
+      });
+    }
+    return { reply: "", toolCalls: [], stoodDown: true };
+  }
+
   // BOUNDED HISTORY WINDOW (no external session state). The recent transcript
   // is replayed from our own Message rows - the NEWEST AGENT_HISTORY_LIMIT
   // messages within the 1h window, in chronological order (fetch desc, take,
@@ -193,6 +229,26 @@ export async function runAgentReply(args: {
     userMessage: windowContext + body,
     customerPhone,
   });
+
+  // Charge the reply after the LLM cost is incurred. The ref is the inbound
+  // message that started the turn, so a retry cannot double charge. A failed
+  // billing write is audited but never blocks the customer's reply.
+  const chargeRef = triggerMessageId ?? randomUUID();
+  try {
+    await chargeCredits({ tenantId, source: "REPLY", refId: chargeRef });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    await logAction({
+      tenantId,
+      agentId: agent.id,
+      action: "agent.credit_charge_failed",
+      entityType: "Conversation",
+      entityId: conversationId,
+      approvalStatus: "NONE",
+      customerPhone,
+      afterValue: { ref: chargeRef, error: message },
+    }).catch(() => undefined);
+  }
 
   return {
     reply: result.reply,

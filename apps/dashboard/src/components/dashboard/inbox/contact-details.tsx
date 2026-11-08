@@ -30,6 +30,10 @@ import { readableTextColor } from "@/lib/tag-color";
 import { Select } from "@csq/ui/components/ui/select";
 import type { ConversationListItem, Stage, Tag } from "@csq/core/types/inbox";
 import { useSession } from "next-auth/react";
+import {
+  hasFeature,
+  useEntitlements,
+} from "@/components/dashboard/entitlements-context";
 
 type ContactDetailsProps = {
   conversation: ConversationListItem;
@@ -161,6 +165,7 @@ function historyEventIcon(e: HistoryEvent) {
 
 export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMobile, hidden, onToggleHide }: ContactDetailsProps) {
   const { data: session } = useSession();
+  const entitlements = useEntitlements();
   const me = session?.user?.id;
   const [tags, setTags] = useState<Tag[] | null>(null);
   const [stages, setStages] = useState<Stage[] | null>(null);
@@ -226,13 +231,24 @@ export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMob
     }
   }
 
-  // Load tenant tags + contact categories + pipeline stages once.
+  // Load tenant tags + contact categories once.
   useEffect(() => {
     void loadTags();
-    void loadStages();
     void loadCategories();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Pipeline stages only when the plan includes the feature; wait for the
+  // entitlements fetch so a Basic tenant never hits a 403 on mount.
+  useEffect(() => {
+    if (entitlements === null) return;
+    if (hasFeature(entitlements, "pipeline")) {
+      void loadStages();
+    } else {
+      setStages([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entitlements]);
 
   async function patch(body: Record<string, unknown>) {
     setBusy(true);
@@ -494,28 +510,30 @@ export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMob
           </div>
         </div>
 
-        {/* Tahap / Pipeline stage */}
-        <div>
-          <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Tahap</h4>
-          {stages === null ? (
-            <p className="text-xs text-slate-400">Memuat tahap…</p>
-          ) : stages.length === 0 ? (
-            <p className="text-xs text-slate-400">Belum ada tahap.</p>
-          ) : (
-            <Select
-              value={conversation.stage?.name ?? ""}
-              onChange={(e) => setStage(e.target.value)}
-              disabled={busy}
-            >
-              <option value="">- pilih tahap -</option>
-              {stages.map((s) => (
-                <option key={s.id} value={s.name}>
-                  {s.name}
-                </option>
-              ))}
-            </Select>
-          )}
-        </div>
+        {/* Tahap / Pipeline stage - hidden when the plan has no pipeline. */}
+        {hasFeature(entitlements, "pipeline") && (
+          <div>
+            <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Tahap</h4>
+            {stages === null ? (
+              <p className="text-xs text-slate-400">Memuat tahap…</p>
+            ) : stages.length === 0 ? (
+              <p className="text-xs text-slate-400">Belum ada tahap.</p>
+            ) : (
+              <Select
+                value={conversation.stage?.name ?? ""}
+                onChange={(e) => setStage(e.target.value)}
+                disabled={busy}
+              >
+                <option value="">- pilih tahap -</option>
+                {stages.map((s) => (
+                  <option key={s.id} value={s.name}>
+                    {s.name}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </div>
+        )}
 
         {/* Tags */}
         <div>

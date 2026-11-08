@@ -45,12 +45,116 @@ model Plan {
   mauLimit          Int?
   staffLimit        Int?
   channelLimit      Int?
-  tenantLimit       Int      @default(1)
   features          String[] @default([])
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  tenants Tenant[]
+  tenants  Tenant[]
+  invoices Invoice[]
+  requests PlanRequest[]
+}
+
+// One row per charged AI unit (PRD 14). Written at the charge point, unique
+// per (tenant, source, ref) so retries cannot double charge. The monthly sum
+// is the billing truth; Message/ScenarioRunStep are no longer counted.
+enum AiCreditSource {
+  REPLY
+  SCENARIO_MODULE
+}
+
+model AiCreditUsage {
+  id        String         @id @default(uuid())
+  tenantId  String
+  source    AiCreditSource
+  credits   Int            @default(1)
+  refId     String
+  note      String?
+  createdAt DateTime       @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, source, refId])
+  @@index([tenantId, createdAt])
+}
+
+// Manual monthly invoice (PRD 14). Plan name is snapshotted so deleting a
+// plan never rewrites history. Number comes from the Invoice_number_seq
+// Postgres sequence.
+enum InvoiceStatus {
+  ISSUED
+  PAID
+  VOID
+}
+
+model Invoice {
+  id          String        @id @default(uuid())
+  tenantId    String
+  planId      String?
+  planName    String
+  number      String        @unique
+  periodStart DateTime
+  periodEnd   DateTime
+  amountIdr   Int
+  status      InvoiceStatus @default(ISSUED)
+  issuedAt    DateTime      @default(now())
+  dueAt       DateTime
+  paidAt      DateTime?
+  method      String?
+  reference   String?
+  note        String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan   Plan?  @relation(fields: [planId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, periodStart])
+  @@index([tenantId, status])
+  @@index([status, dueAt])
+}
+
+// A tenant's upgrade/downgrade intent (PRD 14). No email; the admin billing
+// page is the inbox. Only one open request per tenant is enforced in the API.
+enum PlanRequestStatus {
+  NEW
+  CONTACTED
+  DONE
+  REJECTED
+}
+
+model PlanRequest {
+  id              String            @id @default(uuid())
+  tenantId        String
+  requestedPlanId String
+  note            String?
+  status          PlanRequestStatus @default(NEW)
+  handledById     String?
+  handledAt       DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  requestedPlan Plan      @relation(fields: [requestedPlanId], references: [id], onDelete: Restrict)
+  handledBy     AdminUser? @relation(fields: [handledById], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, status])
+  @@index([status, createdAt])
+}
+
+// Platform billing configuration (PRD 14). One row, id "singleton". Bank
+// details and due/grace days are edited in the admin console, not env.
+// Platform table - no tenantId (the documented exception class).
+model BillingSetting {
+  id                String   @id @default("singleton")
+  bankName          String?
+  bankAccountNumber String?
+  bankAccountHolder String?
+  dueDays           Int      @default(7)
+  graceDays         Int      @default(7)
+  updatedById       String?
+  updatedAt         DateTime @updatedAt
+
+  updatedBy AdminUser? @relation("BillingSettingUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 }
 
 enum AgentType {
@@ -242,6 +346,9 @@ model Tenant {
   channelCommands     ChannelCommand[]
   apiKeys             ApiKey[]
   refreshTokens       RefreshToken[]
+  aiCreditUsage       AiCreditUsage[]
+  invoices            Invoice[]
+  planRequests        PlanRequest[]
   plan                Plan?             @relation(fields: [planId], references: [id], onDelete: SetNull)
 }
 
@@ -502,6 +609,8 @@ model AdminUser {
   updatedAt    DateTime @updatedAt
 
   actions AdminActionLog[]
+  handledPlanRequests PlanRequest[]
+  billingSettingsUpdated BillingSetting[] @relation("BillingSettingUpdatedBy")
 }
 
 // Every operator mutation, audited with actor + before/after (PRD 13).

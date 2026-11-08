@@ -20,7 +20,6 @@ type Plan = {
   mauLimit: number | null;
   staffLimit: number | null;
   channelLimit: number | null;
-  tenantLimit: number;
   features: string[];
   tenantCount: number;
 };
@@ -53,7 +52,6 @@ type FormState = {
   mauLimit: string;
   staffLimit: string;
   channelLimit: string;
-  tenantLimit: string;
   features: PlanFeature[];
 };
 
@@ -64,7 +62,6 @@ const EMPTY_FORM: FormState = {
   mauLimit: "",
   staffLimit: "",
   channelLimit: "",
-  tenantLimit: "1",
   features: [],
 };
 
@@ -146,7 +143,6 @@ export default function PlansPage() {
       mauLimit: plan.mauLimit === null ? "" : String(plan.mauLimit),
       staffLimit: plan.staffLimit === null ? "" : String(plan.staffLimit),
       channelLimit: plan.channelLimit === null ? "" : String(plan.channelLimit),
-      tenantLimit: String(plan.tenantLimit),
       features: PLAN_FEATURE_KEYS.filter((key) => plan.features.includes(key)),
     });
     setFormError(null);
@@ -164,7 +160,6 @@ export default function PlansPage() {
       mauLimit: intOrNull(form.mauLimit),
       staffLimit: intOrNull(form.staffLimit),
       channelLimit: intOrNull(form.channelLimit),
-      tenantLimit: parseInt(form.tenantLimit, 10) || 1,
       features: form.features,
     };
     try {
@@ -235,7 +230,6 @@ export default function PlansPage() {
                   <th className="text-right">MAU</th>
                   <th className="text-right">Staf</th>
                   <th className="text-right">Saluran</th>
-                  <th className="text-right">Tenant</th>
                   <th>Fitur</th>
                   <th />
                 </tr>
@@ -253,7 +247,6 @@ export default function PlansPage() {
                     <td className="text-right font-mono tabular-nums">
                       {limit(p.channelLimit)}
                     </td>
-                    <td className="text-right font-mono tabular-nums">{p.tenantLimit}</td>
                     <td className="text-[12.5px] text-muted-foreground">
                       {featureLabels(p.features)}
                     </td>
@@ -266,7 +259,7 @@ export default function PlansPage() {
                 ))}
                 {pLoading && (
                   <tr>
-                    <td colSpan={9} className="py-12 text-center text-[13px] text-muted-foreground">
+                    <td colSpan={8} className="py-12 text-center text-[13px] text-muted-foreground">
                       Memuat...
                     </td>
                   </tr>
@@ -463,24 +456,10 @@ export default function PlansPage() {
                       placeholder="1"
                     />
                   </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="p-tenants" className="text-[11px]">
-                      Tenant
-                    </Label>
-                    <Input
-                      id="p-tenants"
-                      type="number"
-                      required
-                      min={1}
-                      value={form.tenantLimit}
-                      onChange={(e) => setForm({ ...form, tenantLimit: e.target.value })}
-                      placeholder="1"
-                    />
-                  </div>
                 </div>
                 <p className="mt-2 text-[11.5px] text-muted-foreground">
-                  Kosongkan limit untuk tanpa batas. Staf tidak termasuk owner. Tenant adalah
-                  jumlah workspace yang termasuk dalam paket.
+                  Kosongkan limit untuk tanpa batas. Staf tidak termasuk owner. Saluran
+                  dihitung hanya yang terhubung.
                 </p>
               </div>
 

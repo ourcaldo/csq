@@ -30,6 +30,7 @@ export class HttpError extends Error {
 const HTTP_STATUS: Record<ErrorCode, number> = {
   UNAUTHORIZED: 401,
   PERMISSION_DENIED: 403,
+  FEATURE_DISABLED: 403,
   APPROVAL_REQUIRED: 202,
   VALIDATION_ERROR: 400,
   NOT_FOUND: 404,

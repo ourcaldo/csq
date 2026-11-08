@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
 import { getAuthSession } from "@csq/core/lib/auth";
+import { requireFeatureApi } from "@csq/core/lib/feature-guard";
 import prisma from "@csq/core/lib/db";
 import { requireTenant, respondError, paginate } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
@@ -31,6 +32,8 @@ export default async function handler(
 ) {
   const session = await getAuthSession(req, res);
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
+
+  if (!(await requireFeatureApi(session, res, "campaigns"))) return;
   const tenantId = requireTenant(session);
 
   const { id } = req.query;

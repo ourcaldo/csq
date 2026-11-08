@@ -62,18 +62,21 @@ export default async function handler(
     where: { tenantId, provider },
   });
 
-  // Plan channel limit (PRD 13): creating a new channel is blocked at the
-  // plan's seat count. Reconnecting an existing channel is always allowed, so
-  // a downgraded tenant is never locked out of the channel it already has.
-  if (!existing) {
+  // Plan channel limit (PRD 14): only CONNECTED channels count. Connecting a
+  // channel that is not already connected is blocked when the active count is
+  // at the limit; reconfiguring an already-connected channel is always allowed.
+  const alreadyConnected = existing?.status === "CONNECTED";
+  if (!alreadyConnected) {
     const entitlements = await getTenantEntitlements(tenantId);
     if (entitlements.channelLimit !== null) {
-      const used = await prisma.channel.count({ where: { tenantId } });
-      if (used >= entitlements.channelLimit) {
+      const active = await prisma.channel.count({
+        where: { tenantId, status: "CONNECTED" },
+      });
+      if (active >= entitlements.channelLimit) {
         return respondError(
           res,
           "PERMISSION_DENIED",
-          `Paket ${entitlements.planName ?? "tenant"} hanya mendukung ${entitlements.channelLimit} saluran.`
+          `Paket ${entitlements.planName ?? "tenant"} hanya mendukung ${entitlements.channelLimit} saluran aktif.`
         );
       }
     }

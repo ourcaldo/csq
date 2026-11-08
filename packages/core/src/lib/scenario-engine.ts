@@ -9,6 +9,7 @@ import { generateText, isTextLlmConfigured } from "@csq/core/services/llm";
 import { sendEmailWithProvider } from "@csq/core/services/email";
 import { getEmailProvider } from "@csq/core/lib/email-config";
 import { getTenantEntitlements } from "@csq/core/lib/entitlements";
+import { chargeCredits } from "@csq/core/lib/credits";
 import { events } from "@csq/core/lib/events";
 import type {
   ConversationNewEvent,
@@ -290,6 +291,16 @@ async function advanceRun(runId: string): Promise<void> {
     });
 
     try {
+      // Charge the module before it executes: the work (including any LLM
+      // call) is about to run. Trigger and end are not billable.
+      if (node.type !== "trigger" && node.type !== "end") {
+        await chargeCredits({
+          tenantId: run.tenantId,
+          source: "SCENARIO_MODULE",
+          refId: step.id,
+        });
+      }
+
       const transition = await executeNode(node, {
         runId: run.id,
         tenantId: run.tenantId,

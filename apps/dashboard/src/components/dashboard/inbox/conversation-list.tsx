@@ -15,6 +15,10 @@ import { cn } from "@csq/ui/lib/utils";
 import type { ConversationListItem } from "@csq/core/types/inbox";
 import { LoadingSkeleton } from "@/components/dashboard/loading-skeleton";
 import { EmptyState } from "@/components/dashboard/empty-state";
+import {
+  hasFeature,
+  useEntitlements,
+} from "@/components/dashboard/entitlements-context";
 
 type Tab = "assigned" | "unassigned";
 
@@ -63,6 +67,7 @@ const ConversationRow = memo(function ConversationRow({
   active,
   onSelect,
 }: ConversationRowProps) {
+  const entitlements = useEntitlements();
   const name = c.contact?.name ?? c.customerPhoneDisplay;
   return (
     <button
@@ -115,7 +120,7 @@ const ConversationRow = memo(function ConversationRow({
             Selesai
           </span>
         )}
-        {c.stage && (
+        {hasFeature(entitlements, "pipeline") && c.stage && (
           <span className="mt-1 inline-block rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">
             {c.stage.name}
           </span>

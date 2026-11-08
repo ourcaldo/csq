@@ -12,11 +12,12 @@ end must be confirmed before Phase 1 starts.
 - Billing is **manual** in this stage: the operator issues an invoice, the
   tenant pays by bank transfer, the operator marks it paid. No payment
   gateway, no card storage, no auto-charge.
-- `tenantLimit` on a plan is **catalog metadata only**. Because a plan is
-  assigned per tenant, counting workspaces per plan would require an
-  account/organization layer that owns multiple tenants. That layer does
-  not exist. Do not claim enforcement, and do not build it until a real
-  customer needs multiple workspaces under one subscription.
+- **The tenant is the billing unit.** A plan is assigned per tenant, so
+  every package includes exactly one workspace. `tenantLimit` is dropped
+  (2026-11-08): a configurable limit that can never be enforced is dead
+  config. Multi-workspace accounts are a separate architecture phase, only
+  when a real customer needs more than one business under one
+  subscription.
 - A tenant with **no plan is legacy**: unlimited and every feature. This
   keeps existing tenants working until the operator assigns a package.
 - Plan changes take effect **immediately** for entitlements. Billing is
@@ -37,19 +38,17 @@ end must be confirmed before Phase 1 starts.
 | `aiCreditsPerMonth` | AI credits per month | Unlimited |
 | `mauLimit` | Monthly active users | Unlimited |
 | `staffLimit` | STAFF seats, owner excluded | Unlimited |
-| `channelLimit` | WhatsApp channels the tenant may create | Unlimited |
-| `tenantLimit` | Workspaces included (metadata, not enforced) | - |
+| `channelLimit` | Connected WhatsApp channels the tenant may run | Unlimited |
 | `features` | Premium keys: `campaigns`, `scenarios`, `pipeline` | Empty = core only |
 
 Current catalog entry (created 2026-11-08):
 
 ```
-Basic | Rp 500.000 | 15.000 credits | MAU uncapped | 1 staff | 1 channel | 1 tenant | no premium features
+Basic | Rp 500.000 | 15.000 credits | MAU uncapped | 1 staff | 1 channel | no premium features
 ```
 
-Two fields are deliberately unfilled because the owner did not specify
-them: the Basic MAU cap and which premium features Basic includes. Both are
-editable in the console.
+MAU `NULL` means unlimited, and a plan edit takes effect on the next
+request: the tenant page reads the current plan row, never a cached copy.
 
 ## Entitlements and metering
 
@@ -113,10 +112,12 @@ a higher package. No automatic overage billing in this stage.
 
 - `staffLimit`: STAFF users, owner excluded. Invite is blocked at the
   limit (implemented).
-- `channelLimit`: channel rows per tenant. Creating a new channel is
-  blocked at the limit; reconnecting an existing one is always allowed, so
-  a downgrade never locks a tenant out of the channel it already has
-  (implemented).
+- `channelLimit`: **CONNECTED channels only**; disconnected rows do not
+  count. Connecting a channel (new or existing) is blocked when the
+  connected count is at the limit and the target is not already connected.
+  Disconnecting is always allowed. Reconfiguring an already-connected
+  channel is allowed because it is already in the count (implemented;
+  connected-only counting lands with Phase 1).
 
 ### Premium features
 
@@ -148,13 +149,15 @@ reference, note.
   click cannot bill twice.
 - Amount: defaults to the plan price, editable by the operator (discount,
   proration, custom deal).
-- Due: 7 days after issue by default, editable.
-- Payment instructions: bank name, account number, account holder from
-  server env (`BILLING_BANK_*`). When unset, the tenant page says "Hubungi
-  admin" instead of showing empty bank fields.
+- Due: `BillingSetting.dueDays` after issue (default 7), editable per
+  invoice.
+- Payment instructions: bank name, account number, account holder, due
+  days and grace days are edited in the admin console (`BillingSetting`,
+  one platform row). No env vars. When unset, the tenant page says
+  "Hubungi admin" instead of showing empty bank fields.
 - Overdue is **computed** (`status = ISSUED && dueAt < now`), never a
   stored status. No auto-suspend, no dunning. The operator suspends
-  manually after a grace period (recommended 7 days) using the existing
+  manually after `BillingSetting.graceDays` (default 7) using the existing
   tenant suspension.
 - No PDF in this stage. The page shows the invoice detail and the transfer
   instructions.
@@ -227,7 +230,7 @@ usage view stay on `/admin/plans`; the billing page links to it.
 | AI credits | meters, banner | pre-check in agent turn (Phase 1) | charge ledger; stand down at limit |
 | MAU | meter, banner | none, never blocks inbound | none |
 | Staff | team seat count | invite blocked (done) | n/a |
-| Channels | saluran count | new channel blocked (done) | n/a |
+| Channels | connected channel count | connect blocked at the limit (done) | n/a |
 | Features | nav, page guard, inbox stage UI | `FEATURE_DISABLED` on every route (Phase 2) | scenario fail, campaign pause (done) |
 | Invoices | invoice section, overdue banner | OWNER-only read | no auto-suspend |
 
@@ -259,6 +262,10 @@ Feature routes to guard in Phase 2:
 - `PlanRequest` as above, indexes `(tenantId, status)` and
   `(status, createdAt)`.
 - Postgres sequence for invoice numbers.
+- `BillingSetting` (singleton): bank name, account number, account
+  holder, due days, grace days, `updatedById`, `updatedAt`. Platform
+  table, no tenantId.
+- Drop `Plan.tenantLimit`.
 - Relations: `Tenant.invoices`, `Tenant.planRequests`,
   `Plan.requests`, `AdminUser.handledPlanRequests`.
 - Migration backfills `AiCreditUsage` for the **current month** from
@@ -266,18 +273,16 @@ Feature routes to guard in Phase 2:
   so usage does not reset at deploy. Unique constraints make it
   idempotent.
 
-## Open decisions (confirm before Phase 1)
+## Resolved decisions (2026-11-08)
 
-1. **Credit exhaustion**: hard stop at 100% (recommended) or a grace
-   buffer / overage billing?
-2. **Basic MAU cap**: still unset. Give a number or keep unlimited.
-3. **Basic premium features**: currently none. Which, if any?
-4. **Bank details**: name, account number, account holder for the invoice
-   page.
-5. **Due and grace**: 7 days due, 7 days grace before manual suspension
-   (recommended)?
-6. **Tenant limit**: accept it as metadata until an account layer exists,
-   or open an accounts phase?
+1. **Credit exhaustion**: hard stop at 100%. No grace, no overage billing
+   in this stage.
+2. **Basic MAU**: unlimited (`NULL`). Plan edits apply on the next request.
+3. **Basic premium features**: none.
+4. **Bank details**: edited in the admin console, not env.
+5. **Due and grace**: 7 days due, 7 days grace before manual suspension.
+6. **Tenant limit**: dropped. The tenant is the billing unit; accounts are
+   a separate phase.
 
 ## Out of scope (do not build)
 
@@ -296,6 +301,9 @@ accounts, self-serve plan changes, tax handling.
 - Ledger: each AI reply and each scenario module has exactly one row;
   retries and double drains do not double charge.
 - MAU: two inbound from the same phone and one from another phone show 2.
+- Channel limit counts CONNECTED channels only: a disconnected row does
+  not block a new connection, and reconnecting an already-connected
+  channel is never blocked.
 - Feature APIs return `403 FEATURE_DISABLED`; the inbox pipeline surfaces
   are hidden.
 - Admin creates an invoice, the tenant sees it with transfer instructions,

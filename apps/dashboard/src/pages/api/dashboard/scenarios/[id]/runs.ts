@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { ScenarioRun } from "@prisma/client";
 import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { requireFeatureApi } from "@csq/core/lib/feature-guard";
 import prisma from "@csq/core/lib/db";
 import { paginate, requireTenant, respondError } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
@@ -29,6 +30,8 @@ export default async function handler(
   }
   const session = await getAuthSession(req, res);
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
+
+  if (!(await requireFeatureApi(session, res, "scenarios"))) return;
   if (!requireRole(session, "OWNER", "STAFF")) {
     return respondError(res, "PERMISSION_DENIED", "Tidak ada izin.");
   }

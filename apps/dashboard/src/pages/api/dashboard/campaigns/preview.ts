@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getAuthSession } from "@csq/core/lib/auth";
+import { requireFeatureApi } from "@csq/core/lib/feature-guard";
 import prisma from "@csq/core/lib/db";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
@@ -16,6 +17,8 @@ export default async function handler(
 ) {
   const session = await getAuthSession(req, res);
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
+
+  if (!(await requireFeatureApi(session, res, "campaigns"))) return;
   const tenantId = requireTenant(session);
   if (!canRunCampaigns(session)) {
     return respondError(res, "PERMISSION_DENIED", "Tidak punya izin kampanye.");

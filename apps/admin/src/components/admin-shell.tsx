@@ -12,6 +12,7 @@ import {
   Pulse,
   Scroll,
   Key,
+  Receipt,
   Tag,
   UsersThree,
   SidebarSimple,
@@ -45,6 +46,7 @@ const NAV = [
     items: [
       { href: "/admin/api-keys", label: "Kunci API", icon: <Key size={16} /> },
       { href: "/admin/plans", label: "Paket & Penggunaan", icon: <Tag size={16} /> },
+      { href: "/admin/billing", label: "Tagihan", icon: <Receipt size={16} /> },
       { href: "/admin/admins", label: "Admin", icon: <UsersThree size={16} /> },
     ],
   },

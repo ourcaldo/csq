@@ -47,6 +47,10 @@ gates, a tenant "Paket & Kuota" page, manual invoices, and plan requests.
 - [ ] `PlanRequest`: tenant, `requestedPlanId`, `note`, `status`
       (`NEW`, `CONTACTED`, `DONE`, `REJECTED`), `handledById`,
       `handledAt`; indexes `(tenantId, status)` and `(status, createdAt)`.
+- [ ] `BillingSetting` singleton: bank name, account number, account
+      holder, due days (default 7), grace days (default 7), `updatedById`,
+      `updatedAt`. Platform table, no tenantId.
+- [ ] Drop `Plan.tenantLimit` (the tenant is the billing unit).
 - [ ] Relations: `Tenant.invoices`, `Tenant.planRequests`,
       `Plan.requests`, `AdminUser.handledPlanRequests`.
 - [ ] Postgres sequence for invoice numbers.
@@ -79,6 +83,8 @@ gates, a tenant "Paket & Kuota" page, manual invoices, and plan requests.
       `refId = step.id`.
 - [ ] Admin usage API switches credits to the ledger
       (`groupBy tenantId, source`), keeping the reply/module breakdown.
+- [ ] Channel counters switch to `status = CONNECTED` in
+      `getTenantUsage`, the admin usage API, and the connect guard.
 - [ ] Overview "Kredit AI" reads the ledger.
 - [ ] Gate: plan with 5 credits, 6 inbound turns; the 6th stands down,
       ledger has 5 rows, usage shows 5/5, one audit row, inbound still
@@ -115,9 +121,8 @@ gates, a tenant "Paket & Kuota" page, manual invoices, and plan requests.
 - [ ] Nav: "Paket & Kuota" in the bottom group, owner-only.
 - [ ] `plan-banner.tsx` in the shell: credits 80/100, MAU 80/100, seats at
       limit, overdue invoice. Owner-only, links to the page.
-- [ ] Bank env: `BILLING_BANK_NAME`, `BILLING_BANK_ACCOUNT_NUMBER`,
-      `BILLING_BANK_ACCOUNT_HOLDER`; when unset the page says "Hubungi
-      admin". Add to `.env.example`.
+- [ ] Bank details, due days and grace days come from `BillingSetting`
+      (admin console), not env. When unset the page says "Hubungi admin".
 - [ ] Gate: legacy state, Basic state, request flow, staff blocked from
       page and endpoint, banner appears at thresholds.
 
@@ -128,9 +133,12 @@ gates, a tenant "Paket & Kuota" page, manual invoices, and plan requests.
       sequence, formatted `INV-{YYYYMM}-{0001}`. Audit every action.
 - [ ] `/api/admin/plan-requests` GET/PATCH: list, change status, set
       handledBy/handledAt. Audit.
+- [ ] `/api/admin/billing-settings` GET/PUT: bank name, account number,
+      account holder, due days, grace days. Audit.
 - [ ] `/admin/billing` page: summary strip (outstanding, overdue, paid this
       month), invoice table + create dialog, "perlu ditagih" list (plan but
-      no invoice for the current period), request table.
+      no invoice for the current period), request table, and a billing
+      settings panel for the bank details.
 - [ ] Nav: "Tagihan" under Konfigurasi.
 - [ ] Gate: create, duplicate rejected, mark paid, void, request status
       visible to the tenant.
@@ -176,11 +184,11 @@ gates, a tenant "Paket & Kuota" page, manual invoices, and plan requests.
 - **Invoice numbers** have gaps on failed inserts. Acceptable; they are
   references, not accounting sequences.
 
-## Decisions blocking Phase 1
+## Decisions (resolved 2026-11-08)
 
-1. Credit exhaustion: hard stop at 100% (recommended) or grace/overage?
-2. Basic MAU cap: number or unlimited?
-3. Basic premium features: which, if any?
-4. Bank details for the invoice page.
-5. Due and grace days: 7 + 7 recommended?
-6. Tenant limit: metadata until accounts, or open an accounts phase?
+1. Credit exhaustion: hard stop at 100%.
+2. Basic MAU: unlimited (`NULL`), edits apply on the next request.
+3. Basic premium features: none.
+4. Bank details: admin console (`BillingSetting`), not env.
+5. Due and grace: 7 + 7 days.
+6. Tenant limit: dropped; the tenant is the billing unit.

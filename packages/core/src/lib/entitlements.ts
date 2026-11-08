@@ -25,7 +25,6 @@ export async function getTenantEntitlements(
           mauLimit: true,
           staffLimit: true,
           channelLimit: true,
-          tenantLimit: true,
           features: true,
         },
       },
@@ -39,7 +38,6 @@ export async function getTenantEntitlements(
       mauLimit: null,
       staffLimit: null,
       channelLimit: null,
-      tenantLimit: null,
       features: ALL_FEATURES,
     };
   }
@@ -50,7 +48,6 @@ export async function getTenantEntitlements(
     mauLimit: tenant.plan.mauLimit,
     staffLimit: tenant.plan.staffLimit,
     channelLimit: tenant.plan.channelLimit,
-    tenantLimit: tenant.plan.tenantLimit,
     features: tenant.plan.features.filter(isPlanFeature),
   };
 }
@@ -81,7 +78,7 @@ export async function getTenantUsage(
       },
     }),
     prisma.user.count({ where: { tenantId, role: "STAFF" } }),
-    prisma.channel.count({ where: { tenantId } }),
+    prisma.channel.count({ where: { tenantId, status: "CONNECTED" } }),
     prisma.$queryRaw<{ count: bigint }[]>`
       SELECT count(DISTINCT c."customerPhone") AS count
       FROM "Message" m
