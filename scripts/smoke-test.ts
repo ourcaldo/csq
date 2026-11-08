@@ -36,6 +36,11 @@ const listEnvelope = z.object({
   success: z.literal(true),
   data: z.object({ items: z.array(z.object({ id: z.string() }).passthrough()) }),
 });
+// /api/v1/tools returns the summaries as a bare array, not an items wrapper.
+const toolsEnvelope = z.object({
+  success: z.literal(true),
+  data: z.array(z.object({ name: z.string() }).passthrough()),
+});
 const tokenEnvelope = z.object({
   success: z.literal(true),
   data: z.object({
@@ -120,7 +125,7 @@ async function main(): Promise<void> {
   const tools = await fetch(`${API}/api/v1/tools`, {
     headers: { authorization: `Bearer ${first.accessToken}` },
   });
-  check(listEnvelope.safeParse(await tools.json()).success, "access JWT authenticates /api/v1/tools");
+  check(toolsEnvelope.safeParse(await tools.json()).success, "access JWT authenticates /api/v1/tools");
 
   // 10. Refresh rotation: new pair, and the OLD refresh token is dead.
   const refreshRes = await fetch(`${API}/api/v1/auth/refresh`, {
