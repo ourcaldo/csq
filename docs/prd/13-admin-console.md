@@ -101,11 +101,16 @@ over-limit visibility.
 
 ## Architecture and standardization
 
-- `apps/admin`: Next.js Pages Router, UI + BFF - the same pattern and
-  the same design language as the tenant dashboard, built on
-  `@csq/ui` (the shared package MUST be extracted first: the approved
-  PRD 12 plan is Phase 0 of the admin plan - the admin console is its
-  third consumer and must not clone a single component).
+- `apps/admin`: Next.js Pages Router, UI + BFF - built on `@csq/ui` (the
+  shared package MUST be extracted first: the approved PRD 12 plan is
+  Phase 0 of the admin plan - the admin console is its third consumer and
+  must not clone a single component). **Amended 2026-11-08 (owner
+  direction): the console has its own "Ledger" visual direction** - warm
+  paper, hairline rules, mono numerals, one signal color - ported from
+  the approved reference at `docs/assets/admin-console-reference`. It
+  shares primitives and tokens with the tenant dashboard but not its
+  card-heavy layout: the console is a dense operator ledger, the
+  dashboard is a product UI.
 - Admin data access lives IN `apps/admin` (platform-scoped queries over
   `@csq/core/lib/db`), deliberately NOT in core - tenant apps must never
   be able to import operator functions. Only cross-service domain rules
