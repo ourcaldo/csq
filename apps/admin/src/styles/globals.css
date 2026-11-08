@@ -75,6 +75,11 @@ body {
     text-align: left;
     white-space: nowrap;
   }
+  /* Tailwind v3 has no cascade layers, so .ledger th (0,1,1) beats the
+     .text-right utility (0,1,0). Numeric headers need this explicit rule. */
+  .ledger th.text-right {
+    text-align: right;
+  }
   .ledger td {
     padding: 14px 20px;
     border-bottom: 1px solid hsl(var(--border));
