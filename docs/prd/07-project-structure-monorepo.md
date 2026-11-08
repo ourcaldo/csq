@@ -3,7 +3,7 @@
 ## 23B.0 Monorepo Escalation (owner decision 2026-11-08)
 
 The repository is being restructured into an npm-workspaces monorepo. Full
-plan and phased execution: `docs/2026-11-08-monorepo-migration-plan.md`.
+plan and phased execution: `docs/plans/2026-11-08-monorepo-migration-plan.md`.
 Summary:
 
 -   `apps/dashboard` - the existing Next.js Pages Router app, moved

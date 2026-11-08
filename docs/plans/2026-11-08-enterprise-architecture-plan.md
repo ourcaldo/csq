@@ -6,7 +6,7 @@ become separate services; the dashboard becomes UI + BFF. Resilience
 requirement: a broken or deploying dashboard must never affect the API or
 the customer-serving runtime. Supersedes PRD section 23's single-process
 choice and the AGENTS.md stack constraint. Absorbs Phase 5 (channel worker)
-of docs/2026-11-08-monorepo-migration-plan.md.
+of docs/plans/2026-11-08-monorepo-migration-plan.md.
 
 ## 1. Why
 

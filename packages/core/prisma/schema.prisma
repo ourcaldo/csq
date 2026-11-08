@@ -335,7 +335,7 @@ model LidMapping {
 // OutboundMessage rows a worker drains, and connect/QR/disconnect become
 // ChannelCommand rows the worker executes. Same Postgres-as-queue pattern as
 // CampaignMessage - no Redis (stack constraint). See
-// docs/2026-11-08-enterprise-architecture-plan.md section 4.
+// docs/plans/2026-11-08-enterprise-architecture-plan.md section 4.
 
 enum OutboundSource {
   REPLY

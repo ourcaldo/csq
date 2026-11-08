@@ -24,7 +24,7 @@ the file contents and names.
 | `12-shared-ui-package.md` | new | The `@csq/ui` shared design-system package - what is shared, what stays app-local | Live |
 
 Companion working documents (plans, registers, status) stay in `docs/`
-with date prefixes, e.g. `docs/2026-11-08-enterprise-architecture-plan.md`.
+with date prefixes, e.g. `docs/plans/2026-11-08-enterprise-architecture-plan.md`.
 
 ## Conventions
 

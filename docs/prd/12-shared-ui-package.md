@@ -44,4 +44,4 @@ and stays:
 ## Execution
 
 Phased plan with acceptance criteria:
-`docs/2026-11-08-shared-ui-package-plan.md`.
+`docs/plans/2026-11-08-shared-ui-package-plan.md`.

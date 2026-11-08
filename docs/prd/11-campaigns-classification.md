@@ -1,7 +1,7 @@
 # 30. Contact Classification & Campaigns (2026-11-01)
 
 Full design, owner decisions, and verification record:
-`docs/2026-11-01-feature-plan-contact-tags-and-campaigns.md`. This section states the requirements.
+`docs/plans/2026-11-01-feature-plan-contact-tags-and-campaigns.md`. This section states the requirements.
 
 ## 30.1 Contact tags and categories
 

@@ -57,7 +57,7 @@ Customer Channel (WhatsApp Cloud API)
 
 ### Target repository layout (PRD 23B.1 - created in Phase 0)
 
-Historical pre-monorepo layout (Phases 1-2 moved the app into `apps/dashboard/` and lib/services/tools/types + prisma into `packages/core`; see PRD 23B.0 and `docs/2026-11-08-monorepo-migration-plan.md`).
+Historical pre-monorepo layout (Phases 1-2 moved the app into `apps/dashboard/` and lib/services/tools/types + prisma into `packages/core`; see PRD 23B.0 and `docs/plans/2026-11-08-monorepo-migration-plan.md`).
 
 ```
 src/

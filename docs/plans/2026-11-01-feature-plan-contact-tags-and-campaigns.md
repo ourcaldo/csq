@@ -5,7 +5,7 @@
 `2b50de4` Phase B, `df71623` Phase C) — awaiting merge to `main`. All decisions closed after owner
 rounds 1–3; WhatsApp pricing/limits verified against Meta's live docs (round 3, section 11).
 **Requested by:** owner, 2026-11-01
-**Depends on:** the 2.0.0 defect fixes (`docs/2026-10-31-fix-plan-10-defects.md`) — campaigns reuse the
+**Depends on:** the 2.0.0 defect fixes (`docs/plans/2026-10-31-fix-plan-10-defects.md`) — campaigns reuse the
 system lock, the scheduler tick, the template library, and the outbox's window rules.
 
 ---

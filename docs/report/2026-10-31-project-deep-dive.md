@@ -4,7 +4,7 @@
 **Status of the defects below: RESOLVED — 2026-11-01.** All ten (D1–D10, including every item in the
 D10 bundle) were fixed, verified, and shipped in 13 commits (`47d4b01`..`e4602d4`). The design, the fix
 per defect, the migrations applied to Neon, and the verification evidence live in
-`docs/2026-10-31-fix-plan-10-defects.md` — read its completion summary first. This document is kept
+`docs/plans/2026-10-31-fix-plan-10-defects.md` — read its completion summary first. This document is kept
 as the audit that found them; the "Defects found in this pass" section is now a historical record.
 **Scope:** Full read of the codebase (`src/`, `prisma/`, `docker/`), the PRD/SRS/SDD, and the live Neon database
 (`winter-flower-03790042`, branch `production`, aws-ap-southeast-1, PG 18.6, 11 MB).

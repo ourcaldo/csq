@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-31
 **Status:** **COMPLETED — 2026-11-01.** All 16 items below are fixed, verified, and shipped.
-**Source of findings:** `docs/2026-10-31-project-deep-dive.md` (D1-D10)
+**Source of findings:** `docs/report/2026-10-31-project-deep-dive.md` (D1-D10)
 **Scope:** fix all 10 defects, in 5 phases, without new runtime dependencies.
 
 ## Completion summary (2026-11-01)
@@ -605,7 +605,7 @@ Per phase:
 2. `npm run lint` passes.
 3. The phase's verification rows in section 10 pass.
 4. `Changelogs.md` updated; `package.json` version bumped (2.0.0 on the first phase).
-5. `docs/2026-10-31-project-deep-dive.md` marks the fixed defects as closed with the commit hash.
+5. `docs/report/2026-10-31-project-deep-dive.md` marks the fixed defects as closed with the commit hash.
 6. One conventional commit per phase, pushed.
 
 ---

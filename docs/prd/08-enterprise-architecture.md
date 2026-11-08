@@ -44,7 +44,7 @@ are tick-drained tables). What changes is the service topology.
 ## Execution
 
 Phased, each phase leaving production deployable:
-`docs/2026-11-08-enterprise-architecture-plan.md` - Phase 6 extracts
+`docs/plans/2026-11-08-enterprise-architecture-plan.md` - Phase 6 extracts
 `apps/worker` (absorbing the old plan's Phase 5), Phase 7 extracts
 `apps/api` with the token realm, Phase 8 opens the mobile realm.
 

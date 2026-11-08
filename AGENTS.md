@@ -7,7 +7,7 @@ OpenAI-compatible client (`packages/core/src/services/llm-runtime.ts`) - OpenCla
 **Read the PRD set in `docs/prd/` (start with its README) in full before making any architectural decision.**
 **Owner decision 2026-11-08: the product escalates into a multi-frontend monorepo**
 (public UI + tenant dashboard + later a platform admin console). Plan:
-`docs/2026-11-08-monorepo-migration-plan.md`, PRD section 23B.0. Architecture
+`docs/plans/2026-11-08-monorepo-migration-plan.md`, PRD section 23B.0. Architecture
 decisions must follow that plan, not the older single-app statements in the
 historical PRD sections.
 **Phases 1-3 landed on branch `monorepo`: the app lives at `apps/dashboard/`, the public
@@ -27,7 +27,7 @@ auth, Tool Gateway, webhooks) and `apps/worker` (WhatsApp sockets, scheduler, ca
 engine - the ONLY socket owner) as separate services; the dashboard becomes UI + BFF.
 Resilience requirement: a broken or deploying dashboard must never affect the API or the
 customer-serving runtime. The single-process constraint is superseded - see PRD 23C and
-`docs/2026-11-08-enterprise-architecture-plan.md`.
+`docs/plans/2026-11-08-enterprise-architecture-plan.md`.
 
 ## Infrastructure Topology and Touch Rules (owner directive 2026-11-08)
 
@@ -244,10 +244,13 @@ Write the **least code that fully solves the task**. Boring beats clever.
   4. Push
 
 ### 7. Generated Documents
-- All generated markdown documents (plans, audits, research, architecture docs, PRDs)
-  go in the `docs/` folder at project root.
+- All generated documents live under `docs/`, organized by kind: `prd/` (the PRD
+  set), `specs/` (SRS, SDD), `plans/` (implementation plans), `report/` (status
+  reports, audits, registers), `research/` (discussions, notes), `marketing/`
+  (content), plus `assets/`, `demo/`, `diagrams/` for media. Never park a document
+  loose at the `docs/` root - give it its directory.
 - Use descriptive filenames with date prefix when relevant:
-  e.g. `docs/2026-08-16-tool-gateway-design.md`.
+  e.g. `docs/plans/2026-11-08-shared-ui-package-plan.md`.
 - Create the `docs/` folder if it doesn't exist. Don't scatter generated docs across
   the repo.
 - **Specs are focused documents; only changelogs are dumps.** The PRD lives as a set
@@ -299,7 +302,7 @@ Write the **least code that fully solves the task**. Boring beats clever.
   scaffold with App Router or suggest migration.
 - **Superseded 2026-11-08 (enterprise escalation): the single-process constraint is dead.**
   Target: separate services - `apps/dashboard` (UI + BFF), `apps/api`, `apps/worker` - per
-  PRD 23C and `docs/2026-11-08-enterprise-architecture-plan.md`. Pages Router stays for
+  PRD 23C and `docs/plans/2026-11-08-enterprise-architecture-plan.md`. Pages Router stays for
   every Next.js app; Postgres stays the only data store (no Redis/queue).
 - UI: Tailwind CSS + shadcn/ui. Auth: Auth.js (NextAuth), email/password for MVP.
 - PostgreSQL + Prisma + **pgvector** (same Postgres instance; no separate vector DB -

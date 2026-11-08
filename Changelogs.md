@@ -4,7 +4,7 @@ Version format: `XX.YY.ZZ` — YY (minor) and ZZ (patch) stay within 0–10; XX 
 
 ## 4.0.0 - 2026-11-08 (branch `monorepo`)
 
-Monorepo Phase 1 (PRD 23B.0; plan: `docs/2026-11-08-monorepo-migration-plan.md`). Major: the repository layout changes and the Render build/start commands change at merge time.
+Monorepo Phase 1 (PRD 23B.0; plan: `docs/plans/2026-11-08-monorepo-migration-plan.md`). Major: the repository layout changes and the Render build/start commands change at merge time.
 
 - **Workspace skeleton:** npm workspaces (`apps/*`, `packages/*`); the Next.js app moved unchanged into `apps/dashboard/` via `git mv` (history preserved); the root manifest carries proxy scripts (dev/build/start/lint -> apps/dashboard), `engines`, and a root `prisma.schema` key pointing at the app schema so the current Render commands keep working through the transition.
 - **App manifest:** renamed `@csq/dashboard`, version 4.0.0, adds `db:deploy` (prisma migrate deploy); repo-wide tools (`check:encoding`, `db:migration-checksums`) moved to the root manifest.
@@ -20,7 +20,7 @@ Monorepo Phase 1 (PRD 23B.0; plan: `docs/2026-11-08-monorepo-migration-plan.md`)
 ## 3.0.0 — 2026-11-01 (branch `feat/contact-tags-and-campaigns`)
 
 Contact classification + campaigns (message blasting). Design + all owner decisions:
-`docs/2026-11-01-feature-plan-contact-tags-and-campaigns.md`. Major: schema changes.
+`docs/plans/2026-11-01-feature-plan-contact-tags-and-campaigns.md`. Major: schema changes.
 
 - **Contact tags & categories:** a contact may belong to multiple categories and multiple tags
   (`Category` taxonomy + `ContactCategory`/`ContactTag` joins, mirroring `ConversationTag`).
@@ -48,7 +48,7 @@ Contact classification + campaigns (message blasting). Design + all owner decisi
 
 ## 2.0.0 — 2026-11-01
 
-All 10 defects from the 2026-10-31 deep dive fixed (design + evidence: `docs/2026-10-31-fix-plan-10-defects.md`). Major because the schema changed and one API route was removed.
+All 10 defects from the 2026-10-31 deep dive fixed (design + evidence: `docs/plans/2026-10-31-fix-plan-10-defects.md`). Major because the schema changed and one API route was removed.
 
 - **Agent turn (D1):** the per-conversation advisory lock held a DB transaction (and a pooled connection) across LLM HTTP latency — production showed expired transactions, pool exhaustion, and 21 customer-facing error apologies. Replaced by a lease on the Conversation row (`turnLockId`/`turnLockedAt`, 3-min stale window) plus a busy-skip drain loop that answers any message that arrived mid-turn; LLM calls get a 30s timeout, one retry on 429/5xx, and a 90s whole-turn budget.
 - **Inbound idempotency (D3):** partial unique index on `(tenantId, waMessageId)`; Meta redeliveries no longer store a second row or run a second agent turn (the 11 duplicate production rows were deduplicated first). The webhook now ACKs before ingesting.
@@ -78,7 +78,7 @@ Provider-neutral LLM config.
 
 Decision record: multi-agent discussion documented.
 
-- **Added:** `docs/2026-10-25-project-discussion.md` — first project-discussion record: multi-agent capability stays, single-CS-agent focus, owner-ops agent deferred to phase 2 with security prerequisites (owner-phone allowlist + confirmation loop for writes). File also documents the purpose + update convention for `*-project-discussion.md` files.
+- **Added:** `docs/research/2026-10-25-project-discussion.md` — first project-discussion record: multi-agent capability stays, single-CS-agent focus, owner-ops agent deferred to phase 2 with security prerequisites (owner-phone allowlist + confirmation loop for writes). File also documents the purpose + update convention for `*-project-discussion.md` files.
 
 ## 1.2.9 — 2026-10-25
 

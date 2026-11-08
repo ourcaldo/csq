@@ -19,7 +19,7 @@ is a forward-looking decision with named reasons, never a dismissal.
 The pre-cutover package (metrics/alerting + the smoke suite on a schedule)
 is the one bundle that activates automatically with the owner's cutover
 decision. Detailed register with scope estimates and acceptance criteria:
-`docs/2026-11-08-deferred-items-register.md`.
+`docs/report/2026-11-08-deferred-items-register.md`.
 
 ------------------------------------------------------------------------
 

@@ -72,7 +72,7 @@ Logical multi-business support inside one self-hosted installation is **in scope
 > (section 20A, now its own app: apps/web), the tenant dashboard
 > (apps/dashboard, the existing app), and later a platform admin console
 > (apps/admin). The repository restructures into an npm-workspaces monorepo
-> per `docs/2026-11-08-monorepo-migration-plan.md` and PRD 23B.0. The
+> per `docs/plans/2026-11-08-monorepo-migration-plan.md` and PRD 23B.0. The
 > SaaS-operator scope that apps/admin implies (tenant provisioning, plans,
 > monitoring) needs its own PRD section before that app is built; until
 > then the out-of-scope list above still governs the MVP slice.
