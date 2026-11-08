@@ -78,8 +78,10 @@ Logical multi-business support inside one self-hosted installation is **in scope
 > then the out-of-scope list above still governs the MVP slice.
 >
 > **Update 2026-11-08: that section now exists - file 13 (admin console).
-> Billing/payment stays excluded; everything the console v1 needs is
-> specced there.**
+> Payment processing stays excluded (Stage 3 of the monetization
+> roadmap); the Plan model with manual assignment and usage metering
+> (AI replies + outbound messages vs plan limits) are IN v1 per the
+> owner's decision - see file 13.**
 
 
 

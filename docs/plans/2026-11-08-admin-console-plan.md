@@ -74,6 +74,31 @@ is the PRD 12 plan, unchanged - listed here only to fix the order.
 4. Acceptance: every admin mutation of the phase is visible in the
    AdminActionLog with actor + before/after.
 
+## Phase 5 - plans + usage metering (scope M)
+
+1. Schema: `Plan` (name unique, priceIdr Int display-only, limits JSON,
+   timestamps - a platform table, no tenantId) + `Tenant.planId`
+   nullable FK (SetNull backstop; app logic blocks deleting assigned
+   plans). One migration.
+2. Plan limits Zod schema - `agentRepliesPerMonth`, `messagesOutPerMonth`,
+   `channels`, all nullable (null = unlimited) - validated at every
+   boundary.
+3. BFF routes, operator-only, every mutation audited in AdminActionLog:
+   plan list/create/update, assign plan to tenant.
+4. Metering: monthly aggregation over EXISTING rows at read time - no
+   counter tables, no write-path overhead. Per tenant per calendar
+   month: outbound total (direction OUTBOUND), agent replies (OUTBOUND +
+   senderType AGENT), inbound total, active channels, MediaAsset storage
+   bytes; each compared against the assigned plan's limits.
+5. Admin UI: the "Paket & Penggunaan" menu - plan cards + editor, tenant
+   assignment, usage table (tenant, plan, agent replies, outbound, % of
+   limit, over-limit badge).
+6. Acceptance: usage counts match the clone's real message rows;
+   a tenant whose plan limits sit below its actual usage shows the
+   over-limit badge; every plan mutation lands in AdminActionLog; any
+   pricing discussion cites CURRENT official WhatsApp/LLM costs, never
+   memory.
+
 ## Verification per phase
 
 `npm run build` (+ `build:api`), all self-check suites, the encoding

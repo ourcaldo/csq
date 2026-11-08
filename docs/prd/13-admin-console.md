@@ -38,6 +38,9 @@ reach an admin route and vice versa. The first admin is created by CLI
 6. **Kunci API (API keys)** - cross-tenant key list + revoke. Deferred
    item 3 lands here (the tenant-side mint routes already exist).
 7. **Admin** - invite and remove operator accounts.
+8. **Paket & Penggunaan (Plans & Usage)** - plan list/create/edit,
+   per-tenant plan assignment, and the monthly usage table against plan
+   limits with over-limit badges (see the monetization section below).
 
 ## Suspension semantics (the core product decision)
 
@@ -52,6 +55,49 @@ New `TenantStatus` enum (`ACTIVE` default, `SUSPENDED`):
   saved creds (no QR re-scan).
 - Every lifecycle action writes an AdminActionLog row (actor, target,
   before/after).
+
+## Plans, usage metering, and the monetization roadmap (owner decision 2026-11-08)
+
+The owner accepted the staged verdict: plan metadata + metering ship with
+the console; money-handling waits for real customers.
+
+- **Stage 1 - NOW, with the console:** the Plan model with manual
+  assignment, plus usage metering (below).
+- **Stage 2 - at the first real paying customer:** quota enforcement
+  (over-limit behavior - warn vs block - decided from real usage) and
+  manual invoicing (bank transfer, the operator marks it paid).
+- **Stage 3 - when manual invoicing hurts monthly:** payment gateway,
+  subscriptions, auto-invoicing, dunning. Not one day before.
+
+### Plans (manual assignment, v1)
+
+- `Plan` table: name (unique), priceIdr (Int, display only - manual
+  billing), limits (JSON, Zod-validated: agentRepliesPerMonth,
+  messagesOutPerMonth, channels - null = unlimited), timestamps. A
+  platform table: no tenantId (the documented exception class).
+- `Tenant.planId` nullable, assigned by the operator in the console. A
+  plan with assigned tenants cannot be deleted.
+- v1 actions: create, edit, list, assign. No self-serve plan selection,
+  no payment anything.
+
+### Usage metering (v1)
+
+Purpose: know what each tenant consumes against its plan - the cost
+signal behind every future pricing decision, and the operator's
+over-limit visibility.
+
+- Metered per tenant per calendar month, derived from EXISTING rows at
+  read time (no counter tables, no write-path overhead):
+  - **AI usage**: outbound Messages with senderType AGENT (agent replies).
+  - **Message sending**: all outbound Messages (agent + human + campaign
+    + scenario).
+  - Context counts: inbound total, active channels, media storage bytes.
+- The console shows per-tenant usage vs the assigned plan's limits with
+  over-limit badges. Enforcement is Stage 2; v1 only shows.
+- Any actual PRICING decision must first verify current official
+  WhatsApp API and LLM provider costs against live documentation - repo
+  rule; platform pricing moves fast and must never be quoted from
+  memory.
 
 ## Architecture and standardization
 
@@ -75,10 +121,10 @@ New `TenantStatus` enum (`ACTIVE` default, `SUSPENDED`):
 
 ## Explicitly deferred beyond v1
 
-Billing and subscription processing (still excluded by file 04), plan /
-quota models and their enforcement, impersonation ("login as tenant",
-needs its own audited design), announcement broadcasting, and anything
-across multiple installations.
+Payment processing, subscriptions, and invoicing (Stage 3), quota
+enforcement (Stage 2), impersonation ("login as tenant", needs its own
+audited design), announcement broadcasting, and anything across multiple
+installations.
 
 ## Execution
 
