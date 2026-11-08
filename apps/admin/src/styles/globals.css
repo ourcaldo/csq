@@ -1,0 +1,9 @@
+@import "../../../../packages/ui/src/styles/theme.css";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-feature-settings: "cv11", "ss01";
+}

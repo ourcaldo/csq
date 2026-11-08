@@ -1,0 +1,32 @@
+{
+  "name": "@csq/admin",
+  "version": "4.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=20 <21"
+  },
+  "scripts": {
+    "dev": "next dev -p 3002",
+    "build": "next build",
+    "start": "next start",
+    "admin:create": "tsx scripts/create-admin.ts"
+  },
+  "dependencies": {
+    "@csq/core": "*",
+    "@csq/ui": "*",
+    "@phosphor-icons/react": "^2.1.10",
+    "bcryptjs": "^3.0.3",
+    "next": "14.2",
+    "next-auth": "^4.24.8",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.16.11",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.0",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3"
+  }
+}

@@ -457,6 +457,41 @@ model RefreshToken {
   @@index([tenantId])
 }
 
+// ─────────── Platform admin realm (PRD 13, file 13) ───────────
+// The operator console's users. SEPARATE from tenant users on purpose: an
+// operator credential can never resolve to a tenant session and vice versa
+// (different table, different auth provider, different cookie secret).
+// Platform table - no tenantId (the documented exception class).
+
+model AdminUser {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  actions AdminActionLog[]
+}
+
+// Every operator mutation, audited with actor + before/after (PRD 13).
+// Platform table - no tenantId.
+model AdminActionLog {
+  id          String    @id @default(uuid())
+  adminId     String
+  action      String
+  targetType  String
+  targetId    String?
+  beforeValue Json?
+  afterValue  Json?
+  createdAt   DateTime  @default(now())
+
+  admin AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@index([createdAt])
+}
+
 model Product {
   id          String   @id @default(uuid())
   tenantId    String
