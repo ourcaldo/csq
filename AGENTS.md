@@ -16,6 +16,51 @@ code (prisma, lib, services, tools, types) lives in `packages/core` imported as 
 and the repo root is an npm-workspaces manifest with proxy scripts. Production runs the
 monorepo branch on the `csq-dashboard` Render service; merging to main still requires the
 Render command cutover (see the migration plan).**
+**Owner directive 2026-11-08 (testing phase): do NOT merge the `monorepo` branch into
+`main`, do not propose it, do not start any related cutover, and do not retire or
+reconfigure the old `csq` service - until the owner explicitly asks. The monorepo is
+being tested first on its own Render service while the monolith on `main` stays as
+production.**
+
+## Infrastructure Topology and Touch Rules (owner directive 2026-11-08)
+
+Two stacks run in parallel during the monorepo testing phase. Never confuse them.
+When the owner says "production", "live", or the real WhatsApp, they mean the
+monolith. When they say "monorepo", "the new dashboard", or "the clone", they
+mean the testing stack.
+
+| | Monolith (PRODUCTION) | Monorepo (TESTING) |
+|---|---|---|
+| Code | `main` (frozen) | `monorepo` branch (active development) |
+| Render service | `csq` / `srv-dbjlj2p42hec73dcu53g` / https://csq-xmhq.onrender.com | `csq-dashboard` / `srv-dbo02jbrjlhs73a2375g` / https://csq-dashboard.onrender.com |
+| Database | Neon project `CSQ` (`winter-flower-03790042`), default branch `br-billowing-base-b3cv56yi` (`ep-misty-boat-b3tteij7`) | same project, branch `monorepo` `br-still-queen-b3mydc3y` (`ep-lucky-paper-b35a5at7`) |
+| WhatsApp session | the real one; lives here and ONLY here | none: clone channels are DISCONNECTED and cloned creds are deleted - keep it that way |
+
+Rules:
+
+- **Monolith**: do NOT deploy, restart, suspend, reconfigure, or change env
+  vars on the `csq` service, and do NOT write to the production database
+  branch, unless the owner explicitly asks for that exact action. Diagnostics
+  (logs, metrics, read-only SQL) are fine.
+- **`main` is frozen**: pushing to it auto-deploys the monolith, whose start
+  command no longer matches the monorepo layout.
+- **Monorepo**: fully agent-managed - push, deploy, env vars, SQL on the clone,
+  even destructive resets on the clone, on request.
+- **Every (re)clone for the monorepo MUST be neutered before the service points
+  at it**, or the clone connects the SAME WhatsApp session and 440-fights
+  production (the SystemLock lease cannot protect across two databases):
+  1. `UPDATE "Channel" SET status = 'DISCONNECTED'`
+  2. `DELETE FROM "BaileysAuth"`
+  3. `DELETE FROM "SystemLock" WHERE key LIKE 'baileys-socket%'`
+- Never repoint `csq-dashboard` at the production branch, never repoint the
+  monolith at the clone, and never give the clone the real WhatsApp session -
+  pair a second number on the clone instead if the owner wants isolated
+  WhatsApp tests.
+- Production bug fixes are developed on the `monorepo` branch; shipping
+  anything to production needs the owner's explicit go.
+- MCP ids: Render workspace `tea-d776rkea2pns73df0610`, Neon project
+  `winter-flower-03790042`. Env still missing on csq-dashboard (owner sets):
+  `LLM_*`, `GOOGLE_*`, `WHATSAPP_APP_SECRET`.
 
 ## What We Are Building
 Self-hosted, multi-tenant AI agent platform for Indonesian UMKM. First agent: a Customer
