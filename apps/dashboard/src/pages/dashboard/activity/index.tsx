@@ -18,7 +18,7 @@ import {
   TableRow,
   TableHead,
   TableCell,
-} from "@/components/ui/table";
+} from "@csq/ui/components/ui/table";
 
 const PAGE_SIZE = 20;
 

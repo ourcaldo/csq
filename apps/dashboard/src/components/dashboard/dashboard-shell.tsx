@@ -39,8 +39,8 @@ import {
   Notepad,
   Megaphone,
 } from "@phosphor-icons/react";
-import { cn } from "@/lib/utils";
-import { Seo } from "@/components/seo";
+import { cn } from "@csq/ui/lib/utils";
+import { Seo } from "@csq/ui/components/seo";
 
 type NavItem = { href: string; label: string; icon: ReactNode };
 type NavGroup = { label: string; items: NavItem[] };

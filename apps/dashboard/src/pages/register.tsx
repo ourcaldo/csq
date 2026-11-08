@@ -3,9 +3,9 @@ import type { FormEvent } from "react";
 import { signIn } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button } from "@csq/ui/components/ui/button";
+import { Input } from "@csq/ui/components/ui/input";
+import { Label } from "@csq/ui/components/ui/label";
 import { AuthShell } from "@/components/auth/auth-shell";
 
 type FormState = {

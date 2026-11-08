@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { apiSend, ApiError } from "@/lib/api-client";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@csq/ui/components/ui/button";
+import { Badge } from "@csq/ui/components/ui/badge";
 
 // Google Sheets step inside the Add Source dialog. The Google connection lives
 // at the tenant level, so this shows either a Connect link (navigates to Google

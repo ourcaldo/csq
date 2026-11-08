@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { Select } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Select } from "@csq/ui/components/ui/select";
+import { Input } from "@csq/ui/components/ui/input";
+import { Label } from "@csq/ui/components/ui/label";
 
 // Picker for "what kind of data is this source?" - produk, cabang, staff, or a
 // custom label. Only "produk" triggers the structured product import (mapping

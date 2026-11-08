@@ -1,6 +1,6 @@
 // Skeleton shimmer for loading states. `rows` renders a table-shaped stack;
 // otherwise renders `count` generic bars.
-import { cn } from "@/lib/utils";
+import { cn } from "@csq/ui/lib/utils";
 
 type LoadingSkeletonProps = {
   rows?: number;

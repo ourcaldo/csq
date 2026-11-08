@@ -1,6 +1,6 @@
 // Shared loading / error / empty placeholder for list pages. One component,
 // three variants - reused across every dashboard section.
-import { cn } from "@/lib/utils";
+import { cn } from "@csq/ui/lib/utils";
 
 type StateVariant = "loading" | "error" | "empty";
 

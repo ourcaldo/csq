@@ -27,11 +27,11 @@ import type { ListResult } from "@csq/core/types/dashboard";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { StateNotice } from "@/components/dashboard/state-notice";
 import { BadgeStatus } from "@/components/dashboard/badge-status";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select } from "@/components/ui/select";
+import { Button } from "@csq/ui/components/ui/button";
+import { Input } from "@csq/ui/components/ui/input";
+import { Label } from "@csq/ui/components/ui/label";
+import { Textarea } from "@csq/ui/components/ui/textarea";
+import { Select } from "@csq/ui/components/ui/select";
 import { nodeTypes } from "@/components/dashboard/scenario/nodes";
 import { edgeTypes } from "@/components/dashboard/scenario/edge";
 

@@ -1,0 +1,32 @@
+/* @csq/ui shared theme variables (PRD 12). Deliberately ONLY custom
+   properties: they carry no cascade-order risk, so apps can @import this
+   at the top of their globals.css regardless of what Tailwind's layers
+   emit. Element-level base styling lives in the preset (fontFamily.sans)
+   and each app's <body> classes. */
+
+:root {
+  /* CSQ light theme - clean CRM look (slate surfaces, green brand). */
+  --background: 0 0% 100%;            /* white */
+  --foreground: 222 47% 11%;           /* slate-900 */
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --primary: 142 71% 35%;              /* green-700 - brand */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 40% 96%;           /* slate-100 */
+  --secondary-foreground: 222 47% 11%;
+  --muted: 210 40% 96%;
+  --muted-foreground: 215 16% 47%;    /* slate-500 */
+  --accent: 210 40% 96%;              /* slate-100 - nav active bg */
+  --accent-foreground: 222 47% 11%;
+  --destructive: 0 72% 51%;           /* red-500 */
+  --destructive-foreground: 0 0% 100%;
+  --border: 214 32% 91%;              /* slate-200 */
+  --input: 214 32% 91%;
+  --ring: 142 71% 35%;
+  --radius: 0.5rem;
+  --brand: 142 71% 40%;               /* green-600 */
+  --brand-soft: 142 77% 93%;          /* green-100 (sent bubble) */
+  --brand-ink: 149 60% 18%;           /* green-900 */
+}

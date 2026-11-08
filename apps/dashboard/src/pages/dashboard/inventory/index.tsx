@@ -8,12 +8,12 @@ import type { InventorySource, InventoryWithProduct, ListResult } from "@csq/cor
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { StateNotice } from "@/components/dashboard/state-notice";
 import { Pagination } from "@/components/dashboard/pagination";
-import { Dialog } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Dialog } from "@csq/ui/components/ui/dialog";
+import { Button } from "@csq/ui/components/ui/button";
+import { Input } from "@csq/ui/components/ui/input";
+import { Label } from "@csq/ui/components/ui/label";
+import { Badge } from "@csq/ui/components/ui/badge";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@csq/ui/components/ui/table";
 
 const PAGE_SIZE = 10;
 

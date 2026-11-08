@@ -11,12 +11,11 @@
     "start": "next start"
   },
   "dependencies": {
+    "@csq/ui": "*",
     "@phosphor-icons/react": "^2.1.10",
-    "clsx": "^2.1.1",
     "next": "14.2",
     "react": "18.3.1",
-    "react-dom": "18.3.1",
-    "tailwind-merge": "^2.6.1"
+    "react-dom": "18.3.1"
   },
   "devDependencies": {
     "@types/node": "^20.16.11",

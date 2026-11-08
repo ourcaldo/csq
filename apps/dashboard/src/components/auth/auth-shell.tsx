@@ -4,7 +4,7 @@
 // product: AI customer service for Indonesian UMKM, on WhatsApp.
 import type { ReactNode } from "react";
 import { ChatCircleDots, Sparkle, ShieldCheck, WhatsappLogo } from "@phosphor-icons/react";
-import { Seo } from "@/components/seo";
+import { Seo } from "@csq/ui/components/seo";
 
 type AuthShellProps = {
   title: string;

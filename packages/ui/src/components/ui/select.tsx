@@ -1,7 +1,7 @@
 // Lightweight Select - a styled native <select>. Avoids pulling in
 // @radix-ui/react-select (not installed) and keeps accessibility for free.
 import * as React from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils";
 
 export type SelectProps = React.SelectHTMLAttributes<HTMLSelectElement>;
 

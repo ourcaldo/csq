@@ -2,11 +2,11 @@ import { useEffect, useState } from "react";
 import { z } from "zod";
 import { apiFetch, apiSend, ApiError } from "@/lib/api-client";
 import type { Stage, StageKind } from "@csq/core/types/inbox";
-import { Dialog } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Dialog } from "@csq/ui/components/ui/dialog";
+import { Button } from "@csq/ui/components/ui/button";
+import { Select } from "@csq/ui/components/ui/select";
+import { Input } from "@csq/ui/components/ui/input";
+import { Label } from "@csq/ui/components/ui/label";
 
 // Stage customization dialog for the pipeline. Owner/staff can add, rename,
 // reorder (up/down), and remove stages, and set winProbability/expectedDays.

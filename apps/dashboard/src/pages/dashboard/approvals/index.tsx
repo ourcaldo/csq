@@ -17,8 +17,8 @@ import { EmptyState } from "@/components/dashboard/empty-state";
 import { LoadingSkeleton } from "@/components/dashboard/loading-skeleton";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import { BadgeStatus } from "@/components/dashboard/badge-status";
-import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { Button } from "@csq/ui/components/ui/button";
+import { Separator } from "@csq/ui/components/ui/separator";
 
 // Local type for an approval row. Mirrors the Prisma-serialized shape from
 // /api/dashboard/approvals. The richer fields (agent, params, resolvedAt…)

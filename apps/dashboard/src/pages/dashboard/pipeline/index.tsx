@@ -8,14 +8,14 @@ import type { ListResult } from "@csq/core/types/dashboard";
 import type { Stage, Tag } from "@csq/core/types/inbox";
 import { DealWithRelations } from "@csq/core/lib/pipeline";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Select } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button } from "@csq/ui/components/ui/button";
+import { Badge } from "@csq/ui/components/ui/badge";
+import { Select } from "@csq/ui/components/ui/select";
+import { Input } from "@csq/ui/components/ui/input";
+import { Label } from "@csq/ui/components/ui/label";
 import { StateNotice } from "@/components/dashboard/state-notice";
 import { StageManager } from "@/components/dashboard/pipeline/stage-manager";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog } from "@csq/ui/components/ui/dialog";
 
 // Manajemen Pipeline - kanban + funnel views of every conversation's deal stage.
 // Kanban: columns = stages, cards = deals, drag a card to move stage. Funnel:

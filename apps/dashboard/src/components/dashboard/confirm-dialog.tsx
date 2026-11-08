@@ -1,8 +1,8 @@
 // Reusable confirmation modal built on the lightweight Dialog primitive.
 // Used by every delete/destroy action (products, knowledge, tags, memory,
 // sources).
-import { Dialog } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { Dialog } from "@csq/ui/components/ui/dialog";
+import { Button } from "@csq/ui/components/ui/button";
 
 type ConfirmDialogProps = {
   open: boolean;

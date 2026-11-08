@@ -48,9 +48,21 @@ function findForbiddenChar(text) {
 
 const files = [];
 function walk(dir) {
-  for (const name of readdirSync(dir)) {
+  let entries;
+  try {
+    entries = readdirSync(dir);
+  } catch {
+    return; // not created yet (e.g. apps/admin before its phase lands)
+  }
+  for (const name of entries) {
     const p = dir + "/" + name;
-    if (statSync(p).isDirectory()) {
+    let stat;
+    try {
+      stat = statSync(p);
+    } catch {
+      continue;
+    }
+    if (stat.isDirectory()) {
       walk(p);
     } else if (/\.(ts|tsx|prisma|mjs)$/.test(name)) {
       files.push(p);
@@ -59,7 +71,9 @@ function walk(dir) {
 }
 walk("apps/dashboard/src");
 walk("apps/web/src");
+walk("apps/admin/src");
 walk("packages/core/src");
+walk("packages/ui/src");
 walk("packages/core/prisma");
 walk("scripts");
 

@@ -24,10 +24,10 @@ import {
   ShoppingCart,
   ArrowsLeftRight,
 } from "@phosphor-icons/react";
-import { cn } from "@/lib/utils";
+import { cn } from "@csq/ui/lib/utils";
 import { apiFetch, apiSend } from "@/lib/api-client";
 import { readableTextColor } from "@/lib/tag-color";
-import { Select } from "@/components/ui/select";
+import { Select } from "@csq/ui/components/ui/select";
 import type { ConversationListItem, Stage, Tag } from "@csq/core/types/inbox";
 import { useSession } from "next-auth/react";
 

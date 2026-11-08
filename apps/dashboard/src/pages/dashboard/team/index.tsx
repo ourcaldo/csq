@@ -10,11 +10,11 @@ import type { ListResult } from "@csq/core/types/dashboard";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { StateNotice } from "@/components/dashboard/state-notice";
 import { EmptyState } from "@/components/dashboard/empty-state";
-import { Dialog } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+import { Dialog } from "@csq/ui/components/ui/dialog";
+import { Button } from "@csq/ui/components/ui/button";
+import { Input } from "@csq/ui/components/ui/input";
+import { Label } from "@csq/ui/components/ui/label";
+import { Badge } from "@csq/ui/components/ui/badge";
 import {
   Table,
   TableHeader,
@@ -22,7 +22,7 @@ import {
   TableRow,
   TableHead,
   TableCell,
-} from "@/components/ui/table";
+} from "@csq/ui/components/ui/table";
 
 // Local client-side types - mirror the API route's serialized output. The API
 // layer remains the source of truth; these exist so rendering is type-safe

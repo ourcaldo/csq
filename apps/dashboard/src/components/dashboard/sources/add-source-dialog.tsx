@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Dialog } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+import { Dialog } from "@csq/ui/components/ui/dialog";
+import { Button } from "@csq/ui/components/ui/button";
 import { ExcelUploadStep } from "./excel-upload-step";
 import { GoogleSheetsStep } from "./google-sheets-step";
 

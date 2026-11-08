@@ -11,7 +11,7 @@
 import { memo } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { MagnifyingGlass, Faders, Plus, WhatsappLogo } from "@phosphor-icons/react";
-import { cn } from "@/lib/utils";
+import { cn } from "@csq/ui/lib/utils";
 import type { ConversationListItem } from "@csq/core/types/inbox";
 import { LoadingSkeleton } from "@/components/dashboard/loading-skeleton";
 import { EmptyState } from "@/components/dashboard/empty-state";

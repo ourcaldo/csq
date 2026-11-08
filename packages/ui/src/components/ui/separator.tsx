@@ -1,5 +1,5 @@
 // Thin horizontal/vertical divider. Purely presentational.
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils";
 
 type SeparatorProps = {
   orientation?: "horizontal" | "vertical";

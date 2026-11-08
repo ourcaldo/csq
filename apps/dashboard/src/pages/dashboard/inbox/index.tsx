@@ -15,7 +15,7 @@ import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { ConversationList } from "@/components/dashboard/inbox/conversation-list";
 import { ChatPanel } from "@/components/dashboard/inbox/chat-panel";
 import { ContactDetails } from "@/components/dashboard/inbox/contact-details";
-import { Select } from "@/components/ui/select";
+import { Select } from "@csq/ui/components/ui/select";
 
 type Tab = "assigned" | "unassigned";
 

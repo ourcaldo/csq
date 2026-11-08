@@ -21,9 +21,9 @@ import { useApi } from "@/hooks/use-api";
 import { EmailSection } from "@/components/dashboard/settings/email-section";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { StateNotice } from "@/components/dashboard/state-notice";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
+import { Button } from "@csq/ui/components/ui/button";
+import { Badge } from "@csq/ui/components/ui/badge";
+import { Separator } from "@csq/ui/components/ui/separator";
 
 // The backend enum is z.enum(["MANUAL","EXCEL","GOOGLE_SHEETS"]). We mirror the
 // allowed values locally and keep the wire type as string[] to match the route

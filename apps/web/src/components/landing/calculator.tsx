@@ -6,7 +6,7 @@
 // gradient + glow. Native range input, Phosphor checks, cn, useState.
 import { useState } from "react";
 import { Check } from "@phosphor-icons/react";
-import { cn } from "@/lib/utils";
+import { cn } from "@csq/ui/lib/utils";
 
 type HostTier = "vps" | "cloud";
 type AddonKey = "sheets" | "baileys" | "staff";

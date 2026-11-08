@@ -10,12 +10,12 @@ import { StateNotice } from "@/components/dashboard/state-notice";
 import { BadgeStatus } from "@/components/dashboard/badge-status";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { LoadingSkeleton } from "@/components/dashboard/loading-skeleton";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
-import { Dialog } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@csq/ui/components/ui/button";
+import { Switch } from "@csq/ui/components/ui/switch";
+import { Separator } from "@csq/ui/components/ui/separator";
+import { Dialog } from "@csq/ui/components/ui/dialog";
+import { Input } from "@csq/ui/components/ui/input";
+import { Textarea } from "@csq/ui/components/ui/textarea";
 import {
   Table,
   TableHeader,
@@ -23,7 +23,7 @@ import {
   TableRow,
   TableHead,
   TableCell,
-} from "@/components/ui/table";
+} from "@csq/ui/components/ui/table";
 
 // ---------------------------------------------------------------------------
 // Local types - the API route returns the Prisma-serialized Agent shape with

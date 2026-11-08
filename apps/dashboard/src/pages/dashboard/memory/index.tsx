@@ -9,9 +9,9 @@ import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { StateNotice } from "@/components/dashboard/state-notice";
 import { Pagination } from "@/components/dashboard/pagination";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
-import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/select";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import { Button } from "@csq/ui/components/ui/button";
+import { Select } from "@csq/ui/components/ui/select";
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@csq/ui/components/ui/table";
 
 const PAGE_SIZE = 20;
 

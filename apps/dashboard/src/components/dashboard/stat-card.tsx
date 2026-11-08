@@ -1,7 +1,7 @@
 // KPI / stat tile for the overview page. A label, a big number, an optional
 // delta or hint, and an icon chip - matches the reference's compact summary cards.
 import type { ReactNode } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@csq/ui/lib/utils";
 
 type StatCardProps = {
   label: string;

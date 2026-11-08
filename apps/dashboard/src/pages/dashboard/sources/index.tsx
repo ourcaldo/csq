@@ -3,7 +3,7 @@ import type { GetServerSideProps } from "next";
 import { useRouter } from "next/router";
 import { CaretDown } from "@phosphor-icons/react";
 import { withAuth } from "@csq/core/lib/auth";
-import { cn } from "@/lib/utils";
+import { cn } from "@csq/ui/lib/utils";
 import { apiFetch, apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
 import type {
@@ -16,8 +16,8 @@ import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { StateNotice } from "@/components/dashboard/state-notice";
 import { Pagination } from "@/components/dashboard/pagination";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@csq/ui/components/ui/button";
+import { Badge } from "@csq/ui/components/ui/badge";
 import {
   Table,
   TableHeader,
@@ -25,10 +25,10 @@ import {
   TableRow,
   TableHead,
   TableCell,
-} from "@/components/ui/table";
+} from "@csq/ui/components/ui/table";
 import { AddSourceDialog } from "@/components/dashboard/sources/add-source-dialog";
 import { SpreadsheetPicker } from "@/components/dashboard/sources/spreadsheet-picker";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog } from "@csq/ui/components/ui/dialog";
 
 const PAGE_SIZE = 20;
 

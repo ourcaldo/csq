@@ -10,7 +10,7 @@
 // Semiformal copy, one accent, zero em-dashes, reduced-motion safe.
 import Link from "next/link";
 import { Check, ArrowRight, ChatCircleDots } from "@phosphor-icons/react";
-import { Seo, SITE_NAME, SITE_TAGLINE, DEFAULT_DESCRIPTION } from "@/components/seo";
+import { Seo, SITE_NAME, SITE_TAGLINE, DEFAULT_DESCRIPTION } from "@csq/ui/components/seo";
 import { Reveal } from "@/components/landing/reveal";
 import { DashboardPreview } from "@/components/landing/dashboard-preview";
 import { Calculator } from "@/components/landing/calculator";

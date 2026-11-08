@@ -3,7 +3,7 @@
 // under prefers-reduced-motion, so content is never trapped off-screen.
 import { useEffect, useRef } from "react";
 import type { ReactNode } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@csq/ui/lib/utils";
 
 type RevealProps = {
   children: ReactNode;

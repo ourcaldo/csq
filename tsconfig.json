@@ -4,7 +4,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./apps/dashboard/src/*"],
-      "@csq/core/*": ["./packages/core/src/*"]
+      "@csq/core/*": ["./packages/core/src/*"],
+      "@csq/ui/*": ["./packages/ui/src/*"]
     }
   }
 }

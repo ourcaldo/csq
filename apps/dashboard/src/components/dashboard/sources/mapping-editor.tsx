@@ -1,8 +1,8 @@
 import { useState } from "react";
 import type { ColumnMapping } from "@csq/core/types/import";
-import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
+import { Button } from "@csq/ui/components/ui/button";
+import { Select } from "@csq/ui/components/ui/select";
+import { Label } from "@csq/ui/components/ui/label";
 
 // Shared column-mapping editor for Excel and Google Sheets imports. The owner
 // maps spreadsheet columns to product fields (name/price/quantity/sku/description),

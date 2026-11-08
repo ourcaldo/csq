@@ -26,10 +26,10 @@ import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { BadgeStatus } from "@/components/dashboard/badge-status";
 import { StateNotice } from "@/components/dashboard/state-notice";
 import { LoadingSkeleton } from "@/components/dashboard/loading-skeleton";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/utils";
+import { Button } from "@csq/ui/components/ui/button";
+import { Switch } from "@csq/ui/components/ui/switch";
+import { Separator } from "@csq/ui/components/ui/separator";
+import { cn } from "@csq/ui/lib/utils";
 
 // ---------------------------------------------------------------------------
 // Channels / WhatsApp onboarding page (gap B). Step-by-step wizard:

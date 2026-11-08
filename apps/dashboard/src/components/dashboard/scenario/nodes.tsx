@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { Handle, Position } from "@xyflow/react";
 import type { NodeProps } from "@xyflow/react";
-import { cn } from "@/lib/utils";
+import { cn } from "@csq/ui/lib/utils";
 
 // Custom React Flow node renderers for the scenario builder. Each shows a
 // compact card with its config summary and the appropriate handles. Horizontal

@@ -17,11 +17,11 @@ import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
 import { StateNotice } from "@/components/dashboard/state-notice";
 import { BadgeStatus } from "@/components/dashboard/badge-status";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
+import { Button } from "@csq/ui/components/ui/button";
+import { Input } from "@csq/ui/components/ui/input";
+import { Label } from "@csq/ui/components/ui/label";
+import { Select } from "@csq/ui/components/ui/select";
+import { Separator } from "@csq/ui/components/ui/separator";
 
 // Mirrors the masked GET shape from /api/dashboard/settings/email.
 type EmailStatus =

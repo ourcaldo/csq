@@ -14,7 +14,8 @@
     "jsx": "preserve",
     "incremental": true,
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@csq/ui/*": ["../../packages/ui/src/*"]
     },
     "plugins": [{ "name": "next" }]
   },

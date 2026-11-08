@@ -1,6 +1,6 @@
 // Simple prev/next pagination for list pages. The page owns `page` state and
 // calls onPageChange with the new page number.
-import { Button } from "@/components/ui/button";
+import { Button } from "@csq/ui/components/ui/button";
 
 type PaginationProps = {
   page: number;
