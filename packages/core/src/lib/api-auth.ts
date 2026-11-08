@@ -1,6 +1,7 @@
 import type { NextApiRequest } from "next";
 import prisma from "@csq/core/lib/db";
 import { hashApiToken } from "@csq/core/lib/api-tokens";
+import { verifyAccessToken } from "@csq/core/lib/api-jwt";
 
 // Bearer-token auth for the /api/v1 surface (PRD 23C Phase 7). Two kinds:
 // - SERVICE: platform-internal tokens from the API_SERVICE_TOKENS env
@@ -11,7 +12,8 @@ import { hashApiToken } from "@csq/core/lib/api-tokens";
 
 export type ApiAuth =
   | { kind: "SERVICE" }
-  | { kind: "API_KEY"; tenantId: string; keyId: string };
+  | { kind: "API_KEY"; tenantId: string; keyId: string }
+  | { kind: "JWT_USER"; userId: string; tenantId: string; role: string };
 
 export function bearerToken(req: NextApiRequest): string | null {
   const raw = req.headers["authorization"];
@@ -36,9 +38,15 @@ export async function requireApiAuth(req: NextApiRequest): Promise<ApiAuth | nul
   const key = await prisma.apiKey.findUnique({
     where: { tokenHash: presented },
   });
-  if (!key || key.revokedAt) return null;
-  void prisma.apiKey
-    .update({ where: { id: key.id }, data: { lastUsedAt: new Date() } })
-    .catch(() => undefined);
-  return { kind: "API_KEY", tenantId: key.tenantId, keyId: key.id };
+  if (key && !key.revokedAt) {
+    void prisma.apiKey
+      .update({ where: { id: key.id }, data: { lastUsedAt: new Date() } })
+      .catch(() => undefined);
+    return { kind: "API_KEY", tenantId: key.tenantId, keyId: key.id };
+  }
+  // Phase 8: the mobile realm - a signed access JWT is a user-scoped
+  // credential carrying its own tenantId.
+  const jwt = await verifyAccessToken(token);
+  if (jwt) return { kind: "JWT_USER", ...jwt };
+  return null;
 }

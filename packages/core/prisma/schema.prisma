@@ -212,6 +212,7 @@ model Tenant {
   outboundMessages    OutboundMessage[]
   channelCommands     ChannelCommand[]
   apiKeys             ApiKey[]
+  refreshTokens       RefreshToken[]
 }
 
 // D10c: per-tenant external OAuth credentials, SEPARATE from Tenant.settings.
@@ -433,6 +434,26 @@ model ApiKey {
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@index([tenantId])
+}
+
+// Mobile auth realm (PRD 23C Phase 8): the server-side half of the
+// /api/v1/auth token exchange. Opaque refresh tokens, sha256-hashed, rotated
+// on every refresh, revocable on logout. Access tokens are stateless JWTs
+// and deliberately have no row here.
+model RefreshToken {
+  id        String    @id @default(uuid())
+  tenantId  String
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
   @@index([tenantId])
 }
 

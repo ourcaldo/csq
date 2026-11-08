@@ -29,6 +29,61 @@ export default function handler(
     },
     security: [{ bearerAuth: [] }],
     paths: {
+      "/api/v1/auth/token": {
+        post: {
+          summary: "Exchange email + password for an access JWT + refresh token (5 req/min/IP)",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["email", "password"],
+                  properties: {
+                    email: { type: "string", format: "email" },
+                    password: { type: "string" },
+                  },
+                },
+              },
+            },
+          },
+          responses: {
+            "200": {
+              description: "Token pair",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      accessToken: { type: "string" },
+                      refreshToken: { type: "string" },
+                      tokenType: { type: "string", enum: ["Bearer"] },
+                      expiresIn: { type: "integer" },
+                    },
+                  },
+                },
+              },
+            },
+            "401": { description: "Invalid credentials" },
+            "429": { description: "Rate limited" },
+          },
+        },
+      },
+      "/api/v1/auth/refresh": {
+        post: {
+          summary: "Rotate a refresh token for a fresh pair (old token is revoked)",
+          responses: {
+            "200": { description: "New token pair" },
+            "401": { description: "Invalid, expired, or already-rotated token" },
+          },
+        },
+      },
+      "/api/v1/auth/logout": {
+        post: {
+          summary: "Revoke a refresh token (idempotent)",
+          responses: { "200": { description: "Revoked" } },
+        },
+      },
       "/api/v1/tools": {
         get: {
           summary: "List registered tools",

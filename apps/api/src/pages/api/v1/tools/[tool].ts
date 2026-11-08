@@ -34,12 +34,14 @@ export default async function handler(
     res.setHeader("WWW-Authenticate", "Bearer");
     return res.status(401).json(apiError("UNAUTHORIZED", "API key required"));
   }
-  if (auth.kind !== "API_KEY") {
+  // Phase 8: tenant API keys AND user access JWTs may execute tools; service
+  // tokens are platform-internal and not tenant-bound.
+  if (auth.kind === "SERVICE") {
     return res
       .status(403)
       .json(apiError("PERMISSION_DENIED", "Service tokens cannot execute tenant tools"));
   }
-  if (!checkRateLimit(`tools:${auth.keyId}`, 60, 60_000)) {
+  if (!checkRateLimit(`tools:${auth.kind === "API_KEY" ? auth.keyId : auth.userId}`, 60, 60_000)) {
     return res.status(429).json(apiError("RATE_LIMITED", "Too many requests"));
   }
 
