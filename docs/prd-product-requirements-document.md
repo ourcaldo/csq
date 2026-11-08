@@ -1022,6 +1022,16 @@ The following are also out of scope:
 
 Logical multi-business support inside one self-hosted installation is **in scope**.
 
+> **Owner decision 2026-11-08 (escalation):** the product grows beyond the
+> single-tenant demo into three frontends over time - the public UI
+> (section 20A, now its own app: apps/web), the tenant dashboard
+> (apps/dashboard, the existing app), and later a platform admin console
+> (apps/admin). The repository restructures into an npm-workspaces monorepo
+> per `docs/2026-11-08-monorepo-migration-plan.md` and PRD 23B.0. The
+> SaaS-operator scope that apps/admin implies (tenant provisioning, plans,
+> monitoring) needs its own PRD section before that app is built; until
+> then the out-of-scope list above still governs the MVP slice.
+
 
 
 Do not attempt to build all of these for the competition:
@@ -1064,8 +1074,9 @@ website — what a visitor sees before signing up or self-hosting.
 
 ## Constraints
 
--   Same Next.js app, same stack (Pages Router, Tailwind, shadcn/ui).
-    No separate frontend build or framework.
+-   Same stack (Pages Router, Tailwind, shadcn/ui), but as its own
+    workspace app (`apps/web`) under the monorepo plan - not routes inside
+    the dashboard app. The dashboard and public UI deploy independently.
 -   **Lowest priority.** Built only after all MVP functionality is complete,
     tested, and the demo flows are verified. Nothing here blocks the HackFest
     deliverable.
@@ -1447,11 +1458,33 @@ per tenant channel); Cloud API is stateless webhook + Graph API outbound.
 
 # 23B. Project Structure & Scaffolding Plan
 
-Single Next.js application (Pages Router). One process, one repository, one
-deployable. **Not a monorepo** — separation happens at the directory level
-inside the app.
+## 23B.0 Monorepo Escalation (owner decision 2026-11-08)
 
-## 23B.1 Repository Layout
+The repository is being restructured into an npm-workspaces monorepo. Full
+plan and phased execution: `docs/2026-11-08-monorepo-migration-plan.md`.
+Summary:
+
+-   `apps/dashboard` - the existing Next.js Pages Router app, moved
+    unchanged (tenant dashboard + Tool Gateway + channels; the only app
+    that owns WhatsApp sessions).
+-   `packages/core` - shared: Prisma schema/migrations/client, lib domain
+    logic (inbox, agent loop, campaign engine, system locks), services,
+    tool registry, types. Core never imports from an app; apps never
+    import each other.
+-   `apps/web` - public UI (section 20A), own deployable.
+-   `apps/admin` - platform console, later; requires a SaaS-operator PRD
+    section and its own auth realm before build starts.
+-   npm workspaces only - no pnpm/turbo/nx until root builds actually
+    hurt. Pages Router stays.
+
+The layout in 23B.1 below documents what was built for the MVP and is
+kept as the historical pre-monorepo reference; the migration plan
+supersedes it for structure.
+
+## 23B.1 Repository Layout (pre-monorepo, historical)
+
+Single Next.js application (Pages Router). One process, one repository, one
+deployable. Separation happens at the directory level inside the app.
 
 ``` text
 csq/

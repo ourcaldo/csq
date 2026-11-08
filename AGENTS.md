@@ -5,6 +5,11 @@ Active project (HackFest origin is historical). Scaffolding through the agent ru
 inbox, scenarios, and pipeline has landed; the agent runtime is a direct
 OpenAI-compatible client (`src/services/llm-runtime.ts`) - OpenClaw is gone.
 **Read `docs/prd-product-requirements-document.md` in full before making any architectural decision.**
+**Owner decision 2026-11-08: the product escalates into a multi-frontend monorepo**
+(public UI + tenant dashboard + later a platform admin console). Plan:
+`docs/2026-11-08-monorepo-migration-plan.md`, PRD section 23B.0. Architecture
+decisions must follow that plan, not the older single-app statements in the
+historical PRD sections.
 
 ## What We Are Building
 Self-hosted, multi-tenant AI agent platform for Indonesian UMKM. First agent: a Customer
@@ -64,6 +69,11 @@ Write the **least code that fully solves the task**. Boring beats clever.
   relevant project context FIRST. This is not optional. Skipping this leads to incorrect
   approaches and wasted effort.
 - At minimum: read this `AGENTS.md` and the PRD section relevant to the task.
+- **This file and the PRD go stale between sessions. Before quoting any scope or
+  architecture constraint at the owner, re-check the live PRD section and its git
+  history (`git log -- <file>`). An owner's stated direction ALWAYS overrides cached
+  documents - never push back with "not in scope" based on remembered text; verify
+  first, then either comply or show the owner the exact contradicting line.**
 - When scaffolding exists: read the Prisma schema before touching data queries; read
   existing API routes before adding new ones; read existing components before building
   new UI; read existing tool definitions before adding new tools.
