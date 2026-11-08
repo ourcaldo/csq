@@ -1,11 +1,11 @@
 import { type FormEvent, useEffect, useState } from "react";
 import { Plus, X } from "@phosphor-icons/react";
+import { cn } from "@csq/ui/lib/utils";
 import { AdminShell } from "@/components/admin-shell";
 import {
   Btn,
   Empty,
   PageHead,
-  Section,
   Stat,
   Status,
   TableCard,
@@ -54,12 +54,7 @@ type Request = {
   handledAt: string | null;
 };
 
-type Plan = {
-  id: string;
-  name: string;
-  priceIdr: number;
-};
-
+type Plan = { id: string; name: string; priceIdr: number };
 type UsageTenant = { tenantId: string; tenantName: string; planId: string | null; planName: string | null };
 
 type Settings = {
@@ -69,6 +64,14 @@ type Settings = {
   dueDays: number;
   graceDays: number;
 };
+
+type Tab = "invoices" | "requests" | "settings";
+
+const TABS: { key: Tab; label: string }[] = [
+  { key: "invoices", label: "Invoice" },
+  { key: "requests", label: "Permintaan paket" },
+  { key: "settings", label: "Pengaturan" },
+];
 
 export const getServerSideProps = withAdminAuth(async () => ({ props: {} }));
 
@@ -85,6 +88,17 @@ function date(iso: string): string {
     day: "numeric",
     month: "short",
     year: "numeric",
+  });
+}
+
+// Invoice periods are calendar dates stored at UTC boundaries; format in UTC
+// so the end date does not shift a day in WIB.
+function periodDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
   });
 }
 
@@ -105,6 +119,7 @@ export default function BillingPage() {
   const { data: settings, refresh: refreshSettings } =
     useAdminApi<Settings>("/api/admin/billing-settings");
 
+  const [tab, setTab] = useState<Tab>("invoices");
   const [busy, setBusy] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -285,7 +300,7 @@ export default function BillingPage() {
       <PageHead
         eyebrow="Konfigurasi"
         title="Tagihan"
-        sub="Invoice manual, permintaan paket, dan instruksi pembayaran"
+        sub="Invoice, permintaan paket, dan pengaturan pembayaran"
         action={
           <Btn onClick={() => openCreate()}>
             <Plus size={14} weight="bold" />
@@ -300,230 +315,264 @@ export default function BillingPage() {
         </div>
       )}
 
-      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Stat label="Belum dibayar" value={idr(outstanding)} note={`${invoices.filter((i) => i.status === "ISSUED").length} invoice`} />
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <Stat
+          label="Belum dibayar"
+          value={idr(outstanding)}
+          note={`${invoices.filter((i) => i.status === "ISSUED").length} invoice`}
+        />
         <Stat label="Jatuh tempo" value={overdue} note="Perlu ditindaklanjuti" />
         <Stat label="Dibayar bulan ini" value={idr(paidThisMonth)} note="Total invoice lunas" />
       </div>
 
-      <Section title="Invoice" meta={`${invoices.length} terakhir`}>
-        {!loading && invoices.length === 0 ? (
-          <Empty
-            title="Belum ada invoice"
-            hint="Buat invoice pertama dari daftar perlu ditagih atau tombol di atas."
-          />
-        ) : (
-          <TableCard>
-            <table className="ledger">
-              <thead>
-                <tr>
-                  <th>Nomor</th>
-                  <th>Tenant</th>
-                  <th>Periode</th>
-                  <th className="text-right">Jumlah</th>
-                  <th>Status</th>
-                  <th>Jatuh tempo</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {invoices.map((i) => {
-                  const isOverdue = i.status === "ISSUED" && new Date(i.dueAt) < new Date();
-                  return (
-                    <tr key={i.id}>
-                      <td className="font-mono text-[12px]">{i.number}</td>
+      <div className="mb-5 flex gap-5 border-b border-border">
+        {TABS.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={cn(
+              "-mb-px border-b-2 pb-2 text-[13px] transition-colors",
+              tab === t.key
+                ? "border-green-700 font-medium text-slate-900"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "invoices" && (
+        <div className="space-y-5">
+          {needs.length > 0 && (
+            <div className="panel overflow-hidden">
+              <div className="panel-h">
+                <h2 className="panel-t">Perlu ditagih</h2>
+                <span className="text-[11px] text-slate-400">Belum ada invoice bulan ini</span>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {needs.map((n) => (
+                  <div key={n.tenantId} className="flex items-center gap-4 px-4 py-2.5">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13px] font-medium text-slate-900">{n.tenantName}</p>
+                      <p className="text-[11.5px] text-slate-400">
+                        {n.planName ?? "Tanpa paket"}, {idr(n.priceIdr)}
+                      </p>
+                    </div>
+                    <Btn
+                      variant="line"
+                      onClick={() =>
+                        openCreate({ tenantId: n.tenantId, planId: n.planId, priceIdr: n.priceIdr })
+                      }
+                    >
+                      Buat
+                    </Btn>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {!loading && invoices.length === 0 ? (
+            <Empty
+              title="Belum ada invoice"
+              hint="Buat invoice pertama dari daftar perlu ditagih atau tombol di atas."
+            />
+          ) : (
+            <TableCard>
+              <table className="ledger">
+                <thead>
+                  <tr>
+                    <th>Nomor</th>
+                    <th>Tenant</th>
+                    <th>Periode</th>
+                    <th className="text-right">Jumlah</th>
+                    <th>Status</th>
+                    <th>Jatuh tempo</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {invoices.map((i) => {
+                    const isOverdue = i.status === "ISSUED" && new Date(i.dueAt) < new Date();
+                    return (
+                      <tr key={i.id}>
+                        <td className="font-mono text-[12px]">{i.number}</td>
+                        <td>
+                          <div className="font-medium">{i.tenantName}</div>
+                          <div className="text-[12px] text-muted-foreground">{i.planName}</div>
+                        </td>
+                        <td className="whitespace-nowrap text-[12.5px] text-muted-foreground">
+                          {periodDate(i.periodStart)} - {periodDate(i.periodEnd)}
+                        </td>
+                        <td className="text-right font-mono tabular-nums">{idr(i.amountIdr)}</td>
+                        <td>
+                          <Status
+                            tone={
+                              i.status === "PAID"
+                                ? "ok"
+                                : i.status === "VOID"
+                                  ? "off"
+                                  : isOverdue
+                                    ? "bad"
+                                    : "warn"
+                            }
+                          >
+                            {i.status === "PAID"
+                              ? "Lunas"
+                              : i.status === "VOID"
+                                ? "Dibatalkan"
+                                : isOverdue
+                                  ? "Jatuh tempo"
+                                  : "Belum dibayar"}
+                          </Status>
+                        </td>
+                        <td className="whitespace-nowrap font-mono text-[12px] text-muted-foreground">
+                          {i.status === "PAID" && i.paidAt ? date(i.paidAt) : date(i.dueAt)}
+                        </td>
+                        <td className="text-right">
+                          {i.status === "ISSUED" && (
+                            <>
+                              <Btn
+                                variant="ghost"
+                                disabled={busy === i.id}
+                                onClick={() => {
+                                  setActionError(null);
+                                  setPayForm({ method: "TRANSFER", reference: "" });
+                                  setPayInvoice(i);
+                                }}
+                                className="hover:text-primary"
+                              >
+                                Lunas
+                              </Btn>
+                              <Btn
+                                variant="ghost"
+                                disabled={busy === i.id}
+                                onClick={() => void voidInvoice(i)}
+                                className="hover:text-bad"
+                              >
+                                Batalkan
+                              </Btn>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {loading && (
+                    <tr>
+                      <td colSpan={7} className="py-12 text-center text-[13px] text-muted-foreground">
+                        Memuat...
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </TableCard>
+          )}
+        </div>
+      )}
+
+      {tab === "requests" && (
+        <div>
+          {requests.length === 0 ? (
+            <Empty
+              title="Belum ada permintaan paket"
+              hint="Permintaan dari halaman Paket & Kuota tenant muncul di sini."
+            />
+          ) : (
+            <TableCard>
+              <table className="ledger">
+                <thead>
+                  <tr>
+                    <th>Tenant</th>
+                    <th>Paket diminta</th>
+                    <th>Catatan</th>
+                    <th>Status</th>
+                    <th>Dibuat</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {requests.map((r) => (
+                    <tr key={r.id}>
                       <td>
-                        <div className="font-medium">{i.tenantName}</div>
-                        <div className="text-[12px] text-muted-foreground">{i.planName}</div>
+                        <div className="font-medium">{r.tenantName}</div>
+                        <div className="text-[12px] text-muted-foreground">{r.tenantSlug}</div>
                       </td>
-                      <td className="whitespace-nowrap text-[12.5px] text-muted-foreground">
-                        {date(i.periodStart)} - {date(i.periodEnd)}
+                      <td>
+                        <div>{r.requestedPlanName}</div>
+                        <div className="font-mono text-[12px] text-muted-foreground">
+                          {idr(r.requestedPlanPrice)}
+                        </div>
                       </td>
-                      <td className="text-right font-mono tabular-nums">{idr(i.amountIdr)}</td>
+                      <td className="max-w-xs truncate text-[12.5px] text-muted-foreground">
+                        {r.note ?? "-"}
+                      </td>
                       <td>
                         <Status
                           tone={
-                            i.status === "PAID" ? "ok" : i.status === "VOID" ? "off" : isOverdue ? "bad" : "warn"
+                            r.status === "DONE"
+                              ? "ok"
+                              : r.status === "REJECTED"
+                                ? "off"
+                                : "warn"
                           }
                         >
-                          {i.status === "PAID"
-                            ? "Lunas"
-                            : i.status === "VOID"
-                              ? "Dibatalkan"
-                              : isOverdue
-                                ? "Jatuh tempo"
-                                : "Belum dibayar"}
+                          {r.status === "NEW"
+                            ? "Baru"
+                            : r.status === "CONTACTED"
+                              ? "Dihubungi"
+                              : r.status === "DONE"
+                                ? "Selesai"
+                                : "Ditolak"}
                         </Status>
                       </td>
                       <td className="whitespace-nowrap font-mono text-[12px] text-muted-foreground">
-                        {i.status === "PAID" && i.paidAt ? date(i.paidAt) : date(i.dueAt)}
+                        {date(r.createdAt)}
                       </td>
                       <td className="text-right">
-                        {i.status === "ISSUED" && (
+                        {r.status === "NEW" && (
+                          <Btn
+                            variant="ghost"
+                            disabled={busy === r.id}
+                            onClick={() => void setRequestStatus(r.id, "CONTACTED")}
+                          >
+                            Hubungi
+                          </Btn>
+                        )}
+                        {(r.status === "NEW" || r.status === "CONTACTED") && (
                           <>
                             <Btn
                               variant="ghost"
-                              disabled={busy === i.id}
-                              onClick={() => {
-                                setPayForm({ method: "TRANSFER", reference: "" });
-                                setPayInvoice(i);
-                              }}
+                              disabled={busy === r.id}
+                              onClick={() => void setRequestStatus(r.id, "DONE")}
                               className="hover:text-primary"
                             >
-                              Lunas
+                              Selesai
                             </Btn>
                             <Btn
                               variant="ghost"
-                              disabled={busy === i.id}
-                              onClick={() => void voidInvoice(i)}
+                              disabled={busy === r.id}
+                              onClick={() => void setRequestStatus(r.id, "REJECTED")}
                               className="hover:text-bad"
                             >
-                              Batalkan
+                              Tolak
                             </Btn>
                           </>
                         )}
                       </td>
                     </tr>
-                  );
-                })}
-                {loading && (
-                  <tr>
-                    <td colSpan={7} className="py-12 text-center text-[13px] text-muted-foreground">
-                      Memuat...
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </TableCard>
-        )}
-      </Section>
+                  ))}
+                </tbody>
+              </table>
+            </TableCard>
+          )}
+        </div>
+      )}
 
-      <Section title="Perlu ditagih" meta="Paket aktif, belum ada invoice bulan ini">
-        {needs.length === 0 ? (
-          <Empty title="Semua tenant berpaket sudah ditagih bulan ini" />
-        ) : (
-          <div className="space-y-2">
-            {needs.map((n) => (
-              <div
-                key={n.tenantId}
-                className="flex items-center justify-between rounded-xl border border-border bg-card px-5 py-3"
-              >
-                <div>
-                  <p className="text-[13.5px] font-medium">{n.tenantName}</p>
-                  <p className="text-[12px] text-muted-foreground">
-                    {n.planName ?? "Tanpa paket"}, {idr(n.priceIdr)}
-                  </p>
-                </div>
-                <Btn
-                  variant="line"
-                  onClick={() => openCreate({ tenantId: n.tenantId, planId: n.planId, priceIdr: n.priceIdr })}
-                >
-                  Buat invoice
-                </Btn>
-              </div>
-            ))}
-          </div>
-        )}
-      </Section>
-
-      <Section title="Permintaan paket" meta={`${requests.length} permintaan`}>
-        {requests.length === 0 ? (
-          <Empty title="Belum ada permintaan paket" hint="Permintaan dari halaman Paket & Kuota tenant muncul di sini." />
-        ) : (
-          <TableCard>
-            <table className="ledger">
-              <thead>
-                <tr>
-                  <th>Tenant</th>
-                  <th>Paket diminta</th>
-                  <th>Catatan</th>
-                  <th>Status</th>
-                  <th>Dibuat</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {requests.map((r) => (
-                  <tr key={r.id}>
-                    <td>
-                      <div className="font-medium">{r.tenantName}</div>
-                      <div className="text-[12px] text-muted-foreground">{r.tenantSlug}</div>
-                    </td>
-                    <td>
-                      <div>{r.requestedPlanName}</div>
-                      <div className="font-mono text-[12px] text-muted-foreground">
-                        {idr(r.requestedPlanPrice)}
-                      </div>
-                    </td>
-                    <td className="max-w-xs truncate text-[12.5px] text-muted-foreground">
-                      {r.note ?? "-"}
-                    </td>
-                    <td>
-                      <Status
-                        tone={
-                          r.status === "DONE"
-                            ? "ok"
-                            : r.status === "REJECTED"
-                              ? "off"
-                              : r.status === "CONTACTED"
-                                ? "warn"
-                                : "bad"
-                        }
-                      >
-                        {r.status === "NEW"
-                          ? "Baru"
-                          : r.status === "CONTACTED"
-                            ? "Dihubungi"
-                            : r.status === "DONE"
-                              ? "Selesai"
-                              : "Ditolak"}
-                      </Status>
-                    </td>
-                    <td className="whitespace-nowrap font-mono text-[12px] text-muted-foreground">
-                      {date(r.createdAt)}
-                    </td>
-                    <td className="text-right">
-                      {r.status === "NEW" && (
-                        <Btn
-                          variant="ghost"
-                          disabled={busy === r.id}
-                          onClick={() => void setRequestStatus(r.id, "CONTACTED")}
-                        >
-                          Hubungi
-                        </Btn>
-                      )}
-                      {(r.status === "NEW" || r.status === "CONTACTED") && (
-                        <>
-                          <Btn
-                            variant="ghost"
-                            disabled={busy === r.id}
-                            onClick={() => void setRequestStatus(r.id, "DONE")}
-                            className="hover:text-primary"
-                          >
-                            Selesai
-                          </Btn>
-                          <Btn
-                            variant="ghost"
-                            disabled={busy === r.id}
-                            onClick={() => void setRequestStatus(r.id, "REJECTED")}
-                            className="hover:text-bad"
-                          >
-                            Tolak
-                          </Btn>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </TableCard>
-        )}
-      </Section>
-
-      <Section title="Pengaturan tagihan" meta="Tampil di halaman Paket & Kuota tenant">
-        <form onSubmit={saveSettings} className="rounded-xl border border-border bg-card p-5">
+      {tab === "settings" && (
+        <form onSubmit={saveSettings} className="panel p-5">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="space-y-1.5">
               <Label htmlFor="bank-name">Bank</Label>
@@ -589,7 +638,7 @@ export default function BillingPage() {
             </Btn>
           </div>
         </form>
-      </Section>
+      )}
 
       {showCreate && (
         <div

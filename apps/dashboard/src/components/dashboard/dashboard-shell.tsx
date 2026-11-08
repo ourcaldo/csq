@@ -335,7 +335,9 @@ export function DashboardShell({ title, description, actions, headerExtra, flush
           )}
 
           <div className={flush ? "flex min-h-0 flex-1 flex-col" : "p-4 md:p-6"}>
-            {!flush && role === "OWNER" && <PlanBanner entitlements={entitlements ?? null} />}
+            {!flush && role === "OWNER" && router.pathname !== "/dashboard/plan" && (
+              <PlanBanner entitlements={entitlements ?? null} />
+            )}
             {children}
           </div>
         </main>
