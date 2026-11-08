@@ -93,7 +93,7 @@ A clean production install does NOT seed the demo tenant — owners register the
 
 ```bash
 cd docker
-docker compose --env-file ../.env.production exec -T app npx prisma db seed --schema apps/dashboard/prisma/schema.prisma
+docker compose --env-file ../.env.production exec -T app npx prisma db seed --schema packages/core/prisma/schema.prisma
 ```
 
-Demo login: `admin@tokokopi.id` / `demo1234` (check `apps/dashboard/prisma/seed.ts` for the current credentials).
+Demo login: `admin@tokokopi.id` / `demo1234` (check `packages/core/prisma/seed.ts` for the current credentials).

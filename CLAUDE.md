@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Status
 
-Active project (past its HackFest origin — that framing is historical; the docs under `docs/` still carry it but the project is now developed for real use). Scaffolding through the agent runtime, inbox, scenarios, and pipeline has landed. The agent runtime is a direct OpenAI-compatible client (`apps/dashboard/src/services/llm-runtime.ts`) — OpenClaw is gone.
+Active project (past its HackFest origin — that framing is historical; the docs under `docs/` still carry it but the project is now developed for real use). Scaffolding through the agent runtime, inbox, scenarios, and pipeline has landed. The agent runtime is a direct OpenAI-compatible client (`packages/core/src/services/llm-runtime.ts`) — OpenClaw is gone.
 
 ## Read This First — In This Order
 
@@ -57,7 +57,7 @@ Customer Channel (WhatsApp Cloud API)
 
 ### Target repository layout (PRD 23B.1 - created in Phase 0)
 
-Historical pre-monorepo layout (Phase 1 moved the app into `apps/dashboard/`; see PRD 23B.0 and `docs/2026-11-08-monorepo-migration-plan.md`).
+Historical pre-monorepo layout (Phases 1-2 moved the app into `apps/dashboard/` and lib/services/tools/types + prisma into `packages/core`; see PRD 23B.0 and `docs/2026-11-08-monorepo-migration-plan.md`).
 
 ```
 src/

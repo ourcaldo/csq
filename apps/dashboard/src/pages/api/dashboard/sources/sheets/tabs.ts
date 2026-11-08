@@ -1,9 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getAuthSession } from "@/lib/auth";
-import { requireTenant, respondError, strQuery } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
-import { getGoogleCreds } from "@/lib/google-connect";
-import { listSheets } from "@/services/sheets";
+import { getAuthSession } from "@csq/core/lib/auth";
+import { requireTenant, respondError, strQuery } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
+import { getGoogleCreds } from "@csq/core/lib/google-connect";
+import { listSheets } from "@csq/core/services/sheets";
 
 // GET /api/dashboard/sources/sheets/tabs?spreadsheetId=X - list the tab titles
 // inside a spreadsheet, so the owner can pick which tab to import. Uses the

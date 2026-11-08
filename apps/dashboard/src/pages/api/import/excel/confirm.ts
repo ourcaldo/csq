@@ -1,11 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getAuthSession } from "@/lib/auth";
-import prisma from "@/lib/db";
-import { parseFile, applyMappingWithStats } from "@/services/excel";
-import { excelConfirmSchema } from "@/types/import";
-import { apiError, apiOk, type ApiResponse } from "@/types/api";
-import { replaceSourceRows } from "@/lib/source-rows";
-import { applyImport } from "@/lib/import-apply";
+import { getAuthSession } from "@csq/core/lib/auth";
+import prisma from "@csq/core/lib/db";
+import { parseFile, applyMappingWithStats } from "@csq/core/services/excel";
+import { excelConfirmSchema } from "@csq/core/types/import";
+import { apiError, apiOk, type ApiResponse } from "@csq/core/types/api";
+import { replaceSourceRows } from "@csq/core/lib/source-rows";
+import { applyImport } from "@csq/core/lib/import-apply";
 
 type ConfirmResponse = { imported: number; dataSourceId: string };
 

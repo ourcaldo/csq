@@ -1,9 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { ScenarioRun } from "@prisma/client";
-import { getAuthSession, requireRole } from "@/lib/auth";
-import prisma from "@/lib/db";
-import { paginate, requireTenant, respondError } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
+import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import prisma from "@csq/core/lib/db";
+import { paginate, requireTenant, respondError } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
 
 // Run history for a scenario (OWNER + STAFF). Tenant-scoped. Returns the runs
 // newest-first; the builder/UI renders status + last activity per run.

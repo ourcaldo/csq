@@ -1,11 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Tag } from "@prisma/client";
-import { getAuthSession, requireRole } from "@/lib/auth";
-import prisma from "@/lib/db";
-import { logHuman } from "@/lib/audit";
-import { paginate, requireTenant, respondError } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
-import { tagCreateSchema } from "@/types/tag";
+import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import prisma from "@csq/core/lib/db";
+import { logHuman } from "@csq/core/lib/audit";
+import { paginate, requireTenant, respondError } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
+import { tagCreateSchema } from "@csq/core/types/tag";
 import { normalizeHex, randomHex } from "@/lib/tag-color";
 
 type ListResult = { items: Tag[]; total: number; page: number; pageSize: number };

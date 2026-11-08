@@ -1,11 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
-import prisma from "@/lib/db";
-import { getAuthSession, requireRole } from "@/lib/auth";
-import { logHuman } from "@/lib/audit";
-import { requireTenant, respondError } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
-import { readSourcePriority } from "@/lib/source-priority";
+import prisma from "@csq/core/lib/db";
+import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { logHuman } from "@csq/core/lib/audit";
+import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
+import { readSourcePriority } from "@csq/core/lib/source-priority";
 
 // Source priority config (PRD §13). Stored in Tenant.settings.sourcePriority
 // as an ordered array of DataSourceType. Tenant.settings is a Json column;

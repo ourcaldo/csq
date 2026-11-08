@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { GetServerSideProps } from "next";
 import { useRouter } from "next/router";
 import { CaretDown } from "@phosphor-icons/react";
-import { withAuth } from "@/lib/auth";
+import { withAuth } from "@csq/core/lib/auth";
 import { cn } from "@/lib/utils";
 import { apiFetch, apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
@@ -11,7 +11,7 @@ import type {
   DataSourceStatusResult,
   DataSourceType,
   ListResult,
-} from "@/types/dashboard";
+} from "@csq/core/types/dashboard";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { StateNotice } from "@/components/dashboard/state-notice";
 import { Pagination } from "@/components/dashboard/pagination";

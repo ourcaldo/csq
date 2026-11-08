@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { z } from "zod";
 import { apiFetch, apiSend, ApiError } from "@/lib/api-client";
-import type { Stage, StageKind } from "@/types/inbox";
+import type { Stage, StageKind } from "@csq/core/types/inbox";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";

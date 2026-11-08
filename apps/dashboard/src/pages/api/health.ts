@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import prisma from "@/lib/db";
-import { apiError, apiOk, type ApiResponse } from "@/types/api";
-import { startScheduler } from "@/services/scheduler";
+import prisma from "@csq/core/lib/db";
+import { apiError, apiOk, type ApiResponse } from "@csq/core/types/api";
+import { startScheduler } from "@csq/core/services/scheduler";
 
 // Liveness + DB connectivity check for the production compose healthcheck
 // and load balancer probes. Unauthenticated by design. Also the boot hook:

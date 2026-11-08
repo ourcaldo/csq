@@ -1,10 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
-import { getAuthSession } from "@/lib/auth";
-import prisma from "@/lib/db";
-import { requireTenant, respondError } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
-import { cloudApiConfigSchema, baileysConfigSchema } from "@/types/whatsapp";
+import { getAuthSession } from "@csq/core/lib/auth";
+import prisma from "@csq/core/lib/db";
+import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
+import { cloudApiConfigSchema, baileysConfigSchema } from "@csq/core/types/whatsapp";
 
 // List the tenant's WhatsApp channels (plan 7.5). Read-only; any authenticated
 // tenant user may view. The `config` Json blob holds provider secrets (Cloud API

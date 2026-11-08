@@ -2,8 +2,8 @@
 //   npx tsx scripts/self-check-inbound-classify.ts
 // No database needed: parseCloudApiInbound is a pure payload -> records map.
 // Verifies the three-way kind split the webhook branches on.
-import { parseCloudApiInbound } from "../apps/dashboard/src/services/whatsapp";
-import type { ParsedInbound } from "../apps/dashboard/src/types/whatsapp";
+import { parseCloudApiInbound } from "../packages/core/src/services/whatsapp";
+import type { ParsedInbound } from "../packages/core/src/types/whatsapp";
 
 function wrap(type: string, extra: Record<string, unknown>): ParsedInbound[] {
   return parseCloudApiInbound({

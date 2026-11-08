@@ -1,11 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { ConversationTag } from "@prisma/client";
 import { z } from "zod";
-import { getAuthSession, requireRole } from "@/lib/auth";
-import prisma from "@/lib/db";
-import { requireTenant, respondError, strQuery } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
-import { events } from "@/lib/events";
+import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import prisma from "@csq/core/lib/db";
+import { requireTenant, respondError, strQuery } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
+import { events } from "@csq/core/lib/events";
 
 // Add a tag to a conversation. tagId must belong to the same tenant.
 const addTagSchema = z.object({ tagId: z.string().uuid() });

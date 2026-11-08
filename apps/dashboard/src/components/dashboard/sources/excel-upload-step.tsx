@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { apiSend } from "@/lib/api-client";
 import { ApiError } from "@/lib/api-client";
-import type { ColumnMapping } from "@/types/import";
+import type { ColumnMapping } from "@csq/core/types/import";
 import { Button } from "@/components/ui/button";
 import { MappingEditor } from "./mapping-editor";
 import { DataTypeSelector } from "./data-type-selector";

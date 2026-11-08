@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { ColumnMapping } from "@/types/import";
+import type { ColumnMapping } from "@csq/core/types/import";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";

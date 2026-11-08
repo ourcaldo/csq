@@ -5,7 +5,7 @@
 // to a typed local via annotation (res.json() is `any` from lib.dom), then the
 // success/data fields are checked before returning data. On failure an ApiError
 // carrying the server's error code + message is thrown.
-import type { ApiResponse } from "@/types/api";
+import type { ApiResponse } from "@csq/core/types/api";
 
 export class ApiError extends Error {
   code: string;

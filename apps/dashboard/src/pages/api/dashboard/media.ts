@@ -1,9 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getAuthSession } from "@/lib/auth";
-import prisma from "@/lib/db";
-import { requireTenant, respondError } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
-import { canRunCampaigns } from "@/lib/campaign-access";
+import { getAuthSession } from "@csq/core/lib/auth";
+import prisma from "@csq/core/lib/db";
+import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
+import { canRunCampaigns } from "@csq/core/lib/campaign-access";
 
 // Campaign image upload (plan 3.2.1). Raw-bytes body - the same streaming
 // pattern the WhatsApp webhook uses, so no multipart parser and no new

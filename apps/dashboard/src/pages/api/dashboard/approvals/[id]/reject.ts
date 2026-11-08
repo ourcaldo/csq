@@ -1,9 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getAuthSession, requireRole } from "@/lib/auth";
-import prisma from "@/lib/db";
-import { logAction } from "@/lib/audit";
-import { sendApprovalFollowUp } from "@/lib/agent-outbox";
-import { apiError, apiOk, type ApiResponse } from "@/types/api";
+import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import prisma from "@csq/core/lib/db";
+import { logAction } from "@csq/core/lib/audit";
+import { sendApprovalFollowUp } from "@csq/core/lib/agent-outbox";
+import { apiError, apiOk, type ApiResponse } from "@csq/core/types/api";
 
 // POST /api/dashboard/approvals/[id]/reject - owner rejects a pending action.
 // Does NOT execute the action; marks the Approval REJECTED and logs an audit

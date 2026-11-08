@@ -1,17 +1,17 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
-import { getAuthSession, requireRole } from "@/lib/auth";
-import prisma from "@/lib/db";
-import { requireTenant, respondError } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
+import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import prisma from "@csq/core/lib/db";
+import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import {
   cloudApiConfigSchema,
   baileysConfigSchema,
   type CloudApiConfig,
   type BaileysConfig,
-} from "@/types/whatsapp";
-import { connectBaileysChannel, isFatalDisconnect } from "@/services/baileys";
-import { generateVerifyToken } from "@/lib/whatsapp-verify-token";
+} from "@csq/core/types/whatsapp";
+import { connectBaileysChannel, isFatalDisconnect } from "@csq/core/services/baileys";
+import { generateVerifyToken } from "@csq/core/lib/whatsapp-verify-token";
 
 // Connect (or reconfigure) a WhatsApp channel for this tenant (plan 7.5).
 // Owner picks the provider at onboarding. Baileys is gated on tosAcknowledged

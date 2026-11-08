@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getAuthSession, requireRole } from "@/lib/auth";
-import prisma from "@/lib/db";
-import { requireTenant, respondError, strQuery } from "@/lib/queries";
+import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import prisma from "@csq/core/lib/db";
+import { requireTenant, respondError, strQuery } from "@csq/core/lib/queries";
 
 // Server-Sent Events stream of new messages for a conversation (plan 7.7).
 // OWNER + STAFF, tenant-scoped. Polls Postgres every few seconds and pushes

@@ -1,8 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getAuthSession, requireRole } from "@/lib/auth";
-import prisma from "@/lib/db";
-import { requireTenant, respondError, strQuery } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
+import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import prisma from "@csq/core/lib/db";
+import { requireTenant, respondError, strQuery } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
 
 // Pause an agent: set status PAUSED so the agent loop stands down for its
 // conversations (runAgentReply skips non-ACTIVE agents). OWNER-only,

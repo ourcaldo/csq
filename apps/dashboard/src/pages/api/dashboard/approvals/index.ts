@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getAuthSession, requireRole } from "@/lib/auth";
-import prisma from "@/lib/db";
-import { apiError, apiOk, type ApiResponse } from "@/types/api";
+import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import prisma from "@csq/core/lib/db";
+import { apiError, apiOk, type ApiResponse } from "@csq/core/types/api";
 
 type ApprovalSummary = {
   id: string;

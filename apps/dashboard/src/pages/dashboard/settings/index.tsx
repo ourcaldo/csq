@@ -15,7 +15,7 @@ import {
   CheckCircle,
   WarningCircle,
 } from "@phosphor-icons/react";
-import { withAuth } from "@/lib/auth";
+import { withAuth } from "@csq/core/lib/auth";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
 import { EmailSection } from "@/components/dashboard/settings/email-section";

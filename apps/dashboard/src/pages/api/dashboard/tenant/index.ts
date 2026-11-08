@@ -1,8 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getAuthSession } from "@/lib/auth";
-import prisma from "@/lib/db";
-import { requireTenant, respondError } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
+import { getAuthSession } from "@csq/core/lib/auth";
+import prisma from "@csq/core/lib/db";
+import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
 
 // Tenant info for the dashboard. Read-only; any authenticated tenant user may
 // view.

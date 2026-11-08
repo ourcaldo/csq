@@ -1,10 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
-import { getAuthSession } from "@/lib/auth";
-import prisma from "@/lib/db";
-import { requireTenant, respondError, paginate } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
-import type { CampaignMessageRow, CampaignRunRow } from "@/types/campaign";
+import { getAuthSession } from "@csq/core/lib/auth";
+import prisma from "@csq/core/lib/db";
+import { requireTenant, respondError, paginate } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
+import type { CampaignMessageRow, CampaignRunRow } from "@csq/core/types/campaign";
 
 // Run history for a campaign (plan 3.6): GET without a runId lists the runs
 // with their counts; GET ?runId= returns that run's per-recipient log, paged.

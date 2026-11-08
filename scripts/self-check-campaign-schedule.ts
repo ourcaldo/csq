@@ -5,7 +5,7 @@
 import {
   nextCampaignOccurrence,
   nextIntervalOccurrence,
-} from "../apps/dashboard/src/lib/campaign-schedule";
+} from "../packages/core/src/lib/campaign-schedule";
 
 const TZ = "Asia/Jakarta";
 

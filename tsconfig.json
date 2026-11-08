@@ -3,7 +3,8 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./apps/dashboard/src/*"]
+      "@/*": ["./apps/dashboard/src/*"],
+      "@csq/core/*": ["./packages/core/src/*"]
     }
   }
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch, apiSend, ApiError } from "@/lib/api-client";
-import type { ColumnMapping } from "@/types/import";
-import type { SpreadsheetRef } from "@/types/sheets";
+import type { ColumnMapping } from "@csq/core/types/import";
+import type { SpreadsheetRef } from "@csq/core/types/sheets";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";

@@ -1,10 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
-import { getAuthSession } from "@/lib/auth";
-import prisma from "@/lib/db";
-import { executeTool } from "@/tools/execute";
-import { apiError, apiOk, type ApiResponse } from "@/types/api";
-import type { ApprovalPayload } from "@/types/tools";
+import { getAuthSession } from "@csq/core/lib/auth";
+import prisma from "@csq/core/lib/db";
+import { executeTool } from "@csq/core/tools/execute";
+import { apiError, apiOk, type ApiResponse } from "@csq/core/types/api";
+import type { ApprovalPayload } from "@csq/core/types/tools";
 
 // POST /api/tools/[tool] - the agent-facing tool endpoint (SDD §5.2).
 // Body: { agentId, params }. Auth: a dashboard session. Tools are executed

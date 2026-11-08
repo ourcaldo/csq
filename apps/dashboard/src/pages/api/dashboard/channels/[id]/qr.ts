@@ -1,9 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getAuthSession, requireRole } from "@/lib/auth";
-import prisma from "@/lib/db";
-import { requireTenant, respondError, strQuery } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
-import { getBaileysState } from "@/services/baileys";
+import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import prisma from "@csq/core/lib/db";
+import { requireTenant, respondError, strQuery } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
+import { getBaileysState } from "@csq/core/services/baileys";
 
 // Live QR + open state for a Baileys channel (the Saluran page polls this
 // while a QR is showing). OWNER-only: the QR is a login secret. Baileys

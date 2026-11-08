@@ -1,10 +1,10 @@
 import { Fragment, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import type { GetServerSideProps } from "next";
-import { withAuth } from "@/lib/auth";
+import { withAuth } from "@csq/core/lib/auth";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
-import type { ListResult, Order, OrderStatus, Product } from "@/types/dashboard";
+import type { ListResult, Order, OrderStatus, Product } from "@csq/core/types/dashboard";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { StateNotice } from "@/components/dashboard/state-notice";
 import { Pagination } from "@/components/dashboard/pagination";

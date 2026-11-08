@@ -1,10 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getAuthSession } from "@/lib/auth";
-import prisma from "@/lib/db";
-import { requireTenant, respondError } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
-import { canRunCampaigns } from "@/lib/campaign-access";
-import { campaignPreviewSchema } from "@/types/campaign";
+import { getAuthSession } from "@csq/core/lib/auth";
+import prisma from "@csq/core/lib/db";
+import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
+import { canRunCampaigns } from "@csq/core/lib/campaign-access";
+import { campaignPreviewSchema } from "@csq/core/types/campaign";
 
 // Audience preview (plan 3.6): the wizard's live recipient count. The count is
 // advisory - the engine resolves the audience fresh at every fire, so it can

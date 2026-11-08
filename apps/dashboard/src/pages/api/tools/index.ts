@@ -1,7 +1,7 @@
 ﻿import type { NextApiRequest, NextApiResponse } from "next";
-import { listToolSummaries } from "@/tools";
-import { apiError, apiOk, type ApiResponse } from "@/types/api";
-import type { ToolSummary } from "@/types/tools";
+import { listToolSummaries } from "@csq/core/tools";
+import { apiError, apiOk, type ApiResponse } from "@csq/core/types/api";
+import type { ToolSummary } from "@csq/core/types/tools";
 
 // GET /api/tools - list registered tools (name/description/category/default
 // permission). Used by the dashboard and agent config. Tool

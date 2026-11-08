@@ -1,16 +1,16 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
-import { getAuthSession, requireRole } from "@/lib/auth";
-import prisma from "@/lib/db";
-import { requireTenant, respondError } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
+import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import prisma from "@csq/core/lib/db";
+import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import {
   listTemplates,
   saveTemplates,
   messageTemplateSchema,
   SYSTEM_TEMPLATE_KEYS,
   type MessageTemplate,
-} from "@/lib/message-templates";
+} from "@csq/core/lib/message-templates";
 import crypto from "crypto";
 
 // CRUD for per-tenant message templates (Tenant.settings.messageTemplates).

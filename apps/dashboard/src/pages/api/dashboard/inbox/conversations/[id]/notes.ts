@@ -1,11 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Message } from "@prisma/client";
 import { z } from "zod";
-import { getAuthSession, requireRole } from "@/lib/auth";
-import prisma from "@/lib/db";
-import { requireTenant, respondError } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
-import { logHuman } from "@/lib/audit";
+import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import prisma from "@csq/core/lib/db";
+import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
+import { logHuman } from "@csq/core/lib/audit";
 
 // Private (internal) note on a conversation - visible to the team in the inbox
 // but NOT sent to the customer (isInternal: true, no provider dispatch).

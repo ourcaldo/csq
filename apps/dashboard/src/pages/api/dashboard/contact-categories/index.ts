@@ -1,11 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Category } from "@prisma/client";
-import { getAuthSession, requireRole } from "@/lib/auth";
-import prisma from "@/lib/db";
-import { logHuman } from "@/lib/audit";
-import { requireTenant, respondError } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
-import { categoryCreateSchema } from "@/types/contact";
+import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import prisma from "@csq/core/lib/db";
+import { logHuman } from "@csq/core/lib/audit";
+import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
+import { categoryCreateSchema } from "@csq/core/types/contact";
 import { normalizeHex, randomHex } from "@/lib/tag-color";
 
 // Contact category taxonomy (feature plan 2026-11-01, section 2.4).

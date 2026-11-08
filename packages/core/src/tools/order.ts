@@ -1,0 +1,468 @@
+import { z } from "zod";
+import { Prisma } from "@prisma/client";
+import type { ToolDefinition, ToolResult } from "@csq/core/types/tools";
+import { events } from "@csq/core/lib/events";
+
+// order.* tools. order.read allowed by default. order.create is a write
+// (denied + approval by default): creates an Order + OrderItems and decrements
+// Inventory in one transaction, validating stock first. order.cancel is a write
+// with approval required; cancelling restores the decremented stock.
+//
+// D2 / PRD 18.1: in the agent path every lookup is hard-scoped to the
+// conversation's customer - by UUID, by order number, by phone, and by email
+// resolution. The model cannot read or mutate another customer's order.
+
+type SerializedOrderItem = {
+  productId: string;
+  productName: string;
+  quantity: number;
+  unitPrice: string;
+  subtotal: string;
+};
+
+type SerializedOrder = {
+  id: string;
+  // Human-friendly order number shown on the dashboard (#<first 8 uuid chars>,
+  // uppercase). The agent must quote THIS to the customer, never the raw uuid.
+  orderNumber: string;
+  customerName: string | null;
+  customerPhone: string | null;
+  status: string;
+  totalAmount: string;
+  items: SerializedOrderItem[];
+};
+
+function serializeOrder(
+  order: {
+    id: string;
+    customerName: string | null;
+    customerPhone: string | null;
+    status: string;
+    totalAmount: Prisma.Decimal;
+    items: {
+      productId: string;
+      quantity: number;
+      unitPrice: Prisma.Decimal;
+      subtotal: Prisma.Decimal;
+      product: { name: string };
+    }[];
+  }
+): SerializedOrder {
+  return {
+    id: order.id,
+    orderNumber: `#${order.id.slice(0, 8).toUpperCase()}`,
+    customerName: order.customerName,
+    customerPhone: order.customerPhone,
+    status: order.status,
+    totalAmount: order.totalAmount.toString(),
+    items: order.items.map((it) => ({
+      productId: it.productId,
+      productName: it.product.name,
+      quantity: it.quantity,
+      unitPrice: it.unitPrice.toString(),
+      subtotal: it.subtotal.toString(),
+    })),
+  };
+}
+
+const orderReadSchema = z.object({
+  orderId: z.string().uuid(),
+});
+type OrderReadParams = z.infer<typeof orderReadSchema>;
+
+const orderRead: ToolDefinition<OrderReadParams> = {
+  name: "order.read",
+  description: "Get an order with its line items.",
+  category: "order",
+  parameters: orderReadSchema,
+  defaultPermission: { allowed: true, requiresApproval: false },
+  async handler(ctx): Promise<ToolResult> {
+    const p = ctx.params;
+    const order = await ctx.prisma.order.findFirst({
+      where: {
+        tenantId: ctx.tenantId,
+        id: p.orderId,
+        // D2: agent path - only the conversation's customer's order is
+        // readable. A foreign UUID returns NOT_FOUND, never data.
+        ...(ctx.conversationId && ctx.customerPhone
+          ? { customerPhone: ctx.customerPhone }
+          : {}),
+      },
+      include: { items: { include: { product: true } } },
+    });
+    if (!order) {
+      return { success: false, error: "Order not found", errorCode: "NOT_FOUND" };
+    }
+    await ctx.audit({
+      action: "order.read",
+      entityType: "order",
+      entityId: order.id,
+      customerPhone: order.customerPhone ?? undefined,
+    });
+    return { success: true, data: serializeOrder(order) };
+  },
+};
+
+// order.list - read-only order search. Filters are all optional and combine
+// (AND). `orderNumber` is the 8-char human-friendly prefix ("#ABC12345" or
+// "ABC12345"); `phone`/`email` resolve the Contact first (email lives on
+// Contact, not Order, so an email search maps to the contact's phone) and also
+// match Order.customerPhone directly. Bounded result page (default 10, max 25)
+// so the agent can't pull an unbounded list into context.
+const MAX_ORDER_LIST = 25;
+
+const orderListSchema = z.object({
+  orderNumber: z.string().min(4).max(12).optional(),
+  phone: z.string().min(6).max(32).optional(),
+  email: z.string().email().optional(),
+  status: z.enum(["PENDING", "CONFIRMED", "CANCELLED"]).optional(),
+  page: z.number().int().min(1).max(1000).optional(),
+});
+type OrderListParams = z.infer<typeof orderListSchema>;
+
+const orderList: ToolDefinition<OrderListParams> = {
+  name: "order.list",
+  description:
+    "Search orders. Filter by orderNumber (e.g. #ABC12345), customer phone (WhatsApp number), customer email, and/or status. Returns the most recent matching orders with line items. Without filters, returns the customer's orders for the current conversation phone.",
+  category: "order",
+  parameters: orderListSchema,
+  defaultPermission: { allowed: true, requiresApproval: false },
+  async handler(ctx): Promise<ToolResult> {
+    const p = ctx.params;
+
+    // D2 / PRD 18.1: in the agent path the customer IS the conversation. A
+    // model-supplied phone that differs is denied outright, and every filter
+    // (order number, phone, email) is AND-ed with the conversation's phone, so
+    // another customer's order number or email yields an empty result instead
+    // of their data. The session-authenticated HTTP gateway path keeps an
+    // explicit phone.
+    const agentPath = !!ctx.conversationId;
+    if (agentPath && p.phone && p.phone !== ctx.customerPhone) {
+      await ctx.audit({
+        action: "order.list",
+        entityType: "order",
+        entityId: "search",
+        afterValue: { scopeDenied: true, requestedPhone: p.phone },
+      });
+      return {
+        success: false,
+        error: "Hanya bisa melihat pesanan pelanggan percakapan ini.",
+        errorCode: "PERMISSION_DENIED",
+      };
+    }
+    const scopedPhone = agentPath
+      ? ctx.customerPhone
+      : p.phone ?? ctx.customerPhone ?? undefined;
+
+    // Order number → case-insensitive uuid prefix match. Normalize a leading "#".
+    const numberPrefix = p.orderNumber
+      ? p.orderNumber.replace(/^#/, "").toLowerCase()
+      : undefined;
+
+    // Email lives on Contact; resolve to the contact's phone(s), then include
+    // direct Order.customerPhone matches. Tenant-scoped throughout.
+    let emailPhones: string[] | undefined;
+    if (p.email) {
+      const contacts = await ctx.prisma.contact.findMany({
+        where: { tenantId: ctx.tenantId, email: p.email },
+        select: { phone: true },
+      });
+      emailPhones = contacts.map((c) => c.phone);
+    }
+
+    const where: Prisma.OrderWhereInput = {
+      tenantId: ctx.tenantId,
+      ...(numberPrefix ? { id: { startsWith: numberPrefix } } : {}),
+      ...(p.status ? { status: p.status } : {}),
+      // Scoped customer (always set in the agent path).
+      ...(scopedPhone ? { customerPhone: scopedPhone } : {}),
+      ...(p.phone || emailPhones
+        ? {
+            OR: [
+              ...(p.phone ? [{ customerPhone: p.phone }] : []),
+              ...(emailPhones
+                ? emailPhones.map((ph) => ({ customerPhone: ph }))
+                : []),
+            ],
+          }
+        : {}),
+    };
+
+    // D10a: real pagination. take stays one page; skip advances. The cap keeps
+    // skip inside MAX_ORDER_LIST so a large page number cannot walk the whole
+    // table.
+    const page = p.page ?? 1;
+    const take = 10;
+    const skip = Math.min((page - 1) * take, MAX_ORDER_LIST - take);
+    const [orders, total] = await Promise.all([
+      ctx.prisma.order.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        take,
+        skip,
+        include: { items: { include: { product: true } } },
+      }),
+      ctx.prisma.order.count({ where }),
+    ]);
+
+    await ctx.audit({
+      action: "order.list",
+      entityType: "order",
+      entityId: "search",
+      customerPhone: p.phone ?? ctx.customerPhone ?? undefined,
+      afterValue: { filters: { orderNumber: p.orderNumber, email: p.email, status: p.status }, total },
+    });
+
+    return {
+      success: true,
+      data: {
+        total,
+        page,
+        orders: orders.map((o) => ({
+          ...serializeOrder(o),
+          createdAt: o.createdAt.toISOString(),
+        })),
+      },
+    };
+  },
+};
+
+const orderCreateSchema = z.object({
+  customerName: z.string().min(1).optional(),
+  customerPhone: z.string().min(1).optional(),
+  items: z
+    .array(
+      z.object({
+        productId: z.string().uuid(),
+        quantity: z.number().int().min(1),
+      })
+    )
+    .min(1),
+});
+type OrderCreateParams = z.infer<typeof orderCreateSchema>;
+
+const orderCreate: ToolDefinition<OrderCreateParams> = {
+  name: "order.create",
+  description:
+    "Create an order from line items and decrement stock. Validates stock first.",
+  category: "order",
+  parameters: orderCreateSchema,
+  defaultPermission: { allowed: false, requiresApproval: true },
+  async handler(ctx): Promise<ToolResult> {
+    const p = ctx.params;
+    const productIds = p.items.map((it) => it.productId);
+
+    // One transaction: validate stock + compute totals + create order + decrement.
+    const order = await ctx.prisma.$transaction(async (tx) => {
+      const products = await tx.product.findMany({
+        where: { tenantId: ctx.tenantId, id: { in: productIds } },
+        include: { inventory: true },
+      });
+      const byId = new Map(products.map((pr) => [pr.id, pr]));
+
+      // G2: lock the inventory rows FOR UPDATE so a concurrent order.create or
+      // stock write cannot both pass the stock check against a stale snapshot
+      // and oversell. Prisma has no FOR UPDATE API, so raw SQL through the
+      // transaction client. Row-level locking is defense-in-depth on top of
+      // the per-conversation advisory lock in the agent loop.
+      const locked = await tx.$queryRaw<
+        Array<{ productId: string; quantity: number }>
+      >`SELECT "productId", quantity FROM "Inventory"
+        WHERE "tenantId" = ${ctx.tenantId} AND "productId" IN (${Prisma.join(productIds)})
+        FOR UPDATE`;
+      const lockedById = new Map(locked.map((r) => [r.productId, r.quantity]));
+
+      // Single pass: validate each item, build order items, compute total, and
+      // stage the stock adjustments. The throw narrows `pr` for TS.
+      let total = 0;
+      const orderItems: Prisma.OrderItemCreateManyOrderInput[] = [];
+      const stockAdjust: { productId: string; newQuantity: number }[] = [];
+
+      for (const item of p.items) {
+        const pr = byId.get(item.productId);
+        if (!pr) {
+          throw new Error(`Product not found: ${item.productId}`);
+        }
+        const have = lockedById.get(item.productId) ?? 0;
+        if (have < item.quantity) {
+          throw new Error(`Insufficient stock for ${pr.name} (have ${have})`);
+        }
+        const unitPrice = pr.price;
+        const subtotal = unitPrice.mul(item.quantity);
+        total += subtotal.toNumber();
+        orderItems.push({
+          tenantId: ctx.tenantId,
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice,
+          subtotal,
+        });
+        stockAdjust.push({
+          productId: item.productId,
+          newQuantity: have - item.quantity,
+        });
+      }
+
+      const created = await tx.order.create({
+        data: {
+          tenantId: ctx.tenantId,
+          customerName: p.customerName,
+          customerPhone: p.customerPhone,
+          totalAmount: total,
+          createdByAgentId: ctx.agentId,
+          status: "CONFIRMED",
+          items: { createMany: { data: orderItems } },
+        },
+        include: { items: { include: { product: true } } },
+      });
+
+      // Decrement stock for each validated item. G9: tenant-gated compound
+      // unique selector (not the global productId @unique).
+      for (const adj of stockAdjust) {
+        await tx.inventory.update({
+          where: { tenantId_productId: { tenantId: ctx.tenantId, productId: adj.productId } },
+          data: { quantity: adj.newQuantity },
+        });
+      }
+
+      return created;
+    });
+
+    await ctx.audit({
+      action: "order.create",
+      entityType: "order",
+      entityId: order.id,
+      afterValue: serializeOrder(order),
+      customerPhone: order.customerPhone ?? undefined,
+    });
+
+    // Emit `order.purchased` so active ON_PURCHASE scenarios can start a run
+    // (after-sales survey, etc.). Fire-and-forget; routing context (conversation
+    // + phone) flows from the tool call so the scenario can resolve the
+    // customer thread. No-op if no scenario is subscribed/listening.
+    events.orderPurchased.emit({
+      tenantId: ctx.tenantId,
+      orderId: order.id,
+      conversationId: ctx.conversationId,
+      customerPhone: order.customerPhone ?? ctx.customerPhone ?? undefined,
+      customerName: order.customerName ?? undefined,
+      orderTotal: order.totalAmount.toString(),
+      orderItems: order.items.map((it) => ({
+        productName: it.product.name,
+        quantity: it.quantity,
+      })),
+    });
+
+    return { success: true, data: serializeOrder(order) };
+  },
+  async describeChange(params): Promise<{
+    proposedBefore: Prisma.InputJsonValue;
+    proposedAfter: Prisma.InputJsonValue;
+  }> {
+    // No single "before" entity - the proposed result is the order summary.
+    return {
+      proposedBefore: {},
+      proposedAfter: {
+        customerName: params.customerName ?? null,
+        customerPhone: params.customerPhone ?? null,
+        items: params.items,
+        status: "CONFIRMED",
+      },
+    };
+  },
+};
+
+const orderCancelSchema = z.object({
+  orderId: z.string().uuid(),
+});
+type OrderCancelParams = z.infer<typeof orderCancelSchema>;
+
+const orderCancel: ToolDefinition<OrderCancelParams> = {
+  name: "order.cancel",
+  description: "Cancel an order and restore its stock. Requires owner approval.",
+  category: "order",
+  parameters: orderCancelSchema,
+  defaultPermission: { allowed: false, requiresApproval: true },
+  async handler(ctx): Promise<ToolResult> {
+    const p = ctx.params;
+    const result = await ctx.prisma.$transaction(async (tx) => {
+      const order = await tx.order.findFirst({
+        where: { tenantId: ctx.tenantId, id: p.orderId },
+        include: { items: true },
+      });
+      if (!order) {
+        throw new Error("Order not found");
+      }
+      if (order.status === "CANCELLED") {
+        throw new Error("Order already cancelled");
+      }
+
+      // G9: tenant-gate the status mutation via updateMany + count assert (Order
+      // has no compound unique on id, only the PK), then re-read with include.
+      const updateResult = await tx.order.updateMany({
+        where: { id: order.id, tenantId: ctx.tenantId },
+        data: { status: "CANCELLED" },
+      });
+      if (updateResult.count !== 1) {
+        throw new Error("Order not found or not tenant-owned");
+      }
+      const cancelled = await tx.order.findFirstOrThrow({
+        where: { id: order.id, tenantId: ctx.tenantId },
+        include: { items: { include: { product: true } } },
+      });
+
+      // G2/G9: lock the inventory rows FOR UPDATE before restoring, and use the
+      // tenant-gated compound unique selector on the update. Locking prevents a
+      // concurrent order.create from racing the restore.
+      const restoreProductIds = order.items.map((it) => it.productId);
+      const locked = await tx.$queryRaw<
+        Array<{ productId: string; quantity: number }>
+      >`SELECT "productId", quantity FROM "Inventory"
+        WHERE "tenantId" = ${ctx.tenantId} AND "productId" IN (${Prisma.join(restoreProductIds)})
+        FOR UPDATE`;
+      const lockedById = new Map(locked.map((r) => [r.productId, r.quantity]));
+
+      for (const item of order.items) {
+        const current = lockedById.get(item.productId);
+        if (current === undefined) continue;
+        await tx.inventory.update({
+          where: { tenantId_productId: { tenantId: ctx.tenantId, productId: item.productId } },
+          data: { quantity: current + item.quantity },
+        });
+      }
+
+      return cancelled;
+    });
+
+    await ctx.audit({
+      action: "order.cancel",
+      entityType: "order",
+      entityId: result.id,
+      afterValue: serializeOrder(result),
+      customerPhone: result.customerPhone ?? undefined,
+    });
+    return { success: true, data: serializeOrder(result) };
+  },
+  async describeChange(params, { tenantId, prisma }): Promise<{
+    proposedBefore: Prisma.InputJsonValue;
+    proposedAfter: Prisma.InputJsonValue;
+  }> {
+    const before = await prisma.order.findFirst({
+      where: { tenantId, id: params.orderId },
+      include: { items: { include: { product: true } } },
+    });
+    return {
+      proposedBefore: before ? serializeOrder(before) : {},
+      proposedAfter: before
+        ? { ...serializeOrder(before), status: "CANCELLED" }
+        : {},
+    };
+  },
+};
+
+export const orderTools: ToolDefinition<any>[] = [
+  orderRead,
+  orderList,
+  orderCreate,
+  orderCancel,
+];

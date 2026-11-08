@@ -1,9 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
-import { getAuthSession, requireRole } from "@/lib/auth";
-import { requireTenant, respondError, strQuery, HttpError } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
-import { setConversationStage } from "@/lib/pipeline";
+import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { requireTenant, respondError, strQuery, HttpError } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
+import { setConversationStage } from "@csq/core/lib/pipeline";
 
 // PATCH /api/dashboard/pipeline/deals/[conversationId] - OWNER/STAFF. Move a
 // conversation's deal to a new stage (human manual change). Body: { stage, reason? }.

@@ -20,7 +20,7 @@ import {
 } from "@phosphor-icons/react";
 import { cn } from "@/lib/utils";
 import { apiFetch, apiSend } from "@/lib/api-client";
-import type { Message } from "@/types/inbox";
+import type { Message } from "@csq/core/types/inbox";
 import { LoadingSkeleton } from "@/components/dashboard/loading-skeleton";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { Dialog } from "@/components/ui/dialog";

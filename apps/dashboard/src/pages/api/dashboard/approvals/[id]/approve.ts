@@ -1,8 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getAuthSession, requireRole } from "@/lib/auth";
-import { executeApprovedAction } from "@/tools/execute";
-import { sendApprovalFollowUp } from "@/lib/agent-outbox";
-import { apiError, apiOk, type ApiResponse } from "@/types/api";
+import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { executeApprovedAction } from "@csq/core/tools/execute";
+import { sendApprovalFollowUp } from "@csq/core/lib/agent-outbox";
+import { apiError, apiOk, type ApiResponse } from "@csq/core/types/api";
 
 // POST /api/dashboard/approvals/[id]/approve - owner approves a pending action.
 // Executes the original tool handler (audit stamped APPROVED) and marks the

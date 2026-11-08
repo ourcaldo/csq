@@ -1,11 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { ConversationStatus, Prisma } from "@prisma/client";
-import { getAuthSession } from "@/lib/auth";
-import prisma from "@/lib/db";
-import { paginate, requireTenant, respondError, strQuery } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
-import { getPnForLid } from "@/lib/baileys-auth-db";
-import type { Stage } from "@/types/inbox";
+import { getAuthSession } from "@csq/core/lib/auth";
+import prisma from "@csq/core/lib/db";
+import { paginate, requireTenant, respondError, strQuery } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
+import { getPnForLid } from "@csq/core/lib/baileys-auth-db";
+import type { Stage } from "@csq/core/types/inbox";
 
 type Item = Prisma.ConversationGetPayload<{
   include: {

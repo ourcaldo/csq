@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import type { GetServerSideProps } from "next";
 import { useRouter } from "next/router";
-import { withAuth } from "@/lib/auth";
+import { withAuth } from "@csq/core/lib/auth";
 import { apiFetch, apiSend, ApiError } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
-import type { ListResult } from "@/types/dashboard";
-import type { Stage, Tag } from "@/types/inbox";
-import { DealWithRelations } from "@/lib/pipeline";
+import type { ListResult } from "@csq/core/types/dashboard";
+import type { Stage, Tag } from "@csq/core/types/inbox";
+import { DealWithRelations } from "@csq/core/lib/pipeline";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

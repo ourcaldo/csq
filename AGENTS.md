@@ -3,15 +3,16 @@
 ## Project Status
 Active project (HackFest origin is historical). Scaffolding through the agent runtime,
 inbox, scenarios, and pipeline has landed; the agent runtime is a direct
-OpenAI-compatible client (`apps/dashboard/src/services/llm-runtime.ts`) - OpenClaw is gone.
+OpenAI-compatible client (`packages/core/src/services/llm-runtime.ts`) - OpenClaw is gone.
 **Read `docs/prd-product-requirements-document.md` in full before making any architectural decision.**
 **Owner decision 2026-11-08: the product escalates into a multi-frontend monorepo**
 (public UI + tenant dashboard + later a platform admin console). Plan:
 `docs/2026-11-08-monorepo-migration-plan.md`, PRD section 23B.0. Architecture
 decisions must follow that plan, not the older single-app statements in the
 historical PRD sections.
-**Phase 1 landed on branch `monorepo`: the app lives at `apps/dashboard/`, and the
-repo root is an npm-workspaces manifest with proxy scripts. Merge requires the Render
+**Phases 1-2 landed on branch `monorepo`: the app lives at `apps/dashboard/`, shared domain
+code (prisma, lib, services, tools, types) lives in `packages/core` imported as `@csq/core`,
+and the repo root is an npm-workspaces manifest with proxy scripts. Merge requires the Render
 command cutover (see the migration plan).**
 
 ## What We Are Building
@@ -48,7 +49,7 @@ Write the **least code that fully solves the task**. Boring beats clever.
   they look wrong in Indonesian text, and (history: the 2026-11-01 D10f mojibake)
   multi-byte dash characters are what gets corrupted when a file is re-saved with the
   wrong encoding. `npm run check:encoding` fails on them, so a violation breaks the
-  build gate. Migration `.sql` files under `apps/dashboard/prisma/migrations/` are the one frozen
+  build gate. Migration `.sql` files under `packages/core/prisma/migrations/` are the one frozen
   exception: their bytes are checksummed in `_prisma_migrations` and must never be
   edited after being applied.
 - YAGNI is law. No speculative abstraction, no "might need later", no dead config or

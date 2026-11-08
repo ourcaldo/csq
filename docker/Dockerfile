@@ -12,9 +12,10 @@ WORKDIR /app
 # match the root lockfile.
 COPY package.json package-lock.json ./
 COPY apps/dashboard/package.json ./apps/dashboard/
+COPY packages/core/package.json ./packages/core/
 RUN npm ci
 
-COPY apps/dashboard/prisma ./apps/dashboard/prisma
+COPY packages/core/prisma ./packages/core/prisma
 RUN npx prisma generate
 
 COPY . .
@@ -42,7 +43,7 @@ COPY --from=builder /app/apps/dashboard/public ./apps/dashboard/public
 
 # Prisma: schema + migrations for migrate deploy, the generated client
 # (tracing can miss the query engine binary), and the CLI to run it.
-COPY --from=builder /app/apps/dashboard/prisma ./apps/dashboard/prisma
+COPY --from=builder /app/packages/core/prisma ./packages/core/prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
@@ -52,4 +53,4 @@ EXPOSE 3000
 # Apply migrations (never `migrate dev` in prod) then start the standalone
 # server. The prisma CLI is invoked directly - npx/.bin shims are not
 # guaranteed inside the trimmed runner image.
-CMD ["sh", "-c", "node ./node_modules/prisma/build/index.js migrate deploy --schema apps/dashboard/prisma/schema.prisma && node apps/dashboard/server.js"]
+CMD ["sh", "-c", "node ./node_modules/prisma/build/index.js migrate deploy --schema packages/core/prisma/schema.prisma && node apps/dashboard/server.js"]

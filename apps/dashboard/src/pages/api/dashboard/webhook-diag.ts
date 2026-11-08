@@ -1,9 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getAuthSession } from "@/lib/auth";
-import { requireRole } from "@/lib/auth";
-import { respondError } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
-import { getWebhookDiags } from "@/lib/webhook-diagnostics";
+import { getAuthSession } from "@csq/core/lib/auth";
+import { requireRole } from "@csq/core/lib/auth";
+import { respondError } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
+import { getWebhookDiags } from "@csq/core/lib/webhook-diagnostics";
 
 // Owner-only diagnostic read-out for the WhatsApp webhook: the recent reasons
 // inbound POSTs were rejected (SIG_MISMATCH / NO_SECRET / UNKNOWN_PHONE_ID).

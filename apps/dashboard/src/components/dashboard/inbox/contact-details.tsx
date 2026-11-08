@@ -28,7 +28,7 @@ import { cn } from "@/lib/utils";
 import { apiFetch, apiSend } from "@/lib/api-client";
 import { readableTextColor } from "@/lib/tag-color";
 import { Select } from "@/components/ui/select";
-import type { ConversationListItem, Stage, Tag } from "@/types/inbox";
+import type { ConversationListItem, Stage, Tag } from "@csq/core/types/inbox";
 import { useSession } from "next-auth/react";
 
 type ContactDetailsProps = {

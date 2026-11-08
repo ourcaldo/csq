@@ -1,9 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
-import { getAuthSession, requireRole } from "@/lib/auth";
-import { requireTenant, respondError } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
-import prisma from "@/lib/db";
+import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
+import prisma from "@csq/core/lib/db";
 
 // PUT /api/dashboard/pipeline/stages/reorder - OWNER/STAFF. Body:
 // { order: string[] } - the stage ids in the desired order. Reassigns the

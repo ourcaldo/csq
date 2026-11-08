@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 import type { ChangeEvent } from "react";
 import type { GetServerSideProps } from "next";
-import { withAuth } from "@/lib/auth";
+import { withAuth } from "@csq/core/lib/auth";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
-import type { ListResult, Memory, MemoryImportance } from "@/types/dashboard";
+import type { ListResult, Memory, MemoryImportance } from "@csq/core/types/dashboard";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { StateNotice } from "@/components/dashboard/state-notice";
 import { Pagination } from "@/components/dashboard/pagination";

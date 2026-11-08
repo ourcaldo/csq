@@ -1,15 +1,15 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { InventorySource } from "@prisma/client";
-import prisma from "@/lib/db";
-import { getAuthSession } from "@/lib/auth";
-import { requireTenant, respondError } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
-import { applyMapping } from "@/services/excel";
-import { readSheet } from "@/services/sheets";
-import { applyImport, type ImportSummary } from "@/lib/import-apply";
-import { sheetsConfirmSchema, sheetsSourceConfigSchema } from "@/types/sheets";
-import { getGoogleCreds } from "@/lib/google-connect";
-import { replaceSourceRows } from "@/lib/source-rows";
+import prisma from "@csq/core/lib/db";
+import { getAuthSession } from "@csq/core/lib/auth";
+import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
+import { applyMapping } from "@csq/core/services/excel";
+import { readSheet } from "@csq/core/services/sheets";
+import { applyImport, type ImportSummary } from "@csq/core/lib/import-apply";
+import { sheetsConfirmSchema, sheetsSourceConfigSchema } from "@csq/core/types/sheets";
+import { getGoogleCreds } from "@csq/core/lib/google-connect";
+import { replaceSourceRows } from "@csq/core/lib/source-rows";
 
 // Step 4: confirm the selection for a connected Sheet and run the first
 // import. Only dataType "produk" gets structured product/inventory import

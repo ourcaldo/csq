@@ -1,10 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
-import { getAuthSession, requireRole } from "@/lib/auth";
-import { requireTenant, respondError } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
-import { getOrCreatePipeline } from "@/lib/pipeline";
-import prisma from "@/lib/db";
+import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
+import { getOrCreatePipeline } from "@csq/core/lib/pipeline";
+import prisma from "@csq/core/lib/db";
 import type { StageKind } from "@prisma/client";
 
 // POST /api/dashboard/pipeline/stages - OWNER/STAFF. Create a stage in the

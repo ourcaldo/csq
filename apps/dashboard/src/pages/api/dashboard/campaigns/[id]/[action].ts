@@ -1,13 +1,13 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Campaign } from "@prisma/client";
-import { getAuthSession } from "@/lib/auth";
-import prisma from "@/lib/db";
-import { logHuman } from "@/lib/audit";
-import { requireTenant, respondError } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
-import { canRunCampaigns } from "@/lib/campaign-access";
-import { nextCampaignOccurrence, scheduleTz, type ScheduleConfig } from "@/lib/campaign-schedule";
-import { scheduleConfigSchema, type CampaignRow } from "@/types/campaign";
+import { getAuthSession } from "@csq/core/lib/auth";
+import prisma from "@csq/core/lib/db";
+import { logHuman } from "@csq/core/lib/audit";
+import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
+import { canRunCampaigns } from "@csq/core/lib/campaign-access";
+import { nextCampaignOccurrence, scheduleTz, type ScheduleConfig } from "@csq/core/lib/campaign-schedule";
+import { scheduleConfigSchema, type CampaignRow } from "@csq/core/types/campaign";
 
 // Activate (DRAFT/PAUSED → ACTIVE) and pause (ACTIVE → PAUSED).
 // Activation computes the first nextRunAt from the schedule; ONCE requires a

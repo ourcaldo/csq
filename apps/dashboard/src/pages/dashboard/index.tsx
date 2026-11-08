@@ -4,10 +4,10 @@
 import type { GetServerSideProps } from "next";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
-import { withAuth } from "@/lib/auth";
+import { withAuth } from "@csq/core/lib/auth";
 import { useApi } from "@/hooks/use-api";
-import type { ListResult } from "@/types/dashboard";
-import type { ConversationListItem } from "@/types/inbox";
+import type { ListResult } from "@csq/core/types/dashboard";
+import type { ConversationListItem } from "@csq/core/types/inbox";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { LoadingSkeleton } from "@/components/dashboard/loading-skeleton";

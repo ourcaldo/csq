@@ -1,17 +1,17 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Message } from "@prisma/client";
 import { z } from "zod";
-import { getAuthSession, requireRole } from "@/lib/auth";
-import prisma from "@/lib/db";
+import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import prisma from "@csq/core/lib/db";
 import {
   HttpError,
   requireTenant,
   respondError,
-} from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
-import { recordOutboundMessage } from "@/lib/inbox";
-import { getProvider } from "@/lib/whatsapp-provider";
-import { logAction } from "@/lib/audit";
+} from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
+import { recordOutboundMessage } from "@csq/core/lib/inbox";
+import { getProvider } from "@csq/core/lib/whatsapp-provider";
+import { logAction } from "@csq/core/lib/audit";
 
 // Human-initiated template send. Templates are pre-approved in Meta Business
 // Manager and are the only way to reach a customer outside the 24h Cloud API

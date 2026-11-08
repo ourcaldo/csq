@@ -1,16 +1,16 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Message, Prisma } from "@prisma/client";
 import { z } from "zod";
-import { getAuthSession, requireRole } from "@/lib/auth";
-import prisma from "@/lib/db";
+import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import prisma from "@csq/core/lib/db";
 import {
   HttpError,
   paginate,
   requireTenant,
   respondError,
-} from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
-import { sendHumanReply } from "@/lib/inbox";
+} from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
+import { sendHumanReply } from "@csq/core/lib/inbox";
 
 // Human reply body only; `to` is the conversation's customerPhone (server-side
 // derived, never client-supplied).

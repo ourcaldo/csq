@@ -1,11 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Prisma, Product } from "@prisma/client";
-import { getAuthSession, requireRole } from "@/lib/auth";
-import prisma from "@/lib/db";
-import { logHuman } from "@/lib/audit";
-import { paginate, requireTenant, respondError, strQuery } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
-import { productCreateSchema } from "@/types/product";
+import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import prisma from "@csq/core/lib/db";
+import { logHuman } from "@csq/core/lib/audit";
+import { paginate, requireTenant, respondError, strQuery } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
+import { productCreateSchema } from "@csq/core/types/product";
 
 type ListResult = { items: Product[]; total: number; page: number; pageSize: number };
 

@@ -1,8 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getAuthSession } from "@/lib/auth";
-import { requireTenant, respondError } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
-import { isGoogleConnected } from "@/lib/google-connect";
+import { getAuthSession } from "@csq/core/lib/auth";
+import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
+import { isGoogleConnected } from "@csq/core/lib/google-connect";
 
 // GET /api/dashboard/sources/google - public connection status for the
 // dashboard banner/button. Exposes only `connected` + `email`, never tokens.

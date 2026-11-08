@@ -1,15 +1,15 @@
 ﻿import type { NextApiRequest, NextApiResponse } from "next";
 import crypto from "crypto";
-import prisma from "@/lib/db";
-import { ingestInboundMessage } from "@/lib/inbox";
-import { processInboundWithAgent } from "@/lib/agent-loop";
-import { replyToNonText } from "@/lib/agent-outbox";
-import { cloudApiConfigSchema } from "@/types/whatsapp";
-import { parseCloudApiInbound } from "@/services/whatsapp";
+import prisma from "@csq/core/lib/db";
+import { ingestInboundMessage } from "@csq/core/lib/inbox";
+import { processInboundWithAgent } from "@csq/core/lib/agent-loop";
+import { replyToNonText } from "@csq/core/lib/agent-outbox";
+import { cloudApiConfigSchema } from "@csq/core/types/whatsapp";
+import { parseCloudApiInbound } from "@csq/core/services/whatsapp";
 import {
   recordWebhookDiag,
   getWebhookDiags,
-} from "@/lib/webhook-diagnostics";
+} from "@csq/core/lib/webhook-diagnostics";
 
 // WhatsApp Cloud API webhook. UNAUTHENTICATED - Meta calls it directly, so
 // tenantId is resolved from the channel config (looked up by phone_number_id),

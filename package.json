@@ -10,14 +10,17 @@
     "packages/*"
   ],
   "prisma": {
-    "schema": "apps/dashboard/prisma/schema.prisma"
+    "schema": "packages/core/prisma/schema.prisma"
   },
   "scripts": {
     "dev": "npm run dev -w apps/dashboard",
-    "build": "npm run prisma:generate -w apps/dashboard && npm run build -w apps/dashboard",
-    "start": "npm run db:deploy -w apps/dashboard && npm run start -w apps/dashboard",
+    "build": "npm run db:generate -w packages/core && npm run build -w apps/dashboard",
+    "start": "npm run db:deploy -w packages/core && npm run start -w apps/dashboard",
     "lint": "npm run lint -w apps/dashboard",
     "check:encoding": "node scripts/check-encoding.mjs",
-    "db:migration-checksums": "node scripts/migration-checksums.mjs"
+    "db:migration-checksums": "node scripts/migration-checksums.mjs",
+    "db:migrate": "npm run db:migrate -w packages/core",
+    "db:seed": "npm run db:seed -w packages/core",
+    "demo:reset": "npm run demo:reset -w packages/core"
   }
 }

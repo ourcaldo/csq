@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import type { GetServerSideProps } from "next";
 import { useSession } from "next-auth/react";
 import { Robot, Sparkle, Power, Pause, Play, Pencil, Plus } from "@phosphor-icons/react";
-import { withAuth } from "@/lib/auth";
+import { withAuth } from "@csq/core/lib/auth";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";

@@ -1,12 +1,12 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import prisma from "@/lib/db";
-import { getAuthSession } from "@/lib/auth";
-import { requireTenant, respondError } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
-import { syncOne } from "@/services/scheduler";
-import { sheetsSyncSchema, sheetsSourceConfigSchema } from "@/types/sheets";
-import { getGoogleCreds } from "@/lib/google-connect";
-import type { ImportSummary } from "@/lib/import-apply";
+import prisma from "@csq/core/lib/db";
+import { getAuthSession } from "@csq/core/lib/auth";
+import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
+import { syncOne } from "@csq/core/services/scheduler";
+import { sheetsSyncSchema, sheetsSourceConfigSchema } from "@csq/core/types/sheets";
+import { getGoogleCreds } from "@csq/core/lib/google-connect";
+import type { ImportSummary } from "@csq/core/lib/import-apply";
 
 // Manual sync trigger for a connected Sheet. Reuses the exact same logic as
 // the node-cron periodic sync (scheduler.syncOne) so behavior is identical.

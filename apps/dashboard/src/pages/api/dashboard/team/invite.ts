@@ -1,11 +1,11 @@
 import { randomBytes } from "crypto";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
-import { getAuthSession, requireRole } from "@/lib/auth";
-import prisma from "@/lib/db";
-import { hashPassword } from "@/lib/password";
-import { requireTenant, respondError } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
+import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import prisma from "@csq/core/lib/db";
+import { hashPassword } from "@csq/core/lib/password";
+import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
 
 // Owner invites a staff member into their tenant (PRD FR-AU-006 / plan 2.10).
 // MVP has no email transport, so we create the STAFF user with a generated

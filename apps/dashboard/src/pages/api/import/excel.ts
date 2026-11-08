@@ -1,8 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getAuthSession } from "@/lib/auth";
-import { parseFile, detectColumns, type ColumnMapping } from "@/services/excel";
-import { excelUploadSchema } from "@/types/import";
-import { apiError, apiOk, type ApiResponse } from "@/types/api";
+import { getAuthSession } from "@csq/core/lib/auth";
+import { parseFile, detectColumns, type ColumnMapping } from "@csq/core/services/excel";
+import { excelUploadSchema } from "@csq/core/types/import";
+import { apiError, apiOk, type ApiResponse } from "@csq/core/types/api";
 
 type PreviewResponse = {
   headers: string[];

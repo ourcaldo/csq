@@ -1,13 +1,13 @@
 ﻿import type { NextApiRequest, NextApiResponse } from "next";
 import type { Knowledge } from "@prisma/client";
-import { getAuthSession, requireRole } from "@/lib/auth";
-import prisma from "@/lib/db";
-import { logHuman } from "@/lib/audit";
-import { requireTenant, respondError } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
-import { knowledgeCreateSchema } from "@/types/knowledge";
-import { upsertEmbedding } from "@/lib/vector";
-import { embed, isEmbeddingsConfigured } from "@/services/embeddings";
+import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import prisma from "@csq/core/lib/db";
+import { logHuman } from "@csq/core/lib/audit";
+import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
+import { knowledgeCreateSchema } from "@csq/core/types/knowledge";
+import { upsertEmbedding } from "@csq/core/lib/vector";
+import { embed, isEmbeddingsConfigured } from "@csq/core/services/embeddings";
 
 export default async function handler(
   req: NextApiRequest,

@@ -1,9 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
-import { getAuthSession, requireRole } from "@/lib/auth";
-import { logHuman } from "@/lib/audit";
-import { requireTenant, respondError } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
+import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { logHuman } from "@csq/core/lib/audit";
+import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import {
   emailProviderSchema,
   getEmailProvider,
@@ -11,7 +11,7 @@ import {
   clearEmailProvider,
   maskEmailProvider,
   type EmailProviderStatus,
-} from "@/lib/email-config";
+} from "@csq/core/lib/email-config";
 
 // Per-tenant email delivery config for the scenario Email module (Settings →
 // Email). The owner brings their own provider: SMTP (host/port/user/pass) or

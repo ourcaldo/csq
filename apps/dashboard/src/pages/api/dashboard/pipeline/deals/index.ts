@@ -1,9 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getAuthSession } from "@/lib/auth";
-import { requireTenant, respondError, strQuery, intQuery, paginate } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
-import { listDealsForKanban, type DealWithRelations } from "@/lib/pipeline";
-import type { ListResult } from "@/types/dashboard";
+import { getAuthSession } from "@csq/core/lib/auth";
+import { requireTenant, respondError, strQuery, intQuery, paginate } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
+import { listDealsForKanban, type DealWithRelations } from "@csq/core/lib/pipeline";
+import type { ListResult } from "@csq/core/types/dashboard";
 
 // GET /api/dashboard/pipeline/deals - paginated, filtered deals for the kanban.
 // Filters: ?stage=&assignee=&tag=&page=&pageSize=. Any authenticated member.

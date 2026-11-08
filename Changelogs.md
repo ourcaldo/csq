@@ -10,6 +10,7 @@ Monorepo Phase 1 (PRD 23B.0; plan: `docs/2026-11-08-monorepo-migration-plan.md`)
 - **App manifest:** renamed `@csq/dashboard`, version 4.0.0, adds `db:deploy` (prisma migrate deploy); repo-wide tools (`check:encoding`, `db:migration-checksums`) moved to the root manifest.
 - **Path updates:** the encoding guard and migration checksums scan `apps/dashboard/...`; self-check imports point at `../apps/dashboard/src/...`; a root `tsconfig.json` (extends the app's, `@/*` -> `apps/dashboard/src/*`) keeps tsx alias resolution for the self-check scripts; the Dockerfile is rebuilt for the workspace layout (standalone server at `apps/dashboard/server.js`); setup-vps and README path fixes.
 - **Render cutover (manual, with the merge):** Build `npm ci && npm run build`, Start `npm run start`.
+- **packages/core (Phase 2):** Prisma schema/migrations/seed, `lib`, `services`, `tools`, and `types` moved to `packages/core` (package `@csq/core`, exports `./src/*`); all 652 moved-code imports rewritten from `@/lib|services|tools|types` to `@csq/core/...` (the app keeps only browser-local `lib/api-client`, `lib/utils`, `lib/tag-color`, and the ambient `types/next-auth.d.ts`); dependency manifests split (core carries the server/domain deps, the app keeps UI deps plus its direct zod/@prisma/client/next-auth imports); `next.config` adds `transpilePackages: ["@csq/core"]`; a root tsconfig path maps `@csq/core/*` for the root self-check scripts. Core never imports from an app; the boundary is grep-verified.
 
 ## 3.0.0 — 2026-11-01 (branch `feat/contact-tags-and-campaigns`)
 

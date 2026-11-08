@@ -1,10 +1,10 @@
 ﻿import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
-import { getAuthSession, requireRole } from "@/lib/auth";
-import prisma from "@/lib/db";
-import { requireTenant, respondError } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
+import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import prisma from "@csq/core/lib/db";
+import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
 
 // Prisma payload shape for an Agent with its AgentCapability overrides included.
 // Used on both the server (typed query input) and the client (typed response).

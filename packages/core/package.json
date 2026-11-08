@@ -1,0 +1,39 @@
+{
+  "name": "@csq/core",
+  "version": "4.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=20 <21"
+  },
+  "scripts": {
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:seed": "tsx prisma/seed.ts",
+    "demo:reset": "tsx prisma/reset-demo.ts"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "@whiskeysockets/baileys": "^6.7.24",
+    "bcryptjs": "^3.0.3",
+    "exceljs": "^4.4.0",
+    "googleapis": "^144.0.0",
+    "next-auth": "^4.24.8",
+    "node-cron": "^3.0.3",
+    "nodemailer": "^7.0.13",
+    "pino": "^10.3.1",
+    "zod": "^3.23.8",
+    "zod-to-json-schema": "^3.25.2"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20.16.11",
+    "@types/node-cron": "^3.0.11",
+    "@types/nodemailer": "^8.0.1",
+    "prisma": "^5.22.0",
+    "tsx": "^4.19.1"
+  }
+}

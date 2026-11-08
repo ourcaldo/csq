@@ -1,9 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getAuthSession, requireRole } from "@/lib/auth";
-import { requireTenant, respondError } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
-import { clearGoogleCreds } from "@/lib/google-connect";
-import prisma from "@/lib/db";
+import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
+import { clearGoogleCreds } from "@csq/core/lib/google-connect";
+import prisma from "@csq/core/lib/db";
 
 // POST /api/dashboard/sources/google/disconnect - OWNER only. Clears the
 // tenant's Google tokens and marks every GOOGLE_SHEETS DataSource INACTIVE

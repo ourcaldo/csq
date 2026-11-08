@@ -1,12 +1,12 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import prisma from "@/lib/db";
-import { getAuthSession } from "@/lib/auth";
-import { requireTenant, respondError } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
-import { detectColumns } from "@/services/excel";
-import { readSheet } from "@/services/sheets";
-import { sheetsConnectSchema, sheetsSourceConfigSchema } from "@/types/sheets";
-import { getGoogleCreds } from "@/lib/google-connect";
+import prisma from "@csq/core/lib/db";
+import { getAuthSession } from "@csq/core/lib/auth";
+import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
+import { detectColumns } from "@csq/core/services/excel";
+import { readSheet } from "@csq/core/services/sheets";
+import { sheetsConnectSchema, sheetsSourceConfigSchema } from "@csq/core/types/sheets";
+import { getGoogleCreds } from "@csq/core/lib/google-connect";
 
 // Step 3: after OAuth, the owner picks a spreadsheet + sheet. We read the
 // first rows, detect columns, persist the selection into DataSource.config,

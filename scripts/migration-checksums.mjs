@@ -20,7 +20,7 @@
 import { createHash } from "crypto";
 import { readdirSync, readFileSync, statSync } from "fs";
 
-const dir = "apps/dashboard/prisma/migrations/";
+const dir = "packages/core/prisma/migrations/";
 for (const name of readdirSync(dir).sort()) {
   if (!statSync(dir + name).isDirectory()) continue;
   const content = readFileSync(dir + name + "/migration.sql", "utf8");

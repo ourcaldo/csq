@@ -1,8 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getAuthSession } from "@/lib/auth";
-import { requireTenant, respondError } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
-import { funnelCounts } from "@/lib/pipeline";
+import { getAuthSession } from "@csq/core/lib/auth";
+import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
+import { funnelCounts } from "@csq/core/lib/pipeline";
 
 // GET /api/dashboard/pipeline/funnel - per-stage deal counts (+ stage metadata)
 // for the funnel cone view and conversion rates. Any authenticated member.

@@ -1,8 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getAuthSession } from "@/lib/auth";
-import { requireTenant, respondError } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
-import { getOrCreatePipeline, type PipelineWithStages } from "@/lib/pipeline";
+import { getAuthSession } from "@csq/core/lib/auth";
+import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
+import { getOrCreatePipeline, type PipelineWithStages } from "@csq/core/lib/pipeline";
 
 // GET /api/dashboard/pipeline - the tenant's pipeline + stages. Lazy-seeds the
 // default template on first call (so unused tenants carry no empty pipeline). Any

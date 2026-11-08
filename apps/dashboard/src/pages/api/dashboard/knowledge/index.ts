@@ -1,9 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Knowledge, KnowledgeType, Prisma } from "@prisma/client";
-import { getAuthSession } from "@/lib/auth";
-import prisma from "@/lib/db";
-import { paginate, requireTenant, respondError, strQuery } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
+import { getAuthSession } from "@csq/core/lib/auth";
+import prisma from "@csq/core/lib/db";
+import { paginate, requireTenant, respondError, strQuery } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
 
 // String → enum lookup (avoids `as`-narrowing from a Set.has guard).
 const TYPE_BY_KEY: Record<string, KnowledgeType> = {

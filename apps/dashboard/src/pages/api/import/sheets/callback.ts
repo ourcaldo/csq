@@ -1,9 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import prisma from "@/lib/db";
-import { getAuthSession } from "@/lib/auth";
-import { requireTenant } from "@/lib/queries";
-import { handleOAuthCallback } from "@/services/sheets";
-import { setGoogleCreds } from "@/lib/google-connect";
+import prisma from "@csq/core/lib/db";
+import { getAuthSession } from "@csq/core/lib/auth";
+import { requireTenant } from "@csq/core/lib/queries";
+import { handleOAuthCallback } from "@csq/core/services/sheets";
+import { setGoogleCreds } from "@csq/core/lib/google-connect";
 
 // Step 2: Google redirects here with ?code=... Exchange it for tokens and
 // store them ON THE TENANT (Tenant.settings.googleSheets) - one Google

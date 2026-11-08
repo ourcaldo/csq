@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import prisma from "@/lib/db";
+import prisma from "@csq/core/lib/db";
 
 // Public media serving (plan 3.2.1). UNAUTHENTICATED by design: Meta's Cloud
 // API fetcher must reach the image over HTTPS, so this route carries the same

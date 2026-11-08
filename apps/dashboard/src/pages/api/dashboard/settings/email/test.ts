@@ -1,10 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getAuthSession, requireRole } from "@/lib/auth";
-import { logHuman } from "@/lib/audit";
-import { requireTenant, respondError } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
-import { getEmailProvider, maskEmailProvider } from "@/lib/email-config";
-import { sendEmailWithProvider } from "@/services/email";
+import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { logHuman } from "@csq/core/lib/audit";
+import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
+import { getEmailProvider, maskEmailProvider } from "@csq/core/lib/email-config";
+import { sendEmailWithProvider } from "@csq/core/services/email";
 
 // Test-send for Settings → Email: sends one plain-text email through the
 // SAVED provider config to the owner's own address, so the owner can confirm

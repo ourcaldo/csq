@@ -1,9 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Order, OrderStatus, Prisma } from "@prisma/client";
-import { getAuthSession } from "@/lib/auth";
-import prisma from "@/lib/db";
-import { paginate, requireTenant, respondError, strQuery } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
+import { getAuthSession } from "@csq/core/lib/auth";
+import prisma from "@csq/core/lib/db";
+import { paginate, requireTenant, respondError, strQuery } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
 
 type OrderWithItems = Prisma.OrderGetPayload<{ include: { items: true } }>;
 type ListResult = {

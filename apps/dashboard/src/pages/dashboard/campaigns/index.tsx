@@ -2,15 +2,15 @@ import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import type { GetServerSideProps } from "next";
 import { useSession } from "next-auth/react";
-import { withAuth } from "@/lib/auth";
+import { withAuth } from "@csq/core/lib/auth";
 import { apiFetch, apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
-import type { Category, Contact, ListResult, Tag } from "@/types/dashboard";
+import type { Category, Contact, ListResult, Tag } from "@csq/core/types/dashboard";
 import type {
   CampaignMessageRow,
   CampaignRow,
   CampaignRunRow,
-} from "@/types/campaign";
+} from "@csq/core/types/campaign";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { StateNotice } from "@/components/dashboard/state-notice";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";

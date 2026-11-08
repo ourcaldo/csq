@@ -1,10 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getAuthSession } from "@/lib/auth";
-import { requireTenant, respondError } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
-import { getGoogleCreds } from "@/lib/google-connect";
-import { listSpreadsheets } from "@/services/sheets";
-import type { SpreadsheetRef } from "@/types/sheets";
+import { getAuthSession } from "@csq/core/lib/auth";
+import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
+import { getGoogleCreds } from "@csq/core/lib/google-connect";
+import { listSpreadsheets } from "@csq/core/services/sheets";
+import type { SpreadsheetRef } from "@csq/core/types/sheets";
 
 // GET /api/dashboard/sources/spreadsheets - list the connected Google user's
 // spreadsheets so the owner can pick one (no re-login; uses the tenant's

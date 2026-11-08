@@ -15,10 +15,10 @@ import {
   Plug,
 } from "@phosphor-icons/react";
 import { QRCodeSVG } from "qrcode.react";
-import { withAuth, getSSRSession } from "@/lib/auth";
-import prisma from "@/lib/db";
-import { cloudApiConfigSchema } from "@/types/whatsapp";
-import { generateVerifyToken } from "@/lib/whatsapp-verify-token";
+import { withAuth, getSSRSession } from "@csq/core/lib/auth";
+import prisma from "@csq/core/lib/db";
+import { cloudApiConfigSchema } from "@csq/core/types/whatsapp";
+import { generateVerifyToken } from "@csq/core/lib/whatsapp-verify-token";
 import { z } from "zod";
 import { apiFetch, apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";

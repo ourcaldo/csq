@@ -1,9 +1,9 @@
 import { randomUUID } from "crypto";
 import type { NextApiRequest, NextApiResponse } from "next";
-import prisma from "@/lib/db";
-import { hashPassword } from "@/lib/password";
-import { registerSchema } from "@/types/auth";
-import { apiError, apiOk, type ApiResponse } from "@/types/api";
+import prisma from "@csq/core/lib/db";
+import { hashPassword } from "@csq/core/lib/password";
+import { registerSchema } from "@csq/core/types/auth";
+import { apiError, apiOk, type ApiResponse } from "@csq/core/types/api";
 
 function slugify(s: string): string {
   return s

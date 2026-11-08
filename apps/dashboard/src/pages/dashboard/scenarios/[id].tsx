@@ -19,11 +19,11 @@ import {
 } from "@xyflow/react";
 import type { Node, Edge, Connection, NodeChange, EdgeChange } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { withAuth } from "@/lib/auth";
+import { withAuth } from "@csq/core/lib/auth";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
-import type { Scenario, ScenarioStatus, ScenarioTriggerType } from "@/types/scenario";
-import type { ListResult } from "@/types/dashboard";
+import type { Scenario, ScenarioStatus, ScenarioTriggerType } from "@csq/core/types/scenario";
+import type { ListResult } from "@csq/core/types/dashboard";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { StateNotice } from "@/components/dashboard/state-notice";
 import { BadgeStatus } from "@/components/dashboard/badge-status";

@@ -1,16 +1,16 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Scenario } from "@prisma/client";
 import { z } from "zod";
-import { getAuthSession, requireRole } from "@/lib/auth";
-import prisma from "@/lib/db";
-import { logHuman } from "@/lib/audit";
-import { requireTenant, respondError } from "@/lib/queries";
-import { apiOk, type ApiResponse } from "@/types/api";
+import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import prisma from "@csq/core/lib/db";
+import { logHuman } from "@csq/core/lib/audit";
+import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import {
   scenarioGraphSchema,
   triggerTypeSchema,
   triggerConfigSchema,
-} from "@/types/scenario";
+} from "@csq/core/types/scenario";
 
 // Single scenario: GET / PUT (edit fields) / DELETE. Activation and pause are
 // separate endpoints ([id]/activate, [id]/pause) because they run graph
