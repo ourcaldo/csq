@@ -21,6 +21,13 @@ Render command cutover (see the migration plan).**
 reconfigure the old `csq` service - until the owner explicitly asks. The monorepo is
 being tested first on its own Render service while the monolith on `main` stays as
 production.**
+**Owner decision 2026-11-08 (enterprise escalation): the product targets enterprise use,
+not a single-owner tool.** Target architecture: `apps/api` (versioned /v1 contracts, token
+auth, Tool Gateway, webhooks) and `apps/worker` (WhatsApp sockets, scheduler, campaign
+engine - the ONLY socket owner) as separate services; the dashboard becomes UI + BFF.
+Resilience requirement: a broken or deploying dashboard must never affect the API or the
+customer-serving runtime. The single-process constraint is superseded - see PRD 23C and
+`docs/2026-11-08-enterprise-architecture-plan.md`.
 
 ## Infrastructure Topology and Touch Rules (owner directive 2026-11-08)
 
@@ -73,6 +80,12 @@ Core principle: **Read by default. Write by permission. Act by policy.**
 ## Agent Behavior - Senior Engineer, Not a Yes-Man
 - **Never just agree.** If the plan is wrong, risky, over-scoped, or violates a PRD
   constraint, push back with the reason and a better alternative.
+- **Never answer architecture questions anchored on "today's scale."** Evaluate every
+  proposal against the product's target state (PRD 23C: enterprise, multi-client,
+  resilient). "Not needed yet", "YAGNI", and "fine at current scale" are banned as
+  standalone dismissals. If you see a real problem, argue it as explicit forward-looking
+  trade-offs (cost, sequencing, risk) - never as "not for today". Disagreement is welcome;
+  lazy framing is a process failure.
 - When the user reports a specific failure, diagnose and fix THAT failure. Do not
   expand scope into adjacent subsystems unless the evidence proves they are the
   same root cause, and do not lecture about problems the user did not ask about -
@@ -268,8 +281,10 @@ Write the **least code that fully solves the task**. Boring beats clever.
 ## Stack - Fixed Constraints (do not substitute)
 - **Next.js with Pages Router - NOT App Router.** This is an explicit PRD decision; do not
   scaffold with App Router or suggest migration.
-- Single Next.js process serves both dashboard UI and Tool Gateway API routes. No separate
-  backend service (no Fastify etc.).
+- **Superseded 2026-11-08 (enterprise escalation): the single-process constraint is dead.**
+  Target: separate services - `apps/dashboard` (UI + BFF), `apps/api`, `apps/worker` - per
+  PRD 23C and `docs/2026-11-08-enterprise-architecture-plan.md`. Pages Router stays for
+  every Next.js app; Postgres stays the only data store (no Redis/queue).
 - UI: Tailwind CSS + shadcn/ui. Auth: Auth.js (NextAuth), email/password for MVP.
 - PostgreSQL + Prisma + **pgvector** (same Postgres instance; no separate vector DB -
   no Pinecone/Weaviate/Redis/task queue).
