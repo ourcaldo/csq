@@ -1,12 +1,12 @@
 import { type FormEvent, useState } from "react";
 import { useSession } from "next-auth/react";
+import { Plus, X } from "@phosphor-icons/react";
 import { AdminShell } from "@/components/admin-shell";
+import { Btn, PageHead, TableCard } from "@/components/console";
 import { withAdminAuth } from "@/lib/admin-auth";
 import { useAdminApi, adminFetch } from "@/lib/admin-api";
-import { Button } from "@csq/ui/components/ui/button";
 import { Input } from "@csq/ui/components/ui/input";
 import { Label } from "@csq/ui/components/ui/label";
-import { Plus, X } from "@phosphor-icons/react";
 
 type Admin = { id: string; email: string; name: string; createdAt: string };
 type AdminList = { items: Admin[] };
@@ -56,90 +56,96 @@ export default function AdminsPage() {
 
   return (
     <AdminShell title="Admin">
-      <div className="space-y-4">
-        <div className="flex items-center justify-between gap-4">
-          <p className="text-[13px] text-slate-500">{items.length} operator platform.</p>
-          <Button size="sm" onClick={() => setShowCreate(true)}>
-            <Plus size={14} weight="bold" className="mr-1.5" />
+      <PageHead
+        eyebrow="Konfigurasi"
+        title="Admin"
+        sub={`${items.length} operator platform`}
+        action={
+          <Btn onClick={() => setShowCreate(true)}>
+            <Plus size={14} weight="bold" />
             Admin baru
-          </Button>
+          </Btn>
+        }
+      />
+
+      {(formError || error) && (
+        <div className="mb-4 rounded-xl border border-border border-l-2 border-l-bad bg-card px-5 py-3 text-[13px] text-bad">
+          {formError ?? error}
         </div>
+      )}
 
-        {(formError || error) && (
-          <div className="rounded-lg border border-slate-200 border-l-2 border-l-red-600 bg-white px-4 py-2.5 text-[13px] text-red-700">
-            {formError ?? error}
-          </div>
-        )}
-
-        <div className="panel overflow-hidden">
-          <table className="tbl">
-            <thead>
-              <tr>
-                <th>Nama</th>
-                <th>Email</th>
-                <th>Ditambahkan</th>
-                <th />
+      <TableCard>
+        <table className="ledger">
+          <thead>
+            <tr>
+              <th>Operator</th>
+              <th>Email</th>
+              <th>Sejak</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((a) => (
+              <tr key={a.id}>
+                <td className="font-medium">
+                  {a.name}
+                  {a.id === myId && (
+                    <span className="ml-2 rounded-full bg-signal-soft px-2 py-0.5 text-[11px] font-semibold text-primary">
+                      Anda
+                    </span>
+                  )}
+                </td>
+                <td className="text-[13px]">{a.email}</td>
+                <td className="font-mono text-[12.5px] text-muted-foreground">
+                  {new Date(a.createdAt).toLocaleDateString("id-ID", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </td>
+                <td className="text-right">
+                  {a.id !== myId && (
+                    <Btn
+                      variant="ghost"
+                      disabled={busy === a.id}
+                      onClick={() => void removeAdmin(a.id)}
+                      className="hover:text-bad"
+                    >
+                      Hapus
+                    </Btn>
+                  )}
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {items.map((a) => (
-                <tr key={a.id}>
-                  <td>
-                    <span className="font-medium text-slate-900">{a.name}</span>
-                    {a.id === myId && (
-                      <span className="ml-2 rounded border border-slate-200 px-1.5 py-0.5 text-[10px] text-slate-500">
-                        Anda
-                      </span>
-                    )}
-                  </td>
-                  <td className="text-[12px] text-slate-600">{a.email}</td>
-                  <td className="whitespace-nowrap text-[12px] text-slate-500">
-                    {new Date(a.createdAt).toLocaleDateString("id-ID", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                  </td>
-                  <td className="text-right">
-                    {a.id !== myId && (
-                      <button
-                        disabled={busy === a.id}
-                        onClick={() => void removeAdmin(a.id)}
-                        className="text-[12px] font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
-                      >
-                        Hapus
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {!loading && items.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="py-10 text-center text-[13px] text-slate-400">
-                    Tidak ada admin.
-                  </td>
-                </tr>
-              )}
-              {loading && (
-                <tr>
-                  <td colSpan={4} className="py-10 text-center text-[13px] text-slate-400">
-                    Memuat...
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            ))}
+            {!loading && items.length === 0 && (
+              <tr>
+                <td colSpan={4} className="py-12 text-center text-[13px] text-muted-foreground">
+                  Tidak ada admin.
+                </td>
+              </tr>
+            )}
+            {loading && (
+              <tr>
+                <td colSpan={4} className="py-12 text-center text-[13px] text-muted-foreground">
+                  Memuat...
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </TableCard>
 
       {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/30 p-4 pt-16">
-          <div className="w-full max-w-sm rounded-lg border border-slate-200 bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
-              <h2 className="text-[14px] font-semibold text-slate-900">Admin baru</h2>
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-foreground/30 p-4 pt-16">
+          <div className="w-full max-w-sm rounded-2xl border border-border bg-card shadow-[0_24px_64px_rgba(0,0,0,0.18)]">
+            <div className="flex items-start justify-between border-b border-border px-5 py-4">
+              <div>
+                <div className="eyebrow mb-1">Konfigurasi</div>
+                <h2 className="text-[18px] font-semibold tracking-tight">Admin baru</h2>
+              </div>
               <button
                 onClick={() => setShowCreate(false)}
-                className="text-slate-400 hover:text-slate-700"
+                className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
                 aria-label="Tutup"
               >
                 <X size={16} />
@@ -179,14 +185,14 @@ export default function AdminsPage() {
                   placeholder="Minimal 8 karakter"
                 />
               </div>
-              {formError && <p className="text-[13px] text-red-600">{formError}</p>}
+              {formError && <p className="text-[13px] text-bad">{formError}</p>}
               <div className="flex justify-end gap-2 pt-1">
-                <Button type="button" variant="outline" onClick={() => setShowCreate(false)}>
+                <Btn type="button" variant="line" onClick={() => setShowCreate(false)}>
                   Batal
-                </Button>
-                <Button type="submit" disabled={busy === "create"}>
+                </Btn>
+                <Btn type="submit" disabled={busy === "create"}>
                   {busy === "create" ? "Menambah..." : "Tambah admin"}
-                </Button>
+                </Btn>
               </div>
             </form>
           </div>

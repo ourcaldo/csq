@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { AdminShell } from "@/components/admin-shell";
-import { StatusDot } from "@/components/status-dot";
+import { Btn, Empty, PageHead, Status, TableCard } from "@/components/console";
 import { withAdminAuth } from "@/lib/admin-auth";
 import { useAdminApi, adminFetch } from "@/lib/admin-api";
 
@@ -36,20 +36,32 @@ export default function ApiKeysPage() {
 
   return (
     <AdminShell title="Kunci API">
-      <div className="space-y-4">
-        <p className="text-[13px] text-slate-500">
-          {active} aktif, {items.length - active} dicabut. Kunci dibuat tenant dari dashboard
-          mereka.
-        </p>
-
-        {error && (
-          <div className="rounded-lg border border-slate-200 border-l-2 border-l-red-600 bg-white px-4 py-2.5 text-[13px] text-red-700">
-            {error}
+      <PageHead
+        eyebrow="Konfigurasi"
+        title="Kunci API"
+        sub="Token & integrasi milik tenant"
+        action={
+          <div className="flex gap-5 font-mono text-[12px]">
+            <span>{active} aktif</span>
+            <span className="text-muted-foreground">{items.length - active} dicabut</span>
           </div>
-        )}
+        }
+      />
 
-        <div className="panel overflow-hidden">
-          <table className="tbl">
+      {error && (
+        <div className="mb-4 rounded-xl border border-border border-l-2 border-l-bad bg-card px-5 py-3 text-[13px] text-bad">
+          {error}
+        </div>
+      )}
+
+      {!loading && items.length === 0 ? (
+        <Empty
+          title="Belum ada kunci API"
+          hint="Tenant membuat kunci dari dashboard mereka sendiri."
+        />
+      ) : (
+        <TableCard>
+          <table className="ledger">
             <thead>
               <tr>
                 <th>Nama</th>
@@ -63,13 +75,13 @@ export default function ApiKeysPage() {
             <tbody>
               {items.map((k) => (
                 <tr key={k.id}>
-                  <td className="font-medium text-slate-900">{k.name}</td>
-                  <td className="font-mono text-[11px]">{k.prefix}...</td>
+                  <td className="font-medium">{k.name}</td>
+                  <td className="font-mono text-[12px] text-muted-foreground">{k.prefix}...</td>
                   <td>
-                    <p>{k.tenantName}</p>
-                    <p className="text-[11px] text-slate-400">{k.tenantSlug}</p>
+                    <div className="text-[13.5px]">{k.tenantName}</div>
+                    <div className="text-[12px] text-muted-foreground">{k.tenantSlug}</div>
                   </td>
-                  <td className="whitespace-nowrap text-[12px] text-slate-500">
+                  <td className="whitespace-nowrap font-mono text-[12px] text-muted-foreground">
                     {k.lastUsedAt
                       ? new Date(k.lastUsedAt).toLocaleDateString("id-ID", {
                           day: "numeric",
@@ -79,42 +91,35 @@ export default function ApiKeysPage() {
                       : "Belum pernah"}
                   </td>
                   <td>
-                    <span className="flex items-center gap-1.5">
-                      <StatusDot tone={k.revokedAt ? "idle" : "ok"} />
+                    <Status tone={k.revokedAt ? "off" : "ok"}>
                       {k.revokedAt ? "Dicabut" : "Aktif"}
-                    </span>
+                    </Status>
                   </td>
                   <td className="text-right">
                     {!k.revokedAt && (
-                      <button
+                      <Btn
+                        variant="ghost"
                         disabled={busy === k.id}
                         onClick={() => void revoke(k.id)}
-                        className="text-[12px] font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
+                        className="hover:text-bad"
                       >
                         Cabut
-                      </button>
+                      </Btn>
                     )}
                   </td>
                 </tr>
               ))}
-              {!loading && items.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="py-10 text-center text-[13px] text-slate-400">
-                    Belum ada kunci API.
-                  </td>
-                </tr>
-              )}
               {loading && (
                 <tr>
-                  <td colSpan={6} className="py-10 text-center text-[13px] text-slate-400">
+                  <td colSpan={6} className="py-12 text-center text-[13px] text-muted-foreground">
                     Memuat...
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
-        </div>
-      </div>
+        </TableCard>
+      )}
     </AdminShell>
   );
 }

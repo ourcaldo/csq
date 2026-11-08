@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { AdminShell } from "@/components/admin-shell";
+import { Empty, PageHead, TableCard } from "@/components/console";
 import { withAdminAuth } from "@/lib/admin-auth";
 import { useAdminApi } from "@/lib/admin-api";
-import { cn } from "@csq/ui/lib/utils";
 
 type AuditItem = {
   id: string;
@@ -21,6 +21,18 @@ type AuditData = { items: AuditItem[]; total: number; page: number; pageSize: nu
 
 export const getServerSideProps = withAdminAuth(async () => ({ props: {} }));
 
+function Action({ value }: { value: string }) {
+  const [prefix, ...rest] = value.split(".");
+  const suffix = rest.join(".");
+  const tone = value.includes("error") ? "text-bad" : "text-foreground";
+  return (
+    <span className={`font-mono text-[12.5px] ${tone}`}>
+      <span className="text-muted-foreground">{prefix}.</span>
+      {suffix}
+    </span>
+  );
+}
+
 export default function AuditPage() {
   const [tab, setTab] = useState<"tenant" | "admin">("tenant");
   const url = tab === "admin" ? "/api/admin/audit?auditType=admin" : "/api/admin/audit";
@@ -29,45 +41,60 @@ export default function AuditPage() {
 
   return (
     <AdminShell title="Audit">
-      <div className="space-y-4">
-        <div className="flex gap-5 border-b border-slate-200">
-          {(
-            [
-              ["tenant", "Aktivitas tenant"],
-              ["admin", "Aksi admin"],
-            ] as const
-          ).map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => setTab(key)}
-              className={cn(
-                "-mb-px border-b-2 pb-2 text-[13px] transition-colors",
-                tab === key
-                  ? "border-green-700 font-medium text-slate-900"
-                  : "border-transparent text-slate-500 hover:text-slate-800"
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {error && (
-          <div className="rounded-lg border border-slate-200 border-l-2 border-l-red-600 bg-white px-4 py-2.5 text-[13px] text-red-700">
-            {error}
+      <PageHead
+        eyebrow="Operasi"
+        title="Audit"
+        sub="Log aktivitas, terbaru di atas"
+        action={
+          <div className="flex rounded-full bg-card p-1 ring-1 ring-border">
+            {(
+              [
+                ["tenant", "Aktivitas tenant"],
+                ["admin", "Aksi admin"],
+              ] as const
+            ).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setTab(key)}
+                className={`rounded-full px-3 py-1 text-[13px] transition-colors ${
+                  tab === key
+                    ? "bg-foreground font-medium text-background"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>
-        )}
+        }
+      />
 
-        <div className="panel overflow-hidden">
-          <table className="tbl">
+      {error && (
+        <div className="mb-4 rounded-xl border border-border border-l-2 border-l-bad bg-card px-5 py-3 text-[13px] text-bad">
+          {error}
+        </div>
+      )}
+
+      {!loading && items.length === 0 ? (
+        <Empty
+          title={tab === "admin" ? "Belum ada aksi admin" : "Belum ada aktivitas tenant"}
+          hint={
+            tab === "admin"
+              ? "Setiap perubahan oleh operator tercatat di sini."
+              : "Aktivitas agent dan staf akan muncul di sini."
+          }
+        />
+      ) : (
+        <TableCard>
+          <table className="ledger">
             <thead>
               <tr>
-                <th>Waktu</th>
+                <th className="w-44">Waktu</th>
                 <th>Aksi</th>
                 {tab === "tenant" ? (
                   <>
+                    <th>Entitas</th>
                     <th>Tenant</th>
-                    <th>Target</th>
                     <th>Nomor</th>
                   </>
                 ) : (
@@ -81,53 +108,51 @@ export default function AuditPage() {
             <tbody>
               {items.map((a) => (
                 <tr key={a.id}>
-                  <td className="whitespace-nowrap text-[12px] text-slate-500">
+                  <td className="whitespace-nowrap font-mono text-[12.5px] text-muted-foreground">
                     {new Date(a.createdAt).toLocaleString("id-ID", {
-                      day: "numeric",
+                      day: "2-digit",
                       month: "short",
                       hour: "2-digit",
                       minute: "2-digit",
                     })}
                   </td>
-                  <td className="font-mono text-[11px] text-slate-800">{a.action}</td>
+                  <td>
+                    <Action value={a.action} />
+                  </td>
                   {tab === "tenant" ? (
                     <>
-                      <td>{a.tenantName}</td>
-                      <td className="text-[12px] text-slate-500">
-                        {a.entityType}
-                        {a.entityId ? ` / ${a.entityId.slice(0, 8)}` : ""}
+                      <td className="text-[12.5px]">
+                        {a.entityType}{" "}
+                        <span className="font-mono text-muted-foreground">
+                          {a.entityId ? `#${a.entityId.slice(0, 8)}` : ""}
+                        </span>
                       </td>
-                      <td className="text-[12px] text-slate-500">{a.customerPhone ?? "-"}</td>
+                      <td className="text-[12.5px] text-muted-foreground">{a.tenantName}</td>
+                      <td className="font-mono text-[12px] text-muted-foreground">
+                        {a.customerPhone ?? "-"}
+                      </td>
                     </>
                   ) : (
                     <>
                       <td>
-                        <p className="font-medium text-slate-900">{a.adminName}</p>
-                        <p className="text-[11px] text-slate-400">{a.adminEmail}</p>
+                        <div className="text-[13px] font-medium">{a.adminName}</div>
+                        <div className="text-[11.5px] text-muted-foreground">{a.adminEmail}</div>
                       </td>
-                      <td className="text-[12px] text-slate-500">
-                        {a.targetType}
-                        {a.targetId ? ` / ${a.targetId.slice(0, 8)}` : ""}
+                      <td className="text-[12.5px] text-muted-foreground">
+                        {a.targetType}{" "}
+                        <span className="font-mono">
+                          {a.targetId ? `#${a.targetId.slice(0, 8)}` : ""}
+                        </span>
                       </td>
                     </>
                   )}
                 </tr>
               ))}
-              {!loading && items.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={tab === "tenant" ? 5 : 4}
-                    className="py-10 text-center text-[13px] text-slate-400"
-                  >
-                    Belum ada aktivitas.
-                  </td>
-                </tr>
-              )}
               {loading && (
                 <tr>
                   <td
                     colSpan={tab === "tenant" ? 5 : 4}
-                    className="py-10 text-center text-[13px] text-slate-400"
+                    className="py-12 text-center text-[13px] text-muted-foreground"
                   >
                     Memuat...
                   </td>
@@ -135,14 +160,14 @@ export default function AuditPage() {
               )}
             </tbody>
           </table>
-        </div>
+        </TableCard>
+      )}
 
-        {data && data.total > data.pageSize && (
-          <p className="text-[11px] text-slate-400">
-            Menampilkan {items.length} dari {data.total} entri.
-          </p>
-        )}
-      </div>
+      {data && data.total > data.pageSize && (
+        <p className="mt-3 font-mono text-[11.5px] text-muted-foreground">
+          Menampilkan {items.length} dari {data.total} entri
+        </p>
+      )}
     </AdminShell>
   );
 }

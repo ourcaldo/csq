@@ -1,11 +1,11 @@
 import { type FormEvent, useState } from "react";
+import { Plus, X } from "@phosphor-icons/react";
 import { AdminShell } from "@/components/admin-shell";
+import { Btn, Empty, PageHead, Section, TableCard } from "@/components/console";
 import { withAdminAuth } from "@/lib/admin-auth";
 import { useAdminApi, adminFetch } from "@/lib/admin-api";
-import { Button } from "@csq/ui/components/ui/button";
 import { Input } from "@csq/ui/components/ui/input";
 import { Label } from "@csq/ui/components/ui/label";
-import { Plus, X } from "@phosphor-icons/react";
 
 type Plan = {
   id: string;
@@ -101,19 +101,28 @@ export default function PlansPage() {
   const usage = usageData?.items ?? [];
 
   return (
-    <AdminShell title="Paket & penggunaan">
-      <div className="space-y-6">
-        <section>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-[13px] font-semibold text-slate-900">Paket</h2>
-            <Button size="sm" variant="outline" onClick={() => setShowCreate(true)}>
-              <Plus size={14} weight="bold" className="mr-1.5" />
-              Paket baru
-            </Button>
-          </div>
+    <AdminShell title="Paket & Penggunaan">
+      <PageHead
+        eyebrow="Konfigurasi"
+        title="Paket & Penggunaan"
+        sub="Plan & metering per tenant"
+        action={
+          <Btn onClick={() => setShowCreate(true)}>
+            <Plus size={14} weight="bold" />
+            Paket baru
+          </Btn>
+        }
+      />
 
-          <div className="panel overflow-hidden">
-            <table className="tbl">
+      <Section title="Paket tersedia" meta={`${plans.length} paket`}>
+        {!pLoading && plans.length === 0 ? (
+          <Empty
+            title="Belum ada paket"
+            hint="Buat paket pertama untuk mulai menagih tenant."
+          />
+        ) : (
+          <TableCard>
+            <table className="ledger">
               <thead>
                 <tr>
                   <th>Nama</th>
@@ -127,58 +136,54 @@ export default function PlansPage() {
               <tbody>
                 {plans.map((p) => (
                   <tr key={p.id}>
-                    <td className="font-medium text-slate-900">{p.name}</td>
-                    <td className="text-right tabular-nums">{idr(p.priceIdr)}</td>
-                    <td className="text-right tabular-nums">
+                    <td className="font-medium">{p.name}</td>
+                    <td className="text-right font-mono tabular-nums">{idr(p.priceIdr)}</td>
+                    <td className="text-right font-mono tabular-nums">
                       {limit(p.limits?.agentRepliesPerMonth)}
                     </td>
-                    <td className="text-right tabular-nums">
+                    <td className="text-right font-mono tabular-nums">
                       {limit(p.limits?.messagesOutPerMonth)}
                     </td>
-                    <td className="text-right tabular-nums">{limit(p.limits?.channels)}</td>
-                    <td className="text-right tabular-nums">{p.tenantCount}</td>
+                    <td className="text-right font-mono tabular-nums">
+                      {limit(p.limits?.channels)}
+                    </td>
+                    <td className="text-right font-mono tabular-nums">{p.tenantCount}</td>
                   </tr>
                 ))}
-                {!pLoading && plans.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="py-8 text-center text-[13px] text-slate-400">
-                      Belum ada paket.
-                    </td>
-                  </tr>
-                )}
                 {pLoading && (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-[13px] text-slate-400">
+                    <td colSpan={6} className="py-12 text-center text-[13px] text-muted-foreground">
                       Memuat...
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
-          </div>
-        </section>
+          </TableCard>
+        )}
+      </Section>
 
-        <section>
-          <div className="mb-3 flex items-baseline justify-between">
-            <h2 className="text-[13px] font-semibold text-slate-900">Penggunaan bulan ini</h2>
-            {usageData && (
-              <p className="text-[11px] text-slate-400">
-                Sejak{" "}
-                {new Date(usageData.monthStart).toLocaleDateString("id-ID", {
-                  day: "numeric",
-                  month: "long",
-                })}
-              </p>
-            )}
-          </div>
-
-          <div className="panel overflow-hidden">
-            <table className="tbl">
+      <Section
+        title="Penggunaan bulan ini"
+        meta={
+          usageData
+            ? `sejak ${new Date(usageData.monthStart).toLocaleDateString("id-ID", {
+                day: "numeric",
+                month: "short",
+              })}`
+            : undefined
+        }
+      >
+        {!uLoading && usage.length === 0 ? (
+          <Empty title="Belum ada tenant" hint="Penggunaan muncul setelah tenant aktif." />
+        ) : (
+          <TableCard>
+            <table className="ledger">
               <thead>
                 <tr>
                   <th>Tenant</th>
                   <th>Paket</th>
-                  <th className="text-right">AI replies</th>
+                  <th className="text-right">AI</th>
                   <th className="text-right">Keluar</th>
                   <th className="text-right">Masuk</th>
                   <th className="text-right">Media</th>
@@ -188,17 +193,20 @@ export default function PlansPage() {
                 {usage.map((u) => (
                   <tr key={u.tenantId}>
                     <td>
-                      <p className="font-medium text-slate-900">{u.tenantName}</p>
-                      <p className="text-[11px] text-slate-400">{u.channelCount} saluran</p>
+                      <div className="font-medium">{u.tenantName}</div>
+                      <div className="text-[12px] text-muted-foreground">
+                        {u.channelCount} saluran
+                      </div>
                     </td>
                     <td>
                       <select
-                        className="h-7 rounded border border-slate-200 bg-white px-1.5 text-[12px] text-slate-600"
+                        className="h-7 rounded-sm border border-input bg-card px-2 text-[12.5px] text-muted-foreground"
                         value={u.planId ?? ""}
                         disabled={busy === u.tenantId}
                         onChange={(e) => void assignPlan(u.tenantId, e.target.value || null)}
+                        aria-label={`Paket untuk ${u.tenantName}`}
                       >
-                        <option value="">Tanpa paket</option>
+                        <option value="">- tanpa paket -</option>
                         {plans.map((p) => (
                           <option key={p.id} value={p.id}>
                             {p.name}
@@ -207,53 +215,49 @@ export default function PlansPage() {
                       </select>
                     </td>
                     <td
-                      className={`text-right tabular-nums ${
-                        u.agentRepliesOver ? "font-medium text-red-600" : ""
+                      className={`text-right font-mono tabular-nums ${
+                        u.agentRepliesOver ? "font-medium text-bad" : ""
                       }`}
                     >
                       {u.agentReplies}
                       {u.agentRepliesLimit ? ` / ${u.agentRepliesLimit}` : ""}
                     </td>
                     <td
-                      className={`text-right tabular-nums ${
-                        u.outboundOver ? "font-medium text-red-600" : ""
+                      className={`text-right font-mono tabular-nums ${
+                        u.outboundOver ? "font-medium text-bad" : ""
                       }`}
                     >
                       {u.outbound}
                       {u.outboundLimit ? ` / ${u.outboundLimit}` : ""}
                     </td>
-                    <td className="text-right tabular-nums">{u.inbound}</td>
-                    <td className="text-right tabular-nums">{bytes(u.mediaBytes)}</td>
+                    <td className="text-right font-mono tabular-nums">{u.inbound}</td>
+                    <td className="text-right font-mono tabular-nums">{bytes(u.mediaBytes)}</td>
                   </tr>
                 ))}
-                {!uLoading && usage.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="py-8 text-center text-[13px] text-slate-400">
-                      Belum ada tenant.
-                    </td>
-                  </tr>
-                )}
                 {uLoading && (
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-[13px] text-slate-400">
+                    <td colSpan={6} className="py-12 text-center text-[13px] text-muted-foreground">
                       Memuat...
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
-          </div>
-        </section>
-      </div>
+          </TableCard>
+        )}
+      </Section>
 
       {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/30 p-4 pt-16">
-          <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
-              <h2 className="text-[14px] font-semibold text-slate-900">Paket baru</h2>
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-foreground/30 p-4 pt-16">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card shadow-[0_24px_64px_rgba(0,0,0,0.18)]">
+            <div className="flex items-start justify-between border-b border-border px-5 py-4">
+              <div>
+                <div className="eyebrow mb-1">Konfigurasi</div>
+                <h2 className="text-[18px] font-semibold tracking-tight">Paket baru</h2>
+              </div>
               <button
                 onClick={() => setShowCreate(false)}
-                className="text-slate-400 hover:text-slate-700"
+                className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
                 aria-label="Tutup"
               >
                 <X size={16} />
@@ -319,17 +323,17 @@ export default function PlansPage() {
                   />
                 </div>
               </div>
-              <p className="text-[11px] text-slate-400">
+              <p className="text-[11.5px] text-muted-foreground">
                 Kosongkan limit untuk tanpa batas.
               </p>
-              {formError && <p className="text-[13px] text-red-600">{formError}</p>}
+              {formError && <p className="text-[13px] text-bad">{formError}</p>}
               <div className="flex justify-end gap-2 pt-1">
-                <Button type="button" variant="outline" onClick={() => setShowCreate(false)}>
+                <Btn type="button" variant="line" onClick={() => setShowCreate(false)}>
                   Batal
-                </Button>
-                <Button type="submit" disabled={busy === "create"}>
+                </Btn>
+                <Btn type="submit" disabled={busy === "create"}>
                   {busy === "create" ? "Membuat..." : "Buat paket"}
-                </Button>
+                </Btn>
               </div>
             </form>
           </div>

@@ -2,7 +2,6 @@ import type { FormEvent } from "react";
 import { useState } from "react";
 import Head from "next/head";
 import { signIn } from "next-auth/react";
-import { Button } from "@csq/ui/components/ui/button";
 import { Input } from "@csq/ui/components/ui/input";
 import { Label } from "@csq/ui/components/ui/label";
 
@@ -34,24 +33,25 @@ export default function AdminLogin() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#F6F7F9] px-4">
+    <main className="flex min-h-screen items-center justify-center bg-background px-4">
       <Head>
-        <title>Masuk - CSQ Admin</title>
+        <title>Masuk - CSQ Console</title>
         <meta name="robots" content="noindex,nofollow" />
       </Head>
 
-      <div className="w-full max-w-[360px]">
-        <div className="mb-8 flex items-center gap-2.5">
-          <span className="flex h-6 w-6 items-center justify-center rounded bg-green-700 text-[11px] font-bold text-white">
+      <div className="w-full max-w-[380px]">
+        <div className="mb-8 flex items-center gap-2">
+          <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary text-[11px] font-bold text-primary-foreground">
             C
           </span>
-          <span className="text-[15px] font-semibold tracking-tight text-slate-900">
-            CSQ Admin
+          <span className="text-[15px] font-semibold tracking-tight">
+            CSQ <span className="font-normal text-muted-foreground">Console</span>
           </span>
         </div>
 
-        <h1 className="text-[20px] font-semibold tracking-tight text-slate-900">Masuk</h1>
-        <p className="mt-1 text-[13px] text-slate-500">
+        <div className="eyebrow mb-1.5">Operator</div>
+        <h1 className="text-[28px] font-bold leading-tight tracking-tight">Masuk</h1>
+        <p className="mt-1 text-[13.5px] text-muted-foreground">
           Konsol operator platform. Akun tenant tidak berlaku di sini.
         </p>
 
@@ -79,10 +79,14 @@ export default function AdminLogin() {
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
-          {error && <p className="text-[13px] text-red-600">{error}</p>}
-          <Button type="submit" className="w-full" disabled={busy}>
+          {error && <p className="text-[13px] text-bad">{error}</p>}
+          <button
+            type="submit"
+            disabled={busy}
+            className="inline-flex h-9 w-full items-center justify-center rounded-full bg-foreground px-4 text-[13px] font-medium text-background transition-colors hover:bg-foreground/85 disabled:pointer-events-none disabled:opacity-50"
+          >
             {busy ? "Memeriksa..." : "Masuk"}
-          </Button>
+          </button>
         </form>
       </div>
     </main>

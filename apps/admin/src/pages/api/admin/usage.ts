@@ -39,6 +39,28 @@ export default async function handler(
   });
   const mediaMap = new Map(mediaBytes.map((m) => [m.tenantId, m._sum.byteSize ?? 0]));
 
+  // Platform-wide messages per day for the last 30 days (the overview chart).
+  const DAYS = 30;
+  const dailyStart = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (DAYS - 1))
+  );
+  const dailyRows = await prisma.$queryRaw<{ day: Date; count: bigint }[]>`
+    SELECT date_trunc('day', "createdAt") AS day, count(*) AS count
+    FROM "Message"
+    WHERE "createdAt" >= ${dailyStart}
+    GROUP BY 1
+    ORDER BY 1
+  `;
+  const dailyMap = new Map(
+    dailyRows.map((r) => [r.day.toISOString().slice(0, 10), Number(r.count)])
+  );
+  const daily = Array.from({ length: DAYS }, (_, i) => {
+    const d = new Date(dailyStart);
+    d.setUTCDate(d.getUTCDate() + i);
+    const key = d.toISOString().slice(0, 10);
+    return { date: key, count: dailyMap.get(key) ?? 0 };
+  });
+
   const usageMap = new Map<string, { outbound: number; agentReplies: number; inbound: number }>();
   for (const row of monthMessages) {
     const existing = usageMap.get(row.tenantId) ?? { outbound: 0, agentReplies: 0, inbound: 0 };
@@ -72,5 +94,5 @@ export default async function handler(
     };
   });
 
-  return res.status(200).json(apiOk({ items, monthStart: monthStart.toISOString() }));
+  return res.status(200).json(apiOk({ items, monthStart: monthStart.toISOString(), daily }));
 }

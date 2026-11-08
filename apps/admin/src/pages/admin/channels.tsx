@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { ArrowsClockwise, Power } from "@phosphor-icons/react";
 import { AdminShell } from "@/components/admin-shell";
-import { StatusDot } from "@/components/status-dot";
+import { Btn, PageHead, Status, TableCard, Tag } from "@/components/console";
 import { withAdminAuth } from "@/lib/admin-auth";
 import { useAdminApi, adminFetch } from "@/lib/admin-api";
 
@@ -43,112 +44,120 @@ export default function ChannelsPage() {
 
   return (
     <AdminShell title="Saluran">
-      <div className="space-y-4">
-        <p className="text-[13px] text-slate-500">
-          {connected} terhubung, {items.length - connected} terputus dari {items.length} saluran.
-        </p>
+      <PageHead
+        eyebrow="Platform"
+        title="Saluran"
+        sub={`Channel fleet - ${connected} dari ${items.length} terhubung`}
+      />
 
-        {msg && (
-          <div className="rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-[13px] text-slate-700">
-            {msg}
-          </div>
-        )}
-        {error && (
-          <div className="rounded-lg border border-slate-200 border-l-2 border-l-red-600 bg-white px-4 py-2.5 text-[13px] text-red-700">
-            {error}
-          </div>
-        )}
-
-        <div className="panel overflow-hidden">
-          <table className="tbl">
-            <thead>
-              <tr>
-                <th>Tenant</th>
-                <th>Provider</th>
-                <th>Tipe</th>
-                <th>Status</th>
-                <th>Lease</th>
-                <th>Berakhir</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((c) => (
-                <tr key={c.id}>
-                  <td>
-                    <p className="font-medium text-slate-900">{c.tenantName}</p>
-                    <p className="text-[11px] text-slate-400">
-                      {c.tenantSlug}
-                      {c.tenantStatus === "SUSPENDED" && " / ditangguhkan"}
-                    </p>
-                  </td>
-                  <td>{c.provider}</td>
-                  <td>{c.type}</td>
-                  <td>
-                    <span className="flex items-center gap-1.5">
-                      <StatusDot
-                        tone={
-                          c.status === "CONNECTED"
-                            ? "ok"
-                            : c.status === "CONNECTING"
-                              ? "warn"
-                              : "idle"
-                        }
-                      />
-                      {c.status}
-                    </span>
-                  </td>
-                  <td>
-                    <span className="flex items-center gap-1.5">
-                      <StatusDot tone={c.leaseHeld ? "ok" : "idle"} />
-                      {c.leaseHeld ? "Held" : "Free"}
-                    </span>
-                  </td>
-                  <td className="whitespace-nowrap text-[12px] text-slate-500">
-                    {c.leaseUntil
-                      ? new Date(c.leaseUntil).toLocaleTimeString("id-ID", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })
-                      : "-"}
-                  </td>
-                  <td className="whitespace-nowrap text-right">
-                    <button
-                      disabled={busy === c.id}
-                      onClick={() => void act(c.id, "reconnect")}
-                      className="text-[12px] font-medium text-slate-600 hover:text-slate-900 disabled:opacity-50"
-                    >
-                      Reconnect
-                    </button>
-                    <span className="mx-2 text-slate-200">|</span>
-                    <button
-                      disabled={busy === c.id}
-                      onClick={() => void act(c.id, "disconnect")}
-                      className="text-[12px] font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
-                    >
-                      Disconnect
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {!loading && items.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="py-10 text-center text-[13px] text-slate-400">
-                    Tidak ada saluran di seluruh tenant.
-                  </td>
-                </tr>
-              )}
-              {loading && (
-                <tr>
-                  <td colSpan={7} className="py-10 text-center text-[13px] text-slate-400">
-                    Memuat...
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+      {msg && (
+        <div className="mb-4 rounded-xl border border-border bg-card px-5 py-3 text-[13px]">
+          {msg}
         </div>
-      </div>
+      )}
+      {error && (
+        <div className="mb-4 rounded-xl border border-border border-l-2 border-l-bad bg-card px-5 py-3 text-[13px] text-bad">
+          {error}
+        </div>
+      )}
+
+      <TableCard>
+        <table className="ledger">
+          <thead>
+            <tr>
+              <th>Tenant</th>
+              <th>Provider</th>
+              <th>Tipe</th>
+              <th>Status</th>
+              <th>Lease</th>
+              <th>Berakhir</th>
+              <th className="text-right">Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((c) => (
+              <tr key={c.id}>
+                <td>
+                  <div className="font-medium">{c.tenantName}</div>
+                  <div className="text-[12px] text-muted-foreground">
+                    {c.tenantSlug}
+                    {c.tenantStatus === "SUSPENDED" && " / ditangguhkan"}
+                  </div>
+                </td>
+                <td>
+                  <Tag>{c.provider}</Tag>
+                </td>
+                <td className="text-[13px] text-muted-foreground">{c.type}</td>
+                <td>
+                  <Status
+                    tone={
+                      c.status === "CONNECTED"
+                        ? "ok"
+                        : c.status === "CONNECTING"
+                          ? "warn"
+                          : "bad"
+                    }
+                  >
+                    {c.status}
+                  </Status>
+                </td>
+                <td>
+                  <span className="flex items-center gap-1.5 text-[13px]">
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full ${
+                        c.leaseHeld ? "bg-ok live" : "bg-muted-foreground/40"
+                      }`}
+                    />
+                    {c.leaseHeld ? "Held" : "Free"}
+                  </span>
+                </td>
+                <td className="whitespace-nowrap font-mono text-[12px] text-muted-foreground">
+                  {c.leaseUntil
+                    ? new Date(c.leaseUntil).toLocaleTimeString("id-ID", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "-"}
+                </td>
+                <td className="text-right">
+                  <Btn
+                    variant="ghost"
+                    disabled={busy === c.id}
+                    onClick={() => void act(c.id, "reconnect")}
+                    aria-label={`Sambung ulang ${c.tenantName}`}
+                    className="px-2.5"
+                  >
+                    <ArrowsClockwise size={14} />
+                  </Btn>
+                  <Btn
+                    variant="ghost"
+                    disabled={busy === c.id}
+                    onClick={() => void act(c.id, "disconnect")}
+                    aria-label={`Putuskan ${c.tenantName}`}
+                    className="px-2.5 hover:text-bad"
+                  >
+                    <Power size={14} />
+                  </Btn>
+                </td>
+              </tr>
+            ))}
+            {!loading && items.length === 0 && (
+              <tr>
+                <td colSpan={7} className="py-12 text-center text-[13px] text-muted-foreground">
+                  Tidak ada saluran di seluruh tenant.
+                </td>
+              </tr>
+            )}
+            {loading && (
+              <tr>
+                <td colSpan={7} className="py-12 text-center text-[13px] text-muted-foreground">
+                  Memuat...
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </TableCard>
     </AdminShell>
   );
 }

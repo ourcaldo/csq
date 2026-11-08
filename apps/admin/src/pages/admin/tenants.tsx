@@ -1,12 +1,11 @@
 import { type FormEvent, useState } from "react";
+import { Plus, X } from "@phosphor-icons/react";
 import { AdminShell } from "@/components/admin-shell";
-import { StatusDot } from "@/components/status-dot";
+import { Btn, PageHead, Status, TableCard } from "@/components/console";
 import { withAdminAuth } from "@/lib/admin-auth";
 import { useAdminApi, adminFetch } from "@/lib/admin-api";
-import { Button } from "@csq/ui/components/ui/button";
 import { Input } from "@csq/ui/components/ui/input";
 import { Label } from "@csq/ui/components/ui/label";
-import { Plus, X } from "@phosphor-icons/react";
 
 type Tenant = {
   id: string;
@@ -18,7 +17,6 @@ type Tenant = {
   channelCount: number;
   conversationCount: number;
   messageCount30d: number;
-  mediaBytes: number;
 };
 type TenantList = { items: Tenant[] };
 
@@ -68,111 +66,107 @@ export default function TenantsPage() {
 
   return (
     <AdminShell title="Tenant">
-      <div className="space-y-4">
-        <div className="flex items-center justify-between gap-4">
-          <p className="text-[13px] text-slate-500">
-            {items.length} tenant terdaftar di platform.
-          </p>
-          <Button size="sm" onClick={() => setShowCreate(true)}>
-            <Plus size={14} weight="bold" className="mr-1.5" />
+      <PageHead
+        eyebrow="Platform"
+        title="Tenant"
+        sub={`${items.length} tenant terdaftar`}
+        action={
+          <Btn onClick={() => setShowCreate(true)}>
+            <Plus size={14} weight="bold" />
             Tenant baru
-          </Button>
+          </Btn>
+        }
+      />
+
+      {(actionError || error) && (
+        <div className="mb-4 rounded-xl border border-border border-l-2 border-l-bad bg-card px-5 py-3 text-[13px] text-bad">
+          {actionError ?? error}
         </div>
+      )}
 
-        {actionError && (
-          <div className="rounded-lg border border-slate-200 border-l-2 border-l-red-600 bg-white px-4 py-2.5 text-[13px] text-red-700">
-            {actionError}
-          </div>
-        )}
-        {error && (
-          <div className="rounded-lg border border-slate-200 border-l-2 border-l-red-600 bg-white px-4 py-2.5 text-[13px] text-red-700">
-            {error}
-          </div>
-        )}
-
-        <div className="panel overflow-hidden">
-          <table className="tbl">
-            <thead>
-              <tr>
-                <th>Tenant</th>
-                <th>Status</th>
-                <th className="text-right">Pengguna</th>
-                <th className="text-right">Saluran</th>
-                <th className="text-right">Percakapan</th>
-                <th className="text-right">Pesan 30h</th>
-                <th>Dibuat</th>
-                <th />
+      <TableCard>
+        <table className="ledger">
+          <thead>
+            <tr>
+              <th>Nama</th>
+              <th>Status</th>
+              <th className="text-right">Pengguna</th>
+              <th className="text-right">Saluran</th>
+              <th className="text-right">Percakapan</th>
+              <th className="text-right">Pesan 30h</th>
+              <th>Dibuat</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((t) => (
+              <tr key={t.id}>
+                <td>
+                  <div className="font-medium">{t.name}</div>
+                  <div className="text-[12px] text-muted-foreground">{t.slug}</div>
+                </td>
+                <td>
+                  <Status tone={t.status === "ACTIVE" ? "ok" : "bad"}>
+                    {t.status === "ACTIVE" ? "Aktif" : "Ditangguhkan"}
+                  </Status>
+                </td>
+                <td className="text-right font-mono tabular-nums">{t.userCount}</td>
+                <td className="text-right font-mono tabular-nums">{t.channelCount}</td>
+                <td className="text-right font-mono tabular-nums">{t.conversationCount}</td>
+                <td className="text-right font-mono tabular-nums">{t.messageCount30d}</td>
+                <td className="whitespace-nowrap font-mono text-[12.5px] text-muted-foreground">
+                  {new Date(t.createdAt).toLocaleDateString("id-ID", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </td>
+                <td className="text-right">
+                  <Btn
+                    variant="ghost"
+                    disabled={busy === t.id}
+                    onClick={() => void toggleStatus(t.id, t.status)}
+                    className={
+                      t.status === "ACTIVE" ? "hover:text-bad" : "hover:text-primary"
+                    }
+                  >
+                    {t.status === "ACTIVE" ? "Tangguhkan" : "Aktifkan"}
+                  </Btn>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {items.map((t) => (
-                <tr key={t.id}>
-                  <td>
-                    <p className="font-medium text-slate-900">{t.name}</p>
-                    <p className="text-[11px] text-slate-400">{t.slug}</p>
-                  </td>
-                  <td>
-                    <span className="flex items-center gap-1.5">
-                      <StatusDot tone={t.status === "ACTIVE" ? "ok" : "bad"} />
-                      {t.status === "ACTIVE" ? "Aktif" : "Ditangguhkan"}
-                    </span>
-                  </td>
-                  <td className="text-right tabular-nums">{t.userCount}</td>
-                  <td className="text-right tabular-nums">{t.channelCount}</td>
-                  <td className="text-right tabular-nums">{t.conversationCount}</td>
-                  <td className="text-right tabular-nums">{t.messageCount30d}</td>
-                  <td className="whitespace-nowrap text-[12px] text-slate-500">
-                    {new Date(t.createdAt).toLocaleDateString("id-ID", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                  </td>
-                  <td className="text-right">
-                    <button
-                      disabled={busy === t.id}
-                      onClick={() => void toggleStatus(t.id, t.status)}
-                      className={
-                        t.status === "ACTIVE"
-                          ? "text-[12px] font-medium text-red-600 hover:text-red-700 disabled:opacity-50"
-                          : "text-[12px] font-medium text-green-700 hover:text-green-800 disabled:opacity-50"
-                      }
-                    >
-                      {t.status === "ACTIVE" ? "Tangguhkan" : "Aktifkan"}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-              {!loading && items.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="py-10 text-center text-[13px] text-slate-400">
-                    Belum ada tenant. Buat tenant pertama untuk mulai.
-                  </td>
-                </tr>
-              )}
-              {loading && (
-                <tr>
-                  <td colSpan={8} className="py-10 text-center text-[13px] text-slate-400">
-                    Memuat...
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            ))}
+            {!loading && items.length === 0 && (
+              <tr>
+                <td colSpan={8} className="py-12 text-center text-[13px] text-muted-foreground">
+                  Belum ada tenant. Buat tenant pertama untuk mulai.
+                </td>
+              </tr>
+            )}
+            {loading && (
+              <tr>
+                <td colSpan={8} className="py-12 text-center text-[13px] text-muted-foreground">
+                  Memuat...
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </TableCard>
 
       {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/30 p-4 pt-16">
-          <div className="w-full max-w-lg rounded-lg border border-slate-200 bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-foreground/30 p-4 pt-16">
+          <div className="w-full max-w-lg rounded-2xl border border-border bg-card shadow-[0_24px_64px_rgba(0,0,0,0.18)]">
+            <div className="flex items-start justify-between border-b border-border px-5 py-4">
               <div>
-                <h2 className="text-[14px] font-semibold text-slate-900">Tenant baru</h2>
-                <p className="text-[11px] text-slate-400">Membuat tenant dan akun owner.</p>
+                <div className="eyebrow mb-1">Platform</div>
+                <h2 className="text-[18px] font-semibold tracking-tight">Tenant baru</h2>
+                <p className="mt-0.5 text-[12.5px] text-muted-foreground">
+                  Membuat tenant dan akun owner.
+                </p>
               </div>
               <button
                 onClick={() => setShowCreate(false)}
-                className="text-slate-400 hover:text-slate-700"
+                className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
                 aria-label="Tutup"
               >
                 <X size={16} />
@@ -180,7 +174,7 @@ export default function TenantsPage() {
             </div>
 
             <form onSubmit={createTenant} className="space-y-4 p-5">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="t-name">Nama tenant</Label>
                   <Input
@@ -204,11 +198,9 @@ export default function TenantsPage() {
                 </div>
               </div>
 
-              <div className="border-t border-slate-100 pt-4">
-                <p className="mb-3 text-[10px] font-semibold uppercase tracking-[0.07em] text-slate-400">
-                  Akun owner
-                </p>
-                <div className="grid grid-cols-2 gap-3">
+              <div className="border-t border-border pt-4">
+                <div className="eyebrow mb-3">Akun owner</div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label htmlFor="t-email">Email</Label>
                     <Input
@@ -245,15 +237,15 @@ export default function TenantsPage() {
                 </div>
               </div>
 
-              {actionError && <p className="text-[13px] text-red-600">{actionError}</p>}
+              {actionError && <p className="text-[13px] text-bad">{actionError}</p>}
 
               <div className="flex justify-end gap-2 pt-1">
-                <Button type="button" variant="outline" onClick={() => setShowCreate(false)}>
+                <Btn type="button" variant="line" onClick={() => setShowCreate(false)}>
                   Batal
-                </Button>
-                <Button type="submit" disabled={busy === "create"}>
+                </Btn>
+                <Btn type="submit" disabled={busy === "create"}>
                   {busy === "create" ? "Membuat..." : "Buat tenant"}
-                </Button>
+                </Btn>
               </div>
             </form>
           </div>

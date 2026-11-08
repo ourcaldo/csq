@@ -4,44 +4,123 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  font-feature-settings: "cv11", "ss01", "tnum";
+/* CSQ Console - "Ledger" direction.
+   Warm paper, ink, hairline rules, mono numerals, one signal color (green).
+   No icon-in-a-box decoration, no soft shadow stacks. Information lives in
+   type and rules. */
+:root {
+  --background: 0 0% 96.5%;
+  --panel: 0 0% 98.5%;
+  --foreground: 222 10% 13%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 10% 13%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 10% 13%;
+  --primary: 142 76% 36%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 6% 96.7%;
+  --secondary-foreground: 222 10% 13%;
+  --muted: 220 6% 96.7%;
+  --muted-foreground: 220 6% 47%;
+  --accent: 220 6% 96.7%;
+  --accent-foreground: 222 10% 13%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 220 6% 92.5%;
+  --input: 220 6% 90%;
+  --ring: 142 76% 36%;
+  --signal: 142 76% 36%;
+  --signal-soft: 145 60% 94%;
+  --ok: 142 76% 36%;
+  --warn: 38 92% 50%;
+  --bad: 0 72% 51%;
+  --ink: 0 0% 100%;
+  --brand: 142 76% 36%;
+  --brand-soft: 145 60% 94%;
+  --brand-ink: 150 60% 18%;
 }
 
-/* Admin console surface language: flat white panels, hairline rules, no
-   shadows or gradients. Dense by default - it is an operator tool. */
+body {
+  font-feature-settings: "ss02";
+}
+
 @layer components {
-  .panel {
-    @apply rounded-lg border border-slate-200 bg-white;
+  .eyebrow {
+    font-size: 10.5px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: hsl(var(--muted-foreground));
   }
-  .panel-h {
-    @apply flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-2.5;
+
+  /* The ledger table: the console's main surface. */
+  .ledger {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    overflow: hidden;
+    font-size: 14px;
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: 12px;
   }
-  .panel-t {
-    @apply text-[13px] font-semibold text-slate-900;
+  .ledger th {
+    padding: 12px 20px;
+    border-bottom: 1px solid hsl(var(--border));
+    font-size: 10.5px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: hsl(var(--muted-foreground));
+    text-align: left;
+    white-space: nowrap;
   }
-  .tbl {
-    @apply w-full text-[13px];
+  .ledger td {
+    padding: 14px 20px;
+    border-bottom: 1px solid hsl(var(--border));
+    vertical-align: middle;
   }
-  .tbl thead th {
-    @apply whitespace-nowrap border-b border-slate-200 bg-slate-50 px-4 py-2 text-left text-[10px] font-semibold uppercase tracking-[0.07em] text-slate-500;
+  .ledger tbody tr:last-child td {
+    border-bottom: 0;
   }
-  .tbl tbody td {
-    @apply border-b border-slate-100 px-4 py-2.5 align-middle text-slate-700;
+  .ledger tbody tr {
+    transition: background-color 120ms;
   }
-  .tbl tbody tr:last-child td {
-    @apply border-b-0;
+  .ledger tbody tr:hover {
+    background-color: hsl(var(--accent));
   }
-  .tbl tbody tr:hover {
-    @apply bg-slate-50/70;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
   }
-  .kpi {
-    @apply text-[26px] font-semibold leading-none tracking-tight text-slate-900 tabular-nums;
+  50% {
+    opacity: 0.35;
   }
-  .kpi-l {
-    @apply text-[10px] font-semibold uppercase tracking-[0.07em] text-slate-500;
+}
+.live {
+  animation: pulse-dot 1.8s ease-in-out infinite;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
   }
-  .link-quiet {
-    @apply text-[12px] text-slate-500 transition-colors hover:text-slate-900;
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.rise {
+  animation: rise 380ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise,
+  .live {
+    animation: none;
   }
 }
