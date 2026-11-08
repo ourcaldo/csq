@@ -65,7 +65,7 @@ export default function TemplatesPage() {
     "/api/dashboard/templates"
   );
   const items = data?.items ?? [];
-  const systemKeys = data?.systemKeys ?? [];
+  const systemKeys = useMemo(() => data?.systemKeys ?? [], [data]);
 
   const [editing, setEditing] = useState<MessageTemplate | "new" | null>(null);
   const [saving, setSaving] = useState(false);
