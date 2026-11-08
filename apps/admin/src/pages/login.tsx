@@ -1,5 +1,6 @@
 import type { FormEvent } from "react";
 import { useState } from "react";
+import Head from "next/head";
 import { signIn } from "next-auth/react";
 import { Button } from "@csq/ui/components/ui/button";
 import { Input } from "@csq/ui/components/ui/input";
@@ -34,6 +35,10 @@ export default function AdminLogin() {
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+      <Head>
+        <title>Masuk - CSQ Admin</title>
+        <meta name="robots" content="noindex,nofollow" />
+      </Head>
       <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
         <div className="mb-6 flex items-center gap-2">
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-sm font-bold text-white">

@@ -5,8 +5,7 @@ import { useAdminApi, adminFetch } from "@/lib/admin-api";
 import { Card } from "@csq/ui/components/ui/card";
 import { Badge } from "@csq/ui/components/ui/badge";
 import { Button } from "@csq/ui/components/ui/button";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@csq/ui/components/ui/table";
-import { Gear, ArrowClockwise } from "@phosphor-icons/react";
+import { ArrowClockwise, Lock, Gear, Database, Warning } from "@phosphor-icons/react";
 
 type Ops = {
   locks: { key: string; lockedUntil: string; isHeld: boolean; updatedAt: string }[];
@@ -17,6 +16,15 @@ type Ops = {
 };
 
 export const getServerSideProps = withAdminAuth(async () => ({ props: {} }));
+
+function QueueCard({ label, count, tone }: { label: string; count: number; tone: string }) {
+  return (
+    <div className={`rounded-2xl p-4 text-center ${tone}`}>
+      <p className="text-3xl font-bold">{count}</p>
+      <p className="text-[10px] font-semibold uppercase tracking-widest">{label}</p>
+    </div>
+  );
+}
 
 export default function OperationsPage() {
   const { data, loading, error, refresh } = useAdminApi<Ops>("/api/admin/operations");
@@ -36,138 +44,121 @@ export default function OperationsPage() {
 
   return (
     <AdminShell title="Operasional">
-      <div className="mx-auto max-w-6xl space-y-6">
-        <h2 className="text-lg font-semibold text-slate-900">Operasional</h2>
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        {loading && <p className="text-sm text-slate-400">Memuat...</p>}
-
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          {["QUEUED", "SENDING", "SENT", "FAILED"].map((s) => (
-            <Card key={s} className="p-4">
-              <p className="text-2xl font-bold text-slate-900">{outboxMap.get(s) ?? 0}</p>
-              <p className="text-xs text-slate-400">{s}</p>
-            </Card>
-          ))}
+      <div className="space-y-8">
+        {/* Outbox summary */}
+        <div>
+          <h3 className="mb-3 text-sm font-semibold text-slate-600">Outbox Worker</h3>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <QueueCard label="Queued" count={outboxMap.get("QUEUED") ?? 0} tone="bg-amber-50 text-amber-700" />
+            <QueueCard label="Sending" count={outboxMap.get("SENDING") ?? 0} tone="bg-blue-50 text-blue-700" />
+            <QueueCard label="Sent" count={outboxMap.get("SENT") ?? 0} tone="bg-green-50 text-green-700" />
+            <QueueCard label="Failed" count={outboxMap.get("FAILED") ?? 0} tone="bg-red-50 text-red-700" />
+          </div>
         </div>
 
-        <Card className="p-5">
-          <h3 className="mb-3 text-sm font-semibold text-slate-700">System Locks</h3>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Kunci</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Diperbarui</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(data?.locks ?? []).map((l) => (
-                <TableRow key={l.key}>
-                  <TableCell><code className="text-xs">{l.key}</code></TableCell>
-                  <TableCell>
-                    <Badge variant={l.isHeld ? "default" : "secondary"}>
-                      {l.isHeld ? "HELD" : "EXPIRED"}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-xs text-slate-400">
-                    {new Date(l.updatedAt).toLocaleString("id-ID")}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
-
+        {/* Failed messages */}
         {(data?.failedMessages ?? []).length > 0 && (
-          <Card className="p-5">
-            <h3 className="mb-3 text-sm font-semibold text-slate-700">Pesan Gagal (FAILED)</h3>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Tujuan</TableHead>
-                  <TableHead>Error</TableHead>
-                  <TableHead>Waktu</TableHead>
-                  <TableHead>Aksi</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {(data?.failedMessages ?? []).map((m) => (
-                  <TableRow key={m.id}>
-                    <TableCell className="text-xs">{m.toJid}</TableCell>
-                    <TableCell className="max-w-xs truncate text-xs text-red-600">{m.error}</TableCell>
-                    <TableCell className="text-xs text-slate-400">
-                      {new Date(m.updatedAt).toLocaleString("id-ID")}
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="outline" size="sm" disabled={busy === m.id}
-                        onClick={() => void retry(m.id)}>
-                        <ArrowClockwise size={14} className="mr-1" /> Retry
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
+          <div>
+            <div className="mb-3 flex items-center gap-2">
+              <Warning size={16} className="text-red-500" weight="fill" />
+              <h3 className="text-sm font-semibold text-red-700">Pesan Gagal ({data?.failedMessages.length})</h3>
+            </div>
+            <div className="space-y-2">
+              {(data?.failedMessages ?? []).map((m) => (
+                <Card key={m.id} className="flex items-center justify-between border-red-100 p-4">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-slate-700">{m.toJid}</p>
+                    <p className="truncate text-xs text-red-500">{m.error}</p>
+                  </div>
+                  <Button variant="outline" size="sm" disabled={busy === m.id}
+                    onClick={() => void retry(m.id)}
+                    className="ml-3 border-amber-200 text-amber-700 hover:bg-amber-50">
+                    <ArrowClockwise size={14} className="mr-1" /> Retry
+                  </Button>
+                </Card>
+              ))}
+            </div>
+          </div>
         )}
 
-        <Card className="p-5">
-          <h3 className="mb-3 text-sm font-semibold text-slate-700">Perintah Channel Terbaru</h3>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Jenis</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Provider</TableHead>
-                <TableHead>Waktu</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(data?.commands ?? []).map((c) => (
-                <TableRow key={c.id}>
-                  <TableCell><Badge variant="outline">{c.kind}</Badge></TableCell>
-                  <TableCell><Badge variant={c.status === "DONE" ? "default" : "secondary"}>{c.status}</Badge></TableCell>
-                  <TableCell className="text-xs">{c.provider}</TableCell>
-                  <TableCell className="text-xs text-slate-400">
-                    {new Date(c.createdAt).toLocaleString("id-ID")}
-                  </TableCell>
-                </TableRow>
-              ))}
-              {(data?.commands ?? []).length === 0 && (
-                <TableRow><TableCell colSpan={4} className="py-4 text-center text-sm text-slate-400">
-                  <Gear size={20} className="mx-auto mb-1 text-slate-300" />
-                  Tidak ada perintah.
-                </TableCell></TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </Card>
+        {/* Locks */}
+        <div>
+          <div className="mb-3 flex items-center gap-2">
+            <Lock size={16} className="text-slate-500" />
+            <h3 className="text-sm font-semibold text-slate-600">System Locks</h3>
+          </div>
+          <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+            {(data?.locks ?? []).map((l) => (
+              <Card key={l.key} className={`p-4 ${l.isHeld ? "border-green-200 bg-green-50/50" : ""}`}>
+                <div className="flex items-center justify-between">
+                  <code className="text-xs font-medium text-slate-600">{l.key}</code>
+                  <Badge variant={l.isHeld ? "default" : "secondary"} className="text-[9px] font-bold uppercase">
+                    {l.isHeld ? "HELD" : "EXPIRED"}
+                  </Badge>
+                </div>
+                <p className="mt-1 text-[10px] text-slate-400">
+                  Diperbarui {new Date(l.updatedAt).toLocaleString("id-ID")}
+                </p>
+              </Card>
+            ))}
+            {(data?.locks ?? []).length === 0 && !loading && (
+              <p className="text-sm text-slate-400">Tidak ada locks.</p>
+            )}
+          </div>
+        </div>
 
-        <Card className="p-5">
-          <h3 className="mb-3 text-sm font-semibold text-slate-700">Sinkronisasi Sheets</h3>
+        {/* Commands */}
+        <div>
+          <div className="mb-3 flex items-center gap-2">
+            <Gear size={16} className="text-slate-500" />
+            <h3 className="text-sm font-semibold text-slate-600">Perintah Channel Terbaru</h3>
+          </div>
+          <Card>
+            {(data?.commands ?? []).length === 0 ? (
+              <p className="py-8 text-center text-sm text-slate-400">Tidak ada perintah.</p>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {(data?.commands ?? []).map((c) => (
+                  <div key={c.id} className="flex items-center justify-between px-5 py-3">
+                    <div className="flex items-center gap-3">
+                      <Badge variant="outline" className="text-[10px] font-bold uppercase">{c.kind}</Badge>
+                      <span className="text-sm text-slate-600">{c.provider}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Badge variant={c.status === "DONE" ? "default" : c.status === "FAILED" ? "destructive" : "secondary"}
+                        className="text-[10px] font-bold uppercase">{c.status}</Badge>
+                      <span className="text-xs text-slate-300">{new Date(c.createdAt).toLocaleString("id-ID")}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </Card>
+        </div>
+
+        {/* Sync freshness */}
+        <div>
+          <div className="mb-3 flex items-center gap-2">
+            <Database size={16} className="text-slate-500" />
+            <h3 className="text-sm font-semibold text-slate-600">Sinkronisasi Sheets</h3>
+          </div>
           {(data?.sources ?? []).length === 0 ? (
             <p className="text-sm text-slate-400">Tidak ada sumber Google Sheets aktif.</p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nama</TableHead>
-                  <TableHead>Sinkron Terakhir</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <Card>
+              <div className="divide-y divide-slate-100">
                 {(data?.sources ?? []).map((s) => (
-                  <TableRow key={s.id}>
-                    <TableCell className="text-sm">{s.name}</TableCell>
-                    <TableCell className="text-xs text-slate-400">
+                  <div key={s.id} className="flex items-center justify-between px-5 py-3">
+                    <span className="text-sm font-medium text-slate-700">{s.name}</span>
+                    <span className="text-xs text-slate-400">
                       {s.lastSyncAt ? new Date(s.lastSyncAt).toLocaleString("id-ID") : "Belum pernah"}
-                    </TableCell>
-                  </TableRow>
+                    </span>
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            </Card>
           )}
-        </Card>
+        </div>
       </div>
     </AdminShell>
   );

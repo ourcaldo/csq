@@ -5,15 +5,13 @@ import { useAdminApi, adminFetch } from "@/lib/admin-api";
 import { Card } from "@csq/ui/components/ui/card";
 import { Badge } from "@csq/ui/components/ui/badge";
 import { Button } from "@csq/ui/components/ui/button";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@csq/ui/components/ui/table";
-import { Tag, Warning } from "@phosphor-icons/react";
+import { Tag, Plus, Warning, X, Sparkle } from "@phosphor-icons/react";
 
 type Plan = {
   id: string; name: string; priceIdr: number;
   limits: Record<string, number | null>;
-  tenantCount: number; createdAt: string;
+  tenantCount: number;
 };
-
 type PlanList = { items: Plan[] };
 type UsageItem = {
   tenantId: string; tenantName: string;
@@ -83,65 +81,81 @@ export default function PlansPage() {
 
   return (
     <AdminShell title="Paket & Penggunaan">
-      <div className="mx-auto max-w-6xl space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-900">Paket & Penggunaan</h2>
-          <Button size="sm" onClick={() => setShowCreate(true)}>
-            <Tag size={14} className="mr-1.5" /> Paket Baru
-          </Button>
-        </div>
-
+      <div className="space-y-8">
         {/* Plans */}
-        <Card className="p-5">
-          <h3 className="mb-3 text-sm font-semibold text-slate-700">Paket Tersedia</h3>
-          {pLoading && <p className="text-sm text-slate-400">Memuat...</p>}
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <div>
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-600">Paket Tersedia</h3>
+            <Button size="sm" onClick={() => setShowCreate(true)}>
+              <Plus size={14} className="mr-1.5" /> Paket Baru
+            </Button>
+          </div>
+          {pLoading && <Card className="animate-pulse p-6"><div className="h-6 w-32 rounded bg-slate-200" /></Card>}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             {plans.map((p) => (
-              <div key={p.id} className="rounded-xl border border-slate-200 p-4">
-                <p className="font-semibold text-slate-900">{p.name}</p>
-                <p className="text-lg font-bold text-green-700">{formatIdr(p.priceIdr)}<span className="text-xs text-slate-400">/bulan</span></p>
-                <div className="mt-2 space-y-0.5 text-xs text-slate-500">
-                  {p.limits?.agentRepliesPerMonth ? <p>AI: {p.limits.agentRepliesPerMonth}/bln</p> : <p>AI: unlimited</p>}
-                  {p.limits?.messagesOutPerMonth ? <p>Pesan keluar: {p.limits.messagesOutPerMonth}/bln</p> : <p>Pesan: unlimited</p>}
-                  {p.limits?.channels ? <p>Saluran: {p.limits.channels}</p> : <p>Saluran: unlimited</p>}
+              <Card key={p.id} className="relative overflow-hidden">
+                <div className="absolute right-0 top-0 h-20 w-20 rounded-bl-full bg-gradient-to-br from-green-50 to-transparent" />
+                <div className="p-5">
+                  <Badge variant="outline" className="mb-2 text-[9px] font-bold uppercase tracking-wide text-green-700">
+                    <Sparkle size={8} className="mr-1" weight="fill" /> Paket
+                  </Badge>
+                  <p className="text-lg font-bold text-slate-900">{p.name}</p>
+                  <p className="text-2xl font-bold text-green-700">
+                    {formatIdr(p.priceIdr)}
+                    <span className="text-xs font-normal text-slate-400">/bulan</span>
+                  </p>
+                  <div className="mt-3 space-y-1 border-t border-slate-100 pt-3 text-xs text-slate-500">
+                    <p className="flex justify-between">
+                      <span>AI replies</span>
+                      <span className="font-semibold">{p.limits?.agentRepliesPerMonth ?? "∞"}</span>
+                    </p>
+                    <p className="flex justify-between">
+                      <span>Pesan keluar</span>
+                      <span className="font-semibold">{p.limits?.messagesOutPerMonth ?? "∞"}</span>
+                    </p>
+                    <p className="flex justify-between">
+                      <span>Saluran</span>
+                      <span className="font-semibold">{p.limits?.channels ?? "∞"}</span>
+                    </p>
+                  </div>
+                  <p className="mt-3 rounded-lg bg-slate-50 px-2 py-1 text-center text-[10px] font-medium text-slate-400">
+                    {p.tenantCount} tenant aktif
+                  </p>
                 </div>
-                <p className="mt-2 text-xs text-slate-400">{p.tenantCount} tenant</p>
-              </div>
+              </Card>
             ))}
             {plans.length === 0 && !pLoading && (
-              <p className="col-span-3 text-center text-sm text-slate-400">Belum ada paket.</p>
+              <Card className="col-span-3 flex flex-col items-center py-10">
+                <Tag size={32} className="mb-2 text-slate-200" />
+                <p className="text-sm text-slate-400">Belum ada paket - buat paket pertama</p>
+              </Card>
             )}
           </div>
-        </Card>
+        </div>
 
         {/* Usage table */}
-        <Card className="p-5">
-          <h3 className="mb-3 text-sm font-semibold text-slate-700">
-            Penggunaan Bulan Ini
-            {usageData && <span className="ml-2 text-xs text-slate-400">
-              (sejak {new Date(usageData.monthStart).toLocaleDateString("id-ID")})
-            </span>}
-          </h3>
-          {uLoading && <p className="text-sm text-slate-400">Memuat...</p>}
-          {!uLoading && (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Tenant</TableHead>
-                  <TableHead>Paket</TableHead>
-                  <TableHead className="text-center">AI Replies</TableHead>
-                  <TableHead className="text-center">Outbound</TableHead>
-                  <TableHead className="text-center">Inbound</TableHead>
-                  <TableHead className="text-center">Storage</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+        <div>
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-600">Penggunaan Bulan Ini</h3>
+            {usageData && (
+              <p className="text-xs text-slate-400">
+                Sejak {new Date(usageData.monthStart).toLocaleDateString("id-ID", { day: "numeric", month: "long" })}
+              </p>
+            )}
+          </div>
+          {uLoading && <Card className="animate-pulse p-6"><div className="h-5 w-full rounded bg-slate-200" /></Card>}
+          {!uLoading && usage.length > 0 && (
+            <Card className="overflow-hidden">
+              <div className="divide-y divide-slate-50">
                 {usage.map((u) => (
-                  <TableRow key={u.tenantId}>
-                    <TableCell className="font-medium text-slate-900">{u.tenantName}</TableCell>
-                    <TableCell>
+                  <div key={u.tenantId} className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-slate-50/50">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-sm font-bold text-slate-600">
+                      {u.tenantName.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-slate-800">{u.tenantName}</p>
                       <select
-                        className="rounded border border-slate-200 bg-white px-2 py-1 text-xs"
+                        className="mt-0.5 rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-500"
                         value={u.planId ?? ""}
                         disabled={busy === u.tenantId}
                         onChange={(e) => void assignPlan(u.tenantId, e.target.value || null)}
@@ -151,78 +165,92 @@ export default function PlansPage() {
                           <option key={p.id} value={p.id}>{p.name}</option>
                         ))}
                       </select>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {u.agentRepliesOver ? (
-                        <span className="flex items-center justify-center gap-1">
-                          <span className="font-bold text-red-600">{u.agentReplies}</span>
-                          <Warning size={12} className="text-red-600" weight="fill" />
-                        </span>
-                      ) : (
-                        <span>{u.agentReplies}{u.agentRepliesLimit ? ` / ${u.agentRepliesLimit}` : ""}</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {u.outboundOver ? (
-                        <span className="font-bold text-red-600">{u.outbound}</span>
-                      ) : (
-                        <span>{u.outbound}{u.outboundLimit ? ` / ${u.outboundLimit}` : ""}</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center">{u.inbound}</TableCell>
-                    <TableCell className="text-center text-xs">{formatBytes(u.mediaBytes)}</TableCell>
-                  </TableRow>
+                    </div>
+                    {/* AI replies */}
+                    <div className={`shrink-0 rounded-xl px-3 py-1.5 text-center ${u.agentRepliesOver ? "bg-red-50" : "bg-slate-50"}`}>
+                      <p className={`text-sm font-bold ${u.agentRepliesOver ? "text-red-600" : "text-slate-700"}`}>
+                        {u.agentReplies}
+                        {u.agentRepliesOver && <Warning size={10} className="ml-0.5 inline text-red-500" weight="fill" />}
+                      </p>
+                      <p className="text-[9px] uppercase text-slate-400">
+                        AI{u.agentRepliesLimit ? `/${u.agentRepliesLimit}` : ""}
+                      </p>
+                    </div>
+                    {/* Outbound */}
+                    <div className={`shrink-0 rounded-xl px-3 py-1.5 text-center ${u.outboundOver ? "bg-red-50" : "bg-slate-50"}`}>
+                      <p className={`text-sm font-bold ${u.outboundOver ? "text-red-600" : "text-slate-700"}`}>{u.outbound}</p>
+                      <p className="text-[9px] uppercase text-slate-400">
+                        Out{u.outboundLimit ? `/${u.outboundLimit}` : ""}
+                      </p>
+                    </div>
+                    {/* Inbound */}
+                    <div className="shrink-0 rounded-xl bg-slate-50 px-3 py-1.5 text-center">
+                      <p className="text-sm font-bold text-slate-700">{u.inbound}</p>
+                      <p className="text-[9px] uppercase text-slate-400">In</p>
+                    </div>
+                    {/* Storage */}
+                    <div className="shrink-0 rounded-xl bg-slate-50 px-3 py-1.5 text-center">
+                      <p className="text-sm font-bold text-slate-700">{formatBytes(u.mediaBytes)}</p>
+                      <p className="text-[9px] uppercase text-slate-400">Media</p>
+                    </div>
+                  </div>
                 ))}
-                {usage.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={6} className="py-8 text-center text-sm text-slate-400">
-                      Belum ada tenant.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
+              </div>
+            </Card>
           )}
-        </Card>
+          {!uLoading && usage.length === 0 && (
+            <Card className="flex flex-col items-center py-10">
+              <p className="text-sm text-slate-400">Belum ada tenant</p>
+            </Card>
+          )}
+        </div>
+      </div>
 
-        {/* Create plan dialog */}
-        {showCreate && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-            <Card className="w-full max-w-md p-6">
-              <h3 className="mb-4 text-base font-semibold text-slate-900">Paket Baru</h3>
-              <form onSubmit={createPlan} className="space-y-3">
-                <div className="space-y-1">
-                  <label className="text-sm font-medium">Nama</label>
-                  <input className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+      {/* Create plan dialog */}
+      {showCreate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <Card className="w-full max-w-md overflow-hidden shadow-2xl">
+            <div className="h-1.5 bg-gradient-to-r from-green-500 to-green-700" />
+            <div className="p-6">
+              <div className="mb-5 flex items-center justify-between">
+                <h3 className="text-base font-bold text-slate-900">Paket Baru</h3>
+                <button onClick={() => setShowCreate(false)} className="text-slate-300 hover:text-slate-500">
+                  <X size={18} />
+                </button>
+              </div>
+              <form onSubmit={createPlan} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Nama Paket</label>
+                  <input className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-green-300 focus:outline-none focus:ring-2 focus:ring-green-100"
                     required value={form.name}
                     onChange={(e) => setForm({ ...form, name: e.target.value })}
                     placeholder="Starter / Bisnis / Pro" />
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <label className="text-sm font-medium">Harga (IDR/bulan)</label>
-                  <input className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  <input className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-green-300 focus:outline-none focus:ring-2 focus:ring-green-100"
                     type="number" required value={form.priceIdr}
                     onChange={(e) => setForm({ ...form, priceIdr: e.target.value })}
                     placeholder="99000" />
                 </div>
                 <div className="grid grid-cols-3 gap-2">
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium">AI/bln</label>
-                    <input className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
+                  <div className="rounded-xl bg-slate-50 p-3">
+                    <label className="text-[10px] font-semibold uppercase text-slate-400">AI/bln</label>
+                    <input className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
                       type="number" value={form.agentReplies}
                       onChange={(e) => setForm({ ...form, agentReplies: e.target.value })}
                       placeholder="1000" />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium">Pesan/bln</label>
-                    <input className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
+                  <div className="rounded-xl bg-slate-50 p-3">
+                    <label className="text-[10px] font-semibold uppercase text-slate-400">Pesan/bln</label>
+                    <input className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
                       type="number" value={form.messagesOut}
                       onChange={(e) => setForm({ ...form, messagesOut: e.target.value })}
                       placeholder="5000" />
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium">Saluran</label>
-                    <input className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
+                  <div className="rounded-xl bg-slate-50 p-3">
+                    <label className="text-[10px] font-semibold uppercase text-slate-400">Saluran</label>
+                    <input className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
                       type="number" value={form.channels}
                       onChange={(e) => setForm({ ...form, channels: e.target.value })}
                       placeholder="2" />
@@ -237,10 +265,10 @@ export default function PlansPage() {
                   <Button type="button" variant="outline" onClick={() => setShowCreate(false)}>Batal</Button>
                 </div>
               </form>
-            </Card>
-          </div>
-        )}
-      </div>
+            </div>
+          </Card>
+        </div>
+      )}
     </AdminShell>
   );
 }
