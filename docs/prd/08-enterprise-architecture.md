@@ -24,7 +24,7 @@ are tick-drained tables). What changes is the service topology.
     outbound-send outbox drain. Long-lived state lives here; web deploys
     never restart it.
 -   `apps/web` - public site (unchanged). `apps/admin` - platform console
-    (still blocked on its SaaS-operator section).
+    (PRD: file 13; execution on owner go).
 -   `packages/core` - all domain logic, unchanged; apps stay thin over it.
 
 ## Non-negotiables

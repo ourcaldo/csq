@@ -38,9 +38,9 @@ csq/
                  Meta webhook, media serving, OpenAPI. Stateless.
     web/         Public marketing site. Built, NOT yet deployed as its own
                  service (one Render service away, on the owner's ask).
-    admin/       NOT BUILT - blocked on the SaaS-operator PRD section
-                 (a product decision about tenant provisioning, plans,
-                 and monitoring that only the owner can make).
+    admin/       NOT BUILT - PRD + plan now exist (PRD file 13 +
+                 docs/plans/2026-11-08-admin-console-plan.md);
+                 execution on owner go.
   packages/
     core/        All domain logic: prisma schema/migrations, inbox,
                  agent loop, campaign engine, tools (the Tool Gateway
@@ -180,16 +180,17 @@ Deliberately deferred (with reasons, not forgotten):
   the VPS path updates when the VPS deploy becomes real.
 - **Generated OpenAPI** - the hand-maintained scaffold is correct at the
   current surface size.
-- **Cross-service metrics/alerting** - Render logs today; a shared
-  observability layer arrives with SaaS operations.
+- **Cross-service metrics/alerting** - Render logs today; the admin
+  console Overview (PRD 13) delivers the health view; the alerting half
+  remains REQUIRED at the production cutover (docs/prd/09).
 
 Owner decisions pending (not engineering):
 
 1. **Production cutover** - merge `monorepo` to `main`, retire the
    monolith, point production at the new stack. Frozen until the owner
    opens it. The rollback and sequencing are already designed.
-2. **`apps/admin`** - needs the SaaS-operator PRD section first; the
-   agent can draft it for approval on request.
+2. **`apps/admin`** - PRD + plan written (file 13); awaiting the owner's
+   go for the phased execution.
 3. **apps/web deployment** - one Render service away, on the owner's ask.
 
 ## 9. Key facts for future sessions

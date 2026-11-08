@@ -76,6 +76,10 @@ Logical multi-business support inside one self-hosted installation is **in scope
 > SaaS-operator scope that apps/admin implies (tenant provisioning, plans,
 > monitoring) needs its own PRD section before that app is built; until
 > then the out-of-scope list above still governs the MVP slice.
+>
+> **Update 2026-11-08: that section now exists - file 13 (admin console).
+> Billing/payment stays excluded; everything the console v1 needs is
+> specced there.**
 
 
 

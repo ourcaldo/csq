@@ -14,8 +14,9 @@ Summary:
     tool registry, types. Core never imports from an app; apps never
     import each other.
 -   `apps/web` - public UI (section 20A), own deployable.
--   `apps/admin` - platform console, later; requires a SaaS-operator PRD
-    section and its own auth realm before build starts.
+-   `apps/admin` - platform console. PRD: file 13 (admin console); plan:
+    `docs/plans/2026-11-08-admin-console-plan.md`. Execution on owner go.
+    Billing stays out of scope (file 04).
 -   npm workspaces only - no pnpm/turbo/nx until root builds actually
     hurt. Pages Router stays.
 
