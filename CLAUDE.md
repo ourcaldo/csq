@@ -15,7 +15,7 @@ Active project (past its HackFest origin — that framing is historical; the doc
 ## Read This First — In This Order
 
 1. **`AGENTS.md`** — authoritative engineering rules, workflow, and coding style. It overrides anything generic. Re-read at the start of every session.
-2. **`docs/prd-product-requirements-document.md`** — read in full before any architectural decision. Every constraint here traces back to a PRD section.
+2. **`docs/prd/`** - the PRD set, one focused document per concern (start with its README) - read in full before any architectural decision. Every constraint here traces back to a PRD file.
 3. **`plans/00-master-plan.md`** — phase ordering and critical path. The task you're doing maps to a phase; open that phase's file for the checklist.
 
 Do not act without having read the relevant project context first. This is non-negotiable in `AGENTS.md`.

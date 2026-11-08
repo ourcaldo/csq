@@ -3,7 +3,7 @@
 **Project:** CSQ (HackFest MVP)
 **Date:** 2026-08-16
 **Status:** Planning
-**PRD:** `../docs/prd-product-requirements-document.md`
+**PRD:** `../docs/prd/README.md` (the PRD set, one focused document per concern)
 
 ---
 

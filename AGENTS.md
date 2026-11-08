@@ -4,7 +4,7 @@
 Active project (HackFest origin is historical). Scaffolding through the agent runtime,
 inbox, scenarios, and pipeline has landed; the agent runtime is a direct
 OpenAI-compatible client (`packages/core/src/services/llm-runtime.ts`) - OpenClaw is gone.
-**Read `docs/prd-product-requirements-document.md` in full before making any architectural decision.**
+**Read the PRD set in `docs/prd/` (start with its README) in full before making any architectural decision.**
 **Owner decision 2026-11-08: the product escalates into a multi-frontend monorepo**
 (public UI + tenant dashboard + later a platform admin console). Plan:
 `docs/2026-11-08-monorepo-migration-plan.md`, PRD section 23B.0. Architecture

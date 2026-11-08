@@ -6,7 +6,7 @@
 **Status:** Complete
 **Standards:** IEEE 830-1998 (adapted)
 **Companion documents:**
-- `./prd-product-requirements-document.md` — Product Requirements Document (PRD)
+- `./prd/README.md` - the PRD set (one focused document per concern)
 - `./sdd-system-design-document.md` — System Design Document (SDD)
 - `../plans/` — Implementation plans (11 phase files)
 
@@ -90,7 +90,7 @@ See PRD §20.
 
 ### 1.4 References
 
-1. `./prd-product-requirements-document.md` — Product Requirements Document
+1. `./prd/README.md` - the PRD set (one focused document per concern)
 2. `./sdd-system-design-document.md` — System Design Document
 3. `../AGENTS.md` — Project engineering rules and conventions
 4. `../plans/` — Phase implementation plans

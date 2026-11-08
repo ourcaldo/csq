@@ -6,7 +6,7 @@
 **Status:** Complete
 **Standards:** IEEE 1016-2009 (adapted)
 **Companion documents:**
-- `./prd-product-requirements-document.md` — Product Requirements Document (PRD)
+- `./prd/README.md` - the PRD set (one focused document per concern)
 - `./srs-software-requirements-specification.md` — Software Requirements Specification (SRS)
 - `../plans/` — Implementation plans (11 phase files)
 - `../AGENTS.md` — Project engineering rules
@@ -54,7 +54,7 @@ as the customer channel.
 
 ### 1.3 References
 
-1. `./prd-product-requirements-document.md` — PRD
+1. `./prd/README.md` - the PRD set (one focused document per concern)
 2. `./srs-software-requirements-specification.md` — SRS
 3. `../AGENTS.md` — Engineering rules
 4. `../plans/` — Phase plans
