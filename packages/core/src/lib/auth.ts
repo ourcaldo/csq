@@ -39,6 +39,13 @@ export const authOptions: NextAuthOptions = {
         const user = await prisma.user.findUnique({ where: { email } });
         if (!user) return null;
 
+        // Phase 2 (PRD 13): a suspended tenant's users cannot log in.
+        const tenant = await prisma.tenant.findUnique({
+          where: { id: user.tenantId },
+          select: { status: true },
+        });
+        if (tenant?.status === "SUSPENDED") return null;
+
         const ok = await verifyPassword(password, user.passwordHash);
         if (!ok) return null;
 
@@ -105,7 +112,19 @@ export async function getAuthSession(
   req: NextApiRequest,
   res: NextApiResponse
 ): Promise<Session | null> {
-  return getServerSession(req, res, authOptions);
+  const session = await getServerSession(req, res, authOptions);
+  // Phase 2 (PRD 13): a SUSPENDED tenant's users get no session at all -
+  // every BFF route returns the standard 401, and the login page shows the
+  // suspended message via the authorize() check. Data never stops flowing
+  // (the worker keeps ingesting); the UI is simply gated here.
+  if (session?.user?.tenantId) {
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: session.user.tenantId },
+      select: { status: true },
+    });
+    if (tenant?.status === "SUSPENDED") return null;
+  }
+  return session;
 }
 
 // Role guard for API routes. Returns true if the session's role is one of the

@@ -94,6 +94,12 @@ export async function runAgentReply(args: {
   if (!tenant) {
     return { reply: "", toolCalls: [], stoodDown: true };
   }
+  // Phase 2 (PRD 13): a suspended tenant's agent stands down - no LLM turns,
+  // no replies. Inbound keeps ingesting (the socket layer does not check
+  // tenant status); the agent simply does not answer.
+  if (tenant.status === "SUSPENDED") {
+    return { reply: "", toolCalls: [], stoodDown: true };
+  }
 
   // BOUNDED HISTORY WINDOW (no external session state). The recent transcript
   // is replayed from our own Message rows - the NEWEST AGENT_HISTORY_LIMIT

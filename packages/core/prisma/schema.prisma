@@ -25,6 +25,25 @@ enum UserRole {
   OWNER
   STAFF
 }
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+// Plan metadata for the monetization roadmap (PRD 13 Phase 5). Manual
+// assignment, display-only pricing - no payment processing. Platform
+// table: no tenantId. limits is Zod-validated:
+// { agentRepliesPerMonth, messagesOutPerMonth, channels } - null = unlimited.
+model Plan {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  priceIdr  Int
+  limits    Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenants Tenant[]
+}
 
 enum AgentType {
   CUSTOMER_SERVICE
@@ -165,9 +184,11 @@ enum ScenarioTriggerType {
 // ─────────────────────────── Models ───────────────────────────
 
 model Tenant {
-  id              String   @id @default(uuid())
+  id              String       @id @default(uuid())
   name            String
-  slug            String   @unique
+  slug            String       @unique
+  status          TenantStatus @default(ACTIVE)
+  planId          String?
   settings        Json?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -213,6 +234,7 @@ model Tenant {
   channelCommands     ChannelCommand[]
   apiKeys             ApiKey[]
   refreshTokens       RefreshToken[]
+  plan                Plan?             @relation(fields: [planId], references: [id], onDelete: SetNull)
 }
 
 // D10c: per-tenant external OAuth credentials, SEPARATE from Tenant.settings.

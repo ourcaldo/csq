@@ -5,6 +5,10 @@ import { apiError, type ErrorCode } from "@csq/core/types/api";
 // Tenant is NEVER read from the request body/query - always from the session.
 // Called after getAuthSession has confirmed a session exists. A missing
 // tenantId on an authenticated session is an invariant violation (500).
+// Phase 2 (PRD 13): a SUSPENDED tenant's users are locked out at
+// getAuthSession (which is async and already hits the DB) - every BFF
+// route returns a clear suspended error before doing any work. Inbound
+// keeps ingesting via the worker; the UI is simply gated.
 export function requireTenant(session: Session): string {
   const tenantId = session.user.tenantId;
   if (!tenantId) {
