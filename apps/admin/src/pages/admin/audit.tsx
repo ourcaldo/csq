@@ -2,16 +2,20 @@ import { useState } from "react";
 import { AdminShell } from "@/components/admin-shell";
 import { withAdminAuth } from "@/lib/admin-auth";
 import { useAdminApi } from "@/lib/admin-api";
-import { Card } from "@csq/ui/components/ui/card";
-import { Badge } from "@csq/ui/components/ui/badge";
-import { ClipboardText, ShieldCheck } from "@phosphor-icons/react";
+import { cn } from "@csq/ui/lib/utils";
 
 type AuditItem = {
-  id: string; action: string; entityType: string; entityId: string | null;
-  customerPhone: string | null; createdAt: string;
+  id: string;
+  action: string;
+  entityType: string;
+  entityId: string | null;
+  customerPhone: string | null;
+  createdAt: string;
   tenantName?: string;
-  adminEmail?: string; adminName?: string;
-  targetType?: string; targetId?: string | null;
+  adminEmail?: string;
+  adminName?: string;
+  targetType?: string;
+  targetId?: string | null;
 };
 type AuditData = { items: AuditItem[]; total: number; page: number; pageSize: number };
 
@@ -21,78 +25,121 @@ export default function AuditPage() {
   const [tab, setTab] = useState<"tenant" | "admin">("tenant");
   const url = tab === "admin" ? "/api/admin/audit?auditType=admin" : "/api/admin/audit";
   const { data, loading, error } = useAdminApi<AuditData>(url);
-
   const items = data?.items ?? [];
 
   return (
     <AdminShell title="Audit">
-      <div className="space-y-6">
-        {/* Tabs */}
-        <div className="flex gap-2">
-          <button
-            onClick={() => setTab("tenant")}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${tab === "tenant" ? "bg-white text-slate-900 shadow-md shadow-slate-200/50 ring-1 ring-slate-200" : "text-slate-400 hover:bg-white/50 hover:text-slate-600"}`}
-          >
-            <ClipboardText size={15} /> Aktivitas Tenant
-          </button>
-          <button
-            onClick={() => setTab("admin")}
-            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all ${tab === "admin" ? "bg-white text-slate-900 shadow-md shadow-slate-200/50 ring-1 ring-slate-200" : "text-slate-400 hover:bg-white/50 hover:text-slate-600"}`}
-          >
-            <ShieldCheck size={15} /> Aksi Admin
-          </button>
+      <div className="space-y-4">
+        <div className="flex gap-5 border-b border-slate-200">
+          {(
+            [
+              ["tenant", "Aktivitas tenant"],
+              ["admin", "Aksi admin"],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={cn(
+                "-mb-px border-b-2 pb-2 text-[13px] transition-colors",
+                tab === key
+                  ? "border-green-700 font-medium text-slate-900"
+                  : "border-transparent text-slate-500 hover:text-slate-800"
+              )}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        {loading && (
-          <div className="space-y-2">
-            {[1, 2, 3, 4, 5].map((i) => <Card key={i} className="animate-pulse p-4"><div className="h-4 w-64 rounded bg-slate-200" /></Card>)}
+        {error && (
+          <div className="rounded-lg border border-slate-200 border-l-2 border-l-red-600 bg-white px-4 py-2.5 text-[13px] text-red-700">
+            {error}
           </div>
         )}
 
-        {!loading && (
-          <Card className="overflow-hidden">
-            <div className="divide-y divide-slate-50">
+        <div className="panel overflow-hidden">
+          <table className="tbl">
+            <thead>
+              <tr>
+                <th>Waktu</th>
+                <th>Aksi</th>
+                {tab === "tenant" ? (
+                  <>
+                    <th>Tenant</th>
+                    <th>Target</th>
+                    <th>Nomor</th>
+                  </>
+                ) : (
+                  <>
+                    <th>Admin</th>
+                    <th>Target</th>
+                  </>
+                )}
+              </tr>
+            </thead>
+            <tbody>
               {items.map((a) => (
-                <div key={a.id} className="flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-slate-50/50">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-400">
-                    {tab === "tenant" ? <ClipboardText size={14} /> : <ShieldCheck size={14} />}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-baseline gap-2">
-                      <code className="text-xs font-semibold text-slate-800">{a.action}</code>
-                      {tab === "tenant" && (
-                        <span className="text-xs text-slate-400">{a.tenantName}</span>
-                      )}
-                      {tab === "admin" && (
-                        <span className="text-xs font-medium text-slate-600">{a.adminName}</span>
-                      )}
-                    </div>
-                    <p className="truncate text-[11px] text-slate-400">
-                      {tab === "tenant"
-                        ? `${a.entityType}${a.entityId ? ` / ${a.entityId.slice(0, 8)}...` : ""}${a.customerPhone ? ` / ${a.customerPhone}` : ""}`
-                        : `${a.targetType}${a.targetId ? ` / ${a.targetId.slice(0, 8)}...` : ""}`
-                      }
-                    </p>
-                  </div>
-                  <span className="shrink-0 text-xs text-slate-300">
-                    {new Date(a.createdAt).toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
-                  </span>
-                </div>
+                <tr key={a.id}>
+                  <td className="whitespace-nowrap text-[12px] text-slate-500">
+                    {new Date(a.createdAt).toLocaleString("id-ID", {
+                      day: "numeric",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </td>
+                  <td className="font-mono text-[11px] text-slate-800">{a.action}</td>
+                  {tab === "tenant" ? (
+                    <>
+                      <td>{a.tenantName}</td>
+                      <td className="text-[12px] text-slate-500">
+                        {a.entityType}
+                        {a.entityId ? ` / ${a.entityId.slice(0, 8)}` : ""}
+                      </td>
+                      <td className="text-[12px] text-slate-500">{a.customerPhone ?? "-"}</td>
+                    </>
+                  ) : (
+                    <>
+                      <td>
+                        <p className="font-medium text-slate-900">{a.adminName}</p>
+                        <p className="text-[11px] text-slate-400">{a.adminEmail}</p>
+                      </td>
+                      <td className="text-[12px] text-slate-500">
+                        {a.targetType}
+                        {a.targetId ? ` / ${a.targetId.slice(0, 8)}` : ""}
+                      </td>
+                    </>
+                  )}
+                </tr>
               ))}
-            </div>
-            {items.length === 0 && (
-              <div className="flex flex-col items-center py-16">
-                <ClipboardText size={36} className="mb-3 text-slate-200" />
-                <p className="text-sm text-slate-400">Belum ada aktivitas</p>
-              </div>
-            )}
-          </Card>
-        )}
+              {!loading && items.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={tab === "tenant" ? 5 : 4}
+                    className="py-10 text-center text-[13px] text-slate-400"
+                  >
+                    Belum ada aktivitas.
+                  </td>
+                </tr>
+              )}
+              {loading && (
+                <tr>
+                  <td
+                    colSpan={tab === "tenant" ? 5 : 4}
+                    className="py-10 text-center text-[13px] text-slate-400"
+                  >
+                    Memuat...
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
 
         {data && data.total > data.pageSize && (
-          <p className="text-center text-xs text-slate-300">
-            Menampilkan {items.length} dari {data.total} entri
+          <p className="text-[11px] text-slate-400">
+            Menampilkan {items.length} dari {data.total} entri.
           </p>
         )}
       </div>

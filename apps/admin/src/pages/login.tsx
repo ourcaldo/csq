@@ -34,29 +34,35 @@ export default function AdminLogin() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+    <main className="flex min-h-screen items-center justify-center bg-[#F6F7F9] px-4">
       <Head>
         <title>Masuk - CSQ Admin</title>
         <meta name="robots" content="noindex,nofollow" />
       </Head>
-      <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-        <div className="mb-6 flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-900 text-sm font-bold text-white">
+
+      <div className="w-full max-w-[360px]">
+        <div className="mb-8 flex items-center gap-2.5">
+          <span className="flex h-6 w-6 items-center justify-center rounded bg-green-700 text-[11px] font-bold text-white">
             C
           </span>
-          <div>
-            <p className="text-base font-semibold text-slate-900">CSQ Admin</p>
-            <p className="text-xs text-slate-400">Platform Console</p>
-          </div>
+          <span className="text-[15px] font-semibold tracking-tight text-slate-900">
+            CSQ Admin
+          </span>
         </div>
 
-        <form onSubmit={submit} className="space-y-4">
+        <h1 className="text-[20px] font-semibold tracking-tight text-slate-900">Masuk</h1>
+        <p className="mt-1 text-[13px] text-slate-500">
+          Konsol operator platform. Akun tenant tidak berlaku di sini.
+        </p>
+
+        <form onSubmit={submit} className="mt-6 space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
               type="email"
               required
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="operator@csq.id"
@@ -68,11 +74,12 @@ export default function AdminLogin() {
               id="password"
               type="password"
               required
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-[13px] text-red-600">{error}</p>}
           <Button type="submit" className="w-full" disabled={busy}>
             {busy ? "Memeriksa..." : "Masuk"}
           </Button>

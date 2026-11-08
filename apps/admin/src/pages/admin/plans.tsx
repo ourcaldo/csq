@@ -2,44 +2,65 @@ import { type FormEvent, useState } from "react";
 import { AdminShell } from "@/components/admin-shell";
 import { withAdminAuth } from "@/lib/admin-auth";
 import { useAdminApi, adminFetch } from "@/lib/admin-api";
-import { Card } from "@csq/ui/components/ui/card";
-import { Badge } from "@csq/ui/components/ui/badge";
 import { Button } from "@csq/ui/components/ui/button";
-import { Tag, Plus, Warning, X, Sparkle } from "@phosphor-icons/react";
+import { Input } from "@csq/ui/components/ui/input";
+import { Label } from "@csq/ui/components/ui/label";
+import { Plus, X } from "@phosphor-icons/react";
 
 type Plan = {
-  id: string; name: string; priceIdr: number;
+  id: string;
+  name: string;
+  priceIdr: number;
   limits: Record<string, number | null>;
   tenantCount: number;
 };
 type PlanList = { items: Plan[] };
 type UsageItem = {
-  tenantId: string; tenantName: string;
-  planName: string | null; planId: string | null;
-  agentReplies: number; agentRepliesLimit: number | null; agentRepliesOver: boolean;
-  outbound: number; outboundLimit: number | null; outboundOver: boolean;
-  inbound: number; channelCount: number; mediaBytes: number;
+  tenantId: string;
+  tenantName: string;
+  planName: string | null;
+  planId: string | null;
+  agentReplies: number;
+  agentRepliesLimit: number | null;
+  agentRepliesOver: boolean;
+  outbound: number;
+  outboundLimit: number | null;
+  outboundOver: boolean;
+  inbound: number;
+  channelCount: number;
+  mediaBytes: number;
 };
 type UsageData = { items: UsageItem[]; monthStart: string };
 
+const EMPTY_FORM = { name: "", priceIdr: "0", agentReplies: "", messagesOut: "", channels: "" };
+
 export const getServerSideProps = withAdminAuth(async () => ({ props: {} }));
 
-function formatIdr(n: number): string {
-  return new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR", maximumFractionDigits: 0 }).format(n);
+function idr(n: number): string {
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0,
+  }).format(n);
 }
 
-function formatBytes(n: number): string {
+function bytes(n: number): string {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
+function limit(v: number | null | undefined): string {
+  return v === null || v === undefined ? "Tanpa batas" : v.toLocaleString("id-ID");
+}
+
 export default function PlansPage() {
-  const { data: plansData, loading: pLoading, refresh: refreshPlans } = useAdminApi<PlanList>("/api/admin/plans");
+  const { data: plansData, loading: pLoading, refresh: refreshPlans } =
+    useAdminApi<PlanList>("/api/admin/plans");
   const { data: usageData, loading: uLoading } = useAdminApi<UsageData>("/api/admin/usage");
   const [busy, setBusy] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ name: "", priceIdr: "0", agentReplies: "", messagesOut: "", channels: "" });
+  const [form, setForm] = useState(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
 
   async function createPlan(e: FormEvent) {
@@ -57,7 +78,7 @@ export default function PlansPage() {
         },
       });
       setShowCreate(false);
-      setForm({ name: "", priceIdr: "0", agentReplies: "", messagesOut: "", channels: "" });
+      setForm(EMPTY_FORM);
       refreshPlans();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Gagal membuat paket.");
@@ -80,193 +101,238 @@ export default function PlansPage() {
   const usage = usageData?.items ?? [];
 
   return (
-    <AdminShell title="Paket & Penggunaan">
-      <div className="space-y-8">
-        {/* Plans */}
-        <div>
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-slate-600">Paket Tersedia</h3>
-            <Button size="sm" onClick={() => setShowCreate(true)}>
-              <Plus size={14} className="mr-1.5" /> Paket Baru
+    <AdminShell title="Paket & penggunaan">
+      <div className="space-y-6">
+        <section>
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-[13px] font-semibold text-slate-900">Paket</h2>
+            <Button size="sm" variant="outline" onClick={() => setShowCreate(true)}>
+              <Plus size={14} weight="bold" className="mr-1.5" />
+              Paket baru
             </Button>
           </div>
-          {pLoading && <Card className="animate-pulse p-6"><div className="h-6 w-32 rounded bg-slate-200" /></Card>}
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            {plans.map((p) => (
-              <Card key={p.id} className="relative overflow-hidden">
-                <div className="absolute right-0 top-0 h-20 w-20 rounded-bl-full bg-gradient-to-br from-green-50 to-transparent" />
-                <div className="p-5">
-                  <Badge variant="outline" className="mb-2 text-[9px] font-bold uppercase tracking-wide text-green-700">
-                    <Sparkle size={8} className="mr-1" weight="fill" /> Paket
-                  </Badge>
-                  <p className="text-lg font-bold text-slate-900">{p.name}</p>
-                  <p className="text-2xl font-bold text-green-700">
-                    {formatIdr(p.priceIdr)}
-                    <span className="text-xs font-normal text-slate-400">/bulan</span>
-                  </p>
-                  <div className="mt-3 space-y-1 border-t border-slate-100 pt-3 text-xs text-slate-500">
-                    <p className="flex justify-between">
-                      <span>AI replies</span>
-                      <span className="font-semibold">{p.limits?.agentRepliesPerMonth ?? "∞"}</span>
-                    </p>
-                    <p className="flex justify-between">
-                      <span>Pesan keluar</span>
-                      <span className="font-semibold">{p.limits?.messagesOutPerMonth ?? "∞"}</span>
-                    </p>
-                    <p className="flex justify-between">
-                      <span>Saluran</span>
-                      <span className="font-semibold">{p.limits?.channels ?? "∞"}</span>
-                    </p>
-                  </div>
-                  <p className="mt-3 rounded-lg bg-slate-50 px-2 py-1 text-center text-[10px] font-medium text-slate-400">
-                    {p.tenantCount} tenant aktif
-                  </p>
-                </div>
-              </Card>
-            ))}
-            {plans.length === 0 && !pLoading && (
-              <Card className="col-span-3 flex flex-col items-center py-10">
-                <Tag size={32} className="mb-2 text-slate-200" />
-                <p className="text-sm text-slate-400">Belum ada paket - buat paket pertama</p>
-              </Card>
-            )}
-          </div>
-        </div>
 
-        {/* Usage table */}
-        <div>
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-slate-600">Penggunaan Bulan Ini</h3>
+          <div className="panel overflow-hidden">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>Nama</th>
+                  <th className="text-right">Harga / bulan</th>
+                  <th className="text-right">AI replies</th>
+                  <th className="text-right">Pesan keluar</th>
+                  <th className="text-right">Saluran</th>
+                  <th className="text-right">Tenant</th>
+                </tr>
+              </thead>
+              <tbody>
+                {plans.map((p) => (
+                  <tr key={p.id}>
+                    <td className="font-medium text-slate-900">{p.name}</td>
+                    <td className="text-right tabular-nums">{idr(p.priceIdr)}</td>
+                    <td className="text-right tabular-nums">
+                      {limit(p.limits?.agentRepliesPerMonth)}
+                    </td>
+                    <td className="text-right tabular-nums">
+                      {limit(p.limits?.messagesOutPerMonth)}
+                    </td>
+                    <td className="text-right tabular-nums">{limit(p.limits?.channels)}</td>
+                    <td className="text-right tabular-nums">{p.tenantCount}</td>
+                  </tr>
+                ))}
+                {!pLoading && plans.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-[13px] text-slate-400">
+                      Belum ada paket.
+                    </td>
+                  </tr>
+                )}
+                {pLoading && (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-[13px] text-slate-400">
+                      Memuat...
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section>
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2 className="text-[13px] font-semibold text-slate-900">Penggunaan bulan ini</h2>
             {usageData && (
-              <p className="text-xs text-slate-400">
-                Sejak {new Date(usageData.monthStart).toLocaleDateString("id-ID", { day: "numeric", month: "long" })}
+              <p className="text-[11px] text-slate-400">
+                Sejak{" "}
+                {new Date(usageData.monthStart).toLocaleDateString("id-ID", {
+                  day: "numeric",
+                  month: "long",
+                })}
               </p>
             )}
           </div>
-          {uLoading && <Card className="animate-pulse p-6"><div className="h-5 w-full rounded bg-slate-200" /></Card>}
-          {!uLoading && usage.length > 0 && (
-            <Card className="overflow-hidden">
-              <div className="divide-y divide-slate-50">
+
+          <div className="panel overflow-hidden">
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>Tenant</th>
+                  <th>Paket</th>
+                  <th className="text-right">AI replies</th>
+                  <th className="text-right">Keluar</th>
+                  <th className="text-right">Masuk</th>
+                  <th className="text-right">Media</th>
+                </tr>
+              </thead>
+              <tbody>
                 {usage.map((u) => (
-                  <div key={u.tenantId} className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-slate-50/50">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-sm font-bold text-slate-600">
-                      {u.tenantName.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-slate-800">{u.tenantName}</p>
+                  <tr key={u.tenantId}>
+                    <td>
+                      <p className="font-medium text-slate-900">{u.tenantName}</p>
+                      <p className="text-[11px] text-slate-400">{u.channelCount} saluran</p>
+                    </td>
+                    <td>
                       <select
-                        className="mt-0.5 rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-500"
+                        className="h-7 rounded border border-slate-200 bg-white px-1.5 text-[12px] text-slate-600"
                         value={u.planId ?? ""}
                         disabled={busy === u.tenantId}
                         onChange={(e) => void assignPlan(u.tenantId, e.target.value || null)}
                       >
-                        <option value="">- tanpa paket -</option>
+                        <option value="">Tanpa paket</option>
                         {plans.map((p) => (
-                          <option key={p.id} value={p.id}>{p.name}</option>
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
                         ))}
                       </select>
-                    </div>
-                    {/* AI replies */}
-                    <div className={`shrink-0 rounded-xl px-3 py-1.5 text-center ${u.agentRepliesOver ? "bg-red-50" : "bg-slate-50"}`}>
-                      <p className={`text-sm font-bold ${u.agentRepliesOver ? "text-red-600" : "text-slate-700"}`}>
-                        {u.agentReplies}
-                        {u.agentRepliesOver && <Warning size={10} className="ml-0.5 inline text-red-500" weight="fill" />}
-                      </p>
-                      <p className="text-[9px] uppercase text-slate-400">
-                        AI{u.agentRepliesLimit ? `/${u.agentRepliesLimit}` : ""}
-                      </p>
-                    </div>
-                    {/* Outbound */}
-                    <div className={`shrink-0 rounded-xl px-3 py-1.5 text-center ${u.outboundOver ? "bg-red-50" : "bg-slate-50"}`}>
-                      <p className={`text-sm font-bold ${u.outboundOver ? "text-red-600" : "text-slate-700"}`}>{u.outbound}</p>
-                      <p className="text-[9px] uppercase text-slate-400">
-                        Out{u.outboundLimit ? `/${u.outboundLimit}` : ""}
-                      </p>
-                    </div>
-                    {/* Inbound */}
-                    <div className="shrink-0 rounded-xl bg-slate-50 px-3 py-1.5 text-center">
-                      <p className="text-sm font-bold text-slate-700">{u.inbound}</p>
-                      <p className="text-[9px] uppercase text-slate-400">In</p>
-                    </div>
-                    {/* Storage */}
-                    <div className="shrink-0 rounded-xl bg-slate-50 px-3 py-1.5 text-center">
-                      <p className="text-sm font-bold text-slate-700">{formatBytes(u.mediaBytes)}</p>
-                      <p className="text-[9px] uppercase text-slate-400">Media</p>
-                    </div>
-                  </div>
+                    </td>
+                    <td
+                      className={`text-right tabular-nums ${
+                        u.agentRepliesOver ? "font-medium text-red-600" : ""
+                      }`}
+                    >
+                      {u.agentReplies}
+                      {u.agentRepliesLimit ? ` / ${u.agentRepliesLimit}` : ""}
+                    </td>
+                    <td
+                      className={`text-right tabular-nums ${
+                        u.outboundOver ? "font-medium text-red-600" : ""
+                      }`}
+                    >
+                      {u.outbound}
+                      {u.outboundLimit ? ` / ${u.outboundLimit}` : ""}
+                    </td>
+                    <td className="text-right tabular-nums">{u.inbound}</td>
+                    <td className="text-right tabular-nums">{bytes(u.mediaBytes)}</td>
+                  </tr>
                 ))}
-              </div>
-            </Card>
-          )}
-          {!uLoading && usage.length === 0 && (
-            <Card className="flex flex-col items-center py-10">
-              <p className="text-sm text-slate-400">Belum ada tenant</p>
-            </Card>
-          )}
-        </div>
+                {!uLoading && usage.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-[13px] text-slate-400">
+                      Belum ada tenant.
+                    </td>
+                  </tr>
+                )}
+                {uLoading && (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-[13px] text-slate-400">
+                      Memuat...
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
 
-      {/* Create plan dialog */}
       {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <Card className="w-full max-w-md overflow-hidden shadow-2xl">
-            <div className="h-1.5 bg-gradient-to-r from-green-500 to-green-700" />
-            <div className="p-6">
-              <div className="mb-5 flex items-center justify-between">
-                <h3 className="text-base font-bold text-slate-900">Paket Baru</h3>
-                <button onClick={() => setShowCreate(false)} className="text-slate-300 hover:text-slate-500">
-                  <X size={18} />
-                </button>
-              </div>
-              <form onSubmit={createPlan} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Nama Paket</label>
-                  <input className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-green-300 focus:outline-none focus:ring-2 focus:ring-green-100"
-                    required value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    placeholder="Starter / Bisnis / Pro" />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Harga (IDR/bulan)</label>
-                  <input className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:border-green-300 focus:outline-none focus:ring-2 focus:ring-green-100"
-                    type="number" required value={form.priceIdr}
-                    onChange={(e) => setForm({ ...form, priceIdr: e.target.value })}
-                    placeholder="99000" />
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="rounded-xl bg-slate-50 p-3">
-                    <label className="text-[10px] font-semibold uppercase text-slate-400">AI/bln</label>
-                    <input className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
-                      type="number" value={form.agentReplies}
-                      onChange={(e) => setForm({ ...form, agentReplies: e.target.value })}
-                      placeholder="1000" />
-                  </div>
-                  <div className="rounded-xl bg-slate-50 p-3">
-                    <label className="text-[10px] font-semibold uppercase text-slate-400">Pesan/bln</label>
-                    <input className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
-                      type="number" value={form.messagesOut}
-                      onChange={(e) => setForm({ ...form, messagesOut: e.target.value })}
-                      placeholder="5000" />
-                  </div>
-                  <div className="rounded-xl bg-slate-50 p-3">
-                    <label className="text-[10px] font-semibold uppercase text-slate-400">Saluran</label>
-                    <input className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm"
-                      type="number" value={form.channels}
-                      onChange={(e) => setForm({ ...form, channels: e.target.value })}
-                      placeholder="2" />
-                  </div>
-                </div>
-                <p className="text-xs text-slate-400">Kosongkan limit untuk unlimited.</p>
-                {formError && <p className="text-sm text-red-600">{formError}</p>}
-                <div className="flex gap-2 pt-2">
-                  <Button type="submit" disabled={busy === "create"} className="flex-1">
-                    {busy === "create" ? "Membuat..." : "Buat Paket"}
-                  </Button>
-                  <Button type="button" variant="outline" onClick={() => setShowCreate(false)}>Batal</Button>
-                </div>
-              </form>
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-900/30 p-4 pt-16">
+          <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-3">
+              <h2 className="text-[14px] font-semibold text-slate-900">Paket baru</h2>
+              <button
+                onClick={() => setShowCreate(false)}
+                className="text-slate-400 hover:text-slate-700"
+                aria-label="Tutup"
+              >
+                <X size={16} />
+              </button>
             </div>
-          </Card>
+            <form onSubmit={createPlan} className="space-y-4 p-5">
+              <div className="space-y-1.5">
+                <Label htmlFor="p-name">Nama paket</Label>
+                <Input
+                  id="p-name"
+                  required
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="Starter"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="p-price">Harga per bulan (IDR)</Label>
+                <Input
+                  id="p-price"
+                  type="number"
+                  required
+                  value={form.priceIdr}
+                  onChange={(e) => setForm({ ...form, priceIdr: e.target.value })}
+                  placeholder="99000"
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="p-ai" className="text-[11px]">
+                    AI / bulan
+                  </Label>
+                  <Input
+                    id="p-ai"
+                    type="number"
+                    value={form.agentReplies}
+                    onChange={(e) => setForm({ ...form, agentReplies: e.target.value })}
+                    placeholder="1000"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="p-out" className="text-[11px]">
+                    Pesan / bulan
+                  </Label>
+                  <Input
+                    id="p-out"
+                    type="number"
+                    value={form.messagesOut}
+                    onChange={(e) => setForm({ ...form, messagesOut: e.target.value })}
+                    placeholder="5000"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="p-ch" className="text-[11px]">
+                    Saluran
+                  </Label>
+                  <Input
+                    id="p-ch"
+                    type="number"
+                    value={form.channels}
+                    onChange={(e) => setForm({ ...form, channels: e.target.value })}
+                    placeholder="2"
+                  />
+                </div>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                Kosongkan limit untuk tanpa batas.
+              </p>
+              {formError && <p className="text-[13px] text-red-600">{formError}</p>}
+              <div className="flex justify-end gap-2 pt-1">
+                <Button type="button" variant="outline" onClick={() => setShowCreate(false)}>
+                  Batal
+                </Button>
+                <Button type="submit" disabled={busy === "create"}>
+                  {busy === "create" ? "Membuat..." : "Buat paket"}
+                </Button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </AdminShell>
