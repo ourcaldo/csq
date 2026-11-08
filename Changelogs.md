@@ -2,6 +2,15 @@
 
 Version format: `XX.YY.ZZ` — YY (minor) and ZZ (patch) stay within 0–10; XX (major) may grow beyond. Minor = new feature/behavior change, patch = fix, major = breaking change (schema, API contract, env vars).
 
+## 4.0.0 - 2026-11-08 (branch `monorepo`)
+
+Monorepo Phase 1 (PRD 23B.0; plan: `docs/2026-11-08-monorepo-migration-plan.md`). Major: the repository layout changes and the Render build/start commands change at merge time.
+
+- **Workspace skeleton:** npm workspaces (`apps/*`, `packages/*`); the Next.js app moved unchanged into `apps/dashboard/` via `git mv` (history preserved); the root manifest carries proxy scripts (dev/build/start/lint -> apps/dashboard), `engines`, and a root `prisma.schema` key pointing at the app schema so the current Render commands keep working through the transition.
+- **App manifest:** renamed `@csq/dashboard`, version 4.0.0, adds `db:deploy` (prisma migrate deploy); repo-wide tools (`check:encoding`, `db:migration-checksums`) moved to the root manifest.
+- **Path updates:** the encoding guard and migration checksums scan `apps/dashboard/...`; self-check imports point at `../apps/dashboard/src/...`; a root `tsconfig.json` (extends the app's, `@/*` -> `apps/dashboard/src/*`) keeps tsx alias resolution for the self-check scripts; the Dockerfile is rebuilt for the workspace layout (standalone server at `apps/dashboard/server.js`); setup-vps and README path fixes.
+- **Render cutover (manual, with the merge):** Build `npm ci && npm run build`, Start `npm run start`.
+
 ## 3.0.0 — 2026-11-01 (branch `feat/contact-tags-and-campaigns`)
 
 Contact classification + campaigns (message blasting). Design + all owner decisions:

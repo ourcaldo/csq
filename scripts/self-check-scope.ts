@@ -2,8 +2,8 @@
 // Run: npx tsx scripts/self-check-scope.ts
 // No database needed: resolveScopedPhone is a pure function; the ToolContext
 // shape is minimal (the real context carries more fields, all optional).
-import { resolveScopedPhone } from "../src/tools/scope";
-import type { ToolContext } from "../src/types/tools";
+import { resolveScopedPhone } from "../apps/dashboard/src/tools/scope";
+import type { ToolContext } from "../apps/dashboard/src/types/tools";
 
 type MinimalContext = Pick<ToolContext, "conversationId" | "customerPhone">;
 

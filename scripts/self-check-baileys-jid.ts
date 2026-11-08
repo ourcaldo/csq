@@ -7,7 +7,7 @@
 // number in local form; the raw append produced "0812...@s.whatsapp.net" -
 // a non-existent user WhatsApp accepts silently and never delivers (no echo,
 // no error). Sends to a live JID always echo back as a fromMe sync.
-import { resolveSendJid, toJid } from "../src/services/baileys";
+import { resolveSendJid, toJid } from "../apps/dashboard/src/services/baileys";
 
 const checks: Array<[string, string, string]> = [
   // [input, expected, name]

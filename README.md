@@ -23,7 +23,7 @@ Clone the repo onto the VPS and create the production env file:
 
 ```bash
 git clone <your-repo-url> /opt/csq && cd /opt/csq
-cp .env.production.example .env.production
+cp apps/dashboard/.env.production.example .env.production
 ```
 
 Edit `.env.production` and fill in:
@@ -93,7 +93,7 @@ A clean production install does NOT seed the demo tenant — owners register the
 
 ```bash
 cd docker
-docker compose --env-file ../.env.production exec -T app npx prisma db seed
+docker compose --env-file ../.env.production exec -T app npx prisma db seed --schema apps/dashboard/prisma/schema.prisma
 ```
 
-Demo login: `admin@tokokopi.id` / `demo1234` (check `prisma/seed.ts` for the current credentials).
+Demo login: `admin@tokokopi.id` / `demo1234` (check `apps/dashboard/prisma/seed.ts` for the current credentials).

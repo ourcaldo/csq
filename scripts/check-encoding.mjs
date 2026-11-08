@@ -1,5 +1,5 @@
 // Encoding + dash guard (D10f + owner rule 2026-11-01). Fails when a file
-// under src/, prisma/, or scripts/ contains a CP1252-mojibake sequence - the
+// under apps/dashboard/src, apps/dashboard/prisma, or scripts/ contains a CP1252-mojibake sequence - the
 // corruption pattern where UTF-8 was once read as Windows-1252 and saved back
 // (an em dash becomes a 3-char sequence of U+00E2, U+20AC, U+201D). Fixed
 // wholesale on 2026-11-01 (598 sequences across 9 files, including three
@@ -57,8 +57,8 @@ function walk(dir) {
     }
   }
 }
-walk("src");
-walk("prisma");
+walk("apps/dashboard/src");
+walk("apps/dashboard/prisma");
 walk("scripts");
 
 let failed = 0;

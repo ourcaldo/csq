@@ -13,7 +13,7 @@
 // values, so a package update that shifts a code can't silently reopen the
 // bug.
 import { DisconnectReason } from "@whiskeysockets/baileys";
-import { disconnectCode, isFatalDisconnect } from "../src/services/baileys";
+import { disconnectCode, isFatalDisconnect } from "../apps/dashboard/src/services/baileys";
 
 // @hapi/boom-shaped error, parsed with Zod at the boundary (no `as` casts).
 const boom = (statusCode: number): { output: { statusCode: number } } => ({

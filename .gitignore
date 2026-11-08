@@ -22,7 +22,7 @@ build/
 npm-debug.log*
 
 # prisma
-prisma/migrations/migration_lock.toml
+apps/dashboard/prisma/migrations/migration_lock.toml
 
 # OS / editor
 .DS_Store

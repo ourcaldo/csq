@@ -85,7 +85,7 @@ sleep 5
 # preview, uncomment the block below.
 # echo "==> Seeding demo tenant (optional)"
 # docker compose --env-file "$REPO_DIR/.env.production" exec -T app \
-#   npx prisma db seed || true
+#   npx prisma db seed --schema apps/dashboard/prisma/schema.prisma || true
 
 echo "==> Done."
 echo "    Agents run in-process against the configured LLM provider."

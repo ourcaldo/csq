@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Status
 
-Active project (past its HackFest origin — that framing is historical; the docs under `docs/` still carry it but the project is now developed for real use). Scaffolding through the agent runtime, inbox, scenarios, and pipeline has landed. The agent runtime is a direct OpenAI-compatible client (`src/services/llm-runtime.ts`) — OpenClaw is gone.
+Active project (past its HackFest origin — that framing is historical; the docs under `docs/` still carry it but the project is now developed for real use). Scaffolding through the agent runtime, inbox, scenarios, and pipeline has landed. The agent runtime is a direct OpenAI-compatible client (`apps/dashboard/src/services/llm-runtime.ts`) — OpenClaw is gone.
 
 ## Read This First — In This Order
 
@@ -55,7 +55,9 @@ Customer Channel (WhatsApp Cloud API)
 - Channel: WhatsApp is **pluggable** — Cloud API (official, ToS-safe, 24h reply window + templates for outbound) and Baileys (bring-your-own-number via QR, full parity, ToS/ban risk, opt-in with a UI warning). Owner chooses at onboarding; both built in the MVP. Multi-staff (OWNER/STAFF roles) and a CRM inbox are in scope.
 - Deploy: Docker Compose on Ubuntu VPS — 4 vCPU / 4GB RAM / 20GB SSD. `node-cron` in-process for Sheets sync. Nginx + Certbot for TLS (required by the WhatsApp webhook).
 
-### Target repository layout (PRD 23B.1 — created in Phase 0)
+### Target repository layout (PRD 23B.1 - created in Phase 0)
+
+Historical pre-monorepo layout (Phase 1 moved the app into `apps/dashboard/`; see PRD 23B.0 and `docs/2026-11-08-monorepo-migration-plan.md`).
 
 ```
 src/
