@@ -10,10 +10,12 @@ OpenAI-compatible client (`packages/core/src/services/llm-runtime.ts`) - OpenCla
 `docs/2026-11-08-monorepo-migration-plan.md`, PRD section 23B.0. Architecture
 decisions must follow that plan, not the older single-app statements in the
 historical PRD sections.
-**Phases 1-2 landed on branch `monorepo`: the app lives at `apps/dashboard/`, shared domain
+**Phases 1-3 landed on branch `monorepo`: the app lives at `apps/dashboard/`, the public
+landing at `apps/web/` (built, not yet deployed as its own service), shared domain
 code (prisma, lib, services, tools, types) lives in `packages/core` imported as `@csq/core`,
-and the repo root is an npm-workspaces manifest with proxy scripts. Merge requires the Render
-command cutover (see the migration plan).**
+and the repo root is an npm-workspaces manifest with proxy scripts. Production runs the
+monorepo branch on the `csq-dashboard` Render service; merging to main still requires the
+Render command cutover (see the migration plan).**
 
 ## What We Are Building
 Self-hosted, multi-tenant AI agent platform for Indonesian UMKM. First agent: a Customer

@@ -58,6 +58,7 @@ function walk(dir) {
   }
 }
 walk("apps/dashboard/src");
+walk("apps/web/src");
 walk("packages/core/src");
 walk("packages/core/prisma");
 walk("scripts");
