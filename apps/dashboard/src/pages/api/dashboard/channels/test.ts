@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
 import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
-import { getProvider } from "@csq/core/lib/whatsapp-provider";
+import { enqueueOutbound, awaitOutbound } from "@csq/core/lib/outbox";
 import { requireTenant, respondError, strQuery } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 
@@ -45,11 +45,19 @@ export default async function handler(
   }
 
   try {
-    const provider = getProvider(channel);
-    const result = await provider.sendText({
+    // Phase 6: the send flows through the worker's outbox (the dashboard
+    // holds no socket); the bounded await keeps the old synchronous UX.
+    const outboxId = await enqueueOutbound({
+      tenantId,
+      channelId: channel.id,
       to: parsed.data.to,
       body: "Test dari CSQ dashboard ✅ - channel aktif.",
+      source: "TEST",
     });
+    const result = await awaitOutbound(outboxId);
+    if (result.status !== "SENT") {
+      return respondError(res, "INTERNAL_ERROR", result.error ?? "Gagal mengirim test.");
+    }
     return res.status(200).json(apiOk({ ok: true, waMessageId: result.waMessageId }));
   } catch (err) {
     const message = err instanceof Error ? err.message : "Gagal mengirim test.";

@@ -10,7 +10,8 @@ import {
   type CloudApiConfig,
   type BaileysConfig,
 } from "@csq/core/types/whatsapp";
-import { connectBaileysChannel, isFatalDisconnect } from "@csq/core/services/baileys";
+import { isFatalDisconnect } from "@csq/core/services/baileys";
+import { createChannelCommand, awaitChannelCommand } from "@csq/core/lib/channel-commands";
 import { generateVerifyToken } from "@csq/core/lib/whatsapp-verify-token";
 
 // Connect (or reconfigure) a WhatsApp channel for this tenant (plan 7.5).
@@ -118,9 +119,15 @@ export default async function handler(
   let qr: string | null = null;
   let open = false;
   if (provider === "BAILEYS") {
-    // stealLease: the owner explicitly asked to connect - take the session
-    // over from any peer instance still draining from a deploy.
-    const result = await connectBaileysChannel(channel, { stealLease: true });
+    // Phase 6: the socket lives in the worker - pairing is a command the
+    // worker executes (it applies stealLease on the owner's behalf).
+    const cmdId = await createChannelCommand({
+      tenantId,
+      channelId: channel.id,
+      kind: "CONNECT",
+      requestedBy: session.user.id,
+    });
+    const result = await awaitChannelCommand(cmdId, 25_000);
     qr = result.qr;
     open = result.open;
     if (!qr && !open) {
@@ -133,6 +140,13 @@ export default async function handler(
           res,
           "VALIDATION_ERROR",
           "WhatsApp menolak koneksi (401). Di telepon: hapus perangkat lama CSQ dari WhatsApp > Setelan > Perangkat Tertaut, tunggu sekitar 1 jam tanpa mencoba lagi, lalu klik Tampilkan QR sekali lagi."
+        );
+      }
+      if (!result.done) {
+        return respondError(
+          res,
+          "INTERNAL_ERROR",
+          "Worker tidak merespons - layanan pesan belum siap. Coba lagi sebentar."
         );
       }
       return respondError(

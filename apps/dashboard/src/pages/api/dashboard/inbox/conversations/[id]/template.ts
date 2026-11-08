@@ -10,7 +10,7 @@ import {
 } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import { recordOutboundMessage } from "@csq/core/lib/inbox";
-import { getProvider } from "@csq/core/lib/whatsapp-provider";
+import { enqueueOutbound, awaitOutbound } from "@csq/core/lib/outbox";
 import { logAction } from "@csq/core/lib/audit";
 
 // Human-initiated template send. Templates are pre-approved in Meta Business
@@ -64,13 +64,20 @@ export default async function handler(
   }
 
   try {
-    const provider = getProvider(conversation.channel);
-    // Templates are allowed OUTSIDE the 24h window - do not apply the guard.
-    const result = await provider.sendTemplate({
+    // Phase 6: the send flows through the worker's outbox; the bounded await
+    // keeps the old synchronous contract (Message row only on success).
+    const outboxId = await enqueueOutbound({
+      tenantId,
+      channelId: conversation.channel.id,
       to: conversation.customerPhone,
       templateName: parsed.data.templateName,
-      languageCode: parsed.data.language,
+      language: parsed.data.language,
+      source: "TEMPLATE_SEND",
     });
+    const result = await awaitOutbound(outboxId);
+    if (result.status !== "SENT") {
+      throw new HttpError("INTERNAL_ERROR", result.error ?? "Gagal mengirim template.");
+    }
 
     const body = `[Template: ${parsed.data.templateName}]`;
     const message = await recordOutboundMessage({
@@ -78,7 +85,7 @@ export default async function handler(
       conversationId: id,
       senderUserId: session.user.id,
       body,
-      waMessageId: result.waMessageId,
+      waMessageId: result.waMessageId ?? undefined,
     });
 
     await prisma.conversation.update({

@@ -209,6 +209,8 @@ model Tenant {
   campaignMessages    CampaignMessage[]
   mediaAssets         MediaAsset[]
   credentials         TenantCredential[]
+  outboundMessages    OutboundMessage[]
+  channelCommands     ChannelCommand[]
 }
 
 // D10c: per-tenant external OAuth credentials, SEPARATE from Tenant.settings.
@@ -294,6 +296,8 @@ model Channel {
   tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   agent         Agent?         @relation(fields: [agentId], references: [id], onDelete: SetNull)
   conversations Conversation[]
+  outbox        OutboundMessage[]
+  commands      ChannelCommand[]
 
   @@index([tenantId])
 }
@@ -322,6 +326,93 @@ model LidMapping {
   updatedAt DateTime @updatedAt
 
   @@id([channelId, lid])
+}
+
+// ─────────────── Enterprise worker queue (PRD 23C, Phase 6) ───────────────
+// The dashboard no longer owns WhatsApp sockets: sends it initiates become
+// OutboundMessage rows a worker drains, and connect/QR/disconnect become
+// ChannelCommand rows the worker executes. Same Postgres-as-queue pattern as
+// CampaignMessage - no Redis (stack constraint). See
+// docs/2026-11-08-enterprise-architecture-plan.md section 4.
+
+enum OutboundSource {
+  REPLY
+  TEST
+  TEMPLATE_SEND
+}
+
+enum OutboundStatus {
+  QUEUED
+  SENDING
+  SENT
+  FAILED
+  CANCELLED
+}
+
+enum ChannelCommandKind {
+  CONNECT
+  DISCONNECT
+}
+
+enum ChannelCommandStatus {
+  PENDING
+  DONE
+  FAILED
+}
+
+// One outbound send request. `body` for free-form text, `templateName` +
+// `language` for template sends (one of the two is set). `toJid` is the
+// destination exactly as the caller resolved it (conversation customerPhone
+// or the test number) - the worker's provider layer does the final JID
+// normalization. `waMessageId`/`sentAt` are written on success, `error` on
+// failure. CANCELLED is set by a caller that gave up waiting while the row
+// was still QUEUED (worker down); a row already SENDING may still deliver.
+model OutboundMessage {
+  id           String         @id @default(uuid())
+  tenantId     String
+  channelId    String
+  toJid        String
+  body         String?
+  templateName String?
+  language     String?
+  source       OutboundSource
+  status       OutboundStatus @default(QUEUED)
+  waMessageId  String?
+  error        String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  sentAt       DateTime?
+
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  channel  Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([tenantId])
+}
+
+// One dashboard-requested channel operation for the worker. CONNECT: the
+// worker runs the Baileys pairing and streams the rotating QR into `result`
+// ({ qr, open, closeCode }) while pending, then finalizes DONE (QR obtained
+// or socket open) or FAILED (e.g. fatal 401). DISCONNECT: the worker logs
+// out the device, tears down the socket, and clears creds. The dashboard
+// routes poll the row until terminal status.
+model ChannelCommand {
+  id         String              @id @default(uuid())
+  tenantId   String
+  channelId  String
+  kind       ChannelCommandKind
+  status     ChannelCommandStatus @default(PENDING)
+  result     Json?
+  error      String?
+  requestedBy String
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  channel  Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([tenantId])
 }
 
 model Product {

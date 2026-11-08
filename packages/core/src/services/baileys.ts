@@ -544,6 +544,23 @@ export async function disconnectBaileysChannel(channelId: string): Promise<void>
   await releaseSystemLease(leaseKey(channelId), instanceToken).catch(() => undefined);
 }
 
+// Graceful worker shutdown (SIGTERM: a deploy is replacing this process).
+// Ends every socket WITHOUT logout - the saved creds stay valid, so the next
+// worker reconnects without a QR re-scan. `intentional` keeps each socket's
+// close handler from auto-reconnecting or rewriting channel status while the
+// process exits.
+export async function shutdownBaileysChannels(): Promise<void> {
+  for (const [channelId, entry] of sockets) {
+    entry.intentional = true;
+    try {
+      entry.sock.end(new Error("worker shutdown"));
+    } catch {
+      // socket may already be closed
+    }
+    sockets.delete(channelId);
+  }
+}
+
 // Pure send-destination rewrite (self-check covered): a "<lid>@lid"
 // destination is rewritten to the real phone number when the mapping is
 // known. Phone-JID sends are the proven delivery path; raw LID sends are

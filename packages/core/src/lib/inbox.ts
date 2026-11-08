@@ -3,7 +3,7 @@ import type { Conversation, Message } from "@prisma/client";
 import prisma from "@csq/core/lib/db";
 import { HttpError } from "@csq/core/lib/queries";
 import { logAction } from "@csq/core/lib/audit";
-import { getProvider } from "@csq/core/lib/whatsapp-provider";
+import { enqueueOutbound, awaitOutbound } from "@csq/core/lib/outbox";
 import type { InboundMessage, InboundKind } from "@csq/core/types/whatsapp";
 import { events } from "@csq/core/lib/events";
 
@@ -300,15 +300,27 @@ export async function sendHumanReply(input: {
     }
   }
 
-  const provider = getProvider(conv.channel);
-  const result = await provider.sendText({ to: conv.customerPhone, body: input.body });
+  // Phase 6: the dashboard holds no socket - the send goes through the
+  // worker's outbox. The bounded await keeps this function's old
+  // synchronous contract: throw on failure, Message row only on success.
+  const outboxId = await enqueueOutbound({
+    tenantId: input.tenantId,
+    channelId: conv.channel.id,
+    to: conv.customerPhone,
+    body: input.body,
+    source: "REPLY",
+  });
+  const result = await awaitOutbound(outboxId);
+  if (result.status !== "SENT") {
+    throw new HttpError("INTERNAL_ERROR", result.error ?? "Gagal mengirim balasan.");
+  }
 
   const message = await recordOutboundMessage({
     tenantId: input.tenantId,
     conversationId: input.conversationId,
     senderUserId: input.userId,
     body: input.body,
-    waMessageId: result.waMessageId,
+    waMessageId: result.waMessageId ?? undefined,
   });
 
   await prisma.conversation.update({

@@ -5,7 +5,7 @@ import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { requireTenant, respondError, strQuery } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
-import { disconnectBaileysChannel } from "@csq/core/services/baileys";
+import { createChannelCommand, awaitChannelCommand } from "@csq/core/lib/channel-commands";
 import { generateVerifyToken } from "@csq/core/lib/whatsapp-verify-token";
 
 // Disconnect a channel: mark DISCONNECTED and, for Baileys, tear down the
@@ -35,7 +35,22 @@ export default async function handler(
   if (!channel) return respondError(res, "NOT_FOUND", "Channel tidak ditemukan.");
 
   if (channel.provider === "BAILEYS") {
-    await disconnectBaileysChannel(channel.id);
+    // Phase 6: the socket lives in the worker - teardown is a command. If
+    // the worker is unreachable, still delete the saved creds from here so a
+    // reconnect requires a fresh QR (with the worker down no socket can be
+    // alive; the late-executed command is an idempotent no-op).
+    const cmdId = await createChannelCommand({
+      tenantId,
+      channelId: channel.id,
+      kind: "DISCONNECT",
+      requestedBy: session.user.id,
+    });
+    const result = await awaitChannelCommand(cmdId, 15_000);
+    if (!result.done && !result.failed) {
+      await prisma.baileysAuth
+        .delete({ where: { channelId: channel.id } })
+        .catch(() => undefined);
+    }
   }
 
   // Rotate the Cloud API verify token on disconnect so any stale token left

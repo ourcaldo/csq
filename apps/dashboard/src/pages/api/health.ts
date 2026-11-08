@@ -1,15 +1,15 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import prisma from "@csq/core/lib/db";
 import { apiError, apiOk, type ApiResponse } from "@csq/core/types/api";
-import { startScheduler } from "@csq/core/services/scheduler";
+import { registerScenarioEngine } from "@csq/core/lib/scenario-engine";
 
 // Liveness + DB connectivity check for the production compose healthcheck
-// and load balancer probes. Unauthenticated by design. Also the boot hook:
-// Render pings this path on startup (set Health Check Path = /api/health in
-// the dashboard), and each ping starts the in-process scheduler (idempotent)
-// - which reconnects CONNECTED Baileys channels and runs the keepalive
-// heartbeat. This guarantees the WhatsApp socket is up on every boot without
-// pulling baileys into the client bundle.
+// and load balancer probes. Unauthenticated by design.
+// Phase 6 (PRD 23C): ticks, sockets, and the campaign engine moved to
+// apps/worker. This process keeps ONLY the in-process event-bus subscription
+// (registerScenarioEngine) so webhook-triggered scenario nodes fire here -
+// their send paths are Cloud API only (stateless HTTP). Baileys inbound and
+// every tick run in the worker.
 type Health = { status: "ok"; db: "up" } | { status: "ok"; db: "down" };
 
 export default async function handler(
@@ -21,7 +21,7 @@ export default async function handler(
     return res.status(405).json(apiError("INTERNAL_ERROR", "Method not allowed"));
   }
 
-  startScheduler();
+  registerScenarioEngine();
 
   try {
     await prisma.$queryRaw`SELECT 1`;
