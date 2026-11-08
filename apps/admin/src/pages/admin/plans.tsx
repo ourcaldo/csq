@@ -326,12 +326,12 @@ export default function PlansPage() {
               <dl className="space-y-1 rounded-lg bg-muted px-3 py-2.5 text-[11.5px] text-muted-foreground">
                 <div>
                   <dt className="inline font-medium text-foreground">Balasan AI</dt>
-                  <dd className="inline">- balasan otomatis agent ke pelanggan.</dd>
+                  <dd className="inline">: balasan otomatis agent ke pelanggan.</dd>
                 </div>
                 <div>
                   <dt className="inline font-medium text-foreground">Pesan keluar</dt>
                   <dd className="inline">
-                    - semua pesan keluar, termasuk balasan AI dan pesan staf.
+                    : semua pesan keluar, termasuk balasan AI dan pesan staf.
                   </dd>
                 </div>
               </dl>
