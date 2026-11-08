@@ -39,7 +39,7 @@ mean the testing stack.
 | | Monolith (PRODUCTION) | Monorepo (TESTING) |
 |---|---|---|
 | Code | `main` (frozen) | `monorepo` branch (active development) |
-| Render service | `csq` / `srv-dbjlj2p42hec73dcu53g` / https://csq-xmhq.onrender.com | `csq-dashboard` / `srv-dbo02jbrjlhs73a2375g` / https://csq-dashboard.onrender.com |
+| Render service | `csq` / `srv-dbjlj2p42hec73dcu53g` / https://csq-xmhq.onrender.com | `csq-dashboard` / `srv-dbo02jbrjlhs73a2375g` / https://csq-dashboard.onrender.com (UI + BFF) + `csq-worker` / `srv-dbo3kn7f3r2c73a3g8l0` / https://csq-worker.onrender.com (channel runtime: sockets, all ticks, outbox drain, connect/QR commands) |
 | Database | Neon project `CSQ` (`winter-flower-03790042`), default branch `br-billowing-base-b3cv56yi` (`ep-misty-boat-b3tteij7`) | same project, branch `monorepo` `br-still-queen-b3mydc3y` (`ep-lucky-paper-b35a5at7`) |
 | WhatsApp session | the real one; lives here and ONLY here | none: clone channels are DISCONNECTED and cloned creds are deleted - keep it that way |
 
