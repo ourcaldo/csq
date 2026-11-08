@@ -141,7 +141,7 @@ export default function AdminOverview() {
     .map((u) => {
       const checks: { label: string; used: number; limit: number }[] = [];
       if (u.agentRepliesLimit !== null) {
-        checks.push({ label: "AI", used: u.agentReplies, limit: u.agentRepliesLimit });
+        checks.push({ label: "Balasan AI", used: u.agentReplies, limit: u.agentRepliesLimit });
       }
       if (u.outboundLimit !== null) {
         checks.push({ label: "Pesan keluar", used: u.outbound, limit: u.outboundLimit });

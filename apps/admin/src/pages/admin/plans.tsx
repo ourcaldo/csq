@@ -127,7 +127,7 @@ export default function PlansPage() {
                 <tr>
                   <th>Nama</th>
                   <th className="text-right">Harga / bulan</th>
-                  <th className="text-right">AI replies</th>
+                  <th className="text-right">Balasan AI</th>
                   <th className="text-right">Pesan keluar</th>
                   <th className="text-right">Saluran</th>
                   <th className="text-right">Tenant</th>
@@ -183,7 +183,7 @@ export default function PlansPage() {
                 <tr>
                   <th>Tenant</th>
                   <th>Paket</th>
-                  <th className="text-right">AI</th>
+                  <th className="text-right">Balasan AI</th>
                   <th className="text-right">Keluar</th>
                   <th className="text-right">Masuk</th>
                   <th className="text-right">Media</th>
@@ -248,7 +248,7 @@ export default function PlansPage() {
       </Section>
 
       {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-foreground/30 p-4 pt-16">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-foreground/20 p-4 pt-16">
           <div className="w-full max-w-md rounded-2xl border border-border bg-card shadow-[0_24px_64px_rgba(0,0,0,0.18)]">
             <div className="flex items-start justify-between border-b border-border px-5 py-4">
               <div>
@@ -288,7 +288,7 @@ export default function PlansPage() {
               <div className="grid grid-cols-3 gap-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="p-ai" className="text-[11px]">
-                    AI / bulan
+                    Balasan AI
                   </Label>
                   <Input
                     id="p-ai"
@@ -300,7 +300,7 @@ export default function PlansPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="p-out" className="text-[11px]">
-                    Pesan / bulan
+                    Pesan keluar
                   </Label>
                   <Input
                     id="p-out"
@@ -323,8 +323,20 @@ export default function PlansPage() {
                   />
                 </div>
               </div>
+              <dl className="space-y-1 rounded-lg bg-muted px-3 py-2.5 text-[11.5px] text-muted-foreground">
+                <div>
+                  <dt className="inline font-medium text-foreground">Balasan AI</dt>
+                  <dd className="inline">- balasan otomatis agent ke pelanggan.</dd>
+                </div>
+                <div>
+                  <dt className="inline font-medium text-foreground">Pesan keluar</dt>
+                  <dd className="inline">
+                    - semua pesan keluar, termasuk balasan AI dan pesan staf.
+                  </dd>
+                </div>
+              </dl>
               <p className="text-[11.5px] text-muted-foreground">
-                Kosongkan limit untuk tanpa batas.
+                Limit dihitung per bulan. Kosongkan untuk tanpa batas.
               </p>
               {formError && <p className="text-[13px] text-bad">{formError}</p>}
               <div className="flex justify-end gap-2 pt-1">

@@ -154,7 +154,7 @@ export default function TenantsPage() {
       </TableCard>
 
       {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-foreground/30 p-4 pt-16">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-foreground/20 p-4 pt-16">
           <div className="w-full max-w-lg rounded-2xl border border-border bg-card shadow-[0_24px_64px_rgba(0,0,0,0.18)]">
             <div className="flex items-start justify-between border-b border-border px-5 py-4">
               <div>
