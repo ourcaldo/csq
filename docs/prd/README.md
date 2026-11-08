@@ -21,6 +21,7 @@ the file contents and names.
 | `09-deferred-items.md` | 23D | Deferred engineering items register (status: DEFERRED + triggers) | Live |
 | `10-positioning-future.md` | 24-29 | Differentiation, principles, future expansion | Live |
 | `11-campaigns-classification.md` | 30 | Contact classification + campaigns feature PRD | Live |
+| `12-shared-ui-package.md` | new | The `@csq/ui` shared design-system package - what is shared, what stays app-local | Live |
 
 Companion working documents (plans, registers, status) stay in `docs/`
 with date prefixes, e.g. `docs/2026-11-08-enterprise-architecture-plan.md`.

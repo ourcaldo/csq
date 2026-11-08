@@ -14,7 +14,7 @@ is a forward-looking decision with named reasons, never a dismissal.
 | Docker Compose for api + worker | VPS deploy path for the new services | DEFERRED | VPS deployment becomes real (Render stays = never) |
 | Generated OpenAPI | Spec generated from route schemas instead of hand-written | DEFERRED | /api/v1 grows past the current surface |
 | Cross-service metrics + alerting | One health view of dashboard + api + worker, alerts on failure | DEFERRED - becomes REQUIRED at cutover | The production cutover decision |
-| packages/ui shared components | Extract duplicated base components into a workspace package | DEFERRED | The third app needs them (extract-on-third rule) |
+| packages/ui shared components | Extract duplicated base components into a workspace package | APPROVED 2026-11-08 - trigger fired early by owner direction (see file 12 + the shared-ui-package plan) | n/a - no longer deferred |
 
 The pre-cutover package (metrics/alerting + the smoke suite on a schedule)
 is the one bundle that activates automatically with the owner's cutover

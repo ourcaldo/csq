@@ -99,7 +99,17 @@ item leaves this register only when its trigger fires.
 - Acceptance: killing the worker in a maintenance window produces an alert
   within minutes; the scheduled smoke run posts green.
 
-## 7. packages/ui shared components - DEFERRED, scope M
+## 7. packages/ui shared components - APPROVED 2026-11-08 (trigger fired early)
+
+Status change: deferred register item 7 was fired early by owner
+direction on 2026-11-08 evening. The PRD is `docs/prd/12-shared-ui-package.md`
+and the execution plan is `docs/2026-11-08-shared-ui-package-plan.md`.
+The scope below is superseded by those documents - in particular, the
+honest boundary they draw: only the design-system layer moves
+(cn, shadcn primitives, Seo, theme preset, css base); `_document.tsx`,
+app-specific css, static assets, and `next-auth.d.ts` stay app-local
+because sharing them would over-couple the apps. This entry stays for
+the record of the original duplication inventory.
 
 - What: extracting the components/config duplicated across apps into a
   workspace package.

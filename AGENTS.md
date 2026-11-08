@@ -250,6 +250,14 @@ Write the **least code that fully solves the task**. Boring beats clever.
   e.g. `docs/2026-08-16-tool-gateway-design.md`.
 - Create the `docs/` folder if it doesn't exist. Don't scatter generated docs across
   the repo.
+- **Specs are focused documents; only changelogs are dumps.** The PRD lives as a set
+  under `docs/prd/` - one concern per file, indexed by its README. A new decision amends
+  the focused file it concerns (dated, in place) or gets its own file - it is NEVER
+  appended to an unrelated growing document. When a document accumulates sections from
+  multiple unrelated decisions, raise the split proactively. Lesson from 2026-11-08:
+  the PRD grew into a 1950-line, 35-section monolith across three separate escalations,
+  each appended because "that is where the PRD lives" - the owner had to demand the
+  split. The accumulation was visible from the second escalation onward.
 
 ### 8. Project Scope
 - Work only in this project's directory. Don't touch files outside it unless explicitly
