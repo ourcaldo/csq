@@ -86,6 +86,14 @@ Core principle: **Read by default. Write by permission. Act by policy.**
   standalone dismissals. If you see a real problem, argue it as explicit forward-looking
   trade-offs (cost, sequencing, risk) - never as "not for today". Disagreement is welcome;
   lazy framing is a process failure.
+- **Confirm the trigger before building a triggered phase.** A plan phase marked
+  "when X starts" is a question, not an approval - and signals (installed skills,
+  stack choices, silence) are never product decisions. When the owner says "continue
+  phase N", execute what is unambiguous and ASK about anything whose trigger condition
+  was never actually confirmed by the owner. Lesson from 2026-11-08: the "mobile auth
+  realm" was built on an inferred mobile roadmap that did not exist - the owner had no
+  mobile app planned. The work was kept (it doubles as the API's user-token realm), but
+  the inference was wrong and is recorded here so it is not repeated.
 - When the user reports a specific failure, diagnose and fix THAT failure. Do not
   expand scope into adjacent subsystems unless the evidence proves they are the
   same root cause, and do not lecture about problems the user did not ask about -
