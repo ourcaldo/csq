@@ -36,11 +36,16 @@ type Usage = {
   items: {
     tenantId: string;
     tenantName: string;
+    mau: number;
+    mauLimit: number | null;
     agentReplies: number;
-    agentRepliesLimit: number | null;
-    outbound: number;
-    outboundLimit: number | null;
-    inbound: number;
+    scenarioCredits: number;
+    creditsUsed: number;
+    creditsLimit: number | null;
+    staff: number;
+    staffLimit: number | null;
+    channelCount: number;
+    channelLimit: number | null;
     mediaBytes: number;
   }[];
   daily: { date: string; count: number }[];
@@ -132,19 +137,25 @@ export default function AdminOverview() {
 
   const totalMessages = daily.reduce((s, d) => s + d.count, 0);
   const aiReplies = usage.reduce((s, u) => s + u.agentReplies, 0);
-  const outbound = usage.reduce((s, u) => s + u.outbound, 0);
-  const inbound = usage.reduce((s, u) => s + u.inbound, 0);
+  const scenarioCredits = usage.reduce((s, u) => s + u.scenarioCredits, 0);
+  const credits = usage.reduce((s, u) => s + u.creditsUsed, 0);
   const media = usage.reduce((s, u) => s + u.mediaBytes, 0);
   const conversations = tenants.reduce((s, t) => s + t.conversationCount, 0);
 
   const quotas = usage
     .map((u) => {
       const checks: { label: string; used: number; limit: number }[] = [];
-      if (u.agentRepliesLimit !== null) {
-        checks.push({ label: "Balasan AI", used: u.agentReplies, limit: u.agentRepliesLimit });
+      if (u.creditsLimit !== null) {
+        checks.push({ label: "Kredit AI", used: u.creditsUsed, limit: u.creditsLimit });
       }
-      if (u.outboundLimit !== null) {
-        checks.push({ label: "Pesan keluar", used: u.outbound, limit: u.outboundLimit });
+      if (u.mauLimit !== null) {
+        checks.push({ label: "MAU", used: u.mau, limit: u.mauLimit });
+      }
+      if (u.staffLimit !== null) {
+        checks.push({ label: "Staf", used: u.staff, limit: u.staffLimit });
+      }
+      if (u.channelLimit !== null) {
+        checks.push({ label: "Saluran", used: u.channelCount, limit: u.channelLimit });
       }
       const worst = checks
         .map((c) => ({ ...c, pct: Math.round((c.used / c.limit) * 100) }))
@@ -209,12 +220,12 @@ export default function AdminOverview() {
           />
           <Stat
             icon={<Robot size={14} />}
-            label="Balasan AI"
-            value={pad(aiReplies)}
+            label="Kredit AI"
+            value={credits}
             note={
               <>
-                <span className="text-foreground">{outbound}</span> pesan keluar,{" "}
-                <span className="text-foreground">{inbound}</span> masuk
+                <span className="text-foreground">{aiReplies}</span> balasan AI,{" "}
+                <span className="text-foreground">{scenarioCredits}</span> modul skenario
               </>
             }
           />

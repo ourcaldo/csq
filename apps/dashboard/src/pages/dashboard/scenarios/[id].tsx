@@ -19,7 +19,7 @@ import {
 } from "@xyflow/react";
 import type { Node, Edge, Connection, NodeChange, EdgeChange } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { withAuth } from "@csq/core/lib/auth";
+import { withFeature } from "@csq/core/lib/auth";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
 import type { Scenario, ScenarioStatus, ScenarioTriggerType } from "@csq/core/types/scenario";
@@ -1497,9 +1497,10 @@ function AssignEditor({
   );
 }
 
-export const getServerSideProps: GetServerSideProps<{ id: string }> = withAuth<
-  { id: string }
->(async (ctx: GetServerSidePropsContext) => {
-  const id = typeof ctx.params?.["id"] === "string" ? ctx.params["id"] : "";
-  return { props: { id } };
-});
+export const getServerSideProps: GetServerSideProps<{ id: string }> = withFeature(
+  "scenarios",
+  async (ctx: GetServerSidePropsContext) => {
+    const id = typeof ctx.params?.["id"] === "string" ? ctx.params["id"] : "";
+    return { props: { id } };
+  }
+);

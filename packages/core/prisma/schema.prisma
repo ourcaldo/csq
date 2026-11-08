@@ -34,13 +34,21 @@ enum TenantStatus {
 // assignment, display-only pricing - no payment processing. Platform
 // table: no tenantId. limits is Zod-validated:
 // { agentRepliesPerMonth, messagesOutPerMonth, channels } - null = unlimited.
+// Plan catalog (PRD 13). Entitlements are explicit columns so the API and UI
+// are typed; NULL means unlimited for that dimension. `features` is the
+// opt-in premium catalog (see packages/core/src/types/entitlements.ts).
 model Plan {
-  id        String   @id @default(uuid())
-  name      String   @unique
-  priceIdr  Int
-  limits    Json
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                String   @id @default(uuid())
+  name              String   @unique
+  priceIdr          Int
+  aiCreditsPerMonth Int?
+  mauLimit          Int?
+  staffLimit        Int?
+  channelLimit      Int?
+  tenantLimit       Int      @default(1)
+  features          String[] @default([])
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   tenants Tenant[]
 }

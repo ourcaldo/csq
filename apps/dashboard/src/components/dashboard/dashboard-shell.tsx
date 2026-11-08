@@ -41,8 +41,10 @@ import {
 } from "@phosphor-icons/react";
 import { cn } from "@csq/ui/lib/utils";
 import { Seo } from "@csq/ui/components/seo";
+import type { PlanFeature } from "@csq/core/types/entitlements";
+import { useApi } from "@/hooks/use-api";
 
-type NavItem = { href: string; label: string; icon: ReactNode };
+type NavItem = { href: string; label: string; icon: ReactNode; feature?: PlanFeature };
 type NavGroup = { label: string; items: NavItem[] };
 
 const NAV_GROUPS: NavGroup[] = [
@@ -51,10 +53,10 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/dashboard", label: "Ringkasan", icon: <ChartBar size={18} /> },
       { href: "/dashboard/inbox", label: "Percakapan", icon: <ChatCircleDots size={18} /> },
-      { href: "/dashboard/campaigns", label: "Kampanye", icon: <Megaphone size={18} /> },
+      { href: "/dashboard/campaigns", label: "Kampanye", icon: <Megaphone size={18} />, feature: "campaigns" },
       { href: "/dashboard/templates", label: "Template Pesan", icon: <Notepad size={18} /> },
       { href: "/dashboard/saluran", label: "Saluran", icon: <WhatsappLogo size={18} /> },
-      { href: "/dashboard/pipeline", label: "Manajemen Pipeline", icon: <Kanban size={18} /> },
+      { href: "/dashboard/pipeline", label: "Manajemen Pipeline", icon: <Kanban size={18} />, feature: "pipeline" },
     ],
   },
   {
@@ -79,7 +81,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Agent",
     items: [
       { href: "/dashboard/agents", label: "Agent", icon: <Robot size={18} /> },
-      { href: "/dashboard/scenarios", label: "Skenario", icon: <FlowArrow size={18} /> },
+      { href: "/dashboard/scenarios", label: "Skenario", icon: <FlowArrow size={18} />, feature: "scenarios" },
       { href: "/dashboard/approvals", label: "Approval", icon: <SealCheck size={18} /> },
       { href: "/dashboard/activity", label: "Aktivitas", icon: <ClockCounterClockwise size={18} /> },
     ],
@@ -132,6 +134,19 @@ export function DashboardShell({ title, description, actions, headerExtra, flush
   const userInitial = (session?.user?.name ?? session?.user?.email ?? "U").charAt(0).toUpperCase();
   const role = session?.user?.role;
 
+  // Feature visibility follows the tenant's plan. While entitlements load we
+  // show the full nav (no flicker for legacy tenants); a plan without a
+  // feature removes its entry. The page guard is the real gate.
+  const { data: entitlements } = useApi<{ features: PlanFeature[] }>(
+    "/api/dashboard/entitlements"
+  );
+  const canUse = (feature?: PlanFeature) =>
+    !feature || !entitlements || entitlements.features.includes(feature);
+  const navGroups = NAV_GROUPS.map((group) => ({
+    ...group,
+    items: group.items.filter((item) => canUse(item.feature)),
+  })).filter((group) => group.items.length > 0);
+
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-800">
       {/* Document title + meta for this dashboard route. Auth-gated pages are
@@ -154,7 +169,7 @@ export function DashboardShell({ title, description, actions, headerExtra, flush
 
         {/* Nav groups */}
         <nav className="scrollbar-slim flex-1 space-y-4 overflow-y-auto py-4 px-3">
-          {NAV_GROUPS.map((group) => (
+          {navGroups.map((group) => (
             <div key={group.label}>
               <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                 {group.label}

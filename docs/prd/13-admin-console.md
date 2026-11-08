@@ -72,13 +72,31 @@ the console; money-handling waits for real customers.
 ### Plans (manual assignment, v1)
 
 - `Plan` table: name (unique), priceIdr (Int, display only - manual
-  billing), limits (JSON, Zod-validated: agentRepliesPerMonth,
-  messagesOutPerMonth, channels - null = unlimited), timestamps. A
-  platform table: no tenantId (the documented exception class).
+  billing), and explicit entitlement columns (amended 2026-11-08, owner
+  direction - replaces the old `limits` JSON):
+  - `aiCreditsPerMonth` - AI credits per month.
+  - `mauLimit` - monthly active users (unique inbound senders).
+  - `staffLimit` - STAFF seats, owner excluded.
+  - `channelLimit` - WhatsApp channels the tenant may create.
+  - `tenantLimit` - workspaces included in the package.
+  - `features` (String[]) - opt-in premium keys from
+    `packages/core/src/types/entitlements.ts`: `campaigns`, `scenarios`,
+    `pipeline`.
+  - NULL means unlimited for that dimension; `features` empty means core
+    only.
+- **No plan = legacy tenant**: unlimited and every feature, so existing
+  tenants keep working until a plan is assigned.
+- **`tenantLimit` is packaging metadata, not enforced.** A plan is
+  assigned per tenant today; counting workspaces per plan would need an
+  account/organization layer that owns multiple tenants. Do not claim
+  enforcement until that layer exists.
 - `Tenant.planId` nullable, assigned by the operator in the console. A
   plan with assigned tenants cannot be deleted.
 - v1 actions: create, edit, list, assign. No self-serve plan selection,
   no payment anything.
+- First catalog entry (2026-11-08): **Basic** - IDR 500,000/month,
+  15,000 AI credits, 1 tenant, 1 staff, 1 channel, no premium features.
+  MAU is uncapped because the owner did not set a number for it yet.
 
 ### Usage metering (v1)
 
@@ -86,14 +104,28 @@ Purpose: know what each tenant consumes against its plan - the cost
 signal behind every future pricing decision, and the operator's
 over-limit visibility.
 
-- Metered per tenant per calendar month, derived from EXISTING rows at
-  read time (no counter tables, no write-path overhead):
-  - **AI usage**: outbound Messages with senderType AGENT (agent replies).
-  - **Message sending**: all outbound Messages (agent + human + campaign
-    + scenario).
-  - Context counts: inbound total, active channels, media storage bytes.
+- Metered per tenant per calendar month (UTC), derived from EXISTING
+  rows at read time (no counter tables, no write-path overhead):
+  - **MAU**: distinct `Conversation.customerPhone` with an inbound
+    Message in the month. New and returning senders both count; the same
+    phone counts once.
+  - **AI credits**: 1 per agent reply (outbound Message, senderType
+    AGENT) plus 1 per executed scenario module, excluding `trigger` and
+    `end` (ScenarioRunStep rows). Scenario sends are senderType SCENARIO,
+    so a scenario AI module is not double-charged as a reply.
+  - Context counts: STAFF seats, channels, media storage bytes.
 - The console shows per-tenant usage vs the assigned plan's limits with
-  over-limit badges. Enforcement is Stage 2; v1 only shows.
+  over-limit badges.
+- **Enforcement shipped with the model**: channel creation is blocked at
+  `channelLimit`, staff invites at `staffLimit`, the scenario engine
+  fails runs for tenants without `scenarios`, and the campaign engine
+  pauses due campaigns for tenants without `campaigns`. The dashboard
+  nav and page guards hide disabled features.
+- **Enforcement still Stage 2**: credit exhaustion does not stop the
+  agent yet (over-limit is visible only), and the feature's API routes
+  are not individually guarded - the page guard is the UI gate. Both
+  land with the over-limit behavior decision at the first real paying
+  customer.
 - Any actual PRICING decision must first verify current official
   WhatsApp API and LLM provider costs against live documentation - repo
   rule; platform pricing moves fast and must never be quoted from

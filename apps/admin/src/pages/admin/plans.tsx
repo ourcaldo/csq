@@ -1,5 +1,10 @@
 import { type FormEvent, useState } from "react";
 import { Plus, X } from "@phosphor-icons/react";
+import {
+  PLAN_FEATURE_KEYS,
+  PLAN_FEATURE_LABELS,
+  type PlanFeature,
+} from "@csq/core/types/entitlements";
 import { AdminShell } from "@/components/admin-shell";
 import { Btn, Empty, PageHead, Section, TableCard } from "@/components/console";
 import { withAdminAuth } from "@/lib/admin-auth";
@@ -11,7 +16,12 @@ type Plan = {
   id: string;
   name: string;
   priceIdr: number;
-  limits: Record<string, number | null>;
+  aiCreditsPerMonth: number | null;
+  mauLimit: number | null;
+  staffLimit: number | null;
+  channelLimit: number | null;
+  tenantLimit: number;
+  features: string[];
   tenantCount: number;
 };
 type PlanList = { items: Plan[] };
@@ -20,19 +30,43 @@ type UsageItem = {
   tenantName: string;
   planName: string | null;
   planId: string | null;
-  agentReplies: number;
-  agentRepliesLimit: number | null;
-  agentRepliesOver: boolean;
-  outbound: number;
-  outboundLimit: number | null;
-  outboundOver: boolean;
-  inbound: number;
+  mau: number;
+  mauLimit: number | null;
+  mauOver: boolean;
+  creditsUsed: number;
+  creditsLimit: number | null;
+  creditsOver: boolean;
+  staff: number;
+  staffLimit: number | null;
+  staffOver: boolean;
   channelCount: number;
+  channelLimit: number | null;
+  channelOver: boolean;
   mediaBytes: number;
 };
 type UsageData = { items: UsageItem[]; monthStart: string };
 
-const EMPTY_FORM = { name: "", priceIdr: "0", agentReplies: "", messagesOut: "", channels: "" };
+type FormState = {
+  name: string;
+  priceIdr: string;
+  aiCreditsPerMonth: string;
+  mauLimit: string;
+  staffLimit: string;
+  channelLimit: string;
+  tenantLimit: string;
+  features: PlanFeature[];
+};
+
+const EMPTY_FORM: FormState = {
+  name: "",
+  priceIdr: "0",
+  aiCreditsPerMonth: "",
+  mauLimit: "",
+  staffLimit: "",
+  channelLimit: "",
+  tenantLimit: "1",
+  features: [],
+};
 
 export const getServerSideProps = withAdminAuth(async () => ({ props: {} }));
 
@@ -50,38 +84,101 @@ function bytes(n: number): string {
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
-function limit(v: number | null | undefined): string {
-  return v === null || v === undefined ? "Tanpa batas" : v.toLocaleString("id-ID");
+function limit(v: number | null): string {
+  return v === null ? "Tanpa batas" : v.toLocaleString("id-ID");
+}
+
+function intOrNull(v: string): number | null {
+  if (!v.trim()) return null;
+  const n = parseInt(v, 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+function featureLabels(features: string[]): string {
+  const known = PLAN_FEATURE_KEYS.filter((key) => features.includes(key));
+  return known.length === 0 ? "Core" : known.map((key) => PLAN_FEATURE_LABELS[key]).join(", ");
+}
+
+function UsageCell({
+  used,
+  max,
+  over,
+}: {
+  used: number;
+  max: number | null;
+  over: boolean;
+}) {
+  return (
+    <span className={`font-mono tabular-nums ${over ? "font-medium text-bad" : ""}`}>
+      {used.toLocaleString("id-ID")}
+      {max !== null && ` / ${max.toLocaleString("id-ID")}`}
+    </span>
+  );
 }
 
 export default function PlansPage() {
   const { data: plansData, loading: pLoading, refresh: refreshPlans } =
     useAdminApi<PlanList>("/api/admin/plans");
-  const { data: usageData, loading: uLoading } = useAdminApi<UsageData>("/api/admin/usage");
+  const { data: usageData, loading: uLoading, refresh: refreshUsage } =
+    useAdminApi<UsageData>("/api/admin/usage");
   const [busy, setBusy] = useState<string | null>(null);
-  const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<Plan | null>(null);
+  const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
 
-  async function createPlan(e: FormEvent) {
-    e.preventDefault();
-    setBusy("create");
+  const plans = plansData?.items ?? [];
+  const usage = usageData?.items ?? [];
+
+  function openCreate() {
+    setEditing(null);
+    setForm(EMPTY_FORM);
     setFormError(null);
+    setShowForm(true);
+  }
+
+  function openEdit(plan: Plan) {
+    setEditing(plan);
+    setForm({
+      name: plan.name,
+      priceIdr: String(plan.priceIdr),
+      aiCreditsPerMonth: plan.aiCreditsPerMonth === null ? "" : String(plan.aiCreditsPerMonth),
+      mauLimit: plan.mauLimit === null ? "" : String(plan.mauLimit),
+      staffLimit: plan.staffLimit === null ? "" : String(plan.staffLimit),
+      channelLimit: plan.channelLimit === null ? "" : String(plan.channelLimit),
+      tenantLimit: String(plan.tenantLimit),
+      features: PLAN_FEATURE_KEYS.filter((key) => plan.features.includes(key)),
+    });
+    setFormError(null);
+    setShowForm(true);
+  }
+
+  async function submitPlan(e: FormEvent) {
+    e.preventDefault();
+    setBusy("form");
+    setFormError(null);
+    const payload = {
+      name: form.name,
+      priceIdr: parseInt(form.priceIdr, 10) || 0,
+      aiCreditsPerMonth: intOrNull(form.aiCreditsPerMonth),
+      mauLimit: intOrNull(form.mauLimit),
+      staffLimit: intOrNull(form.staffLimit),
+      channelLimit: intOrNull(form.channelLimit),
+      tenantLimit: parseInt(form.tenantLimit, 10) || 1,
+      features: form.features,
+    };
     try {
-      await adminFetch("/api/admin/plans", "POST", {
-        name: form.name,
-        priceIdr: parseInt(form.priceIdr, 10) || 0,
-        limits: {
-          agentRepliesPerMonth: form.agentReplies ? parseInt(form.agentReplies, 10) : null,
-          messagesOutPerMonth: form.messagesOut ? parseInt(form.messagesOut, 10) : null,
-          channels: form.channels ? parseInt(form.channels, 10) : null,
-        },
-      });
-      setShowCreate(false);
+      if (editing) {
+        await adminFetch("/api/admin/plans", "PUT", { id: editing.id, ...payload });
+      } else {
+        await adminFetch("/api/admin/plans", "POST", payload);
+      }
+      setShowForm(false);
       setForm(EMPTY_FORM);
+      setEditing(null);
       refreshPlans();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Gagal membuat paket.");
+      setFormError(err instanceof Error ? err.message : "Gagal menyimpan paket.");
     } finally {
       setBusy(null);
     }
@@ -92,22 +189,29 @@ export default function PlansPage() {
     try {
       await adminFetch("/api/admin/plans", "PATCH", { tenantId, planId });
       refreshPlans();
+      refreshUsage();
     } finally {
       setBusy(null);
     }
   }
 
-  const plans = plansData?.items ?? [];
-  const usage = usageData?.items ?? [];
+  function toggleFeature(key: PlanFeature) {
+    setForm((f) => ({
+      ...f,
+      features: f.features.includes(key)
+        ? f.features.filter((k) => k !== key)
+        : [...f.features, key],
+    }));
+  }
 
   return (
     <AdminShell title="Paket & Penggunaan">
       <PageHead
         eyebrow="Konfigurasi"
         title="Paket & Penggunaan"
-        sub="Plan & metering per tenant"
+        sub="Kredit AI, MAU, seat, saluran, dan fitur per paket"
         action={
-          <Btn onClick={() => setShowCreate(true)}>
+          <Btn onClick={openCreate}>
             <Plus size={14} weight="bold" />
             Paket baru
           </Btn>
@@ -127,10 +231,13 @@ export default function PlansPage() {
                 <tr>
                   <th>Nama</th>
                   <th className="text-right">Harga / bulan</th>
-                  <th className="text-right">Balasan AI</th>
-                  <th className="text-right">Pesan keluar</th>
+                  <th className="text-right">Kredit AI</th>
+                  <th className="text-right">MAU</th>
+                  <th className="text-right">Staf</th>
                   <th className="text-right">Saluran</th>
                   <th className="text-right">Tenant</th>
+                  <th>Fitur</th>
+                  <th />
                 </tr>
               </thead>
               <tbody>
@@ -139,20 +246,27 @@ export default function PlansPage() {
                     <td className="font-medium">{p.name}</td>
                     <td className="text-right font-mono tabular-nums">{idr(p.priceIdr)}</td>
                     <td className="text-right font-mono tabular-nums">
-                      {limit(p.limits?.agentRepliesPerMonth)}
+                      {limit(p.aiCreditsPerMonth)}
                     </td>
+                    <td className="text-right font-mono tabular-nums">{limit(p.mauLimit)}</td>
+                    <td className="text-right font-mono tabular-nums">{limit(p.staffLimit)}</td>
                     <td className="text-right font-mono tabular-nums">
-                      {limit(p.limits?.messagesOutPerMonth)}
+                      {limit(p.channelLimit)}
                     </td>
-                    <td className="text-right font-mono tabular-nums">
-                      {limit(p.limits?.channels)}
+                    <td className="text-right font-mono tabular-nums">{p.tenantLimit}</td>
+                    <td className="text-[12.5px] text-muted-foreground">
+                      {featureLabels(p.features)}
                     </td>
-                    <td className="text-right font-mono tabular-nums">{p.tenantCount}</td>
+                    <td className="text-right">
+                      <Btn variant="ghost" onClick={() => openEdit(p)}>
+                        Ubah
+                      </Btn>
+                    </td>
                   </tr>
                 ))}
                 {pLoading && (
                   <tr>
-                    <td colSpan={6} className="py-12 text-center text-[13px] text-muted-foreground">
+                    <td colSpan={9} className="py-12 text-center text-[13px] text-muted-foreground">
                       Memuat...
                     </td>
                   </tr>
@@ -183,21 +297,17 @@ export default function PlansPage() {
                 <tr>
                   <th>Tenant</th>
                   <th>Paket</th>
-                  <th className="text-right">Balasan AI</th>
-                  <th className="text-right">Keluar</th>
-                  <th className="text-right">Masuk</th>
+                  <th className="text-right">MAU</th>
+                  <th className="text-right">Kredit AI</th>
+                  <th className="text-right">Staf</th>
+                  <th className="text-right">Saluran</th>
                   <th className="text-right">Media</th>
                 </tr>
               </thead>
               <tbody>
                 {usage.map((u) => (
                   <tr key={u.tenantId}>
-                    <td>
-                      <div className="font-medium">{u.tenantName}</div>
-                      <div className="text-[12px] text-muted-foreground">
-                        {u.channelCount} saluran
-                      </div>
-                    </td>
+                    <td className="font-medium">{u.tenantName}</td>
                     <td>
                       <select
                         className="h-7 rounded-sm border border-input bg-card px-2 text-[12.5px] text-muted-foreground"
@@ -214,29 +324,34 @@ export default function PlansPage() {
                         ))}
                       </select>
                     </td>
-                    <td
-                      className={`text-right font-mono tabular-nums ${
-                        u.agentRepliesOver ? "font-medium text-bad" : ""
-                      }`}
-                    >
-                      {u.agentReplies}
-                      {u.agentRepliesLimit ? ` / ${u.agentRepliesLimit}` : ""}
+                    <td className="text-right">
+                      <UsageCell used={u.mau} max={u.mauLimit} over={u.mauOver} />
                     </td>
-                    <td
-                      className={`text-right font-mono tabular-nums ${
-                        u.outboundOver ? "font-medium text-bad" : ""
-                      }`}
-                    >
-                      {u.outbound}
-                      {u.outboundLimit ? ` / ${u.outboundLimit}` : ""}
+                    <td className="text-right">
+                      <UsageCell
+                        used={u.creditsUsed}
+                        max={u.creditsLimit}
+                        over={u.creditsOver}
+                      />
                     </td>
-                    <td className="text-right font-mono tabular-nums">{u.inbound}</td>
-                    <td className="text-right font-mono tabular-nums">{bytes(u.mediaBytes)}</td>
+                    <td className="text-right">
+                      <UsageCell used={u.staff} max={u.staffLimit} over={u.staffOver} />
+                    </td>
+                    <td className="text-right">
+                      <UsageCell
+                        used={u.channelCount}
+                        max={u.channelLimit}
+                        over={u.channelOver}
+                      />
+                    </td>
+                    <td className="text-right font-mono tabular-nums">
+                      {bytes(u.mediaBytes)}
+                    </td>
                   </tr>
                 ))}
                 {uLoading && (
                   <tr>
-                    <td colSpan={6} className="py-12 text-center text-[13px] text-muted-foreground">
+                    <td colSpan={7} className="py-12 text-center text-[13px] text-muted-foreground">
                       Memuat...
                     </td>
                   </tr>
@@ -247,110 +362,159 @@ export default function PlansPage() {
         )}
       </Section>
 
-      {showCreate && (
+      {showForm && (
         <div
-          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 pt-16"
-          onClick={() => setShowCreate(false)}
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 pt-12"
+          onClick={() => setShowForm(false)}
         >
           <div
-            className="w-full max-w-md rounded-2xl border border-border bg-card shadow-[0_24px_64px_rgba(0,0,0,0.18)]"
+            className="w-full max-w-xl rounded-2xl border border-border bg-card shadow-[0_24px_64px_rgba(0,0,0,0.18)]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between border-b border-border px-5 py-4">
               <div>
                 <div className="eyebrow mb-1">Konfigurasi</div>
-                <h2 className="text-[18px] font-semibold tracking-tight">Paket baru</h2>
+                <h2 className="text-[18px] font-semibold tracking-tight">
+                  {editing ? `Ubah ${editing.name}` : "Paket baru"}
+                </h2>
               </div>
               <button
-                onClick={() => setShowCreate(false)}
+                onClick={() => setShowForm(false)}
                 className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
                 aria-label="Tutup"
               >
                 <X size={16} />
               </button>
             </div>
-            <form onSubmit={createPlan} className="space-y-4 p-5">
-              <div className="space-y-1.5">
-                <Label htmlFor="p-name">Nama paket</Label>
-                <Input
-                  id="p-name"
-                  required
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="Starter"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="p-price">Harga per bulan (IDR)</Label>
-                <Input
-                  id="p-price"
-                  type="number"
-                  required
-                  value={form.priceIdr}
-                  onChange={(e) => setForm({ ...form, priceIdr: e.target.value })}
-                  placeholder="99000"
-                />
-              </div>
-              <div className="grid grid-cols-3 gap-2">
+
+            <form onSubmit={submitPlan} className="space-y-4 p-5">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label htmlFor="p-ai" className="text-[11px]">
-                    Balasan AI
-                  </Label>
+                  <Label htmlFor="p-name">Nama paket</Label>
                   <Input
-                    id="p-ai"
-                    type="number"
-                    value={form.agentReplies}
-                    onChange={(e) => setForm({ ...form, agentReplies: e.target.value })}
-                    placeholder="1000"
+                    id="p-name"
+                    required
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    placeholder="Basic"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="p-out" className="text-[11px]">
-                    Pesan keluar
-                  </Label>
+                  <Label htmlFor="p-price">Harga per bulan (IDR)</Label>
                   <Input
-                    id="p-out"
+                    id="p-price"
                     type="number"
-                    value={form.messagesOut}
-                    onChange={(e) => setForm({ ...form, messagesOut: e.target.value })}
-                    placeholder="5000"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="p-ch" className="text-[11px]">
-                    Saluran
-                  </Label>
-                  <Input
-                    id="p-ch"
-                    type="number"
-                    value={form.channels}
-                    onChange={(e) => setForm({ ...form, channels: e.target.value })}
-                    placeholder="2"
+                    required
+                    value={form.priceIdr}
+                    onChange={(e) => setForm({ ...form, priceIdr: e.target.value })}
+                    placeholder="500000"
                   />
                 </div>
               </div>
-              <dl className="space-y-1 rounded-lg bg-muted px-3 py-2.5 text-[11.5px] text-muted-foreground">
-                <div>
-                  <dt className="inline font-medium text-foreground">Balasan AI</dt>
-                  <dd className="inline">: balasan otomatis agent ke pelanggan.</dd>
+
+              <div className="border-t border-border pt-4">
+                <div className="eyebrow mb-3">Limit per bulan</div>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="p-credits" className="text-[11px]">
+                      Kredit AI
+                    </Label>
+                    <Input
+                      id="p-credits"
+                      type="number"
+                      value={form.aiCreditsPerMonth}
+                      onChange={(e) => setForm({ ...form, aiCreditsPerMonth: e.target.value })}
+                      placeholder="15000"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="p-mau" className="text-[11px]">
+                      MAU
+                    </Label>
+                    <Input
+                      id="p-mau"
+                      type="number"
+                      value={form.mauLimit}
+                      onChange={(e) => setForm({ ...form, mauLimit: e.target.value })}
+                      placeholder="1000"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="p-staff" className="text-[11px]">
+                      Staf
+                    </Label>
+                    <Input
+                      id="p-staff"
+                      type="number"
+                      value={form.staffLimit}
+                      onChange={(e) => setForm({ ...form, staffLimit: e.target.value })}
+                      placeholder="1"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="p-channels" className="text-[11px]">
+                      Saluran
+                    </Label>
+                    <Input
+                      id="p-channels"
+                      type="number"
+                      value={form.channelLimit}
+                      onChange={(e) => setForm({ ...form, channelLimit: e.target.value })}
+                      placeholder="1"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="p-tenants" className="text-[11px]">
+                      Tenant
+                    </Label>
+                    <Input
+                      id="p-tenants"
+                      type="number"
+                      required
+                      min={1}
+                      value={form.tenantLimit}
+                      onChange={(e) => setForm({ ...form, tenantLimit: e.target.value })}
+                      placeholder="1"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <dt className="inline font-medium text-foreground">Pesan keluar</dt>
-                  <dd className="inline">
-                    : semua pesan keluar, termasuk balasan AI dan pesan staf.
-                  </dd>
+                <p className="mt-2 text-[11.5px] text-muted-foreground">
+                  Kosongkan limit untuk tanpa batas. Staf tidak termasuk owner. Tenant adalah
+                  jumlah workspace yang termasuk dalam paket.
+                </p>
+              </div>
+
+              <div className="border-t border-border pt-4">
+                <div className="eyebrow mb-3">Fitur</div>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  {PLAN_FEATURE_KEYS.map((key) => (
+                    <label
+                      key={key}
+                      className="flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-[13px] transition-colors hover:bg-accent"
+                    >
+                      <input
+                        type="checkbox"
+                        className="h-3.5 w-3.5 accent-primary"
+                        checked={form.features.includes(key)}
+                        onChange={() => toggleFeature(key)}
+                      />
+                      {PLAN_FEATURE_LABELS[key]}
+                    </label>
+                  ))}
                 </div>
-              </dl>
-              <p className="text-[11.5px] text-muted-foreground">
-                Limit dihitung per bulan. Kosongkan untuk tanpa batas.
-              </p>
+                <p className="mt-2 text-[11.5px] text-muted-foreground">
+                  Fitur yang tidak dicentang dinonaktifkan untuk tenant di paket ini.
+                </p>
+              </div>
+
               {formError && <p className="text-[13px] text-bad">{formError}</p>}
+
               <div className="flex justify-end gap-2 pt-1">
-                <Btn type="button" variant="line" onClick={() => setShowCreate(false)}>
+                <Btn type="button" variant="line" onClick={() => setShowForm(false)}>
                   Batal
                 </Btn>
-                <Btn type="submit" disabled={busy === "create"}>
-                  {busy === "create" ? "Membuat..." : "Buat paket"}
+                <Btn type="submit" disabled={busy === "form"}>
+                  {busy === "form" ? "Menyimpan..." : editing ? "Simpan" : "Buat paket"}
                 </Btn>
               </div>
             </form>

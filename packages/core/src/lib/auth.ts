@@ -11,6 +11,8 @@ import { UserRole } from "@prisma/client";
 import { z } from "zod";
 import prisma from "@csq/core/lib/db";
 import { verifyPassword } from "@csq/core/lib/password";
+import { getTenantEntitlements } from "@csq/core/lib/entitlements";
+import type { PlanFeature } from "@csq/core/types/entitlements";
 
 // Sign-in input validation (matches the register schema's shape). Applied at
 // the authorize() boundary so untrusted credentials are Zod-validated, not
@@ -144,6 +146,27 @@ export function requireAuth(
     async () => ({ props: {} }),
     options
   );
+}
+
+// Like withAuth but also requires a plan feature. A tenant with no plan gets
+// every feature (legacy); a plan without the key is redirected to the
+// dashboard. The page is the UI gate - the feature's API and worker paths are
+// gated separately where they can consume money (credits, sends).
+export function withFeature<P extends Record<string, unknown>>(
+  feature: PlanFeature,
+  gssp: GetServerSideProps<P>
+): GetServerSideProps<P> {
+  return async (ctx: GetServerSidePropsContext): Promise<GetServerSidePropsResult<P>> => {
+    const session = await getSSRSession(ctx);
+    if (!session) {
+      return { redirect: { destination: "/login", permanent: false } };
+    }
+    const entitlements = await getTenantEntitlements(session.user.tenantId);
+    if (!entitlements.features.includes(feature)) {
+      return { redirect: { destination: "/dashboard", permanent: false } };
+    }
+    return gssp(ctx);
+  };
 }
 
 // Like withAuth but does NOT redirect when unauthenticated - for pages that

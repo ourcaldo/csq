@@ -2,6 +2,7 @@ import { randomBytes } from "crypto";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
 import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getTenantEntitlements } from "@csq/core/lib/entitlements";
 import prisma from "@csq/core/lib/db";
 import { hashPassword } from "@csq/core/lib/password";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
@@ -59,6 +60,19 @@ export default async function handler(
   const existing = await prisma.user.findUnique({ where: { email } });
   if (existing) {
     return respondError(res, "VALIDATION_ERROR", "Email sudah terdaftar.");
+  }
+
+  // Plan staff seats (PRD 13). Owner is not a seat; only STAFF users count.
+  const entitlements = await getTenantEntitlements(tenantId);
+  if (entitlements.staffLimit !== null) {
+    const staff = await prisma.user.count({ where: { tenantId, role: "STAFF" } });
+    if (staff >= entitlements.staffLimit) {
+      return respondError(
+        res,
+        "PERMISSION_DENIED",
+        `Paket ${entitlements.planName ?? "tenant"} hanya mendukung ${entitlements.staffLimit} staf.`
+      );
+    }
   }
 
   const tempPassword = parsed.data.password ?? generateTempPassword();

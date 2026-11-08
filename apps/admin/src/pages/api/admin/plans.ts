@@ -1,30 +1,26 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import prisma from "@csq/core/lib/db";
 import { apiError, apiOk, type ApiResponse } from "@csq/core/types/api";
+import { PLAN_FEATURE_KEYS } from "@csq/core/types/entitlements";
 import { requireAdmin, auditAdminAction } from "@/lib/admin-auth";
 import { z } from "zod";
 
-// Plans (PRD 13 Phase 5): metadata + manual assignment. No payments.
-// PATCH = assign a plan to a tenant.
+// Plans (PRD 13): the entitlement catalog. No payments; assignment is manual.
+// NULL on a limit means unlimited; features are opt-in keys from the shared
+// catalog. PATCH = assign a plan to a tenant.
 
-const limitsSchema = z.object({
-  agentRepliesPerMonth: z.number().int().positive().nullable().optional(),
-  messagesOutPerMonth: z.number().int().positive().nullable().optional(),
-  channels: z.number().int().positive().nullable().optional(),
-});
-
-const createSchema = z.object({
+const planInputSchema = z.object({
   name: z.string().min(1).max(100),
   priceIdr: z.number().int().min(0),
-  limits: limitsSchema,
+  aiCreditsPerMonth: z.number().int().positive().nullable(),
+  mauLimit: z.number().int().positive().nullable(),
+  staffLimit: z.number().int().positive().nullable(),
+  channelLimit: z.number().int().positive().nullable(),
+  tenantLimit: z.number().int().positive(),
+  features: z.array(z.enum(PLAN_FEATURE_KEYS)),
 });
 
-const updateSchema = z.object({
-  id: z.string().uuid(),
-  name: z.string().min(1).max(100).optional(),
-  priceIdr: z.number().int().min(0).optional(),
-  limits: limitsSchema.optional(),
-});
+const updateSchema = planInputSchema.extend({ id: z.string().uuid() });
 
 const assignSchema = z.object({
   planId: z.string().uuid().nullable(),
@@ -45,7 +41,15 @@ export default async function handler(
     });
     return res.status(200).json(apiOk({
       items: plans.map((p) => ({
-        id: p.id, name: p.name, priceIdr: p.priceIdr, limits: p.limits,
+        id: p.id,
+        name: p.name,
+        priceIdr: p.priceIdr,
+        aiCreditsPerMonth: p.aiCreditsPerMonth,
+        mauLimit: p.mauLimit,
+        staffLimit: p.staffLimit,
+        channelLimit: p.channelLimit,
+        tenantLimit: p.tenantLimit,
+        features: p.features,
         tenantCount: p._count.tenants,
         createdAt: p.createdAt.toISOString(),
       })),
@@ -53,13 +57,11 @@ export default async function handler(
   }
 
   if (req.method === "POST") {
-    const parsed = createSchema.safeParse(req.body);
+    const parsed = planInputSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json(apiError("VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Payload tidak valid."));
     }
-    const plan = await prisma.plan.create({
-      data: { name: parsed.data.name, priceIdr: parsed.data.priceIdr, limits: parsed.data.limits },
-    });
+    const plan = await prisma.plan.create({ data: parsed.data });
     await auditAdminAction({
       adminId: admin.adminId, action: "plan.create",
       targetType: "Plan", targetId: plan.id, afterValue: parsed.data,

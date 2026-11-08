@@ -3,6 +3,7 @@ import prisma from "@csq/core/lib/db";
 import { findOrCreateConversation, CLOUD_API_WINDOW_MS } from "@csq/core/lib/inbox";
 import { getProvider } from "@csq/core/lib/whatsapp-provider";
 import { logAction } from "@csq/core/lib/audit";
+import { getTenantEntitlements } from "@csq/core/lib/entitlements";
 import {
   nextCampaignOccurrence,
   nextIntervalOccurrence,
@@ -61,6 +62,27 @@ async function fireDueCampaigns(): Promise<void> {
 }
 
 async function fireCampaign(campaign: Campaign): Promise<void> {
+  // Plan gate (PRD 13): downgraded tenants must not keep firing. Pausing is
+  // deliberate - the campaign stays visible and can be reactivated after an
+  // upgrade. In-flight CampaignMessage rows still drain (bounded work).
+  const entitlements = await getTenantEntitlements(campaign.tenantId);
+  if (!entitlements.features.includes("campaigns")) {
+    await prisma.campaign.update({
+      where: { id: campaign.id },
+      data: { status: "PAUSED" },
+    });
+    await logAction({
+      tenantId: campaign.tenantId,
+      agentId: null,
+      action: "campaign.paused_plan",
+      entityType: "Campaign",
+      entityId: campaign.id,
+      approvalStatus: "NONE",
+      afterValue: { reason: "Fitur kampanye tidak aktif di paket tenant." },
+    });
+    return;
+  }
+
   const now = new Date();
   const tz = scheduleTz();
   const config = campaign.scheduleConfig as ScheduleConfig;

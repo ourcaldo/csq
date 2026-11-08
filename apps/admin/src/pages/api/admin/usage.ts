@@ -3,8 +3,10 @@ import prisma from "@csq/core/lib/db";
 import { apiError, apiOk, type ApiResponse } from "@csq/core/types/api";
 import { requireAdmin } from "@/lib/admin-auth";
 
-// Usage metering (PRD 13 Phase 5): per-tenant monthly usage vs plan
-// limits, derived from existing Message rows at read time.
+// Usage metering (PRD 13). Per-tenant, derived from existing rows at read
+// time: MAU = unique inbound senders this month; AI credits = agent replies
+// (1 each) + executed scenario modules excluding trigger and end (1 each).
+// Plus the plan's seat and channel limits. No ledger table to keep in sync.
 
 export default async function handler(
   req: NextApiRequest,
@@ -17,27 +19,65 @@ export default async function handler(
   }
 
   const now = new Date();
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 
-  const tenants = await prisma.tenant.findMany({
-    orderBy: { createdAt: "asc" },
-    include: {
-      plan: { select: { name: true, limits: true } },
-      _count: { select: { channels: true } },
-    },
-  });
+  const [tenants, monthMessages, mediaBytes, scenarioSteps, staffCounts, mauRows] =
+    await Promise.all([
+      prisma.tenant.findMany({
+        orderBy: { createdAt: "asc" },
+        include: {
+          plan: {
+            select: {
+              name: true,
+              aiCreditsPerMonth: true,
+              mauLimit: true,
+              staffLimit: true,
+              channelLimit: true,
+              tenantLimit: true,
+            },
+          },
+          _count: { select: { channels: true } },
+        },
+      }),
+      prisma.message.groupBy({
+        by: ["tenantId", "direction", "senderType"],
+        where: { createdAt: { gte: monthStart } },
+        _count: { id: true },
+      }),
+      prisma.mediaAsset.groupBy({ by: ["tenantId"], _sum: { byteSize: true } }),
+      prisma.scenarioRunStep.groupBy({
+        by: ["tenantId"],
+        where: {
+          startedAt: { gte: monthStart },
+          nodeType: { notIn: ["trigger", "end"] },
+        },
+        _count: { id: true },
+      }),
+      prisma.user.groupBy({
+        by: ["tenantId"],
+        where: { role: "STAFF" },
+        _count: { id: true },
+      }),
+      prisma.$queryRaw<{ tenantId: string; count: bigint }[]>`
+        SELECT m."tenantId", count(DISTINCT c."customerPhone") AS count
+        FROM "Message" m
+        JOIN "Conversation" c ON c.id = m."conversationId"
+        WHERE m.direction = 'INBOUND'
+          AND m."createdAt" >= ${monthStart}
+        GROUP BY m."tenantId"
+      `,
+    ]);
 
-  const monthMessages = await prisma.message.groupBy({
-    by: ["tenantId", "direction", "senderType"],
-    where: { createdAt: { gte: monthStart } },
-    _count: { id: true },
-  });
-
-  const mediaBytes = await prisma.mediaAsset.groupBy({
-    by: ["tenantId"],
-    _sum: { byteSize: true },
-  });
   const mediaMap = new Map(mediaBytes.map((m) => [m.tenantId, m._sum.byteSize ?? 0]));
+  const scenarioMap = new Map(scenarioSteps.map((s) => [s.tenantId, s._count.id]));
+  const staffMap = new Map(staffCounts.map((s) => [s.tenantId, s._count.id]));
+  const mauMap = new Map(mauRows.map((r) => [r.tenantId, Number(r.count)]));
+  const replyMap = new Map<string, number>();
+  for (const row of monthMessages) {
+    if (row.direction === "OUTBOUND" && row.senderType === "AGENT") {
+      replyMap.set(row.tenantId, (replyMap.get(row.tenantId) ?? 0) + row._count.id);
+    }
+  }
 
   // Platform-wide messages per day for the last 30 days (the overview chart).
   const DAYS = 30;
@@ -61,38 +101,43 @@ export default async function handler(
     return { date: key, count: dailyMap.get(key) ?? 0 };
   });
 
-  const usageMap = new Map<string, { outbound: number; agentReplies: number; inbound: number }>();
-  for (const row of monthMessages) {
-    const existing = usageMap.get(row.tenantId) ?? { outbound: 0, agentReplies: 0, inbound: 0 };
-    if (row.direction === "OUTBOUND") {
-      existing.outbound += row._count.id;
-      if (row.senderType === "AGENT") existing.agentReplies += row._count.id;
-    } else if (row.direction === "INBOUND") {
-      existing.inbound += row._count.id;
-    }
-    usageMap.set(row.tenantId, existing);
-  }
-
   const items = tenants.map((t) => {
-    const usage = usageMap.get(t.id) ?? { outbound: 0, agentReplies: 0, inbound: 0 };
-    const limits = (t.plan?.limits ?? {}) as Record<string, number | null | undefined>;
-    const agentLimit = limits.agentRepliesPerMonth ?? null;
-    const outLimit = limits.messagesOutPerMonth ?? null;
+    const agentReplies = replyMap.get(t.id) ?? 0;
+    const scenarioCredits = scenarioMap.get(t.id) ?? 0;
+    const creditsUsed = agentReplies + scenarioCredits;
+    const creditsLimit = t.plan?.aiCreditsPerMonth ?? null;
+    const mau = mauMap.get(t.id) ?? 0;
+    const mauLimit = t.plan?.mauLimit ?? null;
+    const staff = staffMap.get(t.id) ?? 0;
+    const staffLimit = t.plan?.staffLimit ?? null;
+    const channelCount = t._count.channels;
+    const channelLimit = t.plan?.channelLimit ?? null;
+
     return {
-      tenantId: t.id, tenantName: t.name,
-      planName: t.plan?.name ?? null, planId: t.planId,
-      agentReplies: usage.agentReplies,
-      agentRepliesLimit: agentLimit,
-      agentRepliesOver: agentLimit !== null && usage.agentReplies > agentLimit,
-      outbound: usage.outbound,
-      outboundLimit: outLimit,
-      outboundOver: outLimit !== null && usage.outbound > outLimit,
-      inbound: usage.inbound,
-      channelCount: t._count.channels,
-      channelLimit: limits.channels ?? null,
+      tenantId: t.id,
+      tenantName: t.name,
+      planName: t.plan?.name ?? null,
+      planId: t.planId,
+      mau,
+      mauLimit,
+      mauOver: mauLimit !== null && mau > mauLimit,
+      agentReplies,
+      scenarioCredits,
+      creditsUsed,
+      creditsLimit,
+      creditsOver: creditsLimit !== null && creditsUsed > creditsLimit,
+      staff,
+      staffLimit,
+      staffOver: staffLimit !== null && staff > staffLimit,
+      channelCount,
+      channelLimit,
+      channelOver: channelLimit !== null && channelCount > channelLimit,
+      tenantLimit: t.plan?.tenantLimit ?? null,
       mediaBytes: mediaMap.get(t.id) ?? 0,
     };
   });
 
-  return res.status(200).json(apiOk({ items, monthStart: monthStart.toISOString(), daily }));
+  return res
+    .status(200)
+    .json(apiOk({ items, monthStart: monthStart.toISOString(), daily }));
 }

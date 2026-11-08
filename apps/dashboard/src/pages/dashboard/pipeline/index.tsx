@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { GetServerSideProps } from "next";
 import { useRouter } from "next/router";
-import { withAuth } from "@csq/core/lib/auth";
+import { withFeature } from "@csq/core/lib/auth";
 import { apiFetch, apiSend, ApiError } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
 import type { ListResult } from "@csq/core/types/dashboard";
@@ -477,6 +477,7 @@ export default function PipelinePage() {
   );
 }
 
-export const getServerSideProps: GetServerSideProps = withAuth<Record<string, unknown>>(
+export const getServerSideProps: GetServerSideProps = withFeature(
+  "pipeline",
   async () => ({ props: {} })
 );

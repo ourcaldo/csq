@@ -12,6 +12,7 @@ import {
 } from "@csq/core/types/whatsapp";
 import { isFatalDisconnect } from "@csq/core/services/baileys";
 import { createChannelCommand, awaitChannelCommand } from "@csq/core/lib/channel-commands";
+import { getTenantEntitlements } from "@csq/core/lib/entitlements";
 import { generateVerifyToken } from "@csq/core/lib/whatsapp-verify-token";
 
 // Connect (or reconfigure) a WhatsApp channel for this tenant (plan 7.5).
@@ -60,6 +61,23 @@ export default async function handler(
   const existing = await prisma.channel.findFirst({
     where: { tenantId, provider },
   });
+
+  // Plan channel limit (PRD 13): creating a new channel is blocked at the
+  // plan's seat count. Reconnecting an existing channel is always allowed, so
+  // a downgraded tenant is never locked out of the channel it already has.
+  if (!existing) {
+    const entitlements = await getTenantEntitlements(tenantId);
+    if (entitlements.channelLimit !== null) {
+      const used = await prisma.channel.count({ where: { tenantId } });
+      if (used >= entitlements.channelLimit) {
+        return respondError(
+          res,
+          "PERMISSION_DENIED",
+          `Paket ${entitlements.planName ?? "tenant"} hanya mendukung ${entitlements.channelLimit} saluran.`
+        );
+      }
+    }
+  }
 
   let config: CloudApiConfig | BaileysConfig;
   let status: "CONNECTED" | "DISCONNECTED";

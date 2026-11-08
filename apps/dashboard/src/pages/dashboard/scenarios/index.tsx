@@ -3,7 +3,7 @@ import type { GetServerSideProps } from "next";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
-import { withAuth } from "@csq/core/lib/auth";
+import { withFeature } from "@csq/core/lib/auth";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
 import type { ListResult } from "@csq/core/types/dashboard";
@@ -226,6 +226,7 @@ export default function ScenariosPage() {
   );
 }
 
-export const getServerSideProps: GetServerSideProps = withAuth<Record<string, unknown>>(
+export const getServerSideProps: GetServerSideProps = withFeature(
+  "scenarios",
   async () => ({ props: {} })
 );

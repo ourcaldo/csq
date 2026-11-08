@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import type { GetServerSideProps } from "next";
 import { useSession } from "next-auth/react";
-import { withAuth } from "@csq/core/lib/auth";
+import { withFeature } from "@csq/core/lib/auth";
 import { apiFetch, apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
 import type { Category, Contact, ListResult, Tag } from "@csq/core/types/dashboard";
@@ -853,6 +853,7 @@ export default function CampaignsPage() {
   );
 }
 
-export const getServerSideProps: GetServerSideProps = withAuth<Record<string, unknown>>(
+export const getServerSideProps: GetServerSideProps = withFeature(
+  "campaigns",
   async () => ({ props: {} })
 );

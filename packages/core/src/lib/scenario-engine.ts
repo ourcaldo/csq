@@ -8,6 +8,7 @@ import { setConversationStage } from "@csq/core/lib/pipeline";
 import { generateText, isTextLlmConfigured } from "@csq/core/services/llm";
 import { sendEmailWithProvider } from "@csq/core/services/email";
 import { getEmailProvider } from "@csq/core/lib/email-config";
+import { getTenantEntitlements } from "@csq/core/lib/entitlements";
 import { events } from "@csq/core/lib/events";
 import type {
   ConversationNewEvent,
@@ -231,6 +232,14 @@ async function advanceRun(runId: string): Promise<void> {
   });
   if (!run || !run.scenario) return;
   if (run.status === "COMPLETED" || run.status === "FAILED") return;
+
+  // Plan gate (PRD 13): a tenant without the scenarios feature must not keep
+  // executing (and burning credits for) runs that were created earlier.
+  const entitlements = await getTenantEntitlements(run.tenantId);
+  if (!entitlements.features.includes("scenarios")) {
+    await failRun(run.id, run.tenantId, "Skenario tidak aktif di paket tenant.");
+    return;
+  }
 
   const graphParsed = scenarioGraphSchema.safeParse(run.scenario.graph);
   if (!graphParsed.success) {
