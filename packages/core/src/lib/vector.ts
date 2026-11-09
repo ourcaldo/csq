@@ -1,4 +1,5 @@
 ﻿import prisma from "@csq/core/lib/db";
+import { tenantRaw } from "@csq/core/lib/tenant-context";
 
 // ALL pgvector reads and writes go through this module. No raw vector SQL
 // anywhere else. Prisma declares the embedding column as Unsupported("vector");
@@ -53,12 +54,15 @@ export async function upsertEmbedding(
   // client-side only, and this is raw SQL), so generate it here with
   // gen_random_uuid()::text. ON CONFLICT on the unique "knowledgeId" makes the
   // create-vs-update distinction automatic.
-  await prisma.$executeRaw`
-    INSERT INTO "KnowledgeEmbedding" (id, "knowledgeId", "tenantId", embedding, "createdAt")
-    VALUES (gen_random_uuid()::text, ${recordId}, ${tenantId}, ${vector}::vector, NOW())
-    ON CONFLICT ("knowledgeId") DO UPDATE
-    SET embedding = ${vector}::vector, "tenantId" = ${tenantId}
-  `;
+  await tenantRaw(
+    tenantId,
+    prisma.$executeRaw`
+      INSERT INTO "KnowledgeEmbedding" (id, "knowledgeId", "tenantId", embedding, "createdAt")
+      VALUES (gen_random_uuid()::text, ${recordId}, ${tenantId}, ${vector}::vector, NOW())
+      ON CONFLICT ("knowledgeId") DO UPDATE
+      SET embedding = ${vector}::vector, "tenantId" = ${tenantId}
+    `
+  );
 }
 
 export async function findSimilar(
@@ -71,14 +75,17 @@ export async function findSimilar(
   const threshold = options?.threshold ?? 0.7;
   const limit = options?.limit ?? 5;
   const vector = toVectorLiteral(queryEmbedding);
-  return prisma.$queryRaw<FindSimilarRow[]>`
-    SELECT id, "knowledgeId", 1 - (embedding <=> ${vector}::vector) AS similarity
-    FROM "KnowledgeEmbedding"
-    WHERE "tenantId" = ${tenantId}
-      AND 1 - (embedding <=> ${vector}::vector) >= ${threshold}
-    ORDER BY embedding <=> ${vector}::vector
-    LIMIT ${limit}
-  `;
+  return tenantRaw(
+    tenantId,
+    prisma.$queryRaw<FindSimilarRow[]>`
+      SELECT id, "knowledgeId", 1 - (embedding <=> ${vector}::vector) AS similarity
+      FROM "KnowledgeEmbedding"
+      WHERE "tenantId" = ${tenantId}
+        AND 1 - (embedding <=> ${vector}::vector) >= ${threshold}
+      ORDER BY embedding <=> ${vector}::vector
+      LIMIT ${limit}
+    `
+  );
 }
 
 export async function deleteEmbedding(
@@ -87,8 +94,11 @@ export async function deleteEmbedding(
   tenantId: string
 ): Promise<void> {
   assertModel(model);
-  await prisma.$executeRaw`
-    DELETE FROM "KnowledgeEmbedding"
-    WHERE "knowledgeId" = ${recordId} AND "tenantId" = ${tenantId}
-  `;
+  await tenantRaw(
+    tenantId,
+    prisma.$executeRaw`
+      DELETE FROM "KnowledgeEmbedding"
+      WHERE "knowledgeId" = ${recordId} AND "tenantId" = ${tenantId}
+    `
+  );
 }

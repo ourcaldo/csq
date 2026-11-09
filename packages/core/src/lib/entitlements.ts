@@ -1,4 +1,5 @@
 import prisma from "@csq/core/lib/db";
+import { tenantRaw } from "@csq/core/lib/tenant-context";
 import {
   PLAN_FEATURE_KEYS,
   isPlanFeature,
@@ -79,14 +80,17 @@ export async function getTenantUsage(
     }),
     prisma.user.count({ where: { tenantId, role: "STAFF" } }),
     prisma.channel.count({ where: { tenantId, status: "CONNECTED" } }),
-    prisma.$queryRaw<{ count: bigint }[]>`
-      SELECT count(DISTINCT c."customerPhone") AS count
-      FROM "Message" m
-      JOIN "Conversation" c ON c.id = m."conversationId"
-      WHERE m."tenantId" = ${tenantId}
-        AND m.direction = 'INBOUND'
-        AND m."createdAt" >= ${since}
-    `,
+    tenantRaw(
+      tenantId,
+      prisma.$queryRaw<{ count: bigint }[]>`
+        SELECT count(DISTINCT c."customerPhone") AS count
+        FROM "Message" m
+        JOIN "Conversation" c ON c.id = m."conversationId"
+        WHERE m."tenantId" = ${tenantId}
+          AND m.direction = 'INBOUND'
+          AND m."createdAt" >= ${since}
+      `
+    ),
   ]);
 
   return {

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
+import { withTenantTransaction } from "@csq/core/lib/tenant-context";
 import type { ToolDefinition, ToolResult } from "@csq/core/types/tools";
 import { events } from "@csq/core/lib/events";
 
@@ -253,7 +254,7 @@ const orderCreate: ToolDefinition<OrderCreateParams> = {
     const productIds = p.items.map((it) => it.productId);
 
     // One transaction: validate stock + compute totals + create order + decrement.
-    const order = await ctx.prisma.$transaction(async (tx) => {
+    const order = await withTenantTransaction(ctx.tenantId, async (tx) => {
       const products = await tx.product.findMany({
         where: { tenantId: ctx.tenantId, id: { in: productIds } },
         include: { inventory: true },
@@ -385,7 +386,7 @@ const orderCancel: ToolDefinition<OrderCancelParams> = {
   defaultPermission: { allowed: false, requiresApproval: true },
   async handler(ctx): Promise<ToolResult> {
     const p = ctx.params;
-    const result = await ctx.prisma.$transaction(async (tx) => {
+    const result = await withTenantTransaction(ctx.tenantId, async (tx) => {
       const order = await tx.order.findFirst({
         where: { tenantId: ctx.tenantId, id: p.orderId },
         include: { items: true },

@@ -1,5 +1,6 @@
 import { InventorySource, Prisma } from "@prisma/client";
 import prisma from "@csq/core/lib/db";
+import { withTenantTransaction } from "@csq/core/lib/tenant-context";
 import type { MappedProduct } from "@csq/core/services/excel";
 import {
   readSourcePriority,
@@ -61,7 +62,7 @@ export async function applyImport(
   // failure inside is fatal - we record it and zero the counters since nothing
   // was committed.
   try {
-    await prisma.$transaction(async (tx) => {
+    await withTenantTransaction(tenantId, async (tx) => {
       for (const p of valid) {
         // (tenantId, sku) is unique (M13); skuless products fall back to name.
         const existing = p.sku

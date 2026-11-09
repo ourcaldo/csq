@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import prisma from "@csq/core/lib/db";
+import { withTenantTransaction } from "@csq/core/lib/tenant-context";
 
 // Persists the full parsed rows of an Excel/Google Sheets source so the agent
 // can read inside the sumber data via the `source.search` tool - every column,
@@ -32,7 +33,7 @@ export async function replaceSourceRows(
 ): Promise<void> {
   // M10: wrap delete + re-insert in a single transaction so a crash mid-replace
   // can't leave SourceRow empty/partial - the whole replace is atomic.
-  await prisma.$transaction(async (tx) => {
+  await withTenantTransaction(tenantId, async (tx) => {
     await tx.sourceRow.deleteMany({ where: { tenantId, dataSourceId } });
 
     for (let i = 0; i < rows.length; i += BATCH_SIZE) {

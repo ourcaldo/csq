@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import prisma from "@csq/core/lib/db";
+import { tenantRaw } from "@csq/core/lib/tenant-context";
 
 // Per-conversation turn lease (D1). Replaces the old pattern of wrapping the
 // whole agent turn - including LLM HTTP latency - in a Postgres transaction
@@ -24,13 +25,16 @@ export async function acquireTurnLease(
   tenantId: string
 ): Promise<string | null> {
   const leaseId = randomUUID();
-  const updated = await prisma.$executeRaw`
-    UPDATE "Conversation"
-    SET "turnLockId" = ${leaseId}, "turnLockedAt" = NOW()
-    WHERE "id" = ${conversationId}
-      AND "tenantId" = ${tenantId}
-      AND ("turnLockedAt" IS NULL OR "turnLockedAt" < NOW() - ${STALE_LOCK_INTERVAL}::interval)
-  `;
+  const updated = await tenantRaw(
+    tenantId,
+    prisma.$executeRaw`
+      UPDATE "Conversation"
+      SET "turnLockId" = ${leaseId}, "turnLockedAt" = NOW()
+      WHERE "id" = ${conversationId}
+        AND "tenantId" = ${tenantId}
+        AND ("turnLockedAt" IS NULL OR "turnLockedAt" < NOW() - ${STALE_LOCK_INTERVAL}::interval)
+    `
+  );
   return updated === 1 ? leaseId : null;
 }
 
@@ -41,11 +45,14 @@ export async function releaseTurnLease(
   tenantId: string,
   leaseId: string
 ): Promise<void> {
-  await prisma.$executeRaw`
-    UPDATE "Conversation"
-    SET "turnLockId" = NULL, "turnLockedAt" = NULL
-    WHERE "id" = ${conversationId}
-      AND "tenantId" = ${tenantId}
-      AND "turnLockId" = ${leaseId}
-  `;
+  await tenantRaw(
+    tenantId,
+    prisma.$executeRaw`
+      UPDATE "Conversation"
+      SET "turnLockId" = NULL, "turnLockedAt" = NULL
+      WHERE "id" = ${conversationId}
+        AND "tenantId" = ${tenantId}
+        AND "turnLockId" = ${leaseId}
+    `
+  );
 }

@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import type { Contact } from "@prisma/client";
 import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
+import { withTenantTransaction } from "@csq/core/lib/tenant-context";
 import { logHuman } from "@csq/core/lib/audit";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
@@ -62,7 +63,7 @@ export default async function handler(
       return respondError(res, "VALIDATION_ERROR", "Ada tag yang tidak dikenal.");
     }
 
-    const contact = await prisma.$transaction(async (tx) => {
+    const contact = await withTenantTransaction(tenantId, async (tx) => {
       const updated = await tx.contact.update({
         where: { id },
         data: {

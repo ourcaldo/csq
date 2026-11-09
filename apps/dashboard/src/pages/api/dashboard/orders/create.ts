@@ -3,6 +3,7 @@ import { Decimal } from "@prisma/client/runtime/library";
 import type { Prisma } from "@prisma/client";
 import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
+import { withTenantTransaction } from "@csq/core/lib/tenant-context";
 import { logHuman } from "@csq/core/lib/audit";
 import { HttpError, requireTenant, respondError } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
@@ -33,7 +34,7 @@ export default async function handler(
   const { items: inputItems, customerName, customerPhone } = parsed.data;
 
   try {
-    const order = await prisma.$transaction(async (tx) => {
+    const order = await withTenantTransaction(tenantId, async (tx) => {
       // Resolve every line item: product + its inventory, tenant-scoped.
       const lines = await Promise.all(
         inputItems.map(async (item) => {

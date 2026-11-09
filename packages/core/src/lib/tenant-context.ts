@@ -1,5 +1,5 @@
 import type { Prisma } from "@prisma/client";
-import prisma from "./db";
+import { basePrisma } from "./db";
 import { tenantAls } from "./tenant-als";
 
 // RLS request context (PRD 16 SEC-1). The policies live in
@@ -37,7 +37,7 @@ export async function withTenantTransaction<T>(
   fn: (tx: Prisma.TransactionClient) => Promise<T>
 ): Promise<T> {
   return tenantAls.run({ tenantId, bypass: false, inTx: true }, () =>
-    prisma.$transaction(async (tx) => {
+    basePrisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, TRUE)`;
       return fn(tx);
     })
@@ -49,9 +49,34 @@ export async function withSystemTransaction<T>(
   fn: (tx: Prisma.TransactionClient) => Promise<T>
 ): Promise<T> {
   return tenantAls.run({ tenantId: null, bypass: true, inTx: true }, () =>
-    prisma.$transaction(async (tx) => {
+    basePrisma.$transaction(async (tx) => {
       await tx.$executeRaw`SELECT set_config('app.bypass_rls', 'on', TRUE)`;
       return fn(tx);
     })
   );
+}
+
+// Raw SQL (queryRaw/executeRaw) does NOT pass through the db extension hook,
+// so raw statements touching tenant tables must set the context themselves.
+// These helpers run the statement in an array transaction with set_config on
+// the same connection - the raw twin of the hook.
+export function tenantRaw<T>(
+  tenantId: string,
+  op: Prisma.PrismaPromise<T>
+): Promise<T> {
+  return basePrisma
+    .$transaction([
+      basePrisma.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, TRUE)`,
+      op,
+    ])
+    .then((r) => r[1]);
+}
+
+export function systemRaw<T>(op: Prisma.PrismaPromise<T>): Promise<T> {
+  return basePrisma
+    .$transaction([
+      basePrisma.$executeRaw`SELECT set_config('app.bypass_rls', 'on', TRUE)`,
+      op,
+    ])
+    .then((r) => r[1]);
 }

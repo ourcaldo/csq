@@ -5,6 +5,7 @@ import { requireFeatureApi } from "@csq/core/lib/feature-guard";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import prisma from "@csq/core/lib/db";
+import { withTenantTransaction } from "@csq/core/lib/tenant-context";
 
 // PUT /api/dashboard/pipeline/stages/reorder - OWNER/STAFF. Body:
 // { order: string[] } - the stage ids in the desired order. Reassigns the
@@ -45,13 +46,15 @@ export default async function handler(
     return respondError(res, "VALIDATION_ERROR", "Beberapa ID tahap tidak valid.");
   }
 
-  await prisma.$transaction(
-    ids.map((stageId, i) =>
-      prisma.stage.update({
-        where: { id: stageId },
-        data: { order: i + 1 },
-      })
-    )
-  );
+  await withTenantTransaction(tenantId, async (tx) => {
+    await Promise.all(
+      ids.map((stageId, i) =>
+        tx.stage.update({
+          where: { id: stageId },
+          data: { order: i + 1 },
+        })
+      )
+    );
+  });
   return res.status(200).json(apiOk({ ok: true }));
 }

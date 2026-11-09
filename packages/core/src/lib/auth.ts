@@ -10,6 +10,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { UserRole } from "@prisma/client";
 import { z } from "zod";
 import prisma from "@csq/core/lib/db";
+import { withSystemContext } from "@csq/core/lib/tenant-context";
 import { verifyPassword } from "@csq/core/lib/password";
 import { getTenantEntitlements } from "@csq/core/lib/entitlements";
 import type { PlanFeature } from "@csq/core/types/entitlements";
@@ -31,34 +32,39 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        const parsed = signInSchema.safeParse({
-          email: credentials?.email,
-          password: credentials?.password,
+        // The email lookup happens before the tenant is known, so it runs in
+        // the bypass context (PRD 16 SEC-1); everything after sign-in is
+        // tenant-scoped via the request wrappers.
+        return withSystemContext(async () => {
+          const parsed = signInSchema.safeParse({
+            email: credentials?.email,
+            password: credentials?.password,
+          });
+          if (!parsed.success) return null;
+          const { email, password } = parsed.data;
+
+          const user = await prisma.user.findUnique({ where: { email } });
+          if (!user) return null;
+
+          // Phase 2 (PRD 13): a suspended tenant's users cannot log in.
+          const tenant = await prisma.tenant.findUnique({
+            where: { id: user.tenantId },
+            select: { status: true },
+          });
+          if (tenant?.status === "SUSPENDED") return null;
+
+          const ok = await verifyPassword(password, user.passwordHash);
+          if (!ok) return null;
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            tenantId: user.tenantId,
+            role: user.role,
+            canRunCampaigns: user.canRunCampaigns,
+          };
         });
-        if (!parsed.success) return null;
-        const { email, password } = parsed.data;
-
-        const user = await prisma.user.findUnique({ where: { email } });
-        if (!user) return null;
-
-        // Phase 2 (PRD 13): a suspended tenant's users cannot log in.
-        const tenant = await prisma.tenant.findUnique({
-          where: { id: user.tenantId },
-          select: { status: true },
-        });
-        if (tenant?.status === "SUSPENDED") return null;
-
-        const ok = await verifyPassword(password, user.passwordHash);
-        if (!ok) return null;
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          tenantId: user.tenantId,
-          role: user.role,
-          canRunCampaigns: user.canRunCampaigns,
-        };
       },
     }),
   ],

@@ -54,3 +54,9 @@ const prisma = base.$extends(
 );
 
 export default prisma;
+
+// The un-extended client. withTenantTransaction/withSystemTransaction run
+// their interactive transactions here (the hook would nest): inside those
+// helpers the caller uses the `tx` handle exclusively, and the context is
+// set on the transaction's own connection.
+export const basePrisma = base;
