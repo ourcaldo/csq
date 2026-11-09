@@ -1,4 +1,10 @@
-# Phase 1 — Data Layer (Prisma, Schema, Vector)
+# Phase 1 - Data Layer (Prisma, Schema, Vector)
+
+> Dated note 2026-11-09 (PRD 16 DOC-5): historical plan, complete long
+> ago. Details drifted from what shipped: the pgvector column is
+> `vector(1024)` (not 1536) and the OpenClaw session columns were removed
+> by migration `20261025000000`. Paths are pre-monorepo - everything lives
+> under `packages/core/` today.
 
 **Goal:** Define the complete database schema with all models, relations,
 indexes, and pgvector support. Create the Prisma client singleton and the

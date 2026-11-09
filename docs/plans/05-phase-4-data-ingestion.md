@@ -1,4 +1,10 @@
-# Phase 4 — Data Ingestion (Excel/CSV, Google Sheets)
+# Phase 4 - Data Ingestion (Excel/CSV, Google Sheets)
+
+> Dated note 2026-11-09 (PRD 16 DOC-5): historical plan, complete long
+> ago. Details drifted from what shipped: OAuth credentials moved from
+> `DataSource.config` to the `TenantCredential` table (migration
+> `20261101000900`), Sheets is read-only (PRD 16 OPS-4), and legacy `.xls`
+> is rejected (OPS-5). Paths are pre-monorepo.
 
 **Goal:** Enable UMKM owners to import business data from Excel/CSV files and
 connect Google Sheets as a live data source. Includes column detection, mapping

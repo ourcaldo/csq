@@ -122,6 +122,11 @@ committed, and must leave production deployable at every step.
 2. packages/core package.json: name `@csq/core`, main/exports map,
    dependencies it truly needs (prisma, zod, baileys, googleapis,
    exceljs, node-cron, next-auth for the auth helpers).
+    Dated note 2026-11-09 (PRD 16 OPS-9): the main/exports map was NOT
+    added - every consumer resolves `@csq/core/*` through the root
+    tsconfig paths plus `transpilePackages`, and an exports map on raw
+    TypeScript sources would break tsx (worker) and Next transpilation
+    for no gain. This line is historical; the code is the truth.
 3. Mechanical import rewrite in apps/dashboard: `@/lib/x` ->
    `@csq/core/lib/x`, `@/services/x` -> `@csq/core/services/x`,
    `@/tools/x` -> `@csq/core/tools/x`, `@/types/x` ->

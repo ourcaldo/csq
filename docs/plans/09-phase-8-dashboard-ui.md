@@ -1,6 +1,13 @@
-# Phase 8 — Dashboard UI + CRM Inbox UI (All Pages)
+# Phase 8 - Dashboard UI + CRM Inbox UI (All Pages)
 
-**Goal:** Build the complete dashboard interface for UMKM owners and staff —
+> Dated note 2026-11-09 (PRD 16 DOC-5): historical plan, complete long
+> ago. The listed per-entity pages (`agents/new.tsx`, `knowledge/new.tsx`,
+> `contacts/[id].tsx`, `inbox/[id].tsx`, `data/index.tsx`) shipped as
+> dialogs and list pages with a `?c=` deep link instead; the modern layout
+> lives under `apps/dashboard/src/pages/dashboard/` with components split
+> per PRD 09. Paths are pre-monorepo.
+
+**Goal:** Build the complete dashboard interface for UMKM owners and staff -
 CRUD forms, data tables, AND a CRM-style shared inbox (chat panel) where humans
 handle conversations alongside the AI agent. Largest phase by file count; the
 inbox chat panel is the most interactive piece.
