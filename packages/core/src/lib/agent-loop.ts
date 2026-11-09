@@ -114,6 +114,21 @@ export async function runAgentReply(args: {
     credits = await getCreditStatus(tenantId);
   } catch (err) {
     console.error(`[agent-loop] credit check failed for tenant ${tenantId}:`, err);
+    // COR-6 (PRD 16): the fail-open event is audited with the reason, so a
+    // silent billing outage is visible in the activity log.
+    await logAction({
+      tenantId,
+      agentId: agent.id,
+      action: "agent.credit_check_failed",
+      entityType: "Conversation",
+      entityId: conversationId,
+      approvalStatus: "NONE",
+      customerPhone,
+      afterValue: {
+        reason: err instanceof Error ? err.message : "unknown",
+        at: new Date().toISOString(),
+      },
+    }).catch(() => undefined);
   }
   if (credits?.exhausted) {
     const settingsParsed = z.record(z.unknown()).safeParse(conversation.settings ?? {});

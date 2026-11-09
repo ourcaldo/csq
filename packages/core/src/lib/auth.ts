@@ -46,12 +46,12 @@ export const authOptions: NextAuthOptions = {
           const user = await prisma.user.findUnique({ where: { email } });
           if (!user) return null;
 
-          // Phase 2 (PRD 13): a suspended tenant's users cannot log in.
-          const tenant = await prisma.tenant.findUnique({
-            where: { id: user.tenantId },
-            select: { status: true },
-          });
-          if (tenant?.status === "SUSPENDED") return null;
+          // Phase 2 (PRD 13) + SEC-4 (PRD 16): a suspended tenant's users CAN
+          // authenticate (the credentials are valid), but every SSR page
+          // redirects to /suspended and getAuthSession returns null, so the
+          // dashboard is fully locked. Keeping the sign-in itself working
+          // gives them the clear suspended message instead of a misleading
+          // "wrong password".
 
           const ok = await verifyPassword(password, user.passwordHash);
           if (!ok) return null;
@@ -95,6 +95,8 @@ export const authOptions: NextAuthOptions = {
 // SSR guard for /dashboard/* - NO Next.js middleware (PRD §23B.6).
 // withAuth only guards access; pages that need session data call getSSRSession
 // themselves (avoids prop-merging type casts under the no-`as` rule).
+// SEC-4 (PRD 16): a suspended tenant's live sessions land on /suspended, a
+// clear error page instead of a broken dashboard.
 export function withAuth<P extends Record<string, unknown> = Record<string, unknown>>(
   gssp: GetServerSideProps<P>,
   options?: { requiredRole?: UserRole }
@@ -103,6 +105,15 @@ export function withAuth<P extends Record<string, unknown> = Record<string, unkn
     const session = await getServerSession(ctx.req, ctx.res, authOptions);
     if (!session) {
       return { redirect: { destination: "/login", permanent: false } };
+    }
+    if (session.user.tenantId) {
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: session.user.tenantId },
+        select: { status: true },
+      });
+      if (tenant?.status === "SUSPENDED") {
+        return { redirect: { destination: "/suspended", permanent: false } };
+      }
     }
     if (options?.requiredRole && session.user.role !== options.requiredRole) {
       return { redirect: { destination: "/dashboard", permanent: false } };
@@ -166,6 +177,15 @@ export function withFeature<P extends Record<string, unknown>>(
     const session = await getSSRSession(ctx);
     if (!session) {
       return { redirect: { destination: "/login", permanent: false } };
+    }
+    if (session.user.tenantId) {
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: session.user.tenantId },
+        select: { status: true },
+      });
+      if (tenant?.status === "SUSPENDED") {
+        return { redirect: { destination: "/suspended", permanent: false } };
+      }
     }
     const entitlements = await getTenantEntitlements(session.user.tenantId);
     if (!entitlements.features.includes(feature)) {

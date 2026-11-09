@@ -478,4 +478,5 @@ export const getServerSideProps: GetServerSideProps<SaluranProps> = withAuth<
   }
 
   return { props: { webhookUrl, cloudVerifyToken } };
-});
+  // SEC-3 (PRD 16): channel configuration is OWNER-only (PRD 15.9).
+}, { requiredRole: "OWNER" });

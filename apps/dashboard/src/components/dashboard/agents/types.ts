@@ -20,7 +20,16 @@ export type AgentWithCapabilities = {
   capabilities: AgentCapability[];
 };
 
-export type AgentsList = { items: AgentWithCapabilities[] };
+export type AgentsList = { items: AgentWithCapabilities[]; tools: ToolDefault[] };
+
+// COR-3 (PRD 16): the registry default for one tool, mirrored from
+// listToolSummaries so the UI can show the EFFECTIVE permission.
+export type ToolDefault = {
+  name: string;
+  description: string;
+  category: string;
+  defaultPermission: { allowed: boolean; requiresApproval: boolean };
+};
 
 // The full set of registry tool names the owner can toggle per agent. These
 // match the tool registry (src/tools/index.ts) and are grouped for display.

@@ -32,6 +32,9 @@ export type TenantUsage = {
   agentReplies: number;
   scenarioCredits: number;
   creditsUsed: number;
+  // COR-4 (PRD 16): the ledger split behind creditsUsed.
+  replyCredits: number;
+  moduleCredits: number;
   staff: number;
   channels: number;
 };

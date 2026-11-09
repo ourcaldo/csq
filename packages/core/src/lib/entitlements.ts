@@ -62,7 +62,16 @@ export async function getTenantUsage(
   tenantId: string,
   since: Date
 ): Promise<TenantUsage> {
-  const [agentReplies, scenarioCredits, staff, channels, mauRows] = await Promise.all([
+  // COR-4 (PRD 16): credits come from the AiCreditUsage ledger (the same
+  // source the hard stop uses), not derived message/step counts, so the
+  // displayed usage can never disagree with enforcement. Message and
+  // scenario-step counts stay as activity metrics.
+  const [creditRows, agentReplies, scenarioCredits, staff, channels, mauRows] = await Promise.all([
+    prisma.aiCreditUsage.groupBy({
+      by: ["source"],
+      where: { tenantId, createdAt: { gte: since } },
+      _sum: { credits: true },
+    }),
     prisma.message.count({
       where: {
         tenantId,
@@ -93,11 +102,17 @@ export async function getTenantUsage(
     ),
   ]);
 
+  const replyCredits = creditRows.find((r) => r.source === "REPLY")?._sum.credits ?? 0;
+  const moduleCredits =
+    creditRows.find((r) => r.source === "SCENARIO_MODULE")?._sum.credits ?? 0;
+
   return {
     mau: Number(mauRows[0]?.count ?? 0),
     agentReplies,
     scenarioCredits,
-    creditsUsed: agentReplies + scenarioCredits,
+    creditsUsed: replyCredits + moduleCredits,
+    replyCredits,
+    moduleCredits,
     staff,
     channels,
   };

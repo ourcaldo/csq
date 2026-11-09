@@ -12,6 +12,22 @@ import { embed, isEmbeddingsConfigured } from "../src/services/embeddings";
 // a WhatsApp channel. Exported so prisma/reset-demo.ts can reuse it after
 // wiping the demo tenant.
 export async function seedDemo(): Promise<void> {
+  // COR-7 (PRD 16): the Basic catalog row, seeded/upserted so a fresh
+  // database is reproducible (PRD 14's tier table).
+  await prisma.plan.upsert({
+    where: { name: "Basic" },
+    update: {},
+    create: {
+      name: "Basic",
+      priceIdr: 500000,
+      aiCreditsPerMonth: 15000,
+      mauLimit: null,
+      staffLimit: 1,
+      channelLimit: 1,
+      features: [],
+    },
+  });
+
   const tenant = await prisma.tenant.upsert({
     where: { slug: "toko-kopi-nusantara" },
     update: {},
@@ -102,7 +118,8 @@ export async function seedDemo(): Promise<void> {
         tenantId: tenant.id,
         name: "Kopi Nusantara CS",
         type: "CUSTOMER_SERVICE",
-        status: "DRAFT",
+        // FEA-10 (PRD 16): the demo agent deploys ready (plan 09 9A.2).
+        status: "ACTIVE",
         instructions:
           "Kamu adalah customer service Toko Kopi Nusantara. Jawab dengan ramah dalam Bahasa Indonesia. " +
           "Bantu pelanggan mencari produk, cek stok, dan membuat pesanan. JANGAN pernah mengubah harga " +
@@ -115,13 +132,15 @@ export async function seedDemo(): Promise<void> {
   // (customer-requested human escalation) are allowed/no-approval. Orders are
   // enabled for the demo: order.create autonomous (allowed/no-approval),
   // order.cancel approval-gated (cancels restore stock + should be confirmed).
-  // Other sensitive business writes (product/inventory) stay denied/approval.
+  // FEA-10 (PRD 16): product/inventory writes are ON but approval-gated
+  // (plan 09's matrix) - the demo's safety moment stays intact: a customer
+  // asking for a price change still hits the approval queue.
   const capabilities: Array<{ tool: string; allowed: boolean; requiresApproval: boolean }> = [
     { tool: "product.read", allowed: true, requiresApproval: false },
     { tool: "product.search", allowed: true, requiresApproval: false },
-    { tool: "product.update", allowed: false, requiresApproval: true },
+    { tool: "product.update", allowed: true, requiresApproval: true },
     { tool: "inventory.read", allowed: true, requiresApproval: false },
-    { tool: "inventory.update", allowed: false, requiresApproval: true },
+    { tool: "inventory.update", allowed: true, requiresApproval: true },
     { tool: "order.read", allowed: true, requiresApproval: false },
     { tool: "order.create", allowed: true, requiresApproval: false },
     { tool: "order.cancel", allowed: true, requiresApproval: true },

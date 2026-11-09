@@ -5,6 +5,8 @@ import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
+import { listToolSummaries } from "@csq/core/tools";
+import type { ToolSummary } from "@csq/core/types/tools";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 
 // Prisma payload shape for an Agent with its AgentCapability overrides included.
@@ -13,7 +15,12 @@ export type AgentWithCapabilities = Prisma.AgentGetPayload<{
   include: { capabilities: true };
 }>;
 
-type ListResult = { items: AgentWithCapabilities[] };
+type ListResult = {
+  items: AgentWithCapabilities[];
+  // COR-3 (PRD 16): the registry defaults so the UI can show EFFECTIVE
+  // permissions (override when present, default otherwise).
+  tools: ToolSummary[];
+};
 
 // POST body for creating a new agent (PRD §15.2/§19). The agent is created in
 // DRAFT; activation (status -> ACTIVE) happens on Deploy, not here.
@@ -23,9 +30,9 @@ const createSchema = z.object({
   instructions: z.string().max(8000).optional(),
 });
 
-// List the tenant's agents with their capability overrides. OWNER+STAFF can
-// read (the capability matrix is owner-editable, but staff may view). POST
-// (create) is OWNER-only.
+// List the tenant's agents with their capability overrides plus the tool
+// registry defaults. OWNER+STAFF can read (the capability matrix is
+// owner-editable, but staff may view). POST (create) is OWNER-only.
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<ApiResponse<ListResult | AgentWithCapabilities>>
@@ -41,7 +48,7 @@ export default async function handler(
         include: { capabilities: true },
         orderBy: { createdAt: "asc" },
       });
-      return res.status(200).json(apiOk({ items }));
+      return res.status(200).json(apiOk({ items, tools: listToolSummaries() }));
     }
 
     if (req.method === "POST") {

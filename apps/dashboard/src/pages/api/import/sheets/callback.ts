@@ -1,8 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import prisma from "@csq/core/lib/db";
-import { getAuthSession } from "@csq/core/lib/auth";
+import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import { requireTenant } from "@csq/core/lib/queries";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
+import { apiError } from "@csq/core/types/api";
 import { handleOAuthCallback } from "@csq/core/services/sheets";
 import { setGoogleCreds } from "@csq/core/lib/google-connect";
 
@@ -23,6 +24,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!session) {
     res.redirect("/login?error=sheets_auth");
     return;
+  }
+  // SEC-2 (PRD 16): business-data imports and Google connections are
+  // OWNER-only (PRD 18.1).
+  if (!requireRole(session, "OWNER")) {
+    return res.status(403).json(apiError("PERMISSION_DENIED", "Hanya owner yang dapat mengubah data bisnis."));
   }
   const tenantId = requireTenant(session);
 

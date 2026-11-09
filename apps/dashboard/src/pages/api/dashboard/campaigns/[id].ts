@@ -8,6 +8,7 @@ import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import { canRunCampaigns } from "@csq/core/lib/campaign-access";
+import { listTemplates } from "@csq/core/lib/message-templates";
 import { campaignUpdateSchema, scheduleConfigSchema, type CampaignRow } from "@csq/core/types/campaign";
 
 // Campaign detail/update/delete. PUT/DELETE only while DRAFT or PAUSED - an
@@ -52,6 +53,46 @@ export default async function handler(
       const input = parsed.data;
       const channel = await prisma.channel.findFirst({ where: { id: input.channelId, tenantId } });
       if (!channel) return respondError(res, "VALIDATION_ERROR", "Saluran tidak ditemukan.");
+
+      // COR-2 (PRD 16): PUT resolves the content snapshot exactly like
+      // create - sendKind/metaName/metaLanguage from the selected template,
+      // never a silent no-op.
+      let sendKind: "BODY" | "META_TEMPLATE" = "BODY";
+      let body = input.body ?? "";
+      let metaName: string | null = null;
+      let metaLanguage: string | null = null;
+      if (input.templateKey) {
+        const templates = await listTemplates(tenantId);
+        const template = templates.find((t) => t.key === input.templateKey);
+        if (!template) {
+          return respondError(res, "VALIDATION_ERROR", "Template tidak ditemukan.");
+        }
+        if (template.kind === "META") {
+          if (!template.metaName) {
+            return respondError(res, "VALIDATION_ERROR", "Template META belum punya nama template Meta.");
+          }
+          sendKind = "META_TEMPLATE";
+          metaName = template.metaName;
+          metaLanguage = template.metaLanguage ?? "id";
+          if (!body.trim()) {
+            return respondError(res, "VALIDATION_ERROR", "Isi juga teks pesan - dipakai di saluran Baileys dan pratinjau.");
+          }
+        } else {
+          body = template.body;
+        }
+      }
+      if (!body.trim() && input.imageIds.length === 0) {
+        return respondError(res, "VALIDATION_ERROR", "Isi pesan atau tambahkan gambar.");
+      }
+      if (input.imageIds.length > 0) {
+        const found = await prisma.mediaAsset.count({
+          where: { tenantId, id: { in: input.imageIds } },
+        });
+        if (found !== input.imageIds.length) {
+          return respondError(res, "VALIDATION_ERROR", "Ada gambar yang tidak dikenal.");
+        }
+      }
+
       const updated = await prisma.campaign.update({
         where: { id },
         data: {
@@ -61,6 +102,10 @@ export default async function handler(
           categoryIds: input.audience === "CATEGORY" ? input.categoryIds : [],
           tagIds: input.audience === "TAGS" ? input.tagIds : [],
           contactIds: input.audience === "MANUAL" ? input.contactIds : [],
+          sendKind,
+          body,
+          metaName,
+          metaLanguage,
           imageIds: input.imageIds,
           scheduleKind: input.scheduleKind,
           // Zod's .passthrough() leaves unknown keys, so JSON-round-trip the
@@ -68,7 +113,6 @@ export default async function handler(
           // as toJson in tools/execute.ts).
           scheduleConfig: JSON.parse(JSON.stringify(input.scheduleConfig)),
           delaySeconds: input.delaySeconds,
-          ...(input.body !== undefined ? { body: input.body } : {}),
         },
       });
       await logHuman({

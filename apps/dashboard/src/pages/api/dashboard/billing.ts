@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import { getTenantEntitlements, getTenantUsage, monthStartUtc } from "@csq/core/lib/entitlements";
@@ -132,13 +133,26 @@ export default async function handler(
         return respondError(res, "NOT_FOUND", "Paket tidak ditemukan.");
       }
 
-      const request = await prisma.planRequest.create({
-        data: {
-          tenantId,
-          requestedPlanId: plan.id,
-          note: parsed.data.note?.trim() || null,
-        },
-      });
+      let request;
+      try {
+        request = await prisma.planRequest.create({
+          data: {
+            tenantId,
+            requestedPlanId: plan.id,
+            note: parsed.data.note?.trim() || null,
+          },
+        });
+      } catch (err) {
+        // COR-5 (PRD 16): the partial unique index on open requests makes a
+        // concurrent double-submit collide here - the friendly message wins.
+        if (
+          err instanceof Prisma.PrismaClientKnownRequestError &&
+          err.code === "P2002"
+        ) {
+          return respondError(res, "VALIDATION_ERROR", "Masih ada permintaan paket yang sedang diproses.");
+        }
+        throw err;
+      }
       await logAction({
         tenantId,
         agentId: null,

@@ -17,6 +17,7 @@ import {
   statusTone,
   TOOL_GROUPS,
   type AgentWithCapabilities,
+  type ToolDefault,
 } from "./types";
 
 export function AgentCard(props: {
@@ -24,6 +25,9 @@ export function AgentCard(props: {
   isOwner: boolean;
   actioningId: string | null;
   savingCaps: Set<string>;
+  // COR-3 (PRD 16): registry defaults; an agent without an override shows
+  // the default, not OFF.
+  toolDefaults: ToolDefault[];
   onEdit: (agent: AgentWithCapabilities) => void;
   onPause: (agent: AgentWithCapabilities) => void;
   onDeploy: (agent: AgentWithCapabilities) => void;
@@ -36,6 +40,7 @@ export function AgentCard(props: {
 }) {
   const agent = props.agent;
   const caps = capabilityMap(agent);
+  const defaults = new Map(props.toolDefaults.map((t) => [t.name, t]));
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -114,8 +119,10 @@ export function AgentCard(props: {
               {TOOL_GROUPS.map((group, gi) => {
                 const rows = group.tools.map((tool) => {
                   const cap = caps[tool];
-                  const allowed = cap?.allowed ?? false;
-                  const requiresApproval = cap?.requiresApproval ?? false;
+                  const def = defaults.get(tool);
+                  const allowed = cap?.allowed ?? def?.defaultPermission.allowed ?? false;
+                  const requiresApproval =
+                    cap?.requiresApproval ?? def?.defaultPermission.requiresApproval ?? false;
                   const savingKey = `${agent.id}:${tool}`;
                   const saving = props.savingCaps.has(savingKey);
                   return (
