@@ -77,7 +77,19 @@ function MessageBubble({
           {(m.body.charAt(0) || "?").toUpperCase()}
         </div>
         <div>
-          <div className={cn("msg-received", bodyClass)}>{m.body}</div>
+          <div className={cn("msg-received", bodyClass)}>
+            {/* Inbound media (customer photos): render the real image with the
+                caption below it in the same bubble. */}
+            {m.mediaId && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={`${mediaBase}/api/media/${m.mediaId}`}
+                alt="Gambar pelanggan"
+                className="mb-1 max-h-64 w-full rounded-md object-cover"
+              />
+            )}
+            {m.body}
+          </div>
           <span className="mt-1 ml-1 block text-[10px] text-slate-400">{timeLabel(m.createdAt)}</span>
         </div>
       </div>

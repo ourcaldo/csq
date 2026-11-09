@@ -9,7 +9,7 @@ import { ingestInboundMessage } from "@csq/core/lib/inbox";
 import { processInboundWithAgent } from "@csq/core/lib/agent-loop";
 import { replyToNonText } from "@csq/core/lib/agent-outbox";
 import { cloudApiConfigSchema } from "@csq/core/types/whatsapp";
-import { parseCloudApiInbound } from "@csq/core/services/whatsapp";
+import { parseCloudApiInbound, downloadCloudMedia } from "@csq/core/services/whatsapp";
 import {
   recordWebhookDiag,
   getWebhookDiags,
@@ -215,6 +215,17 @@ export default async function handler(
     // A redelivery is skipped: no second agent turn, no second reply.
     for (const m of inboundMessages) {
       void withTenantContext(channel.tenantId, async () => {
+        // Inbound image: download the bytes with the channel's token so the
+        // inbox renders the photo. Failure falls back to the placeholder.
+        let media: { bytes: Buffer; mimeType: string } | undefined;
+        if (m.media && configResult.success && configResult.data.token) {
+          media =
+            (await downloadCloudMedia(
+              configResult.data.token,
+              m.media.externalId,
+              m.media.mimeType
+            )) ?? undefined;
+        }
         const recorded = await ingestInboundMessage({
           channelId: channel.id,
           tenantId: channel.tenantId,
@@ -224,6 +235,7 @@ export default async function handler(
           waMessageId: m.waMessageId,
           receivedAt: m.timestamp,
           customerName: m.customerName,
+          ...(media ? { media } : {}),
         });
         if (recorded.duplicate) return;
         // D6: only real text drives the LLM. Media gets one debounced courtesy

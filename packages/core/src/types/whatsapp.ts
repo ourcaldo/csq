@@ -51,7 +51,15 @@ export const messageSchema = z.object({
   from: z.string(),
   timestamp: z.string(),
   text: z.object({ body: z.string() }).optional(),
-  image: z.object({ caption: z.string().optional() }).optional(),
+  image: z
+    .object({
+      caption: z.string().optional(),
+      // The Meta media id + mime - present on inbound image messages; the
+      // webhook downloads the bytes with it.
+      id: z.string().optional(),
+      mime_type: z.string().optional(),
+    })
+    .optional(),
   video: z.object({ caption: z.string().optional() }).optional(),
   document: z.object({ caption: z.string().optional() }).optional(),
 });
@@ -108,6 +116,10 @@ export type ParsedInbound = {
   waMessageId: string;
   timestamp: Date;
   customerName?: string;
+  // Present on inbound image messages: the Meta media id + mime. The webhook
+  // downloads the bytes (downloadCloudMedia) and attaches them to the
+  // InboundMessage before ingest, so the inbox can render the photo.
+  media?: { externalId: string; mimeType: string };
 };
 
 // Full inbound record used by the inbox ingest path (SDD §4.8 InboundMessage).
@@ -121,6 +133,11 @@ export type InboundMessage = {
   waMessageId: string;
   receivedAt: Date;
   customerName?: string;
+  // Inbound image bytes (downloaded by the provider/webhook layer). Ingest
+  // stores them as a MediaAsset and links Message.mediaId so the inbox
+  // renders the photo; without them a caption-less image falls back to the
+  // "[image]" placeholder.
+  media?: { bytes: Buffer; mimeType: string };
 };
 
 // ─────────────────────────── Outbound send ───────────────────────────

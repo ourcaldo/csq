@@ -148,15 +148,32 @@ export async function recordInboundMessage(input: {
   waMessageId: string;
   receivedAt: Date;
   customerName?: string;
+  media?: { bytes: Buffer; mimeType: string };
 }): Promise<{ message: Message; duplicate: boolean }> {
   try {
+    // Inbound image bytes become a MediaAsset; the Message links it via
+    // mediaId so the inbox renders the photo. A failed download keeps the
+    // "[image]" placeholder body.
+    let mediaId: string | null = null;
+    if (input.media) {
+      const asset = await prisma.mediaAsset.create({
+        data: {
+          tenantId: input.tenantId,
+          mimeType: input.media.mimeType,
+          byteSize: input.media.bytes.length,
+          data: input.media.bytes,
+        },
+      });
+      mediaId = asset.id;
+    }
+    const body = input.body || (mediaId ? "" : "[image]");
     const message = await prisma.message.create({
       data: {
         tenantId: input.tenantId,
         conversationId: input.conversationId,
         direction: "INBOUND",
         senderType: "CUSTOMER",
-        body: input.body,
+        body,
         // Map the lowercase wire form onto the Prisma enum (no string→enum cast).
         kind:
           input.kind === "text"
@@ -165,6 +182,7 @@ export async function recordInboundMessage(input: {
               ? "MEDIA"
               : "OTHER",
         waMessageId: input.waMessageId,
+        mediaId,
         createdAt: input.receivedAt,
       },
     });

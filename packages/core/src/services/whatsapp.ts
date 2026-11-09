@@ -13,7 +13,8 @@ import {
   sendTextResponseSchema,
   webhookPayloadSchema,
 } from "@csq/core/types/whatsapp";
-import type { z } from "zod";
+import { z } from "zod";
+import type { z as zType } from "zod";
 
 // WhatsApp Cloud API (official) provider - ToS-safe default.
 // Graph API version is pinned (memory: v25.0); one service module per
@@ -27,15 +28,29 @@ const GRAPH_API_VERSION = "v25.0";
 const MEDIA_TYPES = new Set(["image", "video", "document", "audio", "sticker"]);
 
 // Classify one Cloud API message into a display body + a kind. A media caption
-// IS text and is treated as such. Everything non-text keeps the "[type]"
-// placeholder body so the inbox shows what arrived.
+// IS text and is treated as such. Inbound IMAGES additionally carry their Meta
+// media reference so the webhook can download the bytes; with the bytes the
+// inbox renders the photo and the body stays just the caption ("" when none).
+// Everything non-text keeps the "[type]" placeholder body so the inbox shows
+// what arrived.
 function classifyMessage(
-  msg: z.infer<typeof messageSchema>
-): { body: string; kind: InboundKind } {
+  msg: zType.infer<typeof messageSchema>
+): { body: string; kind: InboundKind; media?: { externalId: string; mimeType: string } } {
   if (typeof msg.text?.body === "string") {
     return { body: msg.text.body, kind: "text" };
   }
-  const caption = msg.image?.caption ?? msg.video?.caption ?? msg.document?.caption;
+  if (msg.image?.id) {
+    const caption = msg.image.caption ?? "";
+    return {
+      body: caption,
+      kind: caption.length > 0 ? "text" : "media",
+      media: {
+        externalId: msg.image.id,
+        mimeType: msg.image.mime_type ?? "image/jpeg",
+      },
+    };
+  }
+  const caption = msg.video?.caption ?? msg.document?.caption;
   if (typeof caption === "string" && caption.length > 0) {
     return { body: caption, kind: "text" };
   }
@@ -60,7 +75,7 @@ export function parseCloudApiInbound(payload: unknown): ParsedInbound[] {
       const contacts = value.contacts ?? [];
       for (const msg of value.messages) {
         const contact = contacts.find((c) => c.wa_id === msg.from);
-        const { body, kind } = classifyMessage(msg);
+        const { body, kind, media } = classifyMessage(msg);
         out.push({
           phoneNumberId: value.metadata.phone_number_id,
           from: msg.from,
@@ -69,11 +84,52 @@ export function parseCloudApiInbound(payload: unknown): ParsedInbound[] {
           waMessageId: msg.id,
           timestamp: new Date(Number.parseInt(msg.timestamp, 10) * 1000),
           customerName: contact?.profile?.name,
+          ...(media ? { media } : {}),
         });
       }
     }
   }
   return out;
+}
+
+// Download one inbound media asset from Meta: GET /{media-id} returns a
+// temporary URL, then GET the URL (both with the channel's token) for the
+// bytes. Bounded: 10 MB cap and a 30s timeout - a failure means the inbox
+// falls back to the "[image]" placeholder, never a lost message.
+const INBOUND_MEDIA_MAX_BYTES = 10 * 1024 * 1024;
+
+export async function downloadCloudMedia(
+  token: string,
+  externalId: string,
+  fallbackMime: string
+): Promise<{ bytes: Buffer; mimeType: string } | null> {
+  try {
+    const metaRes = await fetch(
+      `https://graph.facebook.com/${GRAPH_API_VERSION}/${externalId}`,
+      { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(15_000) }
+    );
+    if (!metaRes.ok) return null;
+    const metaJson: unknown = await metaRes.json();
+    const urlSchema = z.object({ url: z.string() });
+    const parsed = urlSchema.safeParse(metaJson);
+    if (!parsed.success) return null;
+
+    const binRes = await fetch(parsed.data.url, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!binRes.ok) return null;
+    const bytes = Buffer.from(await binRes.arrayBuffer());
+    if (bytes.length === 0 || bytes.length > INBOUND_MEDIA_MAX_BYTES) return null;
+    const contentType = binRes.headers.get("content-type");
+    const mimeType =
+      contentType && contentType.startsWith("image/") ? contentType : fallbackMime;
+    return { bytes, mimeType };
+  } catch {
+    // Transient download failure: the message still ingests with the
+    // placeholder body; the photo is lost for this message only.
+    return null;
+  }
 }
 
 export class CloudApiProvider implements WhatsAppProvider {

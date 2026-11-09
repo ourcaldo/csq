@@ -1,5 +1,6 @@
 import makeWASocket, {
   DisconnectReason,
+  downloadMediaMessage,
   getContentType,
   normalizeMessageContent,
   proto,
@@ -123,20 +124,26 @@ export function isFatalDisconnect(code: number | null | undefined): boolean {
 
 // Extract the inbound content from a Baileys message: a display body plus the
 // D6 kind. Text (including a media caption) is "text"; media without a
-// caption is "media" with a "[image]"-style placeholder so the inbox shows
-// what arrived; anything else is "other" with an empty body, which the caller
-// skips (nothing to store). Uses Baileys' OWN utilities
-// (normalizeMessageContent + getContentType), not a Zod schema. A Zod
-// z.object().safeParse() on the raw protobufjs message object fails because
-// the nested messageContextInfo carries Buffer values (messageSecret,
-// recipientKeyHash) and the proto instance isn't a plain object Zod can
-// parse - so the text in `conversation`/`extendedTextMessage.text` was
-// silently dropped and every inbound was skipped as "empty body". Baileys'
+// caption is "media"; anything else is "other", which the caller skips (nothing
+// to store). Inbound IMAGES also carry their Baileys metadata (mime + size) so
+// the handler can download the bytes and the inbox can render the photo - a
+// captioned photo stays kind "text" (the caption still drives the agent turn)
+// but now keeps its image too.
+// Uses Baileys' OWN utilities (normalizeMessageContent + getContentType), not
+// a Zod schema. A Zod z.object().safeParse() on the raw protobufjs message
+// object fails because the nested messageContextInfo carries Buffer values
+// (messageSecret, recipientKeyHash) and the proto instance isn't a plain
+// object Zod can parse - so the text in `conversation`/`extendedTextMessage.text`
+// was silently dropped and every inbound was skipped as "empty body". Baileys'
 // utilities handle the proto object and ephemeral/view-once wrapping
 // correctly. No `as` casts - normalizeMessageContent returns any.
 function extractContent(
   message: proto.IMessage | null | undefined
-): { body: string; kind: InboundKind } {
+): {
+  body: string;
+  kind: InboundKind;
+  image?: { mimeType: string; fileLength: number };
+} {
   const content = normalizeMessageContent(message);
   if (!content) return { body: "", kind: "other" };
   // Typed property access on proto.IMessage - no string indexing, no `as`.
@@ -147,14 +154,23 @@ function extractContent(
   if (typeof content.extendedTextMessage?.text === "string") {
     return { body: content.extendedTextMessage.text, kind: "text" };
   }
+  if (content.imageMessage) {
+    const caption = content.imageMessage.caption;
+    const fileLength = Number(content.imageMessage.fileLength ?? 0);
+    return {
+      body: typeof caption === "string" ? caption : "",
+      kind: typeof caption === "string" && caption.length > 0 ? "text" : "media",
+      image: {
+        mimeType: content.imageMessage.mimetype ?? "image/jpeg",
+        fileLength,
+      },
+    };
+  }
   const caption =
-    content.imageMessage?.caption ??
-    content.videoMessage?.caption ??
-    content.documentMessage?.caption;
+    content.videoMessage?.caption ?? content.documentMessage?.caption;
   if (typeof caption === "string" && caption.length > 0) {
     return { body: caption, kind: "text" };
   }
-  if (content.imageMessage) return { body: "[image]", kind: "media" };
   if (content.videoMessage) return { body: "[video]", kind: "media" };
   if (content.documentMessage) return { body: "[document]", kind: "media" };
   if (content.audioMessage) return { body: "[audio]", kind: "media" };
@@ -380,7 +396,9 @@ async function connectBaileysChannelInner(
         console.log(
           `[baileys:${channel.id}] inbound from=${fromJid(m.key.remoteJid)} type=${getContentType(normalizeMessageContent(m.message)) ?? "?"} kind=${kind} body=${JSON.stringify(body).slice(0, 80)}`
         );
-        if (!body) {
+        // Skip only truly empty payloads. Images with no caption have an
+        // empty body but still carry a photo worth storing/rendering.
+        if (kind === "other" || (!body && !content.image)) {
           console.log(`[baileys:${channel.id}] skip empty body`);
           continue;
         }
@@ -413,6 +431,30 @@ async function connectBaileysChannelInner(
         }
         const tenantId = channel.tenantId;
         void (async () => {
+          // Inbound image: download the bytes (bounded - 10 MB cap, best
+          // effort; on failure the message still ingests with the
+          // "[image]" placeholder) so the inbox renders the photo.
+          let media: { bytes: Buffer; mimeType: string } | undefined;
+          if (content.image) {
+            const maxBytes = 10 * 1024 * 1024;
+            if (content.image.fileLength > maxBytes) {
+              console.log(
+                `[baileys:${channel.id}] inbound image over 10 MB - stored as placeholder`
+              );
+            } else {
+              try {
+                const bytes = await downloadMediaMessage(m, "buffer", {});
+                if (bytes && bytes.length > 0 && bytes.length <= maxBytes) {
+                  media = { bytes, mimeType: content.image.mimeType };
+                }
+              } catch (err) {
+                console.error(
+                  `[baileys:${channel.id}] inbound image download failed:`,
+                  err
+                );
+              }
+            }
+          }
           const recorded = await ingestInboundMessage({
             channelId: channel.id,
             tenantId,
@@ -422,6 +464,7 @@ async function connectBaileysChannelInner(
             waMessageId: m.key.id ?? "",
             receivedAt: new Date(),
             customerName: m.pushName || undefined,
+            ...(media ? { media } : {}),
           });
           // Redelivery of a waMessageId we already stored: no second turn.
           if (recorded.duplicate) return;
