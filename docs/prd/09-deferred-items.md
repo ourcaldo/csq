@@ -1,14 +1,15 @@
 # 23D. Deferred Engineering Items Register (owner decision 2026-11-08)
 
-Formal status: DEFERRED. These items are recorded so they are never
-forgotten and never built early. Each has a trigger; work starts when its
-trigger fires, not before. Building a deferred item before its trigger is
-scope creep - and the anti-"not-today" rule cuts both ways: deferral here
-is a forward-looking decision with named reasons, never a dismissal.
+Status: no DEFERRED items remain. Every deferred item was completed on owner
+direction 2026-11-09, ahead of its original trigger. Multi-channel is PENDING
+(not deferred): it is recorded so it is never forgotten, and work starts only
+when the owner schedules it. The anti-"not-today" rule cuts both ways:
+deferral here is a forward-looking decision with named reasons, never a
+dismissal.
 
 | Item | What it is | Status | Trigger |
 |---|---|---|---|
-| Page-splitting (saluran, campaigns, agents) | Break the 500-900 line pages into components | DONE 2026-11-09 - saluran 939 to 441, campaigns 822 to 402, agents 558 to 225 lines; components under `components/dashboard/{channels,campaigns,agents}` | n/a - owner direction 2026-11-09 |
+| Page-splitting (saluran, campaigns, agents) | Break the 500-900 line pages into components | DONE 2026-11-09 - saluran 939 to 441, campaigns 822 to 398, agents 558 to 225 lines; components under `components/dashboard/{channels,campaigns,agents}` | n/a - owner direction 2026-11-09 |
 | SWR-style inbox client cache | Stable references + dedupe for the polled conversation list | DONE 2026-11-09 - `usePolledApi`: in-flight dedupe, previous data kept during revalidation, same object reference when the payload is unchanged | n/a - owner direction 2026-11-09 |
 | Api-keys management UI | Dashboard page over the existing mint/list/revoke routes | DONE 2026-11-08 - built as `/admin/api-keys` in the admin console (PRD 13 Phase 4) | n/a - no longer deferred |
 | Docker Compose for api + worker | VPS deploy path for the new services | DONE 2026-11-09 - multi-target `docker/Dockerfile` (dashboard/api/worker), api + worker compose services, nginx routes, setup-vps pull path. Image build not executed locally (Docker absent); compose YAML and the API standalone build verified | n/a - owner direction 2026-11-09 |
