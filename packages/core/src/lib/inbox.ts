@@ -16,14 +16,16 @@ import { events } from "@csq/core/lib/events";
 // Baileys has no such restriction. Shared with src/lib/agent-outbox.ts.
 export const CLOUD_API_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-// Upsert Contact (tenantId+phone unique) and Conversation
-// (tenantId+channelId+phone unique), then stamp lastMessageAt. Returns the
-// conversation row + whether it was newly created (so callers can fire a
-// `conversation.new` scenario trigger only on the first inbound, not on every
-// subsequent message to an existing thread). Race-safe: if two first-messages
-// arrive concurrently, the unique constraint makes one create fail P2002 and
-// fall through to an update as existing. Used by the webhook for inbound and
-// by sendHumanReply for outbound (both bump lastMessageAt).
+// Upsert Contact (tenantId+phone unique) and Conversation (tenantId+phone
+// unique - ONE thread per customer identity, across channels: the thread
+// follows the channel of the latest inbound), then stamp lastMessageAt.
+// Returns the conversation row + whether it was newly created (so callers can
+// fire a `conversation.new` scenario trigger only on the first inbound, not on
+// every subsequent message to an existing thread). Race-safe: if two
+// first-messages arrive concurrently, the unique constraint makes one create
+// fail P2002 and fall through to an update as existing. Used by the webhook
+// for inbound, the campaign engine, and sendHumanReply for outbound (all bump
+// lastMessageAt).
 export async function findOrCreateConversation(
   tenantId: string,
   channelId: string,
@@ -37,13 +39,20 @@ export async function findOrCreateConversation(
 
   const existing = await prisma.conversation.findUnique({
     where: {
-      tenantId_channelId_customerPhone: { tenantId, channelId, customerPhone },
+      tenantId_customerPhone: { tenantId, customerPhone },
     },
   });
   if (existing) {
     const conversation = await prisma.conversation.update({
       where: { id: existing.id },
-      data: { lastMessageAt: new Date(), contactId: contact.id },
+      data: {
+        lastMessageAt: new Date(),
+        contactId: contact.id,
+        // The customer may write on a different number (Pribadi <-> Resmi):
+        // the thread follows the channel of the LATEST message so replies go
+        // out the channel they last used.
+        channelId,
+      },
     });
     return { conversation, created: false };
   }
@@ -60,17 +69,17 @@ export async function findOrCreateConversation(
     });
     return { conversation, created: true };
   } catch (err) {
-    // Raced with another first-message for the same customer+channel: the
-    // unique constraint fired. Treat as existing - update and report created=false.
+    // Raced with another first-message for the same customer: the unique
+    // constraint fired. Treat as existing - update and report created=false.
     if (
       err instanceof Prisma.PrismaClientKnownRequestError &&
       err.code === "P2002"
     ) {
       const conversation = await prisma.conversation.update({
         where: {
-          tenantId_channelId_customerPhone: { tenantId, channelId, customerPhone },
+          tenantId_customerPhone: { tenantId, customerPhone },
         },
-        data: { lastMessageAt: new Date(), contactId: contact.id },
+        data: { lastMessageAt: new Date(), contactId: contact.id, channelId },
       });
       return { conversation, created: false };
     }
@@ -116,6 +125,10 @@ export async function ingestInboundMessage(
       waMessageId: msg.waMessageId,
       receivedAt: msg.receivedAt,
       customerName: msg.customerName,
+      // Media bytes MUST cross this boundary: recordInboundMessage stores
+      // them as a MediaAsset and links Message.mediaId. Dropping them here
+      // was why inbound photos rendered as "[image]".
+      ...(msg.media ? { media: msg.media } : {}),
     });
 
     // The trigger fires only for a genuinely new message on a genuinely new

@@ -90,6 +90,25 @@ export function toJid(number: string): string {
   return `${normalized}@s.whatsapp.net`;
 }
 
+// Canonical conversation identity for an inbound Baileys chat (one thread per
+// customer, owner request 2026-11-10):
+// - a "@s.whatsapp.net" JID -> bare phone digits (the same form the Cloud API
+//   stores, so the two channels share ONE thread);
+// - a "@lid" JID -> the real phone digits from key.senderPn when WhatsApp
+//   provided them (LID and PN chats of the same person must not split), else
+//   the raw LID JID (last resort; sends still resolve via LidMapping).
+export function canonicalIdentity(
+  remoteJid: string,
+  senderPn: string | null | undefined
+): string {
+  const bare = (jid: string): string => jid.split("@")[0].split(":")[0];
+  if (remoteJid.endsWith("@lid")) {
+    return senderPn ? bare(senderPn) : remoteJid;
+  }
+  if (remoteJid.endsWith("@s.whatsapp.net")) return bare(remoteJid);
+  return remoteJid;
+}
+
 // Bare number from a JID (strip @s.whatsapp.net / @lid).
 function fromJid(jid: string | undefined | null): string {
   return (jid ?? "").split("@")[0];
@@ -402,22 +421,18 @@ async function connectBaileysChannelInner(
           console.log(`[baileys:${channel.id}] skip empty body`);
           continue;
         }
-        // Store the FULL remoteJid (e.g. "194274775822580@lid" or
-        // "<phone>@s.whatsapp.net") - NOT the bare fromJid - so replies
-        // route to the correct JID. Newer WhatsApp uses LIDs for 1:1 chats;
-        // appending @s.whatsapp.net to a LID (as toJid would) sends to a
-        // non-existent user and the reply is silently lost.
-        const from = m.key.remoteJid ?? "";
-        if (!from) continue;
+        // Store the FULL remoteJid for the LID mapping and reply routing; the
+        // CONVERSATION identity is the canonical form (bare phone digits when
+        // known) so one person never splits into a LID thread and a phone
+        // thread.
+        const remoteJid = m.key.remoteJid ?? "";
+        if (!remoteJid) continue;
         // Capture the LID -> phone-number mapping from this inbound
         // (key.senderPn carries the sender's real number even when the chat
-        // is LID-addressed). Baileys 6.7.x accepts sends to a raw
-        // "<lid>@lid" JID but WhatsApp never delivers them
-        // (WhiskeySockets/Baileys#1950, #1964), so every outbound send is
-        // re-routed to the real number via this mapping - see
-        // BaileysProvider.sendText.
-        if (from.endsWith("@lid") && m.key.senderPn) {
-          const lidUser = from.split("@")[0].split(":")[0];
+        // is LID-addressed). Kept for legacy LID-keyed conversations and the
+        // provider's send re-route.
+        if (remoteJid.endsWith("@lid") && m.key.senderPn) {
+          const lidUser = remoteJid.split("@")[0].split(":")[0];
           const pnUser = m.key.senderPn.split("@")[0].split(":")[0];
           if (lidUser && pnUser) {
             void storeLidPnMapping(channel.id, lidUser, pnUser).catch(
@@ -429,6 +444,7 @@ async function connectBaileysChannelInner(
             );
           }
         }
+        const from = canonicalIdentity(remoteJid, m.key.senderPn);
         const tenantId = channel.tenantId;
         void (async () => {
           // Inbound image: download the bytes (bounded - 10 MB cap, best

@@ -909,7 +909,12 @@ model Approval {
 model Conversation {
   id                String             @id @default(uuid())
   tenantId          String
+  // Current channel: the channel of the LATEST message on this thread. One
+  // thread per customer identity (tenantId+customerPhone), across channels -
+  // replies follow the channel the customer last used.
   channelId         String
+  // Canonical identity: bare phone digits when known (both providers store
+  // the same form), or "<lid>@lid" when WhatsApp only gave us a LID.
   customerPhone     String
   contactId         String?
   assignedAgentId   String?
@@ -940,7 +945,7 @@ model Conversation {
   scenarioRuns  ScenarioRun[]
   reads         ConversationRead[]
 
-  @@unique([tenantId, channelId, customerPhone])
+  @@unique([tenantId, customerPhone])
   @@index([tenantId, status])
   @@index([tenantId, assignedAgentId])
   @@index([tenantId, assigneeUserId])
