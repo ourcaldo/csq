@@ -1,5 +1,6 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { Scroll } from "@phosphor-icons/react";
+import { Card as UiCard } from "@csq/ui/components/ui/card";
 
 // Console primitives for the "Ledger" direction. Ported from the approved
 // reference (docs/assets/admin-console-reference): flat paper surfaces,
@@ -89,19 +90,13 @@ export function Tag({ children }: { children: ReactNode }) {
   );
 }
 
-export function Card({
-  children,
-  className = "",
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
+export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
-    <div
-      className={`rounded-xl border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${className}`}
+    <UiCard
+      className={`rounded-xl border-border shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${className}`}
     >
       {children}
-    </div>
+    </UiCard>
   );
 }
 

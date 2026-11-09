@@ -48,24 +48,24 @@ preset and the theme live in `@csq/ui`; the dashboard imports them; web uses
 `cn`, `Seo`, the preset and the theme; no app imports cross the boundary and
 there are no local `seo` or `utils` copies left.
 
-Adoption is not uniform. App-local compositions are fine; primitive
-duplication is not:
+Adoption cleanup (2026-11-09, second pass):
 
-- Admin: local `Btn`, `Card`, `Status`, `Empty`, `Stat` and `PageHead` are
-  Ledger compositions and stay local. The gaps are 5 hand-rolled modals (no
-  Escape handling), 4 raw `<select>` elements, and no shared Button or
-  Dialog.
-- Tenant plan page: 2 hand-rolled modals bypass the shared Dialog.
-- Shared `Card` is imported nowhere; the dashboard still builds cards from
-  divs.
-- Shared `Dialog` shipped a `bg-black/50` scrim and no focus trap. The scrim
-  contradicted the 2026-11-09 no-grey-scrim direction and was removed in
-  this audit. Focus trap and scroll lock remain open.
+- Shared `Dialog` now has a focus trap, body scroll lock, focus restore,
+  Escape and backdrop close, and an accessible name (`ariaLabel` for custom
+  headers). The grey scrim stays removed.
+- All 5 admin modals (tenants, plans, admins, invoice create, mark paid)
+  and both tenant plan modals (cara bayar, paket) use the shared Dialog.
+- The 4 admin raw selects use the shared Select.
+- The admin `Card` wraps the shared Card instead of duplicating its markup.
+- App-local Ledger compositions (`Btn`, `Status`, `Empty`, `Stat`,
+  `PageHead`, `Tag`, `Group`) stay local by design; the dashboard and web
+  compositions stay local too.
+- The dashboard still builds some card surfaces from divs; that is
+  composition, not a primitive duplicate, and stays.
 
 Rule going forward: a new modal uses the shared Dialog; a new
 primitive-looking control uses the shared primitive; app-specific
-compositions stay local. The remaining adoption work is tracked in file 09
-as "Shared UI adoption cleanup".
+compositions stay local.
 
 ## Execution
 

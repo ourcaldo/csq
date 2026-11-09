@@ -10,6 +10,8 @@ import {
   Status,
   TableCard,
 } from "@/components/console";
+import { Dialog } from "@csq/ui/components/ui/dialog";
+import { Select } from "@csq/ui/components/ui/select";
 import { withAdminAuth } from "@/lib/admin-auth";
 import { useAdminApi, adminFetch } from "@/lib/admin-api";
 import { Input } from "@csq/ui/components/ui/input";
@@ -640,15 +642,12 @@ export default function BillingPage() {
         </form>
       )}
 
-      {showCreate && (
-        <div
-          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 pt-16"
-          onClick={() => setShowCreate(false)}
-        >
-          <div
-            className="w-full max-w-lg rounded-2xl border border-border bg-card shadow-[0_24px_64px_rgba(0,0,0,0.18)]"
-            onClick={(e) => e.stopPropagation()}
-          >
+      <Dialog
+        open={showCreate}
+        onClose={() => setShowCreate(false)}
+        ariaLabel="Invoice baru"
+        className="max-w-lg rounded-2xl border-border bg-card p-0 shadow-[0_24px_64px_rgba(0,0,0,0.18)]"
+      >
             <div className="flex items-start justify-between border-b border-border px-5 py-4">
               <div>
                 <div className="eyebrow mb-1">Tagihan</div>
@@ -665,7 +664,7 @@ export default function BillingPage() {
             <form onSubmit={createInvoice} className="space-y-4 p-5">
               <div className="space-y-1.5">
                 <Label htmlFor="inv-tenant">Tenant</Label>
-                <select
+                <Select
                   id="inv-tenant"
                   required
                   className="h-10 w-full rounded-md border border-input bg-card px-3 text-sm"
@@ -678,12 +677,12 @@ export default function BillingPage() {
                       {t.tenantName}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="inv-plan">Paket</Label>
-                  <select
+                  <Select
                     id="inv-plan"
                     className="h-10 w-full rounded-md border border-input bg-card px-3 text-sm"
                     value={form.planId}
@@ -695,7 +694,7 @@ export default function BillingPage() {
                         {p.name}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="inv-period">Periode</Label>
@@ -739,19 +738,15 @@ export default function BillingPage() {
                 </Btn>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </Dialog>
 
       {payInvoice && (
-        <div
-          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 pt-16"
-          onClick={() => setPayInvoice(null)}
+        <Dialog
+          open
+          onClose={() => setPayInvoice(null)}
+          ariaLabel="Tandai lunas"
+          className="max-w-sm rounded-2xl border-border bg-card p-0 shadow-[0_24px_64px_rgba(0,0,0,0.18)]"
         >
-          <div
-            className="w-full max-w-sm rounded-2xl border border-border bg-card shadow-[0_24px_64px_rgba(0,0,0,0.18)]"
-            onClick={(e) => e.stopPropagation()}
-          >
             <div className="flex items-start justify-between border-b border-border px-5 py-4">
               <div>
                 <div className="eyebrow mb-1">{payInvoice.number}</div>
@@ -771,7 +766,7 @@ export default function BillingPage() {
             <div className="space-y-4 p-5">
               <div className="space-y-1.5">
                 <Label htmlFor="pay-method">Metode</Label>
-                <select
+                <Select
                   id="pay-method"
                   className="h-10 w-full rounded-md border border-input bg-card px-3 text-sm"
                   value={payForm.method}
@@ -780,7 +775,7 @@ export default function BillingPage() {
                   <option value="TRANSFER">Transfer</option>
                   <option value="CASH">Tunai</option>
                   <option value="OTHER">Lainnya</option>
-                </select>
+                </Select>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="pay-ref">Referensi (opsional)</Label>
@@ -801,8 +796,7 @@ export default function BillingPage() {
                 </Btn>
               </div>
             </div>
-          </div>
-        </div>
+        </Dialog>
       )}
     </AdminShell>
   );

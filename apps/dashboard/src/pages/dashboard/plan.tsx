@@ -11,6 +11,7 @@ import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { useApi } from "@/hooks/use-api";
 import { apiSend } from "@/lib/api-client";
 import { Button } from "@csq/ui/components/ui/button";
+import { Dialog } from "@csq/ui/components/ui/dialog";
 import { Textarea } from "@csq/ui/components/ui/textarea";
 
 type Plan = {
@@ -315,14 +316,12 @@ export default function PlanPage() {
       )}
 
       {payInvoice && (
-        <div
-          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 pt-20"
-          onClick={() => setPayInvoice(null)}
+        <Dialog
+          open
+          onClose={() => setPayInvoice(null)}
+          ariaLabel="Cara bayar"
+          className="max-w-md rounded-2xl border-slate-200 bg-white p-0 shadow-xl"
         >
-          <div
-            className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
             <div className="flex items-start justify-between border-b border-slate-100 px-5 py-4">
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
@@ -376,19 +375,16 @@ export default function PlanPage() {
                 Admin menandai lunas setelah pembayaran diterima.
               </p>
             </div>
-          </div>
-        </div>
+        </Dialog>
       )}
 
       {showCatalog && (
-        <div
-          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 pt-16"
-          onClick={() => setShowCatalog(false)}
+        <Dialog
+          open
+          onClose={() => setShowCatalog(false)}
+          ariaLabel={requestPlan ? "Ajukan paket" : "Paket lain"}
+          className="max-w-lg rounded-2xl border-slate-200 bg-white p-0 shadow-xl"
         >
-          <div
-            className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
             <div className="flex items-start justify-between border-b border-slate-100 px-5 py-4">
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-400">
@@ -485,8 +481,7 @@ export default function PlanPage() {
                 ))}
               </div>
             )}
-          </div>
-        </div>
+        </Dialog>
       )}
     </DashboardShell>
   );

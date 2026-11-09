@@ -2,6 +2,7 @@ import { type FormEvent, useState } from "react";
 import { Plus, X } from "@phosphor-icons/react";
 import { AdminShell } from "@/components/admin-shell";
 import { Btn, PageHead, Status, TableCard } from "@/components/console";
+import { Dialog } from "@csq/ui/components/ui/dialog";
 import { withAdminAuth } from "@/lib/admin-auth";
 import { useAdminApi, adminFetch } from "@/lib/admin-api";
 import { Input } from "@csq/ui/components/ui/input";
@@ -153,15 +154,12 @@ export default function TenantsPage() {
         </table>
       </TableCard>
 
-      {showCreate && (
-        <div
-          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 pt-16"
-          onClick={() => setShowCreate(false)}
-        >
-          <div
-            className="w-full max-w-lg rounded-2xl border border-border bg-card shadow-[0_24px_64px_rgba(0,0,0,0.18)]"
-            onClick={(e) => e.stopPropagation()}
-          >
+      <Dialog
+        open={showCreate}
+        onClose={() => setShowCreate(false)}
+        ariaLabel="Tenant baru"
+        className="max-w-lg rounded-2xl border-border bg-card p-0 shadow-[0_24px_64px_rgba(0,0,0,0.18)]"
+      >
             <div className="flex items-start justify-between border-b border-border px-5 py-4">
               <div>
                 <div className="eyebrow mb-1">Platform</div>
@@ -254,9 +252,7 @@ export default function TenantsPage() {
                 </Btn>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </Dialog>
     </AdminShell>
   );
 }

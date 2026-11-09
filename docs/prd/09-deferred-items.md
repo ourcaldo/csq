@@ -16,7 +16,7 @@ is a forward-looking decision with named reasons, never a dismissal.
 | Multiple channels per tenant | More than one WhatsApp number in one tenant: channel identity, app-level webhook token, Saluran list, inbox filter | PENDING 2026-11-09 - owner direction recorded, not scheduled (PRD 15) | Owner schedules the multi-channel plan |
 | Cross-service metrics + alerting | One health view of dashboard + api + worker, alerts on failure | SPLIT 2026-11-08 - the admin console Overview (PRD 13) provides the health VIEW; the alerting half stays REQUIRED at cutover | The production cutover decision (alerting half) |
 | packages/ui shared components | Extract duplicated base components into a workspace package | DONE 2026-11-08 - extraction complete; adoption cleanup tracked separately | n/a - no longer deferred |
-| Shared UI adoption cleanup | Upgrade `@csq/ui` Dialog (focus trap, scroll lock) and adopt it in the admin and plan modals; use shared Select/Card where only classes differ | DEFERRED | Next UI work touching those surfaces |
+| Shared UI adoption cleanup | Upgrade `@csq/ui` Dialog (focus trap, scroll lock) and adopt it in the admin and plan modals; use shared Select/Card where only classes differ | DONE 2026-11-09 - Dialog upgraded, 7 modals adopted, 4 admin selects, admin Card wraps the shared Card | n/a - no longer deferred |
 
 The pre-cutover package (metrics/alerting + the smoke suite on a schedule)
 is the one bundle that activates automatically with the owner's cutover

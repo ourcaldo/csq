@@ -7,6 +7,8 @@ import {
 } from "@csq/core/types/entitlements";
 import { AdminShell } from "@/components/admin-shell";
 import { Btn, Empty, PageHead, Section, TableCard } from "@/components/console";
+import { Dialog } from "@csq/ui/components/ui/dialog";
+import { Select } from "@csq/ui/components/ui/select";
 import { withAdminAuth } from "@/lib/admin-auth";
 import { useAdminApi, adminFetch } from "@/lib/admin-api";
 import { Input } from "@csq/ui/components/ui/input";
@@ -302,8 +304,8 @@ export default function PlansPage() {
                   <tr key={u.tenantId}>
                     <td className="font-medium">{u.tenantName}</td>
                     <td>
-                      <select
-                        className="h-7 rounded-sm border border-input bg-card px-2 text-[12.5px] text-muted-foreground"
+                      <Select
+                        className="h-7 w-auto rounded-sm border border-input bg-card px-2 text-[12.5px] text-muted-foreground"
                         value={u.planId ?? ""}
                         disabled={busy === u.tenantId}
                         onChange={(e) => void assignPlan(u.tenantId, e.target.value || null)}
@@ -315,7 +317,7 @@ export default function PlansPage() {
                             {p.name}
                           </option>
                         ))}
-                      </select>
+                      </Select>
                     </td>
                     <td className="text-right">
                       <UsageCell used={u.mau} max={u.mauLimit} over={u.mauOver} />
@@ -355,15 +357,12 @@ export default function PlansPage() {
         )}
       </Section>
 
-      {showForm && (
-        <div
-          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 pt-12"
-          onClick={() => setShowForm(false)}
-        >
-          <div
-            className="w-full max-w-xl rounded-2xl border border-border bg-card shadow-[0_24px_64px_rgba(0,0,0,0.18)]"
-            onClick={(e) => e.stopPropagation()}
-          >
+      <Dialog
+        open={showForm}
+        onClose={() => setShowForm(false)}
+        ariaLabel={editing ? "Ubah paket" : "Paket baru"}
+        className="max-w-xl rounded-2xl border-border bg-card p-0 shadow-[0_24px_64px_rgba(0,0,0,0.18)]"
+      >
             <div className="flex items-start justify-between border-b border-border px-5 py-4">
               <div>
                 <div className="eyebrow mb-1">Konfigurasi</div>
@@ -497,9 +496,7 @@ export default function PlansPage() {
                 </Btn>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </Dialog>
     </AdminShell>
   );
 }
