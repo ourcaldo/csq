@@ -49,22 +49,28 @@ export default async function handler(
     }
 
     if (req.method === "GET") {
-      const { skip, take, page, pageSize } = paginate(req.query);
+      const { pageSize } = paginate(req.query);
       const where: Prisma.MessageWhereInput = {
         tenantId,
         conversationId: id,
       };
-      const [items, total] = await Promise.all([
-        // Newest last (asc) for chat-panel rendering.
+      const [newest, total] = await Promise.all([
+        // The chat panel always wants the LATEST slice of the thread. It used
+        // to load the OLDEST pageSize messages (asc, page 1) - fine until a
+        // merged conversation grew past the 100 cap, at which point the newest
+        // messages (and the SSE-triggered refreshes) never reached the panel.
+        // Newest-first for the LIMIT, then reversed for the panel's asc render.
+        // shortcut: only the newest pageSize is served; add a before-cursor
+        // (load older on scroll up) if full history is ever needed.
         prisma.message.findMany({
           where,
-          skip,
-          take,
-          orderBy: { createdAt: "asc" },
+          take: pageSize,
+          orderBy: { createdAt: "desc" },
         }),
         prisma.message.count({ where }),
       ]);
-      return res.status(200).json(apiOk({ items, total, page, pageSize }));
+      const items = newest.reverse();
+      return res.status(200).json(apiOk({ items, total, page: 1, pageSize }));
     }
 
     if (req.method === "POST") {
