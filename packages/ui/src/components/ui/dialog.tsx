@@ -26,7 +26,10 @@ export function Dialog({ open, onClose, title, description, className, children 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden />
+      {/* No scrim: owner direction 2026-11-09 rejected grey overlays. The
+          panel's shadow carries the separation; the layer still catches
+          outside clicks. */}
+      <div className="absolute inset-0 bg-transparent" onClick={onClose} aria-hidden />
       <div
         role="dialog"
         aria-modal="true"

@@ -41,6 +41,32 @@ and stays:
   caller - the existing repo rule continues to govern new code.
 - The encoding guard covers `packages/ui`.
 
+## Audit 2026-11-09 (post-extraction)
+
+The extraction is complete as scoped: `cn`, all 11 primitives, `Seo`, the
+preset and the theme live in `@csq/ui`; the dashboard imports them; web uses
+`cn`, `Seo`, the preset and the theme; no app imports cross the boundary and
+there are no local `seo` or `utils` copies left.
+
+Adoption is not uniform. App-local compositions are fine; primitive
+duplication is not:
+
+- Admin: local `Btn`, `Card`, `Status`, `Empty`, `Stat` and `PageHead` are
+  Ledger compositions and stay local. The gaps are 5 hand-rolled modals (no
+  Escape handling), 4 raw `<select>` elements, and no shared Button or
+  Dialog.
+- Tenant plan page: 2 hand-rolled modals bypass the shared Dialog.
+- Shared `Card` is imported nowhere; the dashboard still builds cards from
+  divs.
+- Shared `Dialog` shipped a `bg-black/50` scrim and no focus trap. The scrim
+  contradicted the 2026-11-09 no-grey-scrim direction and was removed in
+  this audit. Focus trap and scroll lock remain open.
+
+Rule going forward: a new modal uses the shared Dialog; a new
+primitive-looking control uses the shared primitive; app-specific
+compositions stay local. The remaining adoption work is tracked in file 09
+as "Shared UI adoption cleanup".
+
 ## Execution
 
 Phased plan with acceptance criteria:
