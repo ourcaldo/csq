@@ -23,7 +23,8 @@ the file contents and names.
 | `11-campaigns-classification.md` | 30 | Contact classification + campaigns feature PRD | Live |
 | `12-shared-ui-package.md` | new | The `@csq/ui` shared design-system package - what is shared, what stays app-local | Live |
 | `13-admin-console.md` | new | The SaaS-operator section: platform admin console - menus, suspension semantics, separate auth realm, deferred-beyond-v1 list | Live - execution on owner go |
-| `14-plans-billing-quotas.md` | new | Packages, billing, quotas: entitlements, credit ledger, MAU, invoices, plan requests, tenant Paket & Kuota | Proposed - open decisions pending |
+| `14-plans-billing-quotas.md` | new | Packages, billing, quotas: entitlements, credit ledger, MAU, invoices, plan requests, tenant Paket & Kuota | Live - verification tracked in the plan |
+| `15-multi-channel.md` | new | Multiple WhatsApp channels per tenant: channel identity, connect flow, webhook routing, inbox, limits | Pending - not scheduled |
 
 Companion working documents (plans, registers, status) stay in `docs/`
 with date prefixes, e.g. `docs/plans/2026-11-08-enterprise-architecture-plan.md`.

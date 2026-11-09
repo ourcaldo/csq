@@ -1,9 +1,11 @@
 # 14. Plans, Billing, and Quotas (owner direction 2026-11-08)
 
-Status: **proposed**. The model and metering exist; billing, tenant-facing
-quota visibility, and exact credit enforcement do not. Execution plan:
-`docs/plans/2026-11-08-plans-billing-quotas-plan.md`. Open decisions at the
-end must be confirmed before Phase 1 starts.
+Status: **live** (2026-11-08). Phases 0-4 are implemented: plan
+entitlements, credit ledger and hard stop, feature API guards, tenant
+`/dashboard/plan`, invoices, plan requests, and admin `/admin/billing`.
+Remaining verification is tracked in
+`docs/plans/2026-11-08-plans-billing-quotas-plan.md`. Decisions are resolved
+at the end of this file.
 
 ## Commercial model
 
@@ -117,7 +119,9 @@ a higher package. No automatic overage billing in this stage.
   connected count is at the limit and the target is not already connected.
   Disconnecting is always allowed. Reconfiguring an already-connected
   channel is allowed because it is already in the count (implemented;
-  connected-only counting lands with Phase 1).
+  connected-only counting lands with Phase 1). Multiple channels per tenant,
+  the thing this limit prices, are specified in `15-multi-channel.md` and
+  are pending.
 
 ### Premium features
 
