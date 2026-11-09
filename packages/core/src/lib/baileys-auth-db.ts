@@ -77,6 +77,44 @@ export async function loadDbAuthState(
     ? JSON.parse(row.keys, BufferJSON.reviver)
     : {};
 
+  // One-time Signal session reset (2026-11-10). Deploy churn left the stored
+  // Signal sessions stale: the linked device could not decrypt its own
+  // account's messages ("Bad MAC" every few seconds) and recipients showed
+  // "Menunggu pesan ini" for our sends. The marker row is set by migration
+  // 20261110160000; consuming it here - at socket connect time, after the
+  // previous instance is gone - removes the session records so fresh sessions
+  // are negotiated on the next message exchange. Creds, pre-keys and
+  // app-state keys stay intact: no QR re-scan.
+  const resetMarker = await prisma.systemLock.findUnique({
+    where: { key: "baileys-session-reset" },
+  });
+  if (resetMarker) {
+    let removed = 0;
+    for (const key of Object.keys(keysMap)) {
+      if (key.startsWith("session-")) {
+        delete keysMap[key];
+        removed += 1;
+      }
+    }
+    await prisma.baileysAuth.upsert({
+      where: { channelId },
+      create: {
+        channelId,
+        creds: JSON.stringify(creds, BufferJSON.replacer),
+        keys: JSON.stringify(keysMap, BufferJSON.replacer),
+      },
+      update: {
+        keys: JSON.stringify(keysMap, BufferJSON.replacer),
+      },
+    });
+    await prisma.systemLock
+      .delete({ where: { key: "baileys-session-reset" } })
+      .catch(() => undefined);
+    console.log(
+      `[baileys-auth] reset ${removed} stale Signal session(s) for channel ${channelId}; sessions will re-negotiate`
+    );
+  }
+
   const persist = async (): Promise<void> => {
     await prisma.baileysAuth.upsert({
       where: { channelId },
