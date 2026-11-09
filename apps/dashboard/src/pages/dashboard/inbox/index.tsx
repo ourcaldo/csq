@@ -9,6 +9,7 @@ import { useRouter } from "next/router";
 import { withAuth } from "@csq/core/lib/auth";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
+import { usePolledApi } from "@/hooks/use-polled-api";
 import type { ListResult, Tag } from "@csq/core/types/dashboard";
 import type { ConversationListItem } from "@csq/core/types/inbox";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
@@ -47,8 +48,9 @@ export default function InboxPage() {
     `/api/dashboard/inbox/conversations?pageSize=100` +
     (status ? `&status=${status}` : "") +
     (tagId ? `&tagId=${tagId}` : "");
-  const { data, loading, error, refresh } = useApi<ListResult<ConversationListItem>>(
-    conversationsUrl
+  const { data, loading, error, refresh } = usePolledApi<ListResult<ConversationListItem>>(
+    conversationsUrl,
+    8000
   );
 
   // Tenant tags for the tag filter dropdown.
@@ -89,18 +91,6 @@ export default function InboxPage() {
   function onConversationChanged() {
     void refresh();
   }
-
-  // Live updates for the conversation LIST (the per-thread SSE in ChatPanel
-  // covers open chats, but the list - last message, ordering, new
-  // conversations - never refreshed, so new inbound traffic was invisible
-  // until a manual page reload). Poll at a modest cadence; keepSelection:
-  // refreshing must not clobber the open thread.
-  useEffect(() => {
-    const t = setInterval(() => {
-      void refresh();
-    }, 8000);
-    return () => clearInterval(t);
-  }, [refresh]);
 
   return (
     <DashboardShell title="Percakapan" flush>
