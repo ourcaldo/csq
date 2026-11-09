@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import type { GetServerSideProps } from "next";
 import { useSession } from "next-auth/react";
-import { UserPlus, Users, EnvelopeSimple } from "@phosphor-icons/react";
+import { UserPlus, Users } from "@phosphor-icons/react";
 import { withAuth } from "@csq/core/lib/auth";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
@@ -10,11 +10,14 @@ import type { ListResult } from "@csq/core/types/dashboard";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { StateNotice } from "@/components/dashboard/state-notice";
 import { EmptyState } from "@/components/dashboard/empty-state";
+import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
+import { ReadOnlyField } from "@/components/dashboard/channels/field";
 import { Dialog } from "@csq/ui/components/ui/dialog";
 import { Button } from "@csq/ui/components/ui/button";
 import { Input } from "@csq/ui/components/ui/input";
 import { Label } from "@csq/ui/components/ui/label";
 import { Badge } from "@csq/ui/components/ui/badge";
+import { Select } from "@csq/ui/components/ui/select";
 import {
   Table,
   TableHeader,
@@ -40,11 +43,12 @@ type TeamMember = {
 };
 
 type InviteResult = {
-  userId: string;
+  inviteId: string;
   email: string;
-  name: string;
   role: "STAFF";
-  tempPassword: string;
+  emailed: boolean;
+  inviteLink?: string;
+  note?: string;
 };
 
 const PAGE_SIZE = 50;
@@ -77,13 +81,19 @@ export default function TeamPage() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // The invite API returns the generated temp password once. We surface it in a
-  // dismissible notice so the owner can relay it out-of-band (MVP has no email).
+  // The invite API emails the one-time link when a provider is configured;
+  // otherwise it returns the link once for the owner to relay out-of-band.
   const [created, setCreated] = useState<InviteResult | null>(null);
+
+  // Row-level mutation errors (role change / delete / campaign toggle) render
+  // above the table; formError belongs to the invite dialog only.
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const [toDelete, setToDelete] = useState<TeamMember | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const currentUserId = session?.user?.id;
 
@@ -97,16 +107,14 @@ export default function TeamPage() {
       const result = await apiSend<InviteResult>("/api/dashboard/team/invite", "POST", {
         name,
         email,
-        password: password || undefined,
       });
       setInviteOpen(false);
       setName("");
       setEmail("");
-      setPassword("");
       setCreated(result);
       refresh();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Gagal mengundang staff.");
+      setFormError(err instanceof Error ? err.message : "Gagal mengirim undangan.");
     } finally {
       setSaving(false);
     }
@@ -118,12 +126,40 @@ export default function TeamPage() {
 
   // Per-staff campaign permission (feature plan 2026-11-01, decision 2.2).
   async function onToggleCampaignPermission(member: TeamMember, checked: boolean) {
-    setFormError(null);
+    setActionError(null);
     try {
       await apiSend(`/api/dashboard/team/${member.id}`, "PUT", { canRunCampaigns: checked });
       refresh();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Gagal mengubah izin kampanye.");
+      setActionError(err instanceof Error ? err.message : "Gagal mengubah izin kampanye.");
+    }
+  }
+
+  // Role change (PRD 16 FEA-5); the server enforces the last-owner guard.
+  async function onRoleChange(member: TeamMember, value: string) {
+    if (value !== "OWNER" && value !== "STAFF") return;
+    setActionError(null);
+    try {
+      await apiSend(`/api/dashboard/team/${member.id}`, "PUT", { role: value });
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Gagal mengubah peran.");
+    }
+    refresh();
+  }
+
+  async function onConfirmDelete() {
+    if (!toDelete) return;
+    setDeleting(true);
+    setActionError(null);
+    try {
+      await apiSend(`/api/dashboard/team/${toDelete.id}`, "DELETE");
+      setToDelete(null);
+      refresh();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Gagal menghapus anggota.");
+      setToDelete(null);
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -148,6 +184,7 @@ export default function TeamPage() {
 
       {loading && <StateNotice variant="loading" message="Memuat anggota tim…" />}
       {error && <StateNotice variant="error" message={error} />}
+      {actionError && <StateNotice variant="error" message={actionError} />}
 
       {!loading && !error && members.length === 0 && (
         <EmptyState
@@ -173,8 +210,9 @@ export default function TeamPage() {
                 <TableHead>Anggota</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Peran</TableHead>
-                <TableHead className="hidden sm:table-cell">Dibergabung</TableHead>
+                <TableHead className="hidden sm:table-cell">Bergabung</TableHead>
                 {isOwner && <TableHead className="hidden md:table-cell">Izin Kampanye</TableHead>}
+                {isOwner && <TableHead className="text-right">Tindakan</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -206,7 +244,17 @@ export default function TeamPage() {
                       {m.name ? m.email : "-"}
                     </TableCell>
                     <TableCell>
-                      {m.role === "OWNER" ? (
+                      {isOwner ? (
+                        <Select
+                          value={m.role}
+                          onChange={(e) => onRoleChange(m, e.target.value)}
+                          aria-label="Peran"
+                          className="h-9 w-28"
+                        >
+                          <option value="OWNER">Owner</option>
+                          <option value="STAFF">Staff</option>
+                        </Select>
+                      ) : m.role === "OWNER" ? (
                         <Badge variant="success">Owner</Badge>
                       ) : (
                         <Badge variant="secondary">Staff</Badge>
@@ -232,6 +280,13 @@ export default function TeamPage() {
                         )}
                       </TableCell>
                     )}
+                    {isOwner && (
+                      <TableCell className="text-right">
+                        <Button variant="destructive" size="sm" onClick={() => setToDelete(m)}>
+                          Hapus
+                        </Button>
+                      </TableCell>
+                    )}
                   </TableRow>
                 );
               })}
@@ -245,7 +300,7 @@ export default function TeamPage() {
         open={inviteOpen}
         onClose={() => setInviteOpen(false)}
         title="Undang Staff"
-        description="Staff baru akan dibuatkan akun pada organisasi Anda."
+        description="Staff akan menerima tautan untuk membuat password mereka sendiri."
       >
         <form onSubmit={onInvite} className="flex flex-col gap-4">
           {formError && <p className="text-sm text-destructive">{formError}</p>}
@@ -270,69 +325,55 @@ export default function TeamPage() {
               placeholder="staff@toko.com"
             />
           </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="invite-password">Password (opsional)</Label>
-            <Input
-              id="invite-password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Kosongkan untuk dibuatkan otomatis"
-            />
-            <p className="text-xs text-muted-foreground">
-              Jika dikosongkan, password sementara akan dibuatkan dan ditampilkan sekali setelah undangan.
-            </p>
-          </div>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => setInviteOpen(false)}>
               Batal
             </Button>
             <Button type="submit" disabled={saving}>
-              {saving ? "Mengundang…" : "Undang"}
+              {saving ? "Mengirim…" : "Kirim Undangan"}
             </Button>
           </div>
         </form>
       </Dialog>
 
-      {/* Temp-password reveal - shown once after a successful invite */}
+      {/* Invite result - when the tenant has no email provider the link is
+          shown once (ReadOnlyField copy pattern) for the owner to relay. */}
       <Dialog
         open={created !== null}
         onClose={closeCreated}
-        title="Staff berhasil diundang"
-        description="Password sementara hanya ditampilkan sekali. Sampaikan kepada staff melalui jalur yang aman."
+        title="Undangan dibuat"
+        description={
+          created?.emailed
+            ? `Undangan dikirim ke ${created?.email ?? ""}.`
+            : (created?.note ?? "")
+        }
       >
         {created && (
           <div className="flex flex-col gap-4">
-            <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700">
-              <EnvelopeSimple size={16} weight="bold" className="mr-1.5 inline-block align-text-bottom" />
-              MVP tidak mengirim email. Sampaikan kredensial berikut di luar aplikasi.
-            </div>
-            <div className="flex flex-col gap-2 rounded-md border bg-slate-50 p-4">
-              <div className="flex flex-col gap-0.5">
-                <span className="text-xs font-medium text-slate-500">Nama</span>
-                <span className="text-sm text-slate-900">{created.name}</span>
-              </div>
-              <div className="flex flex-col gap-0.5">
-                <span className="text-xs font-medium text-slate-500">Email</span>
-                <span className="text-sm text-slate-900">{created.email}</span>
-              </div>
-              <div className="flex flex-col gap-0.5">
-                <span className="text-xs font-medium text-slate-500">Peran</span>
-                <span className="text-sm text-slate-900">Staff</span>
-              </div>
-              <div className="flex flex-col gap-0.5">
-                <span className="text-xs font-medium text-slate-500">Password sementara</span>
-                <code className="break-all rounded bg-white px-2 py-1 text-sm font-semibold text-green-700 border">
-                  {created.tempPassword}
-                </code>
-              </div>
-            </div>
+            {!created.emailed && created.inviteLink && (
+              <ReadOnlyField
+                label="Tautan undangan"
+                value={created.inviteLink}
+                hint="Berlaku 7 hari dan hanya dapat dipakai sekali."
+              />
+            )}
             <div className="flex justify-end">
-              <Button onClick={closeCreated}>Saya sudah menyimpan</Button>
+              <Button onClick={closeCreated}>Tutup</Button>
             </div>
           </div>
         )}
       </Dialog>
+
+      <ConfirmDialog
+        open={toDelete !== null}
+        title="Hapus Anggota"
+        description={`Yakin ingin menghapus "${toDelete?.name ?? toDelete?.email}" dari tim? Akses dashboard mereka dicabut.`}
+        confirmLabel="Hapus"
+        destructive
+        loading={deleting}
+        onConfirm={onConfirmDelete}
+        onCancel={() => setToDelete(null)}
+      />
     </DashboardShell>
   );
 }

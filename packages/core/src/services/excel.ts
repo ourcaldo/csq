@@ -63,6 +63,12 @@ export const mappedProductSchema = z.object({
 export async function parseFile(buffer: Buffer, filename: string): Promise<ParsedSheet> {
   const wb = new Workbook();
   const lower = filename.toLowerCase();
+  // OPS-5 (PRD 16): legacy .xls (BIFF) is NOT the xlsx format - exceljs
+  // cannot read it. Reject it with a clear message instead of a cryptic
+  // parser error; the owner converts to .xlsx in one click in Excel.
+  if (lower.endsWith(".xls")) {
+    throw new Error("Format .xls lama tidak didukung. Simpan ulang sebagai .xlsx lalu unggah lagi.");
+  }
   // Stream the buffer into exceljs via Readable.from rather than xlsx.load(Buffer):
   // exceljs's bundled types reference the pre-@types/node-22 non-generic Buffer,
   // so a Buffer<ArrayBufferLike> arg fails the type check. Streaming avoids the

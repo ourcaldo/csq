@@ -8,8 +8,66 @@ import { sendAgentMessage } from "@csq/core/lib/agent-outbox";
 import { acquireTurnLease, releaseTurnLease } from "@csq/core/lib/turn-lock";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { chargeCredits, getCreditStatus } from "@csq/core/lib/credits";
+import { getTemplateBody } from "@csq/core/lib/message-templates";
 import { logAction } from "@csq/core/lib/audit";
 import type { ChatMessage, ToolCallRecord } from "@csq/core/types/chat";
+
+// OPS-2 (PRD 16): when no agent is active for the conversation (never
+// deployed, paused, or unassigned), the customer gets ONE short fallback per
+// day instead of silence (plan 07 6.6). Debounced on Conversation.settings,
+// same pattern as the non-text courtesy reply. Inside Meta's 24h window this
+// is free-form text; outside it the send is skipped + audited unless an
+// approved template is configured (sendAgentMessage enforces that).
+const STAND_DOWN_FALLBACK_MS = 24 * 60 * 60 * 1000;
+
+async function sendStandDownFallback(args: {
+  channel: Channel;
+  tenantId: string;
+  conversationId: string;
+  customerPhone: string;
+  conversationSettings: unknown;
+}): Promise<void> {
+  try {
+    const parsed = z.record(z.unknown()).safeParse(args.conversationSettings ?? {});
+    const settings = parsed.success ? parsed.data : {};
+    const lastRaw =
+      typeof settings.lastStandDownFallbackAt === "string"
+        ? Date.parse(settings.lastStandDownFallbackAt)
+        : NaN;
+    if (!Number.isNaN(lastRaw) && Date.now() - lastRaw < STAND_DOWN_FALLBACK_MS) {
+      return;
+    }
+    const body = await getTemplateBody(
+      args.tenantId,
+      "agent_inactive",
+      "Terima kasih atas pesan Anda. Agent kami sedang tidak aktif sebentar - tim kami akan membalas segera."
+    );
+    if (!body) return;
+    await sendAgentMessage({
+      channel: args.channel,
+      conversationId: args.conversationId,
+      customerPhone: args.customerPhone,
+      body,
+      agentId: null,
+      action: "conversation.agent_inactive",
+      templateName: process.env.WHATSAPP_AGENT_FALLBACK_TEMPLATE || undefined,
+    });
+    await prisma.conversation.update({
+      where: { id: args.conversationId },
+      data: {
+        settings: {
+          ...settings,
+          lastStandDownFallbackAt: new Date().toISOString(),
+        },
+      },
+    });
+  } catch (err) {
+    console.error(
+      `[agent-loop] stand-down fallback failed for ${args.conversationId}:`,
+      err
+    );
+  }
+}
 
 // Fire-and-forget agent auto-reply for an inbound WhatsApp message - the
 // Phase 6 ↔ Phase 7 wiring. Called from the webhook AFTER the inbound is
@@ -84,6 +142,13 @@ export async function runAgentReply(args: {
   }
   const resolvedAgentId = conversation.assignedAgentId ?? channel?.agentId;
   if (!resolvedAgentId) {
+    await sendStandDownFallback({
+      channel,
+      tenantId,
+      conversationId,
+      customerPhone,
+      conversationSettings: conversation.settings,
+    });
     return { reply: "", toolCalls: [], stoodDown: true };
   }
 
@@ -92,6 +157,13 @@ export async function runAgentReply(args: {
   });
   // Only an ACTIVE agent can reply.
   if (!agent || agent.status !== "ACTIVE") {
+    await sendStandDownFallback({
+      channel,
+      tenantId,
+      conversationId,
+      customerPhone,
+      conversationSettings: conversation.settings,
+    });
     return { reply: "", toolCalls: [], stoodDown: true };
   }
 

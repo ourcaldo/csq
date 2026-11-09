@@ -23,10 +23,25 @@ type Ops = {
     provider: string;
     createdAt: string;
   }[];
-  sources: { id: string; name: string; lastSyncAt: string | null; tenantId: string }[];
+  sources: {
+    id: string;
+    name: string;
+    status: string;
+    lastSyncAt: string | null;
+    tenantId: string;
+  }[];
 };
 
 export const getServerSideProps = withAdminAuth(async () => ({ props: {} }));
+
+function ago(iso: string): string {
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 1) return "baru saja";
+  if (mins < 60) return `${mins} mnt lalu`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} jam lalu`;
+  return `${Math.floor(hours / 24)} hari lalu`;
+}
 
 function when(iso: string | null): string {
   if (!iso) return "-";
@@ -148,7 +163,7 @@ export default function OperationsPage() {
                       </Status>
                     </td>
                     <td className="whitespace-nowrap font-mono text-[12px] text-muted-foreground">
-                      {when(l.updatedAt)}
+                      {when(l.updatedAt)} ({ago(l.updatedAt)})
                     </td>
                   </tr>
                 ))}
@@ -214,6 +229,7 @@ export default function OperationsPage() {
               <thead>
                 <tr>
                   <th>Sumber</th>
+                  <th>Status</th>
                   <th>Terakhir sinkron</th>
                 </tr>
               </thead>
@@ -221,6 +237,11 @@ export default function OperationsPage() {
                 {sources.map((s) => (
                   <tr key={s.id}>
                     <td className="font-medium">{s.name}</td>
+                    <td>
+                      <Status tone={s.status === "ERROR" ? "bad" : "ok"}>
+                        {s.status === "ERROR" ? "Gagal" : "Aktif"}
+                      </Status>
+                    </td>
                     <td className="font-mono text-[12px] text-muted-foreground">
                       {when(s.lastSyncAt)}
                     </td>

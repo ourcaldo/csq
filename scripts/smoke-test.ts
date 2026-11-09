@@ -11,10 +11,15 @@
 //   SMOKE_API      (default https://csq-api.onrender.com)
 //   SMOKE_EMAIL    (default admin@tokokopi.id)
 //   SMOKE_PASSWORD (default demo1234)
+//   ADMIN_BASE     (default https://csq-admin.onrender.com)
+//   ADMIN_EMAIL / ADMIN_PASSWORD - when BOTH are set, the admin-console
+//   section (ADM-7, PRD 16) runs: operator login, tenant list, and the
+//   suspended-tenant lockout. When unset, that section is skipped.
 import { z } from "zod";
 
 const BASE = (process.env.SMOKE_BASE ?? "https://csq-dashboard.onrender.com").replace(/\/$/, "");
 const API = (process.env.SMOKE_API ?? "https://csq-api.onrender.com").replace(/\/$/, "");
+const ADMIN_BASE = (process.env.ADMIN_BASE ?? "https://csq-admin.onrender.com").replace(/\/$/, "");
 const EMAIL = process.env.SMOKE_EMAIL ?? "admin@tokokopi.id";
 const PASSWORD = process.env.SMOKE_PASSWORD ?? "demo1234";
 
@@ -159,7 +164,148 @@ async function main(): Promise<void> {
   });
   check(afterLogout.status === 401, "a logged-out refresh token is dead (401)");
 
+  await adminChecks();
+
   finish();
+}
+
+// ADM-7 (PRD 16): the operator console checks. A separate cookie jar - the
+// admin realm's session cookie is deliberately distinct from the dashboard's.
+async function adminChecks(): Promise<void> {
+  const adminEmail = process.env.ADMIN_EMAIL;
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  if (!adminEmail || !adminPassword) {
+    console.log("SKIP - admin console checks (ADMIN_EMAIL/ADMIN_PASSWORD unset)");
+    return;
+  }
+
+  const adminCookies = new Map<string, string>();
+  const adminCookieHeader = () =>
+    [...adminCookies.entries()].map(([k, v]) => `${k}=${v}`).join("; ");
+  const absorbAdmin = (res: Response): void => {
+    for (const line of res.headers.getSetCookie()) {
+      const [pair] = line.split(";");
+      const eq = pair.indexOf("=");
+      if (eq > 0) adminCookies.set(pair.slice(0, eq).trim(), pair.slice(eq + 1).trim());
+    }
+  };
+
+  // Operator login through the REAL NextAuth dance.
+  const csrf = await fetch(`${ADMIN_BASE}/api/auth/csrf`);
+  absorbAdmin(csrf);
+  const { csrfToken } = await csrf.json();
+  const login = await fetch(`${ADMIN_BASE}/api/auth/callback/credentials`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/x-www-form-urlencoded",
+      cookie: adminCookieHeader(),
+    },
+    body: new URLSearchParams({ csrfToken, email: adminEmail, password: adminPassword, json: "true" }).toString(),
+    redirect: "manual",
+  });
+  absorbAdmin(login);
+  const adminSessionOk = [...adminCookies.keys()].some((k) => k.includes("session-token"));
+  check(login.status < 400 && adminSessionOk, "admin console login issues a session cookie");
+
+  const authHeaders = { cookie: adminCookieHeader(), "content-type": "application/json" };
+
+  // Tenant list.
+  const tenantsRes = await fetch(`${ADMIN_BASE}/api/admin/tenants`, { headers: authHeaders });
+  const tenantsBody = z
+    .object({ success: z.literal(true), data: z.object({ items: z.array(z.object({ id: z.string(), status: z.string() }).passthrough()) }) })
+    .safeParse(await tenantsRes.json());
+  check(tenantsRes.status === 200 && tenantsBody.success, "admin tenant list 200 + envelope");
+  if (!tenantsBody.success) return;
+
+  // The suspended-tenant lockout. Reuse a permanent scratch tenant so reruns
+  // never multiply admin-visible data.
+  const scratchSlug = "smoke-scratch";
+  const existing = tenantsBody.data.data.items.find((t) => t.slug === scratchSlug);
+  let scratchId: string | null = existing?.id ?? null;
+  if (!scratchId) {
+    const create = await fetch(`${ADMIN_BASE}/api/admin/tenants`, {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({
+        name: "Smoke Scratch",
+        slug: scratchSlug,
+        ownerEmail: "smoke-scratch@csq.local",
+        ownerName: "Smoke Scratch",
+        ownerPassword: "smoke-scratch-password",
+      }),
+    });
+    const created = z
+      .object({ success: z.literal(true), data: z.object({ id: z.string() }).passthrough() })
+      .safeParse(await create.json());
+    check(create.status === 201 && created.success, "admin tenant create (scratch)");
+    scratchId = created.success ? created.data.data.id : null;
+  } else {
+    check(true, "admin tenant scratch reused from a previous run");
+  }
+  if (!scratchId) return;
+
+  try {
+    // Suspend.
+    const suspend = await fetch(`${ADMIN_BASE}/api/admin/tenants/${scratchId}`, {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({ action: "suspend" }),
+    });
+    check(suspend.status === 200, "admin suspend action 200");
+
+    // The suspended tenant's owner authenticates on the dashboard but is
+    // locked out: BFF reads 401, SSR redirects to /suspended.
+    const scratchCookies = new Map<string, string>();
+    const scratchHeader = () =>
+      [...scratchCookies.entries()].map(([k, v]) => `${k}=${v}`).join("; ");
+    const absorbScratch = (res: Response): void => {
+      for (const line of res.headers.getSetCookie()) {
+        const [pair] = line.split(";");
+        const eq = pair.indexOf("=");
+        if (eq > 0) scratchCookies.set(pair.slice(0, eq).trim(), pair.slice(eq + 1).trim());
+      }
+    };
+    const srf = await fetch(`${BASE}/api/auth/csrf`);
+    absorbScratch(srf);
+    const { csrfToken: scratchCsrf } = await srf.json();
+    const scratchLogin = await fetch(`${BASE}/api/auth/callback/credentials`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+        cookie: scratchHeader(),
+      },
+      body: new URLSearchParams({ csrfToken: scratchCsrf, email: "smoke-scratch@csq.local", password: "smoke-scratch-password", json: "true" }).toString(),
+      redirect: "manual",
+    });
+    absorbScratch(scratchLogin);
+    check(scratchLogin.status < 400, "suspended tenant owner can still authenticate");
+
+    const locked = await fetch(`${BASE}/api/dashboard/contacts`, {
+      headers: { cookie: scratchHeader() },
+    });
+    check(locked.status === 401, "suspended tenant BFF reads are locked out (401)");
+
+    const ssr = await fetch(`${BASE}/dashboard`, {
+      headers: { cookie: scratchHeader() },
+      redirect: "manual",
+    });
+    const location = ssr.headers.get("location") ?? "";
+    check(
+      ssr.status === 307 && location.includes("/suspended"),
+      "suspended tenant SSR redirects to /suspended"
+    );
+  } finally {
+    // Always reactivate so a failed run never leaves the scratch suspended.
+    await fetch(`${ADMIN_BASE}/api/admin/tenants/${scratchId}`, {
+      method: "POST",
+      headers: authHeaders,
+      body: JSON.stringify({ action: "activate" }),
+    });
+  }
+
+  // Unauthenticated admin read is rejected.
+  const noAuth = await fetch(`${ADMIN_BASE}/api/admin/tenants`);
+  check(noAuth.status === 401, "admin console rejects unauthenticated reads (401)");
 }
 
 function finish(): void {

@@ -10,6 +10,8 @@ import {
   FolderOpen,
   ArrowUpRight,
   CheckCircle,
+  User,
+  Clock,
 } from "@phosphor-icons/react";
 import { AdminShell } from "@/components/admin-shell";
 import { Card, Group, PageHead, Stat, Status, btnClass, pad } from "@/components/console";
@@ -49,6 +51,19 @@ type Usage = {
     mediaBytes: number;
   }[];
   daily: { date: string; count: number }[];
+  kpis: {
+    users: number;
+    messages24h: number;
+    conversations24h: number;
+    messages7d: number;
+    conversations7d: number;
+    commandQueue: number;
+    tickFreshness: {
+      lastTickAt: string | null;
+      heldLeases: number;
+      staleLeases: number;
+    };
+  };
 };
 type AuditItem = { id: string; action: string; tenantName?: string; createdAt: string };
 
@@ -58,6 +73,15 @@ function bytes(n: number): string {
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function ago(iso: string): string {
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 1) return "baru saja";
+  if (mins < 60) return `${mins} mnt lalu`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} jam lalu`;
+  return `${Math.floor(hours / 24)} hari lalu`;
 }
 
 function Chart({ daily }: { daily: { date: string; count: number }[] }) {
@@ -141,6 +165,7 @@ export default function AdminOverview() {
   const credits = usage.reduce((s, u) => s + u.creditsUsed, 0);
   const media = usage.reduce((s, u) => s + u.mediaBytes, 0);
   const conversations = tenants.reduce((s, t) => s + t.conversationCount, 0);
+  const kpis = usageData?.kpis;
 
   const quotas = usage
     .map((u) => {
@@ -205,6 +230,55 @@ export default function AdminOverview() {
           note={failed > 0 ? "Perlu retry di Operasional" : "Outbox worker sehat"}
         />
       </div>
+
+      {kpis && (
+        <Group label="Kondisi terkini">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+            <Stat
+              icon={<User size={14} />}
+              label="Pengguna"
+              value={pad(kpis.users)}
+              note="Akun di seluruh tenant"
+            />
+            <Stat
+              icon={<PaperPlaneTilt size={14} />}
+              label="Pesan 24 jam"
+              value={pad(kpis.messages24h)}
+              note={
+                <>
+                  <span className="text-foreground">{kpis.conversations24h}</span> percakapan baru
+                </>
+              }
+            />
+            <Stat
+              icon={<ChatCircleDots size={14} />}
+              label="Pesan 7 hari"
+              value={pad(kpis.messages7d)}
+              note={
+                <>
+                  <span className="text-foreground">{kpis.conversations7d}</span> percakapan baru
+                </>
+              }
+            />
+            <Stat
+              icon={<Tray size={14} />}
+              label="Antrean perintah"
+              value={pad(kpis.commandQueue)}
+              note="Perintah saluran menunggu worker"
+            />
+            <Stat
+              icon={<Clock size={14} />}
+              label="Lease scheduler"
+              value={pad(kpis.tickFreshness.heldLeases)}
+              note={
+                kpis.tickFreshness.lastTickAt
+                  ? `Tick terakhir ${ago(kpis.tickFreshness.lastTickAt)}, ${kpis.tickFreshness.staleLeases} kedaluwarsa`
+                  : "Tidak ada tick tertahan"
+              }
+            />
+          </div>
+        </Group>
+      )}
 
       <Group label="30 hari terakhir">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

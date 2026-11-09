@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
+import { strQuery } from "@csq/core/lib/queries";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiError, apiOk, type ApiResponse } from "@csq/core/types/api";
 
@@ -15,8 +16,11 @@ type ApprovalSummary = {
   createdAt: string;
 };
 
-// GET /api/dashboard/approvals - list PENDING approvals for the tenant.
-// OWNER only [FR-AP-004]. tenantId from the session, never the query string.
+// GET /api/dashboard/approvals - approvals for the tenant. OWNER only
+// [FR-AP-004]. tenantId from the session, never the query string.
+// ?status=PENDING (default) returns the open work queue, oldest first.
+// ?status=RESOLVED (FEA-6, PRD 16) returns APPROVED+REJECTED history,
+// newest first, capped at 100.
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<ApiResponse<ApprovalSummary[]>>
@@ -39,9 +43,14 @@ export default async function handler(
   const tenantId = session.user.tenantId;
 
   return withTenantContext(tenantId, async () => {
+    const resolved = strQuery(req.query, "status") === "RESOLVED";
     const approvals = await prisma.approval.findMany({
-      where: { tenantId, status: "PENDING" },
-      orderBy: { createdAt: "asc" },
+      where: {
+        tenantId,
+        status: resolved ? { in: ["APPROVED", "REJECTED"] } : "PENDING",
+      },
+      orderBy: { createdAt: resolved ? "desc" : "asc" },
+      take: resolved ? 100 : undefined,
     });
 
     const data: ApprovalSummary[] = approvals.map((a) => ({

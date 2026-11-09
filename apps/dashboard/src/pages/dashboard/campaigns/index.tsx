@@ -30,11 +30,17 @@ type ChannelView = {
 
 
 
-export default function CampaignsPage() {
+type CampaignsPageProps = {
+  apiMediaBase: string;
+};
+
+export default function CampaignsPage({ apiMediaBase }: CampaignsPageProps) {
   const { data: session } = useSession();
   const canManage = session?.user.role === "OWNER" || !!session?.user.canRunCampaigns;
 
-  const campaigns = useApi<{ items: CampaignRow[] }>("/api/dashboard/campaigns");
+  const campaigns = useApi<{ items: CampaignRow[]; stats?: { active: number; sentThisMonth: number } }>(
+    "/api/dashboard/campaigns"
+  );
   const channels = useApi<{ items: ChannelView[] }>("/api/dashboard/channels");
   const categories = useApi<Category[]>("/api/dashboard/contact-categories");
   const tags = useApi<ListResult<Tag>>("/api/dashboard/tags?pageSize=100");
@@ -56,6 +62,9 @@ export default function CampaignsPage() {
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [contactIds, setContactIds] = useState<string[]>([]);
   const [previewTotal, setPreviewTotal] = useState<number | null>(null);
+  const [previewByCategory, setPreviewByCategory] = useState<
+    { categoryId: string; name: string; count: number }[]
+  >([]);
 
   const [templateKey, setTemplateKey] = useState("");
   const [body, setBody] = useState("");
@@ -88,18 +97,25 @@ export default function CampaignsPage() {
   useEffect(() => {
     if (!wizardOpen || audience === "ALL") {
       setPreviewTotal(null);
+      setPreviewByCategory([]);
       return;
     }
     let cancelled = false;
     void (async () => {
       try {
-        const data = await apiSend<{ total: number }>("/api/dashboard/campaigns/preview", "POST", {
+        const data = await apiSend<{
+          total: number;
+          byCategory: { categoryId: string; name: string; count: number }[];
+        }>("/api/dashboard/campaigns/preview", "POST", {
           audience,
           categoryIds,
           tagIds,
           contactIds,
         });
-        if (!cancelled) setPreviewTotal(data.total);
+        if (!cancelled) {
+          setPreviewTotal(data.total);
+          setPreviewByCategory(data.byCategory ?? []);
+        }
       } catch {
         if (!cancelled) setPreviewTotal(null);
       }
@@ -144,7 +160,9 @@ export default function CampaignsPage() {
     setContactIds(c.contactIds);
     setTemplateKey("");
     setBody(c.body);
-    setImages(c.imageIds.map((id) => ({ id, url: `/api/media/${id}` })));
+    // OPS-1 (PRD 16): media lives on the api service now - thumbnails must
+    // use its origin or they 404 in edit mode.
+    setImages(c.imageIds.map((id) => ({ id, url: `${apiMediaBase}/api/media/${id}` })));
     setScheduleKind(c.scheduleKind);
     const cfg = c.scheduleConfig;
     setOnceAt(cfg.startAt ? new Date(cfg.startAt).toISOString().slice(0, 16) : "");
@@ -307,6 +325,34 @@ export default function CampaignsPage() {
         </p>
       )}
       {formError && <p className="mb-4 text-sm text-destructive">{formError}</p>}
+      {!campaigns.loading && !campaigns.error && (
+        <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Total Kampanye
+            </p>
+            <p className="mt-3 text-2xl font-bold text-slate-900">
+              {campaigns.data?.items.length ?? 0}
+            </p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Aktif
+            </p>
+            <p className="mt-3 text-2xl font-bold text-green-700">
+              {campaigns.data?.stats?.active ?? 0}
+            </p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Terkirim Bulan Ini
+            </p>
+            <p className="mt-3 text-2xl font-bold text-slate-900">
+              {campaigns.data?.stats?.sentThisMonth ?? 0}
+            </p>
+          </div>
+        </div>
+      )}
       <CampaignTable
         items={campaigns.data?.items ?? []}
         loading={campaigns.loading}
@@ -350,6 +396,7 @@ export default function CampaignsPage() {
             contactIds={contactIds}
             onToggleContact={(id) => setContactIds((l) => toggle(l, id))}
             previewTotal={previewTotal}
+            previewByCategory={previewByCategory}
             templates={templates.data?.items ?? []}
             templateKey={templateKey}
             onTemplateKey={setTemplateKey}
@@ -423,5 +470,13 @@ export default function CampaignsPage() {
 
 export const getServerSideProps: GetServerSideProps = withFeature(
   "campaigns",
-  async () => ({ props: {} })
+  async (ctx) => {
+    // OPS-1 (PRD 16): media thumbnails point at the api service's origin
+    // (media serving lives there since Phase 7).
+    const apiBase = (process.env.API_URL ?? "").replace(/\/$/, "");
+    const fallback = (
+      process.env.NEXTAUTH_URL ?? `https://${ctx.req.headers.host}`
+    ).replace(/\/$/, "");
+    return { props: { apiMediaBase: apiBase || fallback } };
+  }
 );

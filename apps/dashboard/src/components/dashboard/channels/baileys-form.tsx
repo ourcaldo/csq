@@ -37,6 +37,12 @@ export function BaileysForm(props: {
           <Switch checked={props.tos} disabled={!props.isOwner} onChange={props.onTosChange} />
           Saya menyetujui ketentuan layanan untuk penggunaan nomor pribadi.
         </label>
+        <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-700">
+          Perhatian: metode ini tidak resmi. WhatsApp bisa memblokir nomor yang
+          terdeteksi menggunakan automation - nomor Anda berisiko diblokir
+          sementara atau permanen. Gunakan nomor bisnis khusus, bukan nomor
+          pribadi utama Anda.
+        </p>
 
         <div className="flex items-center gap-2">
           <Button

@@ -10,6 +10,7 @@ import type { Stage } from "@csq/core/types/inbox";
 
 type Item = Prisma.ConversationGetPayload<{
   include: {
+    channel: { select: { provider: true } };
     contact: true;
     assignedAgent: true;
     assignee: true;
@@ -79,6 +80,7 @@ export default async function handler(
           skip,
           take,
           include: {
+            channel: { select: { provider: true } },
             contact: {
               include: {
                 categories: { include: { category: true } },

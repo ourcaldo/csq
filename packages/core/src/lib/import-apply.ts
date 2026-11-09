@@ -92,6 +92,9 @@ export async function applyImport(
 
         if (p.stock != null) {
           // G8: record this source's contribution as a per-source snapshot.
+          // FEA-8 (PRD 16): exact mapped rows carry full confidence (1);
+          // imports currently produce no fuzzy matches, so no heuristic is
+          // invented here.
           await tx.inventorySnapshot.upsert({
             where: { tenantId_productId_source: { tenantId, productId, source } },
             create: {
@@ -100,11 +103,13 @@ export async function applyImport(
               source,
               quantity: p.stock,
               sourceRef,
+              confidence: 1,
               syncedAt: new Date(),
             },
             update: {
               quantity: p.stock,
               sourceRef,
+              confidence: 1,
               syncedAt: new Date(),
             },
           });

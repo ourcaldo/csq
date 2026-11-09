@@ -12,6 +12,7 @@ import {
 import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import { assignConversation } from "@csq/core/lib/inbox";
+import { logHuman } from "@csq/core/lib/audit";
 
 type Detail = Prisma.ConversationGetPayload<{
   include: {
@@ -113,11 +114,40 @@ export default async function handler(
         return respondError(res, "NOT_FOUND", "Percakapan tidak ditemukan.");
       }
 
+      // FEA-6 (PRD 16): the assignment picker can target any tenant member -
+      // verify the chosen user belongs to this tenant before connecting
+      // (defense in depth on top of RLS).
+      if (assigneeUserId) {
+        const assignee = await prisma.user.findFirst({
+          where: { id: assigneeUserId, tenantId },
+          select: { id: true },
+        });
+        if (!assignee) {
+          return respondError(res, "VALIDATION_ERROR", "User tidak ditemukan dalam tim ini.");
+        }
+      }
+
       try {
         if (assignedAgentId !== undefined || assigneeUserId !== undefined) {
-          await assignConversation(id, tenantId, {
+          const updated = await assignConversation(id, tenantId, {
             agentId: assignedAgentId ?? null,
             userId: assigneeUserId ?? null,
+          });
+          // FEA-6 (PRD 16): reassignment audit with before/after (the lib row
+          // logs the resulting assignment; this row records the human change).
+          await logHuman({
+            tenantId,
+            action: "conversation.reassign",
+            entityType: "Conversation",
+            entityId: id,
+            beforeValue: {
+              assignedAgentId: existing.assignedAgentId,
+              assigneeUserId: existing.assigneeUserId,
+            },
+            afterValue: {
+              assignedAgentId: updated.assignedAgentId,
+              assigneeUserId: updated.assigneeUserId,
+            },
           });
         }
         if (status) {

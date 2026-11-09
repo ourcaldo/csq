@@ -2,8 +2,9 @@
 // and the Riwayat lifecycle timeline (first chat, orders, pipeline moves) -
 // merged server-side by the conversation history endpoint.
 // "Take over" assigns the conversation to the current user (stands the AI down,
-// FR-AS-003); "Release" unassigns so the AI resumes. Tags add/remove via the
-// tags API. Status via PATCH on the conversation.
+// FR-AS-003); "Release" unassigns so the AI resumes. The FEA-6 assignment
+// picker extends this to any tenant member (or back to "Agent AI"). Tags
+// add/remove via the tags API. Status via PATCH on the conversation.
 import { useEffect, useState } from "react";
 import {
   Tag as TagIcon,
@@ -28,7 +29,7 @@ import { cn } from "@csq/ui/lib/utils";
 import { apiFetch, apiSend } from "@/lib/api-client";
 import { readableTextColor } from "@/lib/tag-color";
 import { Select } from "@csq/ui/components/ui/select";
-import type { ConversationListItem, Stage, Tag } from "@csq/core/types/inbox";
+import type { ConversationListItem, Stage, Tag, User } from "@csq/core/types/inbox";
 import { useSession } from "next-auth/react";
 import {
   hasFeature,
@@ -178,6 +179,8 @@ export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMob
   const [savingContact, setSavingContact] = useState(false);
   const [showTagPicker, setShowTagPicker] = useState(false);
   const [history, setHistory] = useState<HistoryEvent[] | null>(null);
+  // FEA-6 (PRD 16): tenant users for the assignment picker.
+  const [users, setUsers] = useState<User[] | null>(null);
   // Contact classification (feature plan 2026-11-01): taxonomy lists + the
   // id sets being edited in the contact form.
   const [categories, setCategories] = useState<CategoryOption[] | null>(null);
@@ -231,10 +234,21 @@ export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMob
     }
   }
 
-  // Load tenant tags + contact categories once.
+  // FEA-6 (PRD 16): tenant members for the assignment picker (OWNER + STAFF).
+  async function loadUsers() {
+    try {
+      const data = await apiFetch<{ items: User[] }>("/api/dashboard/team?pageSize=100");
+      setUsers(data.items);
+    } catch {
+      setUsers([]);
+    }
+  }
+
+  // Load tenant tags + contact categories + team members once.
   useEffect(() => {
     void loadTags();
     void loadCategories();
+    void loadUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -405,12 +419,14 @@ export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMob
           <>
             <h3 className="text-lg font-semibold text-slate-900">{contact?.name ?? "Pelanggan"}</h3>
             <p className="text-sm text-slate-500">{conversation.customerPhoneDisplay}</p>
-            <button
-              onClick={startEdit}
-              className="mt-2 inline-flex items-center gap-1 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
-            >
-              <PencilSimple size={14} /> Edit Kontak
-            </button>
+            {session?.user.role === "OWNER" && (
+              <button
+                onClick={startEdit}
+                className="mt-2 inline-flex items-center gap-1 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+              >
+                <PencilSimple size={14} /> Edit Kontak
+              </button>
+            )}
             {((contact?.categories ?? []).length > 0 || (contact?.tags ?? []).length > 0) && (
               <div className="mt-3 flex flex-wrap justify-center gap-1.5">
                 {(contact?.categories ?? []).map((c) => (
@@ -486,6 +502,23 @@ export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMob
               <Hand size={16} /> Ambil alih dari AI
             </button>
           )}
+          {/* FEA-6 (PRD 16): assign to any team member, or back to the AI.
+              Empty value clears the human assignee so the agent resumes;
+              assigning a human makes the AI stand down (assignConversation). */}
+          <Select
+            className="mt-2"
+            value={conversation.assignee?.id ?? ""}
+            disabled={busy || users === null}
+            onChange={(e) => patch({ assigneeUserId: e.target.value || null })}
+            aria-label="Tugaskan percakapan"
+          >
+            <option value="">Agent AI</option>
+            {(users ?? []).map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name ?? u.email}
+              </option>
+            ))}
+          </Select>
         </div>
 
         {/* Status */}

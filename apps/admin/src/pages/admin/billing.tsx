@@ -1,4 +1,5 @@
 import { type FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
 import { Plus, X } from "@phosphor-icons/react";
 import { cn } from "@csq/ui/lib/utils";
 import { AdminShell } from "@/components/admin-shell";
@@ -9,6 +10,7 @@ import {
   Stat,
   Status,
   TableCard,
+  btnClass,
 } from "@/components/console";
 import { Dialog } from "@csq/ui/components/ui/dialog";
 import { Select } from "@csq/ui/components/ui/select";
@@ -304,10 +306,15 @@ export default function BillingPage() {
         title="Tagihan"
         sub="Invoice, permintaan paket, dan pengaturan pembayaran"
         action={
-          <Btn onClick={() => openCreate()}>
-            <Plus size={14} weight="bold" />
-            Invoice baru
-          </Btn>
+          <>
+            <Link href="/admin/plans" className={btnClass("line")}>
+              Kelola Paket
+            </Link>
+            <Btn onClick={() => openCreate()}>
+              <Plus size={14} weight="bold" />
+              Invoice baru
+            </Btn>
+          </>
         }
       />
 

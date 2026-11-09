@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { AdminShell } from "@/components/admin-shell";
-import { Empty, PageHead, TableCard } from "@/components/console";
+import { Btn, Empty, PageHead, TableCard } from "@/components/console";
 import { withAdminAuth } from "@/lib/admin-auth";
 import { useAdminApi } from "@/lib/admin-api";
+import { Input } from "@csq/ui/components/ui/input";
 
 type AuditItem = {
   id: string;
@@ -16,6 +17,8 @@ type AuditItem = {
   adminName?: string;
   targetType?: string;
   targetId?: string | null;
+  beforeValue?: unknown;
+  afterValue?: unknown;
 };
 type AuditData = { items: AuditItem[]; total: number; page: number; pageSize: number };
 
@@ -33,11 +36,35 @@ function Action({ value }: { value: string }) {
   );
 }
 
+function JsonBlock({ label, value }: { label: string; value: unknown }) {
+  return (
+    <div className="min-w-0">
+      <p className="mb-1 text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </p>
+      <pre className="overflow-x-auto rounded-lg bg-muted p-3 font-mono text-[11.5px] text-muted-foreground">
+        {value === null || value === undefined ? "-" : JSON.stringify(value, null, 2)}
+      </pre>
+    </div>
+  );
+}
+
 export default function AuditPage() {
   const [tab, setTab] = useState<"tenant" | "admin">("tenant");
-  const url = tab === "admin" ? "/api/admin/audit?auditType=admin" : "/api/admin/audit";
-  const { data, loading, error } = useAdminApi<AuditData>(url);
+  // ADM-3 (PRD 16): action text applies on submit, the date range instantly.
+  const [actionInput, setActionInput] = useState("");
+  const [action, setAction] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const params = new URLSearchParams();
+  if (tab === "admin") params.set("auditType", "admin");
+  if (action) params.set("action", action);
+  if (from) params.set("from", from);
+  if (to) params.set("to", to);
+  const qs = params.toString();
+  const { data, loading, error } = useAdminApi<AuditData>(`/api/admin/audit?${qs}`);
   const items = data?.items ?? [];
+  const cols = tab === "tenant" ? 5 : 4;
 
   return (
     <AdminShell title="Audit">
@@ -75,6 +102,39 @@ export default function AuditPage() {
         </div>
       )}
 
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          setAction(actionInput.trim());
+        }}
+        className="mb-4 flex flex-wrap items-center gap-2"
+      >
+        <Input
+          value={actionInput}
+          onChange={(e) => setActionInput(e.target.value)}
+          placeholder="Filter aksi (mis. tenant)"
+          aria-label="Filter aksi"
+          className="h-9 w-56"
+        />
+        <Input
+          type="date"
+          value={from}
+          onChange={(e) => setFrom(e.target.value)}
+          aria-label="Dari tanggal"
+          className="h-9 w-40"
+        />
+        <Input
+          type="date"
+          value={to}
+          onChange={(e) => setTo(e.target.value)}
+          aria-label="Sampai tanggal"
+          className="h-9 w-40"
+        />
+        <Btn type="submit" variant="line">
+          Terapkan
+        </Btn>
+      </form>
+
       {!loading && items.length === 0 ? (
         <Empty
           title={tab === "admin" ? "Belum ada aksi admin" : "Belum ada aktivitas tenant"}
@@ -107,51 +167,69 @@ export default function AuditPage() {
             </thead>
             <tbody>
               {items.map((a) => (
-                <tr key={a.id}>
-                  <td className="whitespace-nowrap font-mono text-[12.5px] text-muted-foreground">
-                    {new Date(a.createdAt).toLocaleString("id-ID", {
-                      day: "2-digit",
-                      month: "short",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </td>
-                  <td>
-                    <Action value={a.action} />
-                  </td>
-                  {tab === "tenant" ? (
-                    <>
-                      <td className="text-[12.5px]">
-                        {a.entityType}{" "}
-                        <span className="font-mono text-muted-foreground">
-                          {a.entityId ? `#${a.entityId.slice(0, 8)}` : ""}
-                        </span>
+                <Fragment key={a.id}>
+                  <tr>
+                    <td className="whitespace-nowrap font-mono text-[12.5px] text-muted-foreground">
+                      {new Date(a.createdAt).toLocaleString("id-ID", {
+                        day: "2-digit",
+                        month: "short",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </td>
+                    <td>
+                      <Action value={a.action} />
+                    </td>
+                    {tab === "tenant" ? (
+                      <>
+                        <td className="text-[12.5px]">
+                          {a.entityType}{" "}
+                          <span className="font-mono text-muted-foreground">
+                            {a.entityId ? `#${a.entityId.slice(0, 8)}` : ""}
+                          </span>
+                        </td>
+                        <td className="text-[12.5px] text-muted-foreground">{a.tenantName}</td>
+                        <td className="font-mono text-[12px] text-muted-foreground">
+                          {a.customerPhone ?? "-"}
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td>
+                          <div className="text-[13px] font-medium">{a.adminName}</div>
+                          <div className="text-[11.5px] text-muted-foreground">{a.adminEmail}</div>
+                        </td>
+                        <td className="text-[12.5px] text-muted-foreground">
+                          {a.targetType}{" "}
+                          <span className="font-mono">
+                            {a.targetId ? `#${a.targetId.slice(0, 8)}` : ""}
+                          </span>
+                        </td>
+                      </>
+                    )}
+                  </tr>
+                  {(a.beforeValue !== null && a.beforeValue !== undefined) ||
+                    (a.afterValue !== null && a.afterValue !== undefined) ? (
+                    <tr>
+                      <td colSpan={cols} className="border-t-0 pt-0 pb-3">
+                        <details>
+                          <summary className="cursor-pointer select-none text-[11.5px] text-muted-foreground transition-colors hover:text-foreground">
+                            Nilai sebelum / sesudah
+                          </summary>
+                          <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                            <JsonBlock label="Sebelum" value={a.beforeValue} />
+                            <JsonBlock label="Sesudah" value={a.afterValue} />
+                          </div>
+                        </details>
                       </td>
-                      <td className="text-[12.5px] text-muted-foreground">{a.tenantName}</td>
-                      <td className="font-mono text-[12px] text-muted-foreground">
-                        {a.customerPhone ?? "-"}
-                      </td>
-                    </>
-                  ) : (
-                    <>
-                      <td>
-                        <div className="text-[13px] font-medium">{a.adminName}</div>
-                        <div className="text-[11.5px] text-muted-foreground">{a.adminEmail}</div>
-                      </td>
-                      <td className="text-[12.5px] text-muted-foreground">
-                        {a.targetType}{" "}
-                        <span className="font-mono">
-                          {a.targetId ? `#${a.targetId.slice(0, 8)}` : ""}
-                        </span>
-                      </td>
-                    </>
-                  )}
-                </tr>
+                    </tr>
+                  ) : null}
+                </Fragment>
               ))}
               {loading && (
                 <tr>
                   <td
-                    colSpan={tab === "tenant" ? 5 : 4}
+                    colSpan={cols}
                     className="py-12 text-center text-[13px] text-muted-foreground"
                   >
                     Memuat...

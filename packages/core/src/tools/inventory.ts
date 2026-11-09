@@ -59,6 +59,9 @@ const inventoryRead: ToolDefinition<InventoryReadParams> = {
         quantity: resolved.quantity,
         source: resolved.source,
         sourceRef: resolved.sourceRef,
+        // FEA-8 (PRD 16): expose the winning snapshot's confidence (0-1)
+        // where source priority is resolved.
+        confidence: resolved.confidence,
       },
     };
   },

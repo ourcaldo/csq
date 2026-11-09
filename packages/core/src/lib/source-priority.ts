@@ -29,13 +29,26 @@ export function readSourcePriority(settings: unknown): string[] {
 }
 
 // Pick the snapshot whose source ranks highest in the tenant's priority order.
-// Returns null when there are no snapshots. Pure.
+// Returns null when there are no snapshots. Pure. FEA-8 (PRD 16): the resolved
+// value also carries the winning snapshot's confidence (0-1).
+export type ResolvedInventory = {
+  quantity: number;
+  source: InventorySource;
+  sourceRef: string | null;
+  confidence: number;
+};
+
 export function resolveInventoryBySnapshots(
-  snapshots: { source: InventorySource; quantity: number; sourceRef: string | null }[],
+  snapshots: {
+    source: InventorySource;
+    quantity: number;
+    sourceRef: string | null;
+    confidence: number;
+  }[],
   priority: string[]
-): { quantity: number; source: InventorySource; sourceRef: string | null } | null {
+): ResolvedInventory | null {
   if (snapshots.length === 0) return null;
-  let best: { source: InventorySource; quantity: number; sourceRef: string | null } | null = null;
+  let best: ResolvedInventory | null = null;
   let bestRank = Infinity;
   for (const s of snapshots) {
     const rank = priority.indexOf(s.source);
@@ -57,7 +70,7 @@ export async function resolveInventory(
   tenantId: string,
   productId: string,
   tx?: Prisma.TransactionClient
-): Promise<{ quantity: number; source: InventorySource; sourceRef: string | null } | null> {
+): Promise<ResolvedInventory | null> {
   const client = tx ?? prisma;
   const tenant = await client.tenant.findUnique({ where: { id: tenantId } });
   const priority = tenant ? readSourcePriority(tenant.settings) : [...DEFAULT_PRIORITY];
@@ -69,9 +82,15 @@ export async function resolveInventory(
   const resolved = resolveInventoryBySnapshots(snapshots, priority);
   if (resolved) return resolved;
 
-  // Fall back to the canonical Inventory row.
+  // Fall back to the canonical Inventory row. It carries no per-source
+  // confidence (it IS the resolved authority), so it reports full confidence.
   const inv = await client.inventory.findFirst({ where: { tenantId, productId } });
   return inv
-    ? { quantity: inv.quantity, source: inv.source, sourceRef: inv.sourceRef }
+    ? {
+        quantity: inv.quantity,
+        source: inv.source,
+        sourceRef: inv.sourceRef,
+        confidence: 1,
+      }
     : null;
 }

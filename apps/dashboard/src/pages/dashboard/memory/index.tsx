@@ -4,13 +4,14 @@ import type { GetServerSideProps } from "next";
 import { withAuth } from "@csq/core/lib/auth";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
-import type { ListResult, Memory, MemoryImportance } from "@csq/core/types/dashboard";
+import type { ListResult, Memory, MemoryImportance, MemorySource } from "@csq/core/types/dashboard";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { StateNotice } from "@/components/dashboard/state-notice";
 import { Pagination } from "@/components/dashboard/pagination";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import { Button } from "@csq/ui/components/ui/button";
 import { Select } from "@csq/ui/components/ui/select";
+import { cn } from "@csq/ui/lib/utils";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@csq/ui/components/ui/table";
 
 const PAGE_SIZE = 20;
@@ -21,6 +22,12 @@ const IMPORTANCE_LABEL: Record<MemoryImportance, string> = {
   LOW: "Rendah",
   MEDIUM: "Sedang",
   HIGH: "Tinggi",
+};
+
+// FEA-7 (PRD 16): where the memory row came from.
+const SOURCE_LABEL: Record<MemorySource, string> = {
+  CONVERSATION: "Percakapan",
+  MANUAL: "Manual",
 };
 
 // Narrow a <select> string to MemoryImportance without `as`.
@@ -129,6 +136,8 @@ export default function MemoryPage() {
                   <TableHead>Kunci</TableHead>
                   <TableHead>Nilai</TableHead>
                   <TableHead className="hidden sm:table-cell">Agen</TableHead>
+                  {/* FEA-7 (PRD 16): where the memory was captured. */}
+                  <TableHead>Sumber</TableHead>
                   <TableHead>Penting</TableHead>
                   <TableHead className="hidden sm:table-cell">Dibuat</TableHead>
                   <TableHead className="text-right">Aksi</TableHead>
@@ -137,7 +146,7 @@ export default function MemoryPage() {
               <TableBody>
                 {data && data.items.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6}>
+                    <TableCell colSpan={7}>
                       <StateNotice variant="empty" message="Belum ada memori." />
                     </TableCell>
                   </TableRow>
@@ -149,6 +158,18 @@ export default function MemoryPage() {
                       {m.value}
                     </TableCell>
                     <TableCell className="hidden text-muted-foreground sm:table-cell">{shortId(m.agentId)}</TableCell>
+                    <TableCell>
+                      <span
+                        className={cn(
+                          "inline-block rounded px-1.5 py-0.5 text-[10px] font-medium",
+                          m.source === "MANUAL"
+                            ? "bg-slate-100 text-slate-600"
+                            : "bg-blue-50 text-blue-700"
+                        )}
+                      >
+                        {SOURCE_LABEL[m.source]}
+                      </span>
+                    </TableCell>
                     <TableCell>
                       <Select
                         value={m.importance}

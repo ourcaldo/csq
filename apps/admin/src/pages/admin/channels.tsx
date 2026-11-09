@@ -13,12 +13,34 @@ type Channel = {
   provider: string;
   type: string;
   status: string;
+  createdAt: string;
+  updatedAt: string;
   leaseHeld: boolean;
   leaseUntil: string | null;
+  leaseToken: string | null;
+  leaseUpdatedAt: string | null;
 };
 type ChannelList = { items: Channel[] };
 
 export const getServerSideProps = withAdminAuth(async () => ({ props: {} }));
+
+function ago(iso: string): string {
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (mins < 1) return "baru saja";
+  if (mins < 60) return `${mins} mnt lalu`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} jam lalu`;
+  return `${Math.floor(hours / 24)} hari lalu`;
+}
+
+function when(iso: string): string {
+  return new Date(iso).toLocaleString("id-ID", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 export default function ChannelsPage() {
   const { data, loading, error, refresh } = useAdminApi<ChannelList>("/api/admin/channels");
@@ -71,6 +93,7 @@ export default function ChannelsPage() {
               <th>Status</th>
               <th>Lease</th>
               <th>Berakhir</th>
+              <th>Aktivitas terakhir</th>
               <th className="text-right">Aksi</th>
             </tr>
           </thead>
@@ -110,6 +133,11 @@ export default function ChannelsPage() {
                     />
                     {c.leaseHeld ? "Held" : "Free"}
                   </span>
+                  {c.leaseToken && c.leaseUpdatedAt && (
+                    <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+                      #{c.leaseToken.slice(0, 8)}, diperbarui {ago(c.leaseUpdatedAt)}
+                    </div>
+                  )}
                 </td>
                 <td className="whitespace-nowrap font-mono text-[12px] text-muted-foreground">
                   {c.leaseUntil
@@ -118,6 +146,9 @@ export default function ChannelsPage() {
                         minute: "2-digit",
                       })
                     : "-"}
+                </td>
+                <td className="whitespace-nowrap font-mono text-[12px] text-muted-foreground">
+                  {when(c.updatedAt)}
                 </td>
                 <td className="text-right">
                   <Btn
@@ -143,14 +174,14 @@ export default function ChannelsPage() {
             ))}
             {!loading && items.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-12 text-center text-[13px] text-muted-foreground">
+                <td colSpan={8} className="py-12 text-center text-[13px] text-muted-foreground">
                   Tidak ada saluran di seluruh tenant.
                 </td>
               </tr>
             )}
             {loading && (
               <tr>
-                <td colSpan={7} className="py-12 text-center text-[13px] text-muted-foreground">
+                <td colSpan={8} className="py-12 text-center text-[13px] text-muted-foreground">
                   Memuat...
                 </td>
               </tr>

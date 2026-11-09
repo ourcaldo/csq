@@ -44,6 +44,9 @@ export default async function handler(
     }
 
     const to = session.user.email;
+    if (!to) {
+      return respondError(res, "VALIDATION_ERROR", "Akun Anda tidak punya email untuk menerima tes.");
+    }
     try {
       const info = await sendEmailWithProvider(provider, {
         to,

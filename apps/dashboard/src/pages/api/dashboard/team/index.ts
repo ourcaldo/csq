@@ -6,9 +6,12 @@ import { paginate, requireTenant, respondError } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import type { ListResult } from "@csq/core/types/dashboard";
 
-// OWNER-only list of the tenant's users (PRD FR-AU-005). Tenant scoping comes
-// from the session (requireTenant), never the query. Select is explicit so we
-// never leak passwordHash to the dashboard.
+// List of the tenant's users. The team management page is OWNER-only
+// (FR-AU-005, gated server-side via SEC-3), but STAFF also reads this list:
+// the inbox assignment picker (FEA-6, PRD 16) needs the member names. All
+// mutations on team routes stay OWNER-only. Tenant scoping comes from the
+// session (requireTenant), never the query. Select is explicit so we never
+// leak passwordHash to the dashboard.
 
 export type UserItem = {
   id: string;
@@ -29,12 +32,8 @@ export default async function handler(
 
   const session = await getAuthSession(req, res);
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
-  if (!requireRole(session, "OWNER")) {
-    return respondError(
-      res,
-      "PERMISSION_DENIED",
-      "Hanya owner yang dapat melihat daftar tim."
-    );
+  if (!requireRole(session, "OWNER", "STAFF")) {
+    return respondError(res, "PERMISSION_DENIED", "Akses ditolak.");
   }
   const tenantId = requireTenant(session);
 

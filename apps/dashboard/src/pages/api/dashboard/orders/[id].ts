@@ -8,7 +8,9 @@ import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import { orderStatusUpdateSchema } from "@csq/core/types/order";
 
-type OrderWithItems = Prisma.OrderGetPayload<{ include: { items: true } }>;
+type OrderWithItems = Prisma.OrderGetPayload<{
+  include: { items: true; refunds: true };
+}>;
 
 export default async function handler(
   req: NextApiRequest,
@@ -27,7 +29,7 @@ export default async function handler(
     if (req.method === "GET") {
       const order = await prisma.order.findFirst({
         where: { id, tenantId },
-        include: { items: true },
+        include: { items: true, refunds: true },
       });
       if (!order) return respondError(res, "NOT_FOUND", "Pesanan tidak ditemukan.");
       return res.status(200).json(apiOk(order));
@@ -46,7 +48,7 @@ export default async function handler(
       const order = await prisma.order.update({
         where: { id },
         data: { status: parsed.data.status },
-        include: { items: true },
+        include: { items: true, refunds: true },
       });
       await logHuman({
         tenantId,

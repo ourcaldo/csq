@@ -102,6 +102,41 @@ export default async function handler(
       return { date: key, count: dailyMap.get(key) ?? 0 };
     });
 
+    // ADM-4 (PRD 16): platform KPIs - total users, 24h/7d volume, command
+    // queue depth, and scheduler lease freshness. Plain prisma counts are
+    // safe here: this whole handler runs inside withSystemContext.
+    const cutoff24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const cutoff7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const [users, messages24h, conversations24h, messages7d, conversations7d, commandQueue, tickLocks] =
+      await Promise.all([
+        prisma.user.count(),
+        prisma.message.count({ where: { createdAt: { gte: cutoff24h } } }),
+        prisma.conversation.count({ where: { createdAt: { gte: cutoff24h } } }),
+        prisma.message.count({ where: { createdAt: { gte: cutoff7d } } }),
+        prisma.conversation.count({ where: { createdAt: { gte: cutoff7d } } }),
+        prisma.channelCommand.count({ where: { status: "PENDING" } }),
+        prisma.systemLock.findMany({
+          where: { key: { in: ["campaign-tick", "scenario-tick", "sheets-sync"] } },
+        }),
+      ]);
+    // Ticks are run-and-release locks: rows exist only while running or when
+    // a tick crashed inside its TTL. lastTickAt null = no stale tick, and
+    // that is the healthy case.
+    const tickLast = tickLocks.reduce((max, l) => Math.max(max, l.updatedAt.getTime()), 0);
+    const kpis = {
+      users,
+      messages24h,
+      conversations24h,
+      messages7d,
+      conversations7d,
+      commandQueue,
+      tickFreshness: {
+        lastTickAt: tickLast > 0 ? new Date(tickLast).toISOString() : null,
+        heldLeases: tickLocks.filter((l) => l.lockedUntil > now).length,
+        staleLeases: tickLocks.filter((l) => l.lockedUntil <= now).length,
+      },
+    };
+
     const items = tenants.map((t) => {
       const agentReplies = replyMap.get(t.id) ?? 0;
       const scenarioCredits = scenarioMap.get(t.id) ?? 0;
@@ -139,7 +174,7 @@ export default async function handler(
 
     return res
       .status(200)
-      .json(apiOk({ items, monthStart: monthStart.toISOString(), daily }));
+      .json(apiOk({ items, monthStart: monthStart.toISOString(), daily, kpis }));
 
   });
 }

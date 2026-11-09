@@ -8,7 +8,15 @@ import { paginate, requireTenant, respondError, strQuery } from "@csq/core/lib/q
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import { productCreateSchema } from "@csq/core/types/product";
 
-type ListResult = { items: Product[]; total: number; page: number; pageSize: number };
+// FEA-7 (PRD 16): list rows carry the one-to-one Inventory quantity so the
+// products table can show stock; create/update return the bare Product.
+const productInclude = {
+  inventory: { select: { quantity: true } },
+} satisfies Prisma.ProductInclude;
+
+type ProductWithStock = Prisma.ProductGetPayload<{ include: typeof productInclude }>;
+
+type ListResult = { items: ProductWithStock[]; total: number; page: number; pageSize: number };
 
 export default async function handler(
   req: NextApiRequest,
@@ -27,7 +35,13 @@ export default async function handler(
         ...(search ? { name: { contains: search, mode: "insensitive" } } : {}),
       };
       const [items, total] = await Promise.all([
-        prisma.product.findMany({ where, skip, take, orderBy: { createdAt: "desc" } }),
+        prisma.product.findMany({
+          where,
+          skip,
+          take,
+          orderBy: { createdAt: "desc" },
+          include: productInclude,
+        }),
         prisma.product.count({ where }),
       ]);
       return res.status(200).json(apiOk({ items, total, page, pageSize }));

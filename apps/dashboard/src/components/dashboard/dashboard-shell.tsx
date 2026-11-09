@@ -39,6 +39,7 @@ import {
   FlowArrow,
   Notepad,
   Megaphone,
+  Lifebuoy,
 } from "@phosphor-icons/react";
 import { cn } from "@csq/ui/lib/utils";
 import { Seo } from "@csq/ui/components/seo";
@@ -65,6 +66,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/dashboard", label: "Ringkasan", icon: <ChartBar size={18} /> },
       { href: "/dashboard/inbox", label: "Percakapan", icon: <ChatCircleDots size={18} /> },
+      { href: "/dashboard/tickets", label: "Tiket", icon: <Lifebuoy size={18} /> },
       { href: "/dashboard/campaigns", label: "Kampanye", icon: <Megaphone size={18} />, feature: "campaigns" },
       { href: "/dashboard/templates", label: "Template Pesan", icon: <Notepad size={18} /> },
       { href: "/dashboard/saluran", label: "Saluran", icon: <WhatsappLogo size={18} /> },

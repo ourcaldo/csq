@@ -37,8 +37,13 @@ export default async function handler(
           id: c.id, tenantName: c.tenant.name, tenantSlug: c.tenant.slug,
           tenantStatus: c.tenant.status, provider: c.provider, type: c.type,
           status: c.status, createdAt: c.createdAt.toISOString(),
+          updatedAt: c.updatedAt.toISOString(),
           leaseHeld: lease ? lease.lockedUntil > new Date() : false,
           leaseUntil: lease?.lockedUntil?.toISOString() ?? null,
+          // ADM-5 (PRD 16): which worker holds the socket lease and for how
+          // long its last renewal was.
+          leaseToken: lease?.token ?? null,
+          leaseUpdatedAt: lease?.updatedAt.toISOString() ?? null,
         };
       });
       return res.status(200).json(apiOk({ items }));

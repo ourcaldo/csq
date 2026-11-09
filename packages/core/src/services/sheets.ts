@@ -8,7 +8,11 @@ import type { OAuthCredentials, SpreadsheetRef } from "@csq/core/types/sheets";
 // never reach the client bundle.
 
 const SCOPES = [
-  "https://www.googleapis.com/auth/spreadsheets", // read + write (writeSheet is opt-in per source)
+  // PRD 16 OPS-4: Sheets is read-only. The full spreadsheets scope stays
+  // (not .readonly) because the OAuth consent screen and already-granted
+  // tokens used it; narrowing would force every tenant to re-consent for
+  // zero product change.
+  "https://www.googleapis.com/auth/spreadsheets",
   "https://www.googleapis.com/auth/drive.readonly",
 ];
 
@@ -110,26 +114,5 @@ export async function readSheet(
   });
 
   return { headers, rows };
-}
-
-// Write values to a range (plan 4.3). Only used when write capability is
-// explicitly enabled for a source - the MVP sync loop is read-only; this is
-// here for future "push stock back to the sheet" flows. Values are typed as
-// primitives so the googleapis request body type-checks without a cast.
-type CellValue = string | number | boolean | null;
-
-export async function writeSheet(
-  creds: OAuthCredentials,
-  spreadsheetId: string,
-  range: string,
-  values: CellValue[][]
-): Promise<void> {
-  const sheets = google.sheets({ version: "v4", auth: authedClient(creds) });
-  await sheets.spreadsheets.values.update({
-    spreadsheetId,
-    range,
-    valueInputOption: "RAW",
-    requestBody: { values },
-  });
 }
 

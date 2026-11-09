@@ -28,8 +28,6 @@ type FindSimilarRow = {
 type FindSimilarOptions = {
   threshold?: number;
   limit?: number;
-  // Reserved for future agent-scope filters; not yet applied (single vector model).
-  filters?: Record<string, unknown>;
 };
 
 function assertModel(model: VectorModel): void {

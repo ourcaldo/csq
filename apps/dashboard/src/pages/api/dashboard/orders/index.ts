@@ -6,7 +6,9 @@ import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { paginate, requireTenant, respondError, strQuery } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 
-type OrderWithItems = Prisma.OrderGetPayload<{ include: { items: true } }>;
+type OrderWithItems = Prisma.OrderGetPayload<{
+  include: { items: true; refunds: true };
+}>;
 type ListResult = {
   items: OrderWithItems[];
   total: number;
@@ -43,7 +45,7 @@ export default async function handler(
           where,
           skip,
           take,
-          include: { items: true },
+          include: { items: true, refunds: true },
           orderBy: { createdAt: "desc" },
         }),
         prisma.order.count({ where }),

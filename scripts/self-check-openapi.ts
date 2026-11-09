@@ -13,7 +13,10 @@ const requiredPaths = [
   "/api/v1/tools",
   "/api/v1/tools/{tool}",
   "/api/v1/webhook-diag",
+  "/api/v1/openapi",
   "/api/media/{id}",
+  "/api/health",
+  "/api/webhooks/whatsapp",
 ];
 
 for (const path of requiredPaths) {

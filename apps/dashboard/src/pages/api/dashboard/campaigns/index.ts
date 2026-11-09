@@ -18,7 +18,14 @@ import {
 // Campaign list + create (feature plan 2026-11-01, sections 3.6).
 // Access: OWNER, or STAFF with the campaign permission (decision 2.2).
 
-type ListResult = { items: CampaignRow[]; total: number; page: number; pageSize: number };
+type ListResult = {
+  items: CampaignRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  // OPS-1 (PRD 16): status cards data.
+  stats: { active: number; sentThisMonth: number };
+};
 
 export default async function handler(
   req: NextApiRequest,
@@ -32,15 +39,29 @@ export default async function handler(
 
   return withTenantContext(tenantId, async () => {
     if (req.method === "GET") {
-      const [rows, total] = await Promise.all([
+      const monthStart = new Date(
+        Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), 1)
+      );
+      const [rows, total, active, sentAgg] = await Promise.all([
         prisma.campaign.findMany({
           where: { tenantId },
           orderBy: { createdAt: "desc" },
         }),
         prisma.campaign.count({ where: { tenantId } }),
+        prisma.campaign.count({ where: { tenantId, status: "ACTIVE" } }),
+        prisma.campaignMessage.aggregate({
+          where: { tenantId, status: "SENT", sentAt: { gte: monthStart } },
+          _count: { id: true },
+        }),
       ]);
       return res.status(200).json(
-        apiOk({ items: rows.map(serialize), total, page: 1, pageSize: rows.length })
+        apiOk({
+          items: rows.map(serialize),
+          total,
+          page: 1,
+          pageSize: rows.length,
+          stats: { active, sentThisMonth: sentAgg._count.id },
+        })
       );
     }
 

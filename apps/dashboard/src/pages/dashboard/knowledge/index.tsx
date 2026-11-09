@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import type { GetServerSideProps } from "next";
+import { FileText } from "@phosphor-icons/react";
 import { withAuth } from "@csq/core/lib/auth";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
@@ -47,6 +48,25 @@ function formatDate(iso: string): string {
   return d.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
 }
 
+// readAsDataURL yields "data:<mime>;base64,<payload>"; keep the payload only.
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result !== "string") {
+        reject(new Error("Gagal membaca berkas."));
+        return;
+      }
+      resolve(result.includes(",") ? result.split(",")[1] : result);
+    };
+    reader.onerror = () => reject(new Error("Gagal membaca berkas."));
+    reader.readAsDataURL(file);
+  });
+}
+
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+
 export default function KnowledgePage() {
   const [typeFilter, setTypeFilter] = useState("");
   const [page, setPage] = useState(1);
@@ -68,6 +88,13 @@ export default function KnowledgePage() {
 
   const [toDelete, setToDelete] = useState<Knowledge | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // FEA-1 (PRD 16): document upload dialog (PDF/DOCX).
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadTitle, setUploadTitle] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const url = `/api/dashboard/knowledge?page=${page}&pageSize=${PAGE_SIZE}${
     typeFilter ? `&type=${typeFilter}` : ""
@@ -93,6 +120,36 @@ export default function KnowledgePage() {
       setFormError(err instanceof Error ? err.message : "Gagal menambah pengetahuan.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function onUpload(e: FormEvent) {
+    e.preventDefault();
+    if (!uploadFile) {
+      setUploadError("Pilih berkas PDF atau DOCX.");
+      return;
+    }
+    if (uploadFile.size > MAX_UPLOAD_BYTES) {
+      setUploadError("Dokumen maksimal 10 MB.");
+      return;
+    }
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const base64 = await fileToBase64(uploadFile);
+      await apiSend<Knowledge>("/api/dashboard/knowledge/upload", "POST", {
+        filename: uploadFile.name,
+        base64,
+        ...(uploadTitle.trim() ? { title: uploadTitle.trim() } : {}),
+      });
+      setUploadOpen(false);
+      setUploadFile(null);
+      setUploadTitle("");
+      refresh();
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Gagal mengunggah dokumen.");
+    } finally {
+      setUploading(false);
     }
   }
 
@@ -142,7 +199,14 @@ export default function KnowledgePage() {
     <DashboardShell
       title="Pengetahuan"
       description="FAQ, kebijakan, dan info usaha untuk agen."
-      actions={<Button onClick={() => setCreateOpen(true)}>Tambah Pengetahuan</Button>}
+      actions={
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => setUploadOpen(true)}>
+            Unggah Dokumen
+          </Button>
+          <Button onClick={() => setCreateOpen(true)}>Tambah Pengetahuan</Button>
+        </div>
+      }
     >
       <div className="mb-4 flex items-center gap-2">
         <Label htmlFor="knowledge-type-filter" className="sr-only">
@@ -189,7 +253,16 @@ export default function KnowledgePage() {
                 )}
                 {data?.items.map((k) => (
                   <TableRow key={k.id}>
-                    <TableCell className="font-medium">{k.title}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex flex-col gap-1">
+                        {k.title}
+                        {k.sourceName && (
+                          <span className="inline-flex w-fit items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-normal text-muted-foreground">
+                            <FileText size={12} /> {k.sourceName}
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <Badge variant="secondary">{TYPE_LABEL[k.type]}</Badge>
                     </TableCell>
@@ -268,6 +341,47 @@ export default function KnowledgePage() {
             </Button>
             <Button type="submit" disabled={saving}>
               {saving ? "Menyimpan…" : "Simpan"}
+            </Button>
+          </div>
+        </form>
+      </Dialog>
+
+      {/* FEA-1 (PRD 16): document upload dialog. */}
+      <Dialog
+        open={uploadOpen}
+        onClose={() => setUploadOpen(false)}
+        title="Unggah Dokumen"
+      >
+        <form onSubmit={onUpload} className="flex flex-col gap-4">
+          {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="knowledge-file">Berkas PDF atau DOCX</Label>
+            <Input
+              id="knowledge-file"
+              type="file"
+              accept=".pdf,.docx"
+              required
+              onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Maksimal 10 MB. Teks diekstrak otomatis dan bisa dicari agen.
+            </p>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="knowledge-upload-title">Judul (opsional)</Label>
+            <Input
+              id="knowledge-upload-title"
+              value={uploadTitle}
+              placeholder={uploadFile?.name ?? "Nama berkas"}
+              onChange={(e) => setUploadTitle(e.target.value)}
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setUploadOpen(false)}>
+              Batal
+            </Button>
+            <Button type="submit" disabled={uploading}>
+              {uploading ? "Mengunggah…" : "Unggah"}
             </Button>
           </div>
         </form>

@@ -36,13 +36,14 @@ export type ToolDefault = {
 export const TOOL_GROUPS: { label: string; tools: string[] }[] = [
   { label: "Produk", tools: ["product.read", "product.search", "product.update"] },
   { label: "Inventaris", tools: ["inventory.read", "inventory.update"] },
-  { label: "Pesanan", tools: ["order.read", "order.create", "order.cancel"] },
+  { label: "Pesanan", tools: ["order.read", "order.create", "order.refund", "order.cancel"] },
   { label: "Kontak", tools: ["customer.read", "customer.update"] },
   { label: "Pengetahuan", tools: ["knowledge.search"] },
   { label: "Percakapan", tools: ["conversation.handoff"] },
   { label: "Ingatan", tools: ["memory.search", "memory.create"] },
   { label: "Sumber Data", tools: ["source.search"] },
   { label: "Pipeline", tools: ["deal.setStage"] },
+  { label: "Dukungan", tools: ["support.create_ticket"] },
 ];
 
 export function statusTone(status: AgentStatus): "neutral" | "green" | "amber" {

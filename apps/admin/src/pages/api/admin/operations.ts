@@ -34,10 +34,12 @@ export default async function handler(
           include: { channel: { select: { provider: true } } },
         }),
         prisma.dataSource.findMany({
-          where: { type: "GOOGLE_SHEETS", status: "ACTIVE" },
+          // ADM-5 (PRD 16): failing sources stay visible so a broken sync is
+          // seen, not hidden behind the ACTIVE filter.
+          where: { type: "GOOGLE_SHEETS", status: { in: ["ACTIVE", "ERROR"] } },
           orderBy: { lastSyncAt: "asc" },
           take: 20,
-          select: { id: true, name: true, lastSyncAt: true, tenantId: true },
+          select: { id: true, name: true, status: true, lastSyncAt: true, tenantId: true },
         }),
       ]);
       return res.status(200).json(apiOk({
@@ -54,7 +56,10 @@ export default async function handler(
           channelId: c.channelId, provider: c.channel.provider,
           createdAt: c.createdAt.toISOString(),
         })),
-        sources: sources.map((s) => ({ ...s, lastSyncAt: s.lastSyncAt?.toISOString() ?? null })),
+        sources: sources.map((s) => ({
+          ...s,
+          lastSyncAt: s.lastSyncAt?.toISOString() ?? null,
+        })),
       }));
     }
 

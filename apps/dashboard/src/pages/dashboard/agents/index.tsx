@@ -13,6 +13,7 @@ import { Button } from "@csq/ui/components/ui/button";
 import { AgentKpiRow } from "@/components/dashboard/agents/agent-kpi-row";
 import { AgentCard } from "@/components/dashboard/agents/agent-card";
 import { AgentDialog } from "@/components/dashboard/agents/agent-dialog";
+import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import {
   capabilityMap,
   type AgentsList,
@@ -42,6 +43,10 @@ export default function AgentsPage() {
   const [createName, setCreateName] = useState("");
   const [createInstructions, setCreateInstructions] = useState("");
   const [savingCreate, setSavingCreate] = useState(false);
+
+  // FEA-4 (PRD 16): delete-agent confirm state.
+  const [toDelete, setToDelete] = useState<AgentWithCapabilities | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const agents = useMemo(() => data?.items ?? [], [data]);
 
@@ -80,6 +85,21 @@ export default function AgentsPage() {
       setPageError(err instanceof Error ? err.message : "Gagal menjeda agent.");
     } finally {
       setActioningId(null);
+    }
+  }
+
+  async function onDelete() {
+    if (!toDelete) return;
+    setDeleting(true);
+    setPageError(null);
+    try {
+      await apiSend(`/api/dashboard/agents/${toDelete.id}`, "DELETE");
+      setToDelete(null);
+      refresh();
+    } catch (err) {
+      setPageError(err instanceof Error ? err.message : "Gagal menghapus agent.");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -209,6 +229,7 @@ export default function AgentsPage() {
               onEdit={openEdit}
               onPause={onPause}
               onDeploy={onDeploy}
+              onDelete={setToDelete}
               onCapabilityChange={onCapabilityChange}
             />
           ))}
@@ -237,6 +258,17 @@ export default function AgentsPage() {
         onInstructionsChange={setCreateInstructions}
         onClose={() => setCreating(false)}
         onSave={() => void onSaveCreate()}
+      />
+
+      <ConfirmDialog
+        open={toDelete !== null}
+        title="Hapus Agent"
+        description={`Yakin ingin menghapus agent "${toDelete?.name}"? Kapabilitas dan memorinya ikut terhapus.`}
+        confirmLabel="Hapus"
+        destructive
+        loading={deleting}
+        onConfirm={() => void onDelete()}
+        onCancel={() => setToDelete(null)}
       />
 
     </DashboardShell>

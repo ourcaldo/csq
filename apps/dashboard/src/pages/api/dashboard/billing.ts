@@ -32,7 +32,10 @@ export default async function handler(
   return withTenantContext(tenantId, async () => {
     if (req.method === "GET") {
       const monthStart = monthStartUtc();
-      const [entitlements, usage, invoices, plans, openRequest, settings] = await Promise.all([
+      // BIL-2 (PRD 16): one fetch for the newest request of any status. The
+      // one-open-request guard means an open request is always the newest
+      // one, so openRequest is derived from the same row.
+      const [entitlements, usage, invoices, plans, latestRequest, settings] = await Promise.all([
         getTenantEntitlements(tenantId),
         getTenantUsage(tenantId, monthStart),
         prisma.invoice.findMany({
@@ -67,12 +70,16 @@ export default async function handler(
           },
         }),
         prisma.planRequest.findFirst({
-          where: { tenantId, status: { in: ["NEW", "CONTACTED"] } },
+          where: { tenantId },
           orderBy: { createdAt: "desc" },
           include: { requestedPlan: { select: { name: true } } },
         }),
         prisma.billingSetting.findUnique({ where: { id: "singleton" } }),
       ]);
+      const openRequest =
+        latestRequest && (latestRequest.status === "NEW" || latestRequest.status === "CONTACTED")
+          ? latestRequest
+          : null;
 
       return res.status(200).json(
         apiOk({
@@ -95,6 +102,15 @@ export default async function handler(
                 status: openRequest.status,
                 note: openRequest.note,
                 createdAt: openRequest.createdAt.toISOString(),
+              }
+            : null,
+          latestRequest: latestRequest
+            ? {
+                id: latestRequest.id,
+                requestedPlanId: latestRequest.requestedPlanId,
+                requestedPlanName: latestRequest.requestedPlan.name,
+                status: latestRequest.status,
+                createdAt: latestRequest.createdAt.toISOString(),
               }
             : null,
           bank:

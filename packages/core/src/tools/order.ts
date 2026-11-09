@@ -461,9 +461,106 @@ const orderCancel: ToolDefinition<OrderCancelParams> = {
   },
 };
 
+// FEA-2 (PRD 16): order.refund records a refund on an order. Approval-gated
+// (denied + approval by default): the agent's call only snapshots a pending
+// Approval row - executeTool never runs this handler on the agent call. The
+// handler runs only when the OWNER approves (executeApprovedAction), so the
+// Refund row is written as APPROVED with resolvedAt set. Record-only: no
+// payment gateway (PRD 16 non-goal) and Order.status stays untouched (the
+// enum has no REFUNDED value).
+const orderRefundSchema = z.object({
+  orderId: z.string().uuid(),
+  amount: z.number().positive().optional(),
+  reason: z.string().max(500).optional(),
+});
+type OrderRefundParams = z.infer<typeof orderRefundSchema>;
+
+const orderRefund: ToolDefinition<OrderRefundParams> = {
+  name: "order.refund",
+  description:
+    "Record a refund for an order. Requires owner approval. Amount defaults to the order total when omitted.",
+  category: "order",
+  parameters: orderRefundSchema,
+  defaultPermission: { allowed: false, requiresApproval: true },
+  async handler(ctx): Promise<ToolResult> {
+    const p = ctx.params;
+    const order = await ctx.prisma.order.findFirst({
+      where: { tenantId: ctx.tenantId, id: p.orderId },
+    });
+    if (!order) {
+      return { success: false, error: "Order not found", errorCode: "NOT_FOUND" };
+    }
+    if (p.amount !== undefined && p.amount > order.totalAmount.toNumber()) {
+      return {
+        success: false,
+        error: "Refund amount exceeds the order total",
+        errorCode: "VALIDATION_ERROR",
+      };
+    }
+    const refund = await ctx.prisma.refund.create({
+      data: {
+        tenantId: ctx.tenantId,
+        orderId: order.id,
+        amount: p.amount ?? order.totalAmount,
+        reason: p.reason ?? null,
+        status: "APPROVED",
+        createdByAgentId: ctx.agentId,
+        resolvedAt: new Date(),
+      },
+    });
+    await ctx.audit({
+      action: "order.refund",
+      entityType: "refund",
+      entityId: refund.id,
+      beforeValue: {
+        orderId: order.id,
+        orderStatus: order.status,
+        orderTotalAmount: order.totalAmount.toString(),
+      },
+      afterValue: {
+        id: refund.id,
+        orderId: refund.orderId,
+        amount: refund.amount.toString(),
+        reason: refund.reason,
+        status: refund.status,
+      },
+      customerPhone: order.customerPhone ?? undefined,
+    });
+    return {
+      success: true,
+      data: {
+        refundId: refund.id,
+        orderId: order.id,
+        amount: refund.amount.toString(),
+        status: refund.status,
+      },
+    };
+  },
+  async describeChange(params, { tenantId, prisma }): Promise<{
+    proposedBefore: Prisma.InputJsonValue;
+    proposedAfter: Prisma.InputJsonValue;
+  }> {
+    const before = await prisma.order.findFirst({
+      where: { tenantId, id: params.orderId },
+      include: { items: { include: { product: true } } },
+    });
+    const amount = params.amount ?? before?.totalAmount.toString() ?? null;
+    return {
+      proposedBefore: before ? serializeOrder(before) : {},
+      proposedAfter: {
+        orderId: params.orderId,
+        amount,
+        reason: params.reason ?? null,
+        status: "APPROVED",
+      },
+    };
+  },
+};
+
 export const orderTools: ToolDefinition<any>[] = [
   orderRead,
   orderList,
   orderCreate,
   orderCancel,
+  orderRefund,
 ];

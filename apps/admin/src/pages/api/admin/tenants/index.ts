@@ -1,8 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { Prisma } from "@prisma/client";
 import prisma from "@csq/core/lib/db";
 import { apiError, apiOk, type ApiResponse } from "@csq/core/types/api";
 import { requireAdmin, auditAdminAction } from "@/lib/admin-auth";
-import { hashPassword } from "@csq/core/lib/password";
+import { createTenantWithOwner } from "@csq/core/lib/provision-tenant";
 import { z } from "zod";
 import { withSystemContext } from "@csq/core/lib/tenant-context";
 
@@ -38,8 +39,21 @@ export default async function handler(
   return withSystemContext(async () => {
 
     if (req.method === "GET") {
+      // ADM-2 (PRD 16): q matches name or slug, status filters ACTIVE/SUSPENDED.
+      const { q, status } = req.query;
+      const where: Prisma.TenantWhereInput = {};
+      if (typeof q === "string" && q.trim()) {
+        where.OR = [
+          { name: { contains: q.trim(), mode: "insensitive" } },
+          { slug: { contains: q.trim(), mode: "insensitive" } },
+        ];
+      }
+      if (status === "ACTIVE" || status === "SUSPENDED") {
+        where.status = status;
+      }
       const cutoff30d = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
       const tenants = await prisma.tenant.findMany({
+        where,
         orderBy: { createdAt: "desc" },
         select: {
           id: true, name: true, slug: true, status: true, createdAt: true,
@@ -82,25 +96,16 @@ export default async function handler(
         return res.status(409).json(apiError("VALIDATION_ERROR", `Email "${ownerEmail}" sudah terdaftar.`));
       }
 
-      const tenant = await prisma.tenant.create({
-        data: {
-          name, slug, status: "ACTIVE",
-          users: {
-            create: {
-              email: ownerEmail, name: ownerName, role: "OWNER", canRunCampaigns: true,
-              passwordHash: await hashPassword(ownerPassword),
-            },
-          },
-        },
-        select: { id: true, name: true, slug: true },
+      const { tenantId } = await createTenantWithOwner({
+        name, slug, ownerEmail, ownerName, ownerPassword,
       });
 
       await auditAdminAction({
         adminId: admin.adminId, action: "tenant.create",
-        targetType: "Tenant", targetId: tenant.id,
+        targetType: "Tenant", targetId: tenantId,
         afterValue: { name, slug, ownerEmail },
       });
-      return res.status(201).json(apiOk(tenant));
+      return res.status(201).json(apiOk({ id: tenantId, name, slug }));
     }
 
     return res.status(405).json(apiError("METHOD_NOT_ALLOWED", "Method not allowed"));

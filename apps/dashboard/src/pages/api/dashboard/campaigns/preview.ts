@@ -14,7 +14,7 @@ import { campaignPreviewSchema } from "@csq/core/types/campaign";
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<ApiResponse<{ total: number }>>
+  res: NextApiResponse<ApiResponse<{ total: number; byCategory: { categoryId: string; name: string; count: number }[] }>>
 ) {
   const session = await getAuthSession(req, res);
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
@@ -47,6 +47,26 @@ export default async function handler(
             : { tenantId, id: { in: input.contactIds } };
 
     const total = await prisma.contact.count({ where });
-    return res.status(200).json(apiOk({ total }));
+
+    // OPS-1 (PRD 16): per-category breakdown when the audience is CATEGORY.
+    let byCategory: { categoryId: string; name: string; count: number }[] = [];
+    if (input.audience === "CATEGORY" && input.categoryIds.length > 0) {
+      const categories = await prisma.category.findMany({
+        where: { tenantId, id: { in: input.categoryIds } },
+        select: { id: true, name: true },
+      });
+      const counts = await prisma.contactCategory.groupBy({
+        by: ["categoryId"],
+        where: { tenantId, categoryId: { in: input.categoryIds } },
+        _count: { contactId: true },
+      });
+      const countMap = new Map(counts.map((c) => [c.categoryId, c._count.contactId]));
+      byCategory = categories.map((c) => ({
+        categoryId: c.id,
+        name: c.name,
+        count: countMap.get(c.id) ?? 0,
+      }));
+    }
+    return res.status(200).json(apiOk({ total, byCategory }));
   });
 }

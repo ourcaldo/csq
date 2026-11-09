@@ -39,6 +39,7 @@ type WizardProps = {
   contactIds: string[];
   onToggleContact: (id: string) => void;
   previewTotal: number | null;
+  previewByCategory: { categoryId: string; name: string; count: number }[];
   templates: MessageTemplateRow[];
   templateKey: string;
   onTemplateKey: (v: string) => void;
@@ -190,6 +191,31 @@ export function CampaignWizardSteps(props: WizardProps) {
             {props.audience === "ALL" ? props.contactTotal || "…" : props.previewTotal ?? "…"}
           </strong>
         </p>
+        {props.audience === "CATEGORY" && props.previewByCategory.length > 0 && (
+          <div className="rounded-md border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600">
+            <p className="mb-1 font-medium">Rincian per kategori:</p>
+            {props.previewByCategory.map((c) => (
+              <p key={c.categoryId} className="flex justify-between">
+                <span>{c.name}</span>
+                <span className="font-medium">{c.count}</span>
+              </p>
+            ))}
+          </div>
+        )}
+        {(props.audience === "ALL" ? props.contactTotal : props.previewTotal ?? 0) > 250 && (
+          <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-700">
+            Perhatian: audiens di atas 250 penerima. Batas awal pengiriman template Meta
+            adalah 250 penerima unik per 24 jam di luar jendela chat (naik ke 2.000
+            setelah verifikasi bisnis) - penerima di atasnya berisiko gagal terkirim.
+          </p>
+        )}
+        {props.channels.find((c) => c.id === props.channelId)?.provider === "CLOUD_API" && (
+          <p className="rounded-md border border-blue-500/30 bg-blue-500/10 p-2 text-xs text-blue-700">
+            Di saluran resmi (Cloud API), setiap pesan terkirim dikenakan biaya per
+            pesan oleh Meta sesuai tarif pasar. Pesan bebas hanya sampai ke pelanggan
+            yang chat dalam 24 jam terakhir.
+          </p>
+        )}
       </div>
     );
   }

@@ -1,12 +1,14 @@
 import { type FormEvent, useState } from "react";
+import Link from "next/link";
 import { Plus, X } from "@phosphor-icons/react";
 import { AdminShell } from "@/components/admin-shell";
-import { Btn, PageHead, Status, TableCard } from "@/components/console";
+import { Btn, PageHead, Status, TableCard, btnClass } from "@/components/console";
 import { Dialog } from "@csq/ui/components/ui/dialog";
 import { withAdminAuth } from "@/lib/admin-auth";
 import { useAdminApi, adminFetch } from "@/lib/admin-api";
 import { Input } from "@csq/ui/components/ui/input";
 import { Label } from "@csq/ui/components/ui/label";
+import { Select } from "@csq/ui/components/ui/select";
 
 type Tenant = {
   id: string;
@@ -26,7 +28,19 @@ const EMPTY_FORM = { name: "", slug: "", ownerEmail: "", ownerName: "", ownerPas
 export const getServerSideProps = withAdminAuth(async () => ({ props: {} }));
 
 export default function TenantsPage() {
-  const { data, loading, error, refresh } = useAdminApi<TenantList>("/api/admin/tenants");
+  // ADM-2 (PRD 16): search + status filter. qInput buffers the text box so
+  // typing does not refetch per keystroke; the list URL only changes on
+  // submit (or when the status select changes).
+  const [qInput, setQInput] = useState("");
+  const [q, setQ] = useState("");
+  const [status, setStatus] = useState("");
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  if (status) params.set("status", status);
+  const qs = params.toString();
+  const { data, loading, error, refresh } = useAdminApi<TenantList>(
+    qs ? `/api/admin/tenants?${qs}` : "/api/admin/tenants"
+  );
   const [showCreate, setShowCreate] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -85,12 +99,42 @@ export default function TenantsPage() {
         </div>
       )}
 
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          setQ(qInput.trim());
+        }}
+        className="mb-4 flex flex-wrap items-center gap-2"
+      >
+        <Input
+          value={qInput}
+          onChange={(e) => setQInput(e.target.value)}
+          placeholder="Cari nama atau slug"
+          aria-label="Cari tenant"
+          className="h-9 w-56"
+        />
+        <Select
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
+          aria-label="Filter status"
+          className="h-9 w-40"
+        >
+          <option value="">Semua status</option>
+          <option value="ACTIVE">Aktif</option>
+          <option value="SUSPENDED">Ditangguhkan</option>
+        </Select>
+        <Btn type="submit" variant="line">
+          Cari
+        </Btn>
+      </form>
+
       <TableCard>
         <table className="ledger">
           <thead>
             <tr>
               <th>Nama</th>
               <th>Status</th>
+              <th>Kesehatan</th>
               <th className="text-right">Pengguna</th>
               <th className="text-right">Saluran</th>
               <th className="text-right">Percakapan</th>
@@ -111,6 +155,11 @@ export default function TenantsPage() {
                     {t.status === "ACTIVE" ? "Aktif" : "Ditangguhkan"}
                   </Status>
                 </td>
+                <td>
+                  <Status tone={t.channelCount > 0 && t.messageCount30d > 0 ? "ok" : "off"}>
+                    {t.channelCount > 0 && t.messageCount30d > 0 ? "Sehat" : "Diam"}
+                  </Status>
+                </td>
                 <td className="text-right font-mono tabular-nums">{t.userCount}</td>
                 <td className="text-right font-mono tabular-nums">{t.channelCount}</td>
                 <td className="text-right font-mono tabular-nums">{t.conversationCount}</td>
@@ -123,6 +172,12 @@ export default function TenantsPage() {
                   })}
                 </td>
                 <td className="text-right">
+                  <Link
+                    href={`/admin/tenants/${t.id}`}
+                    className={`${btnClass("ghost")} mr-1`}
+                  >
+                    Detail
+                  </Link>
                   <Btn
                     variant="ghost"
                     disabled={busy === t.id}
@@ -138,14 +193,14 @@ export default function TenantsPage() {
             ))}
             {!loading && items.length === 0 && (
               <tr>
-                <td colSpan={8} className="py-12 text-center text-[13px] text-muted-foreground">
-                  Belum ada tenant. Buat tenant pertama untuk mulai.
+                <td colSpan={9} className="py-12 text-center text-[13px] text-muted-foreground">
+                  Tidak ada tenant yang cocok.
                 </td>
               </tr>
             )}
             {loading && (
               <tr>
-                <td colSpan={8} className="py-12 text-center text-[13px] text-muted-foreground">
+                <td colSpan={9} className="py-12 text-center text-[13px] text-muted-foreground">
                   Memuat...
                 </td>
               </tr>

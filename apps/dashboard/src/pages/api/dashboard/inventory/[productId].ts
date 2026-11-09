@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import type { Inventory } from "@prisma/client";
+import type { Inventory, InventorySnapshot } from "@prisma/client";
 import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { logHuman } from "@csq/core/lib/audit";
@@ -8,9 +8,13 @@ import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import { inventoryUpdateSchema } from "@csq/core/types/inventory";
 
+// FEA-8 (PRD 16): GET returns the per-source snapshots (with confidence) for
+// the inventory detail dialog; PUT updates the canonical row.
+type SnapshotListResult = { snapshots: InventorySnapshot[] };
+
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<ApiResponse<Inventory>>
+  res: NextApiResponse<ApiResponse<Inventory | SnapshotListResult>>
 ) {
   const session = await getAuthSession(req, res);
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
@@ -20,6 +24,14 @@ export default async function handler(
     const { productId } = req.query;
     if (typeof productId !== "string") {
       return respondError(res, "VALIDATION_ERROR", "ID produk tidak valid.");
+    }
+
+    if (req.method === "GET") {
+      const snapshots = await prisma.inventorySnapshot.findMany({
+        where: { tenantId, productId },
+        orderBy: { updatedAt: "desc" },
+      });
+      return res.status(200).json(apiOk({ snapshots }));
     }
 
     if (req.method === "PUT") {

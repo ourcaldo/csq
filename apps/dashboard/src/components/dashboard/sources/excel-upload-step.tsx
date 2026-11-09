@@ -159,7 +159,7 @@ export function ExcelUploadStep({ onDone }: Props) {
       <input
         ref={inputRef}
         type="file"
-        accept=".xlsx,.xls,.csv"
+        accept=".xlsx,.csv"
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0];

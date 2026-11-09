@@ -94,6 +94,7 @@ function Navbar() {
           <a href="#cara-kerja" className="hover:text-slate-900">Cara Kerja</a>
           <a href="#biaya" className="hover:text-slate-900">Biaya</a>
           <a href="#faq" className="hover:text-slate-900">FAQ</a>
+          <Link href="/getting-started" className="hover:text-slate-900">Memulai</Link>
         </div>
         <Link href="/register" className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-800">
           Coba gratis <ArrowRight size={14} weight="bold" />

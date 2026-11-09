@@ -2,9 +2,9 @@ import { useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import type { GetServerSideProps } from "next";
 import { withAuth } from "@csq/core/lib/auth";
-import { apiSend } from "@/lib/api-client";
+import { apiFetch, apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
-import type { InventorySource, InventoryWithProduct, ListResult } from "@csq/core/types/dashboard";
+import type { InventorySource, InventorySnapshotRow, InventoryWithProduct, ListResult } from "@csq/core/types/dashboard";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { StateNotice } from "@/components/dashboard/state-notice";
 import { Pagination } from "@/components/dashboard/pagination";
@@ -39,6 +39,10 @@ export default function InventoryPage() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // FEA-8 (PRD 16): per-source snapshots shown in the edit dialog.
+  const [snapshots, setSnapshots] = useState<InventorySnapshotRow[] | null>(null);
+  const [snapshotsLoading, setSnapshotsLoading] = useState(false);
+
   const url = `/api/dashboard/inventory?page=${page}&pageSize=${PAGE_SIZE}${
     search ? `&search=${encodeURIComponent(search)}` : ""
   }`;
@@ -54,6 +58,24 @@ export default function InventoryPage() {
     setEditing(inv);
     setQuantity(String(inv.quantity));
     setFormError(null);
+    setSnapshots(null);
+    void loadSnapshots(inv.productId);
+  }
+
+  // Detail fetch is display-only: on failure the dialog still works, just
+  // without the per-source breakdown.
+  async function loadSnapshots(productId: string) {
+    setSnapshotsLoading(true);
+    try {
+      const res = await apiFetch<{ snapshots: InventorySnapshotRow[] }>(
+        `/api/dashboard/inventory/${productId}`
+      );
+      setSnapshots(res.snapshots);
+    } catch {
+      setSnapshots([]);
+    } finally {
+      setSnapshotsLoading(false);
+    }
   }
 
   async function onSave(e: FormEvent) {
@@ -160,6 +182,36 @@ export default function InventoryPage() {
       >
         <form onSubmit={onSave} className="flex flex-col gap-4">
           {formError && <p className="text-sm text-destructive">{formError}</p>}
+          <div>
+            <p className="text-sm font-medium">Stok per sumber</p>
+            {snapshotsLoading && (
+              <p className="text-xs text-muted-foreground">Memuat data sumber…</p>
+            )}
+            {snapshots && snapshots.length === 0 && (
+              <p className="text-xs text-muted-foreground">
+                Belum ada data sumber untuk produk ini.
+              </p>
+            )}
+            {snapshots && snapshots.length > 0 && (
+              <div className="mt-2 space-y-1.5">
+                {snapshots.map((s) => (
+                  <div
+                    key={s.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-2.5 py-1.5 text-xs"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Badge variant="outline">{SOURCE_LABEL[s.source]}</Badge>
+                      <span className="font-medium">{s.quantity}</span>
+                    </span>
+                    <span className="text-muted-foreground">
+                      Disinkron {formatDate(s.syncedAt)} - Keyakinan:{" "}
+                      {Math.round(s.confidence * 100)}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="inventory-quantity">Jumlah</Label>
             <Input

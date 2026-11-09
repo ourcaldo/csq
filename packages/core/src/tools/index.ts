@@ -17,6 +17,7 @@ import { memoryTools } from "./memory";
 import { conversationTools } from "./conversation";
 import { sourceTools } from "./source";
 import { dealTools } from "./deal";
+import { supportTools } from "./support";
 
 const registry = new Map<string, ToolDefinition<any>>();
 
@@ -62,6 +63,7 @@ const allTools: ToolDefinition<any>[] = [
   ...conversationTools,
   ...sourceTools,
   ...dealTools,
+  ...supportTools,
 ];
 for (const t of allTools) {
   registerTool(t);

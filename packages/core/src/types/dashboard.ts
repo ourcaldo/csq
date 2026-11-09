@@ -23,6 +23,9 @@ export type Product = {
   description: string | null;
   sku: string | null;
   price: string;
+  // FEA-7 (PRD 16): present on list responses (one-to-one Inventory include);
+  // create/update responses return the bare Product, so it stays optional.
+  inventory?: { quantity: number } | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -39,6 +42,21 @@ export type InventoryWithProduct = {
   createdAt: string;
   updatedAt: string;
   product: Product;
+};
+
+// FEA-8 (PRD 16): per-source stock snapshot row as serialized by the
+// inventory detail API (confidence is 0-1, 1 = fully trusted observation).
+export type InventorySnapshotRow = {
+  id: string;
+  tenantId: string;
+  productId: string;
+  source: InventorySource;
+  quantity: number;
+  sourceRef: string | null;
+  confidence: number;
+  syncedAt: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type OrderStatus = "PENDING" | "CONFIRMED" | "CANCELLED";
@@ -63,6 +81,37 @@ export type Order = {
   createdAt: string;
   updatedAt: string;
   items: OrderItem[];
+  refunds?: Refund[];
+};
+
+// FEA-2 (PRD 16): serialized Refund rows included with an order.
+export type RefundStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+export type Refund = {
+  id: string;
+  orderId: string;
+  amount: string;
+  reason: string | null;
+  status: RefundStatus;
+  createdAt: string;
+};
+
+// FEA-3 (PRD 16): serialized SupportTicket rows for the tickets page.
+export type SupportTicketStatus = "OPEN" | "RESOLVED";
+
+export type SupportTicket = {
+  id: string;
+  tenantId: string;
+  conversationId: string | null;
+  contactPhone: string | null;
+  subject: string;
+  body: string;
+  status: SupportTicketStatus;
+  createdByAgentId: string | null;
+  resolvedById: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type KnowledgeType = "FAQ" | "POLICY" | "BUSINESS_INFO";
@@ -73,6 +122,9 @@ export type Knowledge = {
   type: KnowledgeType;
   title: string;
   content: string;
+  // FEA-1 (PRD 16): provenance for uploaded documents; null for manual entries.
+  sourceName: string | null;
+  mimeType: string | null;
   createdAt: string;
   updatedAt: string;
 };

@@ -6,7 +6,7 @@ import {
   type PlanFeature,
 } from "@csq/core/types/entitlements";
 import { AdminShell } from "@/components/admin-shell";
-import { Btn, Empty, PageHead, Section, TableCard } from "@/components/console";
+import { Btn, Empty, PageHead, Section, Status, TableCard } from "@/components/console";
 import { Dialog } from "@csq/ui/components/ui/dialog";
 import { Select } from "@csq/ui/components/ui/select";
 import { withAdminAuth } from "@/lib/admin-auth";
@@ -113,6 +113,21 @@ function UsageCell({
       {max !== null && ` / ${max.toLocaleString("id-ID")}`}
     </span>
   );
+}
+
+// ADM-6 (PRD 16): peak percent across every limited dimension; null when the
+// tenant has no limit on anything.
+function peakPct(u: UsageItem): number | null {
+  const dims: [number, number | null][] = [
+    [u.mau, u.mauLimit],
+    [u.creditsUsed, u.creditsLimit],
+    [u.staff, u.staffLimit],
+    [u.channelCount, u.channelLimit],
+  ];
+  const pcts = dims
+    .filter(([, limit]) => limit !== null)
+    .map(([used, limit]) => Math.round((used / Math.max(limit ?? 1, 1)) * 100));
+  return pcts.length === 0 ? null : Math.max(...pcts);
 }
 
 export default function PlansPage() {
@@ -296,11 +311,14 @@ export default function PlansPage() {
                   <th className="text-right">Kredit AI</th>
                   <th className="text-right">Staf</th>
                   <th className="text-right">Saluran</th>
+                  <th className="text-right">Persen</th>
                   <th className="text-right">Media</th>
                 </tr>
               </thead>
               <tbody>
-                {usage.map((u) => (
+                {usage.map((u) => {
+                  const pct = peakPct(u);
+                  return (
                   <tr key={u.tenantId}>
                     <td className="font-medium">{u.tenantName}</td>
                     <td>
@@ -339,14 +357,31 @@ export default function PlansPage() {
                         over={u.channelOver}
                       />
                     </td>
+                    <td className="whitespace-nowrap text-right">
+                      {pct === null ? (
+                        <span className="text-muted-foreground">-</span>
+                      ) : (
+                        <span className="flex items-center justify-end gap-1.5">
+                          <span
+                            className={`font-mono tabular-nums ${
+                              pct > 100 ? "font-medium text-bad" : "text-muted-foreground"
+                            }`}
+                          >
+                            {pct}%
+                          </span>
+                          {pct > 100 && <Status tone="bad">Lebih</Status>}
+                        </span>
+                      )}
+                    </td>
                     <td className="text-right font-mono tabular-nums">
                       {bytes(u.mediaBytes)}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
                 {uLoading && (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-[13px] text-muted-foreground">
+                    <td colSpan={8} className="py-12 text-center text-[13px] text-muted-foreground">
                       Memuat...
                     </td>
                   </tr>

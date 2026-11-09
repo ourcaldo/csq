@@ -1,4 +1,4 @@
-import { Pause, Pencil, Play, Robot, Sparkle } from "@phosphor-icons/react";
+import { Pause, Pencil, Play, Robot, Sparkle, Trash } from "@phosphor-icons/react";
 import { BadgeStatus } from "@/components/dashboard/badge-status";
 import { Button } from "@csq/ui/components/ui/button";
 import { Separator } from "@csq/ui/components/ui/separator";
@@ -31,6 +31,8 @@ export function AgentCard(props: {
   onEdit: (agent: AgentWithCapabilities) => void;
   onPause: (agent: AgentWithCapabilities) => void;
   onDeploy: (agent: AgentWithCapabilities) => void;
+  // FEA-4 (PRD 16): delete is OWNER-only; the page owns the confirm dialog.
+  onDelete: (agent: AgentWithCapabilities) => void;
   onCapabilityChange: (
     agent: AgentWithCapabilities,
     tool: string,
@@ -94,6 +96,15 @@ export function AgentCard(props: {
                 Deploy
               </Button>
             )}
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={props.actioningId === agent.id}
+              onClick={() => props.onDelete(agent)}
+            >
+              <Trash size={16} />
+              Hapus
+            </Button>
           </div>
         )}
       </div>

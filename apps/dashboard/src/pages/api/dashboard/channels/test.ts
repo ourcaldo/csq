@@ -60,7 +60,9 @@ export default async function handler(
       if (result.status !== "SENT") {
         return respondError(res, "INTERNAL_ERROR", result.error ?? "Gagal mengirim test.");
       }
-      return res.status(200).json(apiOk({ ok: true, waMessageId: result.waMessageId }));
+      return res
+        .status(200)
+        .json(apiOk({ ok: true, waMessageId: result.waMessageId ?? undefined }));
     } catch (err) {
       const message = err instanceof Error ? err.message : "Gagal mengirim test.";
       return respondError(res, "INTERNAL_ERROR", message);

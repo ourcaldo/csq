@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import type { NextApiRequest, NextApiResponse } from "next";
 import prisma from "@csq/core/lib/db";
-import { hashPassword } from "@csq/core/lib/password";
+import { createTenantWithOwner } from "@csq/core/lib/provision-tenant";
 import { withSystemContext } from "@csq/core/lib/tenant-context";
 import { registerSchema } from "@csq/core/types/auth";
 import { apiError, apiOk, type ApiResponse } from "@csq/core/types/api";
@@ -43,20 +43,16 @@ export default async function handler(
       return res.status(409).json(apiError("VALIDATION_ERROR", "Email sudah terdaftar"));
     }
 
-    const passwordHash = await hashPassword(password);
     const slug = `${slugify(businessName)}-${randomUUID().slice(0, 4)}`;
 
-    const tenant = await prisma.tenant.create({
-      data: {
-        name: businessName,
-        slug,
-        settings: { sourcePriority: ["MANUAL", "GOOGLE_SHEETS", "EXCEL", "MEMORY"] },
-        users: {
-          create: { email: lowerEmail, name, passwordHash, role: "OWNER" },
-        },
-      },
+    const { tenantId } = await createTenantWithOwner({
+      name: businessName,
+      slug,
+      ownerEmail: lowerEmail,
+      ownerName: name,
+      ownerPassword: password,
     });
 
-    return res.status(201).json(apiOk({ tenantId: tenant.id }));
+    return res.status(201).json(apiOk({ tenantId }));
   });
 }

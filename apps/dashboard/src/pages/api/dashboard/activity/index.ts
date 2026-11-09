@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import type { Prisma } from "@prisma/client";
 import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
-import { paginate, requireTenant, respondError } from "@csq/core/lib/queries";
+import { paginate, requireTenant, respondError, strQuery } from "@csq/core/lib/queries";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import type { ListResult } from "@csq/core/types/dashboard";
@@ -17,6 +17,21 @@ const auditLogInclude = {
 // Json columns as `unknown` and DateTime as an ISO string, matching the shape
 // the browser receives - no `as` needed on either side.
 type AuditLogItem = Prisma.AuditLogGetPayload<{ include: typeof auditLogInclude }>;
+
+// FEA-7 (PRD 16): date inputs are yyyy-mm-dd (parsed as UTC by Date), so
+// "from" is the start of that day and "to" is inclusive (end of day).
+// Invalid values fall back to "no bound" instead of 500-ing the request.
+function startOfDay(v: string): Date | undefined {
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? undefined : d;
+}
+
+function endOfDay(v: string): Date | undefined {
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return undefined;
+  d.setUTCHours(23, 59, 59, 999);
+  return d;
+}
 
 export default async function handler(
   req: NextApiRequest,
@@ -33,7 +48,21 @@ export default async function handler(
   return withTenantContext(tenantId, async () => {
     if (req.method === "GET") {
       const { skip, take, page, pageSize } = paginate(req.query);
-      const where: Prisma.AuditLogWhereInput = { tenantId };
+      // FEA-7 (PRD 16): optional filters - agent, action substring, date range.
+      const agentId = strQuery(req.query, "agentId");
+      const action = strQuery(req.query, "action");
+      const gte = startOfDay(strQuery(req.query, "from") ?? "");
+      const lte = endOfDay(strQuery(req.query, "to") ?? "");
+      const where: Prisma.AuditLogWhereInput = {
+        tenantId,
+        ...(agentId ? { agentId } : {}),
+        ...(action
+          ? { action: { contains: action, mode: "insensitive" } }
+          : {}),
+        ...(gte || lte
+          ? { createdAt: { ...(gte ? { gte } : {}), ...(lte ? { lte } : {}) } }
+          : {}),
+      };
       const [items, total] = await Promise.all([
         prisma.auditLog.findMany({
           where,

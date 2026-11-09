@@ -249,6 +249,28 @@ export default function OrdersPage() {
                               </li>
                             ))}
                           </ul>
+                          {(o.refunds ?? []).length > 0 && (
+                            <div className="mt-2 border-t pt-2">
+                              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                Refund
+                              </p>
+                              <ul className="flex flex-col gap-1 text-sm">
+                                {(o.refunds ?? []).map((r) => (
+                                  <li key={r.id} className="flex flex-wrap justify-between gap-x-4">
+                                    <span>
+                                      <span className="font-medium">{formatRupiah(r.amount)}</span>
+                                      {r.reason ? ` - ${r.reason}` : ""}
+                                    </span>
+                                    <span className="text-muted-foreground">
+                                      {r.status === "APPROVED" ? "Disetujui" : r.status === "REJECTED" ? "Ditolak" : "Menunggu"}
+                                      {" - "}
+                                      {formatDate(r.createdAt)}
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
                         </TableCell>
                       </TableRow>
                     )}

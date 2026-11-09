@@ -1,6 +1,8 @@
 // Dashboard overview - the landing page after login. Stat cards for the key
-// counts, plus recent conversations and pending approvals (owner). All cards
-// link into their sections.
+// counts (products, orders, conversations, approvals, active agents, channel
+// status, source health - FEA-7, PRD 16), plus recent conversations, pending
+// approvals (owner), and the last agent actions. All cards link into their
+// sections.
 import type { GetServerSideProps } from "next";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
@@ -20,6 +22,8 @@ import {
   SealCheck,
   ArrowRight,
   Robot,
+  WhatsappLogo,
+  Database,
 } from "@phosphor-icons/react";
 
 type ApprovalItem = {
@@ -31,6 +35,13 @@ type ApprovalItem = {
   createdAt: string;
   agent?: { id: string; name: string } | null;
 };
+
+// FEA-7 (PRD 16): minimal shapes of the agent / channel / source / activity
+// list responses - only the fields the overview cards render.
+type AgentSummary = { status: string };
+type ChannelSummary = { status: string };
+type SourceSummary = { status: string; lastSyncAt: string | null };
+type ActivitySummary = { id: string; action: string; createdAt: string };
 
 function timeLabel(iso: string): string {
   const d = new Date(iso);
@@ -52,9 +63,33 @@ export default function DashboardIndex() {
   // route; we just don't render the approvals card for non-owners.
   const approvals = useApi<ListResult<ApprovalItem>>("/api/dashboard/approvals?pageSize=5");
 
+  // FEA-7 (PRD 16): agent / channel / source health + last agent actions.
+  const agents = useApi<{ items: AgentSummary[] }>("/api/dashboard/agents");
+  const channels = useApi<{ items: ChannelSummary[] }>("/api/dashboard/channels");
+  const sources = useApi<ListResult<SourceSummary>>("/api/dashboard/sources?pageSize=100");
+  const agentActivity = useApi<ListResult<ActivitySummary>>(
+    "/api/dashboard/activity?pageSize=10"
+  );
+
   const pendingApprovals = (approvals.data?.items ?? []).filter(
     (a) => a.status === "PENDING"
   );
+
+  const agentItems = agents.data?.items ?? [];
+  const activeAgents = agentItems.filter((a) => a.status === "ACTIVE").length;
+
+  const channelItems = channels.data?.items ?? [];
+  const connectedChannels = channelItems.filter((c) => c.status === "CONNECTED").length;
+  const allChannelsConnected =
+    channelItems.length > 0 && connectedChannels === channelItems.length;
+
+  const sourceItems = sources.data?.items ?? [];
+  const activeSources = sourceItems.filter((s) => s.status === "ACTIVE").length;
+  const errorSources = sourceItems.filter((s) => s.status === "ERROR").length;
+  let lastSync: string | null = null;
+  for (const s of sourceItems) {
+    if (s.lastSyncAt && (!lastSync || s.lastSyncAt > lastSync)) lastSync = s.lastSyncAt;
+  }
 
   return (
     <DashboardShell title="Ringkasan" description="Pintasan ke setiap bagian dashboard.">
@@ -83,6 +118,39 @@ export default function DashboardIndex() {
           value={isOwner ? (approvals.loading ? "…" : pendingApprovals.length) : "-"}
           icon={<SealCheck size={18} />}
           tone="amber"
+        />
+        <StatCard
+          label="Agent Aktif"
+          value={agents.loading ? "…" : activeAgents}
+          hint={`${agentItems.length} agent total`}
+          icon={<Robot size={18} />}
+          tone="green"
+        />
+        <StatCard
+          label="Saluran WhatsApp"
+          value={
+            channels.loading
+              ? "…"
+              : channelItems.length === 0
+                ? "Belum ada"
+                : allChannelsConnected
+                  ? "Terhubung"
+                  : connectedChannels === 0
+                    ? "Terputus"
+                    : `${connectedChannels}/${channelItems.length} terhubung`
+          }
+          hint={`${connectedChannels} dari ${channelItems.length} saluran terhubung`}
+          icon={<WhatsappLogo size={18} />}
+          tone={allChannelsConnected ? "green" : "amber"}
+        />
+        <StatCard
+          label="Sumber Data"
+          value={sources.loading ? "…" : activeSources}
+          hint={`${errorSources} error - sinkron terakhir ${
+            lastSync ? timeLabel(lastSync) : "-"
+          }`}
+          icon={<Database size={18} />}
+          tone="default"
         />
       </div>
 
@@ -177,6 +245,44 @@ export default function DashboardIndex() {
               ))}
             </div>
           )}
+        </div>
+        {/* FEA-7 (PRD 16): the last 10 agent actions, newest first. */}
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-slate-900">Aksi Agent Terakhir</h2>
+            <Link
+              href="/dashboard/activity"
+              className="inline-flex items-center gap-1 text-xs font-medium text-green-700 hover:text-green-800"
+            >
+              Semua <ArrowRight size={12} />
+            </Link>
+          </div>
+          {agentActivity.loading && <LoadingSkeleton rows={3} />}
+          {agentActivity.error && <p className="text-sm text-red-600">{agentActivity.error}</p>}
+          {!agentActivity.loading &&
+            !agentActivity.error &&
+            (agentActivity.data?.items.length ?? 0) === 0 && (
+              <EmptyState
+                title="Belum ada aksi agent"
+                description="Aksi agent akan tercatat di sini."
+              />
+            )}
+          <div className="space-y-2">
+            {agentActivity.data?.items.map((a) => (
+              <Link
+                key={a.id}
+                href="/dashboard/activity"
+                className="flex items-center justify-between rounded-lg border border-slate-100 p-3 hover:bg-slate-50"
+              >
+                <span className="min-w-0 truncate text-sm font-medium text-slate-900">
+                  {a.action}
+                </span>
+                <span className="ml-2 shrink-0 text-xs text-slate-400">
+                  {timeLabel(a.createdAt)}
+                </span>
+              </Link>
+            ))}
+          </div>
         </div>
       </div>
     </DashboardShell>

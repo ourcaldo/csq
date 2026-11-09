@@ -53,6 +53,8 @@ type Billing = {
     agentReplies: number;
     scenarioCredits: number;
     creditsUsed: number;
+    replyCredits: number;
+    moduleCredits: number;
     staff: number;
     channels: number;
   };
@@ -65,6 +67,13 @@ type Billing = {
     requestedPlanName: string;
     status: string;
     note: string | null;
+    createdAt: string;
+  } | null;
+  latestRequest: {
+    id: string;
+    requestedPlanId: string;
+    requestedPlanName: string;
+    status: string;
     createdAt: string;
   } | null;
   bank: { name: string; accountNumber: string; accountHolder: string } | null;
@@ -114,10 +123,14 @@ function UsageCell({
   label,
   used,
   limit,
+  note,
+  subs,
 }: {
   label: string;
   used: number;
   limit: number | null;
+  note?: string;
+  subs?: { label: string; used: number }[];
 }) {
   const pct = limit === null ? null : Math.min(100, Math.round((used / limit) * 100));
   const tone =
@@ -140,6 +153,31 @@ function UsageCell({
           <div className={`h-full rounded-full ${tone}`} style={{ width: `${pct}%` }} />
         </div>
       )}
+      {subs && subs.length > 0 && (
+        <div className="mt-2 space-y-1.5 border-t border-slate-100 pt-2">
+          {subs.map((s) => {
+            const subPct =
+              limit === null ? null : Math.min(100, Math.round((s.used / limit) * 100));
+            return (
+              <div key={s.label}>
+                <div className="flex items-center justify-between text-[10.5px] text-slate-400">
+                  <span>{s.label}</span>
+                  <span className="font-mono tabular-nums">{num(s.used)}</span>
+                </div>
+                {subPct !== null && (
+                  <div className="mt-0.5 h-[3px] w-full overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className="h-full rounded-full bg-slate-300"
+                      style={{ width: `${subPct}%` }}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {note && <p className="mt-2 text-[10.5px] text-slate-400">{note}</p>}
     </div>
   );
 }
@@ -193,6 +231,14 @@ export default function PlanPage() {
   const planName = entitlements?.planName ?? null;
   const currentPrice = data?.plans.find((p) => p.name === planName)?.priceIdr ?? null;
   const otherPlans = (data?.plans ?? []).filter((p) => p.name !== planName);
+  const excludedFeatures = entitlements
+    ? PLAN_FEATURE_KEYS.filter((k) => !entitlements.features.includes(k))
+    : [];
+  // BIL-1 (PRD 16): unpaid first, then paid, then void; period order kept.
+  const invoiceOrder: Record<Invoice["status"], number> = { ISSUED: 0, PAID: 1, VOID: 2 };
+  const sortedInvoices = [...(data?.invoices ?? [])].sort(
+    (a, b) => invoiceOrder[a.status] - invoiceOrder[b.status]
+  );
 
   return (
     <DashboardShell
@@ -242,6 +288,14 @@ export default function PlanPage() {
                       </span>
                     ))
                   )}
+                  {excludedFeatures.map((f) => (
+                    <span
+                      key={f}
+                      className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-400 line-through"
+                    >
+                      {PLAN_FEATURE_LABELS[f]}
+                    </span>
+                  ))}
                 </div>
               </div>
               <Button variant="outline" onClick={() => setShowCatalog(true)}>
@@ -249,13 +303,25 @@ export default function PlanPage() {
               </Button>
             </div>
 
-            <div className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-lg bg-slate-200 lg:grid-cols-4">
+            <p className="mt-5 text-[11px] text-slate-400">
+              Berjalan sejak {date(data.monthStart)}
+            </p>
+            <div className="mt-2 grid grid-cols-2 gap-px overflow-hidden rounded-lg bg-slate-200 lg:grid-cols-4">
               <UsageCell
                 label="Kredit AI"
                 used={usage.creditsUsed}
                 limit={entitlements.aiCreditsPerMonth}
+                subs={[
+                  { label: "Balasan AI", used: usage.replyCredits },
+                  { label: "Modul skenario", used: usage.moduleCredits },
+                ]}
               />
-              <UsageCell label="MAU" used={usage.mau} limit={entitlements.mauLimit} />
+              <UsageCell
+                label="MAU"
+                used={usage.mau}
+                limit={entitlements.mauLimit}
+                note="MAU dihitung dari pengirim unik bulan ini"
+              />
               <UsageCell label="Staf" used={usage.staff} limit={entitlements.staffLimit} />
               <UsageCell
                 label="Saluran aktif"
@@ -280,13 +346,18 @@ export default function PlanPage() {
               </p>
             ) : (
               <div className="divide-y divide-slate-100">
-                {data.invoices.map((inv) => (
+                {sortedInvoices.map((inv) => (
                   <div key={inv.id} className="flex items-center gap-4 px-5 py-3">
                     <div className="min-w-0 flex-1">
                       <p className="text-[13px] font-medium text-slate-800">
                         {periodDate(inv.periodStart)} - {periodDate(inv.periodEnd)}
                       </p>
                       <p className="font-mono text-[11px] text-slate-400">{inv.number}</p>
+                      {inv.status === "ISSUED" && (
+                        <p className="mt-0.5 text-[11px] text-slate-400">
+                          Jatuh tempo {date(inv.dueAt)}
+                        </p>
+                      )}
                     </div>
                     <p className="font-mono text-[13px] tabular-nums text-slate-700">
                       {idr(inv.amountIdr)}
@@ -437,11 +508,29 @@ export default function PlanPage() {
               </div>
             ) : (
               <div className="space-y-3 p-5">
-                {data?.openRequest && (
+                {data?.openRequest ? (
                   <p className="rounded-lg bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
                     Permintaan {data.openRequest.requestedPlanName} sedang diproses.
                   </p>
-                )}
+                ) : data?.latestRequest ? (
+                  <p
+                    className={`rounded-lg px-3 py-2 text-[12px] ${
+                      data.latestRequest.status === "REJECTED"
+                        ? "bg-red-50 text-red-700"
+                        : data.latestRequest.status === "DONE"
+                          ? "bg-green-50 text-green-700"
+                          : "bg-slate-100 text-slate-500"
+                    }`}
+                  >
+                    Permintaan terakhir {data.latestRequest.requestedPlanName}:{" "}
+                    {data.latestRequest.status === "REJECTED"
+                      ? "DITOLAK"
+                      : data.latestRequest.status === "DONE"
+                        ? "SELESAI"
+                        : data.latestRequest.status}{" "}
+                    pada {date(data.latestRequest.createdAt)}.
+                  </p>
+                ) : null}
                 {otherPlans.length === 0 && (
                   <p className="text-sm text-slate-400">Belum ada paket lain.</p>
                 )}

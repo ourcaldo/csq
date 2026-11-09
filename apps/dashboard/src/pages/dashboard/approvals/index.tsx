@@ -1,11 +1,13 @@
-// Approvals dashboard - OWNER-only queue of pending agent write actions.
-// Lists PENDING approvals as cards with a before→after diff preview and
-// Approve / Reject actions. Staff see a PERMISSION_DENIED notice (the API
-// also enforces this server-side).
+// Approvals dashboard - OWNER-only queue of agent write actions.
+// Menunggu / Riwayat tabs (FEA-6, PRD 16) over the PENDING queue and the
+// APPROVED+REJECTED history. Cards show a before→after diff preview;
+// Approve / Reject actions appear on pending items. Staff see a
+// PERMISSION_DENIED notice (the API also enforces this server-side).
 import { useState } from "react";
 import type { GetServerSideProps } from "next";
 import { useSession } from "next-auth/react";
 import { SealCheck, CheckCircle, XCircle, Clock } from "@phosphor-icons/react";
+import { cn } from "@csq/ui/lib/utils";
 import { withAuth } from "@csq/core/lib/auth";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
@@ -107,24 +109,34 @@ export default function ApprovalsPage() {
   const { data: session } = useSession();
   const isOwner = session?.user?.role === "OWNER";
 
-  const { data, loading, error, refresh } = useApi<ApprovalItem[] | ListResult<ApprovalItem>>(
-    "/api/dashboard/approvals?pageSize=50"
+  // FEA-6 (PRD 16): both list sources are always loaded - the tabs just
+  // switch which one renders. Approve/reject refreshes both (an item moves
+  // from Menunggu to Riwayat).
+  const pending = useApi<ApprovalItem[] | ListResult<ApprovalItem>>(
+    "/api/dashboard/approvals?status=PENDING"
   );
+  const history = useApi<ApprovalItem[] | ListResult<ApprovalItem>>(
+    "/api/dashboard/approvals?status=RESOLVED"
+  );
+  const [tab, setTab] = useState<"pending" | "history">("pending");
 
   const [busyId, setBusyId] = useState<string | null>(null);
   const [toReject, setToReject] = useState<ApprovalItem | null>(null);
   const [rejecting, setRejecting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const items = toItems(data);
-  const pendingItems = items.filter((a) => a.status === "PENDING");
+  const pendingItems = toItems(pending.data);
+  const historyItems = toItems(history.data);
+  const active = tab === "pending" ? pending : history;
+  const items = tab === "pending" ? pendingItems : historyItems;
 
   async function onApprove(item: ApprovalItem) {
     setBusyId(item.id);
     setActionError(null);
     try {
       await apiSend(`/api/dashboard/approvals/${item.id}/approve`, "POST");
-      refresh();
+      pending.refresh();
+      history.refresh();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Gagal menyetujui approval.");
     } finally {
@@ -139,7 +151,8 @@ export default function ApprovalsPage() {
     try {
       await apiSend(`/api/dashboard/approvals/${toReject.id}/reject`, "POST");
       setToReject(null);
-      refresh();
+      pending.refresh();
+      history.refresh();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Gagal menolak approval.");
     } finally {
@@ -172,42 +185,72 @@ export default function ApprovalsPage() {
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
           label="Menunggu Approval"
-          value={pendingItems.length}
+          value={pending.loading ? "…" : pendingItems.length}
           hint="Tindakan agen yang perlu ditinjau"
           icon={<SealCheck size={20} weight="duotone" />}
           tone="amber"
         />
         <StatCard
-          label="Total Antrian"
-          value={items.length}
-          hint="Semua approval pada sesi ini"
+          label="Total Riwayat"
+          value={history.loading ? "…" : historyItems.length}
+          hint="Approval selesai, maks 100 terbaru"
           icon={<Clock size={20} weight="duotone" />}
           tone="default"
         />
       </div>
 
+      {/* FEA-6 (PRD 16): Menunggu / Riwayat tabs over the two list sources. */}
+      <div className="mb-4 flex gap-1 rounded-lg bg-slate-100 p-1">
+        <button
+          onClick={() => setTab("pending")}
+          className={cn(
+            "flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+            tab === "pending"
+              ? "bg-white text-amber-700 shadow-sm"
+              : "text-slate-500 hover:text-slate-700"
+          )}
+        >
+          Menunggu
+        </button>
+        <button
+          onClick={() => setTab("history")}
+          className={cn(
+            "flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+            tab === "history"
+              ? "bg-white text-slate-900 shadow-sm"
+              : "text-slate-500 hover:text-slate-700"
+          )}
+        >
+          Riwayat
+        </button>
+      </div>
+
       {actionError && (
         <p className="mb-4 text-sm text-destructive">{actionError}</p>
       )}
-      {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
+      {active.error && <p className="mb-4 text-sm text-destructive">{active.error}</p>}
 
-      {loading && (
+      {active.loading && (
         <div className="space-y-3">
           <LoadingSkeleton rows={3} />
         </div>
       )}
 
-      {!loading && !error && pendingItems.length === 0 && (
+      {!active.loading && !active.error && items.length === 0 && (
         <EmptyState
           icon={<SealCheck size={24} weight="duotone" />}
-          title="Tidak ada approval menunggu"
-          description="Saat ini tidak ada tindakan agen yang memerlukan persetujuan Anda."
+          title={tab === "pending" ? "Tidak ada approval menunggu" : "Belum ada riwayat"}
+          description={
+            tab === "pending"
+              ? "Saat ini tidak ada tindakan agen yang memerlukan persetujuan Anda."
+              : "Approval yang sudah disetujui atau ditolak akan muncul di sini."
+          }
         />
       )}
 
-      {!loading && !error && pendingItems.length > 0 && (
+      {!active.loading && !active.error && items.length > 0 && (
         <div className="space-y-4">
-          {pendingItems.map((item) => {
+          {items.map((item) => {
             const before = renderPayload(item.proposedBefore);
             const after = renderPayload(item.proposedAfter);
             const busy = busyId === item.id;
@@ -233,23 +276,27 @@ export default function ApprovalsPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() => onApprove(item)}
-                      disabled={busy}
-                    >
-                      <CheckCircle size={16} className="mr-1.5" />
-                      {busy ? "Memproses…" : "Setujui"}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => setToReject(item)}
-                      disabled={busy}
-                    >
-                      <XCircle size={16} className="mr-1.5" />
-                      Tolak
-                    </Button>
+                    {item.status === "PENDING" && (
+                      <>
+                        <Button
+                          size="sm"
+                          onClick={() => onApprove(item)}
+                          disabled={busy}
+                        >
+                          <CheckCircle size={16} className="mr-1.5" />
+                          {busy ? "Memproses…" : "Setujui"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => setToReject(item)}
+                          disabled={busy}
+                        >
+                          <XCircle size={16} className="mr-1.5" />
+                          Tolak
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
 

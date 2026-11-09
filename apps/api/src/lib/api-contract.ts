@@ -212,4 +212,83 @@ export const API_OPERATIONS: ApiOperation[] = [
       },
     },
   },
+  {
+    // OPS-6 (PRD 16): the infra surface is documented too - health, the
+    // spec itself, and the Meta webhook live on this service.
+    method: "get",
+    path: "/api/health",
+    summary: "Liveness and database connectivity probe",
+    description:
+      "Used by the platform health checks and the alert cron. Also the boot hook for this process's scenario-engine event subscription.",
+    tags: ["Operations"],
+    security: "none",
+    responses: {
+      "200": {
+        description: "Status envelope with the database state",
+        data: z.object({ status: z.string(), db: z.string() }),
+      },
+      "405": { description: "Method not allowed" },
+    },
+  },
+  {
+    method: "get",
+    path: "/api/v1/openapi",
+    summary: "This OpenAPI document",
+    tags: ["Operations"],
+    security: "none",
+    responses: {
+      "200": {
+        description: "The generated OpenAPI 3.0 document",
+        raw: { type: "object" },
+        contentType: "application/json",
+      },
+    },
+  },
+  {
+    method: "get",
+    path: "/api/webhooks/whatsapp",
+    summary: "Meta webhook verification handshake",
+    description:
+      "Meta calls this once when the callback URL is configured. The hub.verify_token must match a CLOUD_API channel's stored verify token.",
+    tags: ["Webhooks"],
+    security: "none",
+    responses: {
+      "200": {
+        description: "The hub.challenge value echoed as text",
+        raw: { type: "string" },
+        contentType: "text/plain",
+      },
+      "403": {
+        description: "Verification failed",
+        raw: { type: "string" },
+        contentType: "text/plain",
+      },
+    },
+  },
+  {
+    method: "post",
+    path: "/api/webhooks/whatsapp",
+    summary: "Meta webhook inbound events",
+    description:
+      "Inbound Cloud API messages and status updates. Signature-verified (X-Hub-Signature-256, fail-closed); always acknowledged 200 quickly per Meta's 5 second requirement. Inbound messages are ingested and the agent turn runs fire-and-forget.",
+    tags: ["Webhooks"],
+    security: "none",
+    responses: {
+      "200": {
+        description: "Event received (always, for parseable payloads)",
+        raw: { type: "string" },
+        contentType: "text/plain",
+      },
+      "401": {
+        description: "Missing app secret or signature mismatch",
+        raw: { type: "string" },
+        contentType: "text/plain",
+      },
+      "429": {
+        description: "Per-IP burst limit exceeded",
+        raw: { type: "string" },
+        contentType: "text/plain",
+      },
+    },
+  },
 ];

@@ -155,6 +155,8 @@ export default function ProductsPage() {
                   <TableHead>Nama</TableHead>
                   <TableHead>SKU</TableHead>
                   <TableHead>Harga</TableHead>
+                  {/* FEA-7 (PRD 16): stock from the one-to-one Inventory row. */}
+                  <TableHead>Stok</TableHead>
                   <TableHead className="hidden sm:table-cell">Dibuat</TableHead>
                   <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
@@ -162,7 +164,7 @@ export default function ProductsPage() {
               <TableBody>
                 {data && data.items.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5}>
+                    <TableCell colSpan={6}>
                       <StateNotice variant="empty" message="Belum ada produk." />
                     </TableCell>
                   </TableRow>
@@ -172,6 +174,9 @@ export default function ProductsPage() {
                     <TableCell className="font-medium">{p.name}</TableCell>
                     <TableCell className="text-muted-foreground">{p.sku ?? "-"}</TableCell>
                     <TableCell>{formatRupiah(p.price)}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {p.inventory ? p.inventory.quantity : "-"}
+                    </TableCell>
                     <TableCell className="hidden text-muted-foreground sm:table-cell">{formatDate(p.createdAt)}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex flex-wrap justify-end gap-2">

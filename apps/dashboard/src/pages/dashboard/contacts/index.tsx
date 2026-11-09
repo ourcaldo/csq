@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import type { GetServerSideProps } from "next";
 import { useRouter } from "next/router";
+import { useSession } from "next-auth/react";
+import { Plus } from "@phosphor-icons/react";
 import { withAuth } from "@csq/core/lib/auth";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
@@ -40,24 +42,29 @@ function TaxonomyChip({ name, color }: { name: string; color: string | null }) {
 
 // Checkbox list for one taxonomy (used in the edit dialog): toggling an id
 // in the selected set. Tenant taxonomies are small, so a plain list is fine.
+// OPS-3 (PRD 16): when onCreate is provided (OWNER), a small inline input
+// creates a tag/category without leaving the editor.
 function TaxonomyPicker({
   title,
   rows,
   selectedIds,
   onToggle,
+  onCreate,
 }: {
   title: string;
   rows: Array<{ id: string; name: string; color: string | null }>;
   selectedIds: string[];
   onToggle: (id: string) => void;
+  onCreate?: (name: string) => void;
 }) {
+  const [newName, setNewName] = useState("");
   return (
     <div className="flex flex-col gap-1.5">
       <Label>{title}</Label>
       <div className="max-h-32 overflow-y-auto rounded-md border p-2">
         {rows.length === 0 && (
           <p className="px-1 py-0.5 text-xs text-muted-foreground">
-            Belum ada - buat dulu di halaman Tag.
+            Belum ada - buat lewat kolom di bawah atau di halaman Tag.
           </p>
         )}
         {rows.map((r) => (
@@ -72,12 +79,36 @@ function TaxonomyPicker({
           </label>
         ))}
       </div>
+      {onCreate && (
+        <form
+          className="flex gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const name = newName.trim();
+            if (!name) return;
+            onCreate(name);
+            setNewName("");
+          }}
+        >
+          <Input
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            placeholder="Nama baru..."
+            className="h-8 text-sm"
+          />
+          <Button type="submit" size="sm" variant="outline" className="shrink-0">
+            <Plus size={14} />
+          </Button>
+        </form>
+      )}
     </div>
   );
 }
 
 export default function ContactsPage() {
   const router = useRouter();
+  const { data: session } = useSession();
+  const isOwner = session?.user.role === "OWNER";
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
@@ -134,6 +165,31 @@ export default function ContactsPage() {
 
   function toggleId(list: string[], id: string): string[] {
     return list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
+  }
+
+  // OPS-3 (PRD 16): inline taxonomy creation from the contact editor.
+  async function createCategory(name: string) {
+    try {
+      const created = await apiSend<Category>(
+        "/api/dashboard/contact-categories",
+        "POST",
+        { name }
+      );
+      categories.refresh();
+      setEditCategoryIds((l) => (l.includes(created.id) ? l : [...l, created.id]));
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Gagal membuat kategori.");
+    }
+  }
+
+  async function createTag(name: string) {
+    try {
+      const created = await apiSend<Tag>("/api/dashboard/tags", "POST", { name });
+      tags.refresh();
+      setEditTagIds((l) => (l.includes(created.id) ? l : [...l, created.id]));
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Gagal membuat tag.");
+    }
   }
 
   async function onSave(e: FormEvent) {
