@@ -1,6 +1,15 @@
 # Admin Console Plan (PRD 13)
 
 Date: 2026-11-08
+> Status 2026-11-09 (PRD 16 DOC-5): the console is BUILT and deployed.
+> Phase 5's metering details (agentRepliesPerMonth, messagesOutPerMonth,
+> Message-row metering) were superseded by PRD 14's AiCreditUsage ledger and
+> the Plan fields (aiCreditsPerMonth, mauLimit, staffLimit, channelLimit) -
+> see `packages/core/prisma/schema.prisma` and `npm run check:billing`. The
+> completeness gaps left after the initial build (tenant detail page, list
+> search/filters, audit filters, overview KPIs, fleet detail, plan percent
+> badges, admin smoke checks) were closed by PRD 16 ADM-1..8.
+
 PRD: `docs/prd/13-admin-console.md` (the SaaS-operator section). The
 console is a UI + BFF over the same Postgres, in the tenant dashboard's
 design language, on `@csq/ui`. Every phase leaves the build green and the

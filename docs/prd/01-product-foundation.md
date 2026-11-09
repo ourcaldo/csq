@@ -3,10 +3,18 @@
 **Working title:** CSQ\
 **HackFest category:** Customer Service\
 **Primary agent:** AI Customer Service Agent\
-**Runtime:** OpenClaw\
+**Runtime:** OpenClaw (superseded - see the dated note below)\
 **Stack:** Next.js (Pages Router) + PostgreSQL/Prisma/pgvector + WhatsApp Cloud API\
 **Document status:** HackFest MVP PRD\
 **Date:** 2026-08-16
+
+> Dated note 2026-11-09 (PRD 16 DOC-1): the OpenClaw runtime was replaced by
+> a direct OpenAI-compatible LLM client (`packages/core/src/services/llm-runtime.ts`),
+> and the single-process deployment was superseded by the multi-service
+> topology of PRD 08 (dashboard, api, worker, admin, web). Every "OpenClaw
+> cell/gateway" statement below is historical; the tenant isolation those
+> sections describe is implemented by tenantId scoping plus Postgres RLS.
+> Sections kept unchanged for the record.
 
 ------------------------------------------------------------------------
 

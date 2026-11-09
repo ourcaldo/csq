@@ -5,6 +5,14 @@ Prepared at the owner's request: the current situation and condition of the
 monorepo, everything that shipped, and an honest record of the mobile auth
 realm that was built although no mobile app was planned.
 
+> Dated supersession note 2026-11-09 (PRD 16 DOC-6): this is a point-in-time
+> snapshot. Everything marked NOT BUILT below has since been built and
+> deployed: `apps/admin` (PRD 13), page-splitting, the generated OpenAPI,
+> the alerting pipeline (`npm run check:alerts`), the admin API-key page,
+> RLS activation, and the full PRD 16 remediation. Read sections 41-43 and
+> the open-items list as history, not as the current state. For the current
+> state see PRD 09 (all items done) and PRD 16 (implementation status).
+
 ## 1. Where things stand
 
 The CSQ product exists as TWO parallel stacks:

@@ -1,11 +1,19 @@
-# Feature Plan — Contact Tags & Categories + Campaigns (Message Blasting)
+# Feature Plan - Contact Tags & Categories + Campaigns (Message Blasting)
 
 **Date:** 2026-11-01
-**Status:** **IMPLEMENTED on `feat/contact-tags-and-campaigns`** (`6787ba8` Phase A,
-`2b50de4` Phase B, `df71623` Phase C) — awaiting merge to `main`. All decisions closed after owner
-rounds 1–3; WhatsApp pricing/limits verified against Meta's live docs (round 3, section 11).
+**Status:** **IMPLEMENTED** - shipped and long since part of the monorepo
+branch (dated note 2026-11-09, PRD 16 DOC-5: the original status line said
+"awaiting merge to main"; per the owner directive the monorepo branch IS the
+active line and `main` stays frozen). All file paths in this plan are
+pre-monorepo: `src/lib/campaign-engine.ts` is today
+`packages/core/src/lib/campaign-engine.ts`, `prisma/schema.prisma` is
+`packages/core/prisma/schema.prisma`, and `src/pages/api/dashboard/campaigns/*`
+is `apps/dashboard/src/pages/api/dashboard/campaigns/*`. Where details
+drifted, the code is the truth: the claim is the SENDING updateMany (PRD 16
+COR-1), the tick TTL is 300s with 50 sends per tick, and the schedule
+self-check carries 12 asserts.
 **Requested by:** owner, 2026-11-01
-**Depends on:** the 2.0.0 defect fixes (`docs/plans/2026-10-31-fix-plan-10-defects.md`) — campaigns reuse the
+**Depends on:** the 2.0.0 defect fixes (`docs/plans/2026-10-31-fix-plan-10-defects.md`) - campaigns reuse the
 system lock, the scheduler tick, the template library, and the outbox's window rules.
 
 ---

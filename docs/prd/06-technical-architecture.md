@@ -1,5 +1,14 @@
 # 23. Technical Architecture
 
+> Dated note 2026-11-09 (PRD 16 DOC-1): this diagram and the single-process
+> statements in section 23A are HISTORICAL. The live architecture is the
+> multi-service topology of PRD 08: `apps/dashboard` (UI + BFF), `apps/api`
+> (token realm, Tool Gateway, Meta webhook, media), `apps/worker` (the only
+> WhatsApp socket owner, scheduler, campaign engine, outbox drain),
+> `apps/admin`, `apps/web`, all over `packages/core`. The agent runtime is
+> a direct OpenAI-compatible LLM client, not OpenClaw. Kept unchanged for
+> the record; where this section conflicts with PRD 08, PRD 08 wins.
+
 ``` text
                         Web Dashboard
                               |

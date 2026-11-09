@@ -24,22 +24,38 @@ are tick-drained tables). What changes is the service topology.
     outbound-send outbox drain. Long-lived state lives here; web deploys
     never restart it.
 -   `apps/web` - public site (unchanged). `apps/admin` - platform console
-    (PRD: file 13; execution on owner go).
+    (PRD: file 13). Dated note 2026-11-09 (PRD 16 DOC-3): admin is BUILT and
+    deployed (PRD 13).
 -   `packages/core` - all domain logic, unchanged; apps stay thin over it.
 
 ## Non-negotiables
 
 -   Resilience isolation: deploys or failures of dashboard/web/api never
     drop the worker's sockets. The customer path (WhatsApp inbound -> agent
-    turn -> reply) runs entirely in the worker over core.
+    turn -> reply) runs entirely in the worker over core. Dated note
+    2026-11-09 (PRD 16 OPS-7): for CLOUD_API inbound the webhook itself
+    lives in `apps/api` (Phase 7 plan), so the inbound ingest and agent turn
+    for the official channel execute there - stateless HTTP sends, no
+    sockets. The worker stays the ONLY socket owner; every Baileys-path
+    customer turn runs in the worker.
 -   One socket owner: only `apps/worker` connects WhatsApp. The SystemLock
     session lease stays as anti-dual-boot safety.
 -   Sends flow through a Postgres outbox (`OutboundMessage` rows drained by
-    the worker) - the same pattern the campaign engine already uses.
+    the worker) - the same pattern the campaign engine already uses. Dated
+    note 2026-11-09 (PRD 16 OPS-7): outbox scope in practice - conversation
+    and test sends from socket-less processes flow through the outbox;
+    sends initiated inside the worker (agent replies on Baileys inbound,
+    scenario nodes, session-close) send in-process where the socket lives,
+    and the campaign engine keeps its own per-recipient `CampaignMessage`
+    rows with an atomic PENDING -> SENDING claim (COR-1). "All sends"
+    would duplicate state without adding a guarantee; the per-recipient
+    claim and the outbox row are the two idempotency units that exist.
 -   Every external contract is versioned and Zod-validated; programmatic
     auth is token-based, never session-coupled.
 -   Multi-tenant scoping unchanged: tenantId resolved server-side, every
-    mutation audited.
+    mutation audited. Dated note 2026-11-09 (PRD 16 SEC-1): the second
+    enforcement layer is now LIVE - Postgres RLS with a dedicated non-owner
+    app role and per-request tenant context; see tenant-context.ts.
 
 ## Execution
 

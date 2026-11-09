@@ -11,9 +11,13 @@ The Next.js production build will OOM on the 4GB host. Build the app and nginx i
 
 ```bash
 # From the repo root (on your build machine):
-docker build -f docker/Dockerfile -t ghcr.io/yourorg/csq-app:latest .
+docker build -f docker/Dockerfile --target dashboard -t ghcr.io/yourorg/csq-app:latest .
+docker build -f docker/Dockerfile --target api -t ghcr.io/yourorg/csq-api:latest .
+docker build -f docker/Dockerfile --target worker -t ghcr.io/yourorg/csq-worker:latest .
 docker build -f docker/nginx/Dockerfile -t ghcr.io/yourorg/csq-nginx:latest docker/nginx/
 docker push ghcr.io/yourorg/csq-app:latest
+docker push ghcr.io/yourorg/csq-api:latest
+docker push ghcr.io/yourorg/csq-worker:latest
 docker push ghcr.io/yourorg/csq-nginx:latest
 ```
 
@@ -32,7 +36,9 @@ Edit `.env.production` and fill in:
 - **`NEXTAUTH_URL`** — your domain, e.g. `https://umkm.example.com`.
 - **`NEXTAUTH_SECRET`** — generate with `openssl rand -base64 32`.
 - **`CERT_DOMAIN`** — the same domain, e.g. `umkm.example.com`.
-- **`CSQ_APP_IMAGE`** / **`CSQ_NGINX_IMAGE`** — the registry image names you pushed in step 1.
+- **`CSQ_APP_IMAGE`** / **`CSQ_API_IMAGE`** / **`CSQ_WORKER_IMAGE`** / **`CSQ_NGINX_IMAGE`** — the registry image names you pushed in step 1.
+- **`API_JWT_SECRET`** — signs the `/api/v1` user access JWTs. Generate with `openssl rand -base64 32`.
+- **`API_SERVICE_TOKEN`** — the shared token the dashboard BFF sends to the api service. Generate a long random string; the api accepts it via `API_SERVICE_TOKENS`.
 - **`LLM_API_KEY`** / **`LLM_BASE_URL`** / **`LLM_CHAT_MODEL`** — any OpenAI-compatible LLM provider. Serves the agent loop, scenario AI node, and embeddings.
 - **`WHATSAPP_APP_SECRET`** — the App Secret from your Meta app (used for webhook HMAC validation).
 - **`GOOGLE_CLIENT_ID`** / **`GOOGLE_CLIENT_SECRET`** / **`GOOGLE_REDIRECT_URI`** — for Google Sheets OAuth (optional, only if stores import from Sheets).
@@ -75,17 +81,30 @@ This script is idempotent. It will:
 - Configure UFW (SSH/HTTP/HTTPS only).
 - Verify the TLS cert exists for `CERT_DOMAIN` (exits with instructions if not — run step 3 first).
 - Pull the prebuilt images from the registry (`docker compose pull`).
-- Start app + postgres + nginx + certbot (`docker compose up -d`).
+- Start app + api + worker + postgres + nginx + certbot (`docker compose up -d`).
 
 The certbot service in compose handles automatic renewal (runs `certbot renew` every 12h).
 
 ### 5. Health check
 
 ```bash
-curl -sf https://umkm.example.com/api/health
+curl -sf https://umkm.example.com/api/health          # dashboard
+curl -sf https://umkm.example.com/api/v1/openapi      # api
+curl -sf http://127.0.0.1:10000                       # worker (host only)
 ```
 
-A `200 OK` means the app is running and the database is reachable.
+A `200 OK` means the service is running and the database is reachable.
+
+### 5b. Backups
+
+Back up the database daily (Mode A self-hosted; for managed Postgres use the provider's PITR):
+
+```bash
+docker compose --env-file .env.production exec -T postgres \
+  pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB" | gzip > /opt/backups/csq-$(date +%F).sql.gz
+```
+
+Schedule it with cron and copy the dumps off the host.
 
 ### 6. Demo tenant (optional)
 

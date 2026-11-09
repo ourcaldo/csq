@@ -36,11 +36,13 @@ built in this phase, in parallel.**
 - [ ] Create `src/services/whatsapp/provider.ts` — common `WhatsAppProvider`
   interface (SDD §4.8):
   - `start(channel)`, `stop(channelId)`, `sendText(channel, to, text)`,
-    `markAsRead(channel, messageId)`, `onMessage(handler)`.
+    `onMessage(handler)`. (Dated note 2026-11-09, PRD 16 OPS-9: the planned
+    `markAsRead` read-receipt method was never built and has no product
+    requirement - removed from the plan instead of left as a false claim.)
   - `InboundMessage` type: `{ channelId, tenantId, from, body, waMessageId, receivedAt }`.
 - [ ] Create `src/services/whatsapp/index.ts` — `getProvider(channel)` returns
-  the Cloud or Baileys impl based on `channel.provider`; `sendText` /
-  `markAsRead` dispatch to the active provider.
+  the Cloud or Baileys impl based on `channel.provider`; `sendText`
+  dispatch to the active provider.
 
 ### 7.2 Cloud API provider
 
@@ -168,7 +170,7 @@ built in this phase, in parallel.**
 src/
 ├── services/whatsapp/
 │   ├── provider.ts          (common WhatsAppProvider interface + InboundMessage)
-│   ├── index.ts             (getProvider dispatch + sendText/markAsRead)
+│   ├── index.ts             (getProvider dispatch + sendText)
 │   ├── ingest.ts            (shared inbound ingest path)
 │   ├── whatsapp-cloud.ts    (Cloud API provider)
 │   └── whatsapp-baileys.ts  (Baileys provider, in-process socket)

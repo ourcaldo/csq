@@ -1,6 +1,14 @@
 # Monorepo Migration Plan (PRD 23B.0)
 
 Date: 2026-11-08
+> Status 2026-11-09 (PRD 16 DOC-5): the "not built / blocked" statements
+> for `apps/admin`, `apps/worker` and `packages/ui` in Phases 4-5 are
+> historical - all three are built, deployed and consumed. They were
+> delivered by the enterprise architecture plan (PRD 08), the admin console
+> plan (PRD 13) and the shared UI plan (PRD 12) respectively. UI sharing is
+> in, not out of scope. The production cutover notes remain frozen by the
+> owner directive.
+
 Owner decision: the product escalates beyond the single-tenant demo app.
 Three frontends are planned: the public UI, the tenant dashboard, and later
 the platform admin console. This document is the agreed plan; PRD section

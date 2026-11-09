@@ -1,6 +1,13 @@
 # Shared UI Package Plan (PRD 12)
 
 Date: 2026-11-08
+> Status 2026-11-09 (PRD 16 DOC-5): COMPLETE. Small numeric drift in the
+> text: the package ships 11 shadcn primitives (not 10), the tailwind
+> preset imports from `@csq/ui/src/tailwind-preset.cjs`, the shared css is
+> `packages/ui/src/styles/theme.css` (`:root` variables only - the
+> `@tailwind` directives stay app-local), and the campaign schedule
+> self-check carries 12 asserts.
+
 Owner decision: extract the duplicated design-system layer into
 `packages/ui` (`@csq/ui`). PRD: `docs/prd/12-shared-ui-package.md` (which
 also records the honest boundary - what is NOT shared and why). This

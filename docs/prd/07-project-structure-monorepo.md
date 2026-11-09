@@ -1,14 +1,21 @@
 # 23B. Project Structure & Scaffolding Plan
 
+> Dated note 2026-11-09 (PRD 16 DOC-2): the dashboard ownership statements
+> below predate the enterprise split. The Tool Gateway HTTP surface, the Meta
+> webhook and media serving moved to `apps/api`; WhatsApp sockets, all
+> scheduler ticks and the outbox drain moved to `apps/worker` (PRD 08 and
+> its plan). The OpenClaw runtime was replaced by the direct LLM client and
+> its env vars do not exist. Everything else here (workspaces, package
+> layout, tsconfig paths, the admin/web apps) is accurate.
+
 ## 23B.0 Monorepo Escalation (owner decision 2026-11-08)
 
 The repository is being restructured into an npm-workspaces monorepo. Full
 plan and phased execution: `docs/plans/2026-11-08-monorepo-migration-plan.md`.
 Summary:
 
--   `apps/dashboard` - the existing Next.js Pages Router app, moved
-    unchanged (tenant dashboard + Tool Gateway + channels; the only app
-    that owns WhatsApp sessions).
+-   `apps/dashboard` - the tenant dashboard UI + BFF (session-scoped routes
+    only since PRD 08 Phase 6/7).
 -   `packages/core` - shared: Prisma schema/migrations/client, lib domain
     logic (inbox, agent loop, campaign engine, system locks), services,
     tool registry, types. Core never imports from an app; apps never

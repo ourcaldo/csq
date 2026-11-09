@@ -14,8 +14,10 @@ landing/inbox styles it never renders) and the admin console approaches.
 - `Seo` - the head/OpenGraph/JSON-LD component both apps already use.
 - The shared Tailwind theme (design tokens: colors, radius, keyframes,
   plugins) exported as a preset each app's config extends.
-- The CSS base layer: the `@tailwind` directives plus the `:root` theme
-  variables.
+- The CSS base layer: the shared `:root` theme variables. Dated note
+  2026-11-09 (PRD 16 DOC-7): the `@tailwind` directives stay app-local in
+  each app's `globals.css` (each app owns its Tailwind pipeline); only the
+  `:root` variables are shared from the package.
 
 ## What is NOT shared - app-local by design
 

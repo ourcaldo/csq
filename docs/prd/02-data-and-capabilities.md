@@ -46,7 +46,12 @@ The system:
 4.  Maps the data.
 5.  Stores the connection configuration.
 6.  Reads the latest data when the agent needs it.
-7.  Optionally writes back when write access is explicitly enabled.
+
+Dated note 2026-11-09 (PRD 16 OPS-4): step 7 "optionally writes back
+when write access is explicitly enabled" is REMOVED. No tenant has ever
+used Sheets write-back and no tool wires it; if a future round needs it,
+it gets its own PRD with a per-source opt-in flag. Google Sheets is
+read-only in CSQ.
 
 ------------------------------------------------------------------------
 
@@ -216,6 +221,12 @@ This creates an auditable action trail.
 ------------------------------------------------------------------------
 
 # 12. External Data Write Strategy
+
+Dated note 2026-11-09 (PRD 16 OPS-4): this section describes a target that
+was never built. Google Sheets is read-only in CSQ today: external writes
+were removed from the product scope because no tenant asked for them. The
+principle below (separate write capability, controlled tools, no raw
+credentials) still governs any future external write feature.
 
 For external sources such as Google Sheets, the platform should treat
 write access as a separate capability.

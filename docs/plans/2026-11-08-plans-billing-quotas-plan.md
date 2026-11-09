@@ -1,5 +1,13 @@
 # Plans, Billing, and Quotas - Implementation Plan (2026-11-08)
 
+> Status 2026-11-09 (PRD 16 DOC-5): IMPLEMENTED and verified - the phase
+> checkboxes below were left unticked by oversight; every phase shipped.
+> Verification: `npm run check:billing` (assert-based: ledger idempotency,
+> entitlements, exhaustion, the open-request index, provisioning defaults).
+> Two details drifted from the text: bank details live in the
+> `BillingSetting` DB row (not `BILLING_BANK_*` env), and the feature-route
+> count is 18 (pipeline has 7 routes), not 19.
+
 PRD: `docs/prd/14-plans-billing-quotas.md`. This plan turns the package
 model into a working commercial loop: exact credit charging, feature API
 gates, a tenant "Paket & Kuota" page, manual invoices, and plan requests.

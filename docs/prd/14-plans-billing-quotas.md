@@ -25,6 +25,11 @@ at the end of this file.
 - Plan changes take effect **immediately** for entitlements. Billing is
   manual, so proration is the operator's call: they void and reissue the
   invoice, or edit the amount when creating it. No automatic proration.
+  Dated note 2026-11-09 (PRD 16 DOC-7): "void and reissue" means void, then
+  reissue for a different period or after an edit - the unique
+  (tenantId, periodStart) index intentionally rejects two live invoices for
+  the same period, and that rejection is the documented acceptance
+  criterion. Void-and-reissue within one period is not supported.
 - Any actual pricing decision must first verify current official WhatsApp
   API and LLM provider costs against live documentation - repo rule;
   platform pricing moves fast and must never be quoted from memory.
@@ -251,9 +256,16 @@ Feature routes to guard in Phase 2:
 - Tenant billing endpoints are OWNER-only, server-side. STAFF must not see
   invoices or amounts.
 - Every query is tenant-scoped from the session, never from the body.
-- Bank details are server env, never client env.
+- Bank details live in the `BillingSetting` platform table (edited in the
+  admin console), never in env and never client-side. Dated note
+  2026-11-09 (PRD 16 DOC-7): an earlier draft said "server env"; the
+  resolved decision (section "Resolved decisions", item 4) is the DB row,
+  and that is what shipped.
 - Admin invoice and request actions write `AdminActionLog`; credit
-  exhaustion writes `AuditLog`; plan assignment already writes both.
+  exhaustion writes `AuditLog`; plan assignment writes `AdminActionLog`
+  (the tenant-side `AuditLog` row was an earlier draft's claim - the
+  operator action is the audit record). Dated note 2026-11-09
+  (PRD 16 DOC-7).
 - Invoice numbers are generated server-side; the client cannot choose one.
 
 ## Data model changes
