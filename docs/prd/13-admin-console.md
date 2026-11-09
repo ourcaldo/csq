@@ -46,13 +46,22 @@ reach an admin route and vice versa. The first admin is created by CLI
 
 New `TenantStatus` enum (`ACTIVE` default, `SUSPENDED`):
 
-- **Suspended**: tenant users are locked out (login blocked; live
-  sessions get a clear suspended error), the agent loop stands down (no
-  LLM turns), the worker disconnects that tenant's Baileys sockets,
-  scheduled campaigns pause automatically. Inbound WhatsApp messages are
-  STILL ingested - data is never lost, the agent simply does not answer.
-- **Activated**: everything above reverses; channels reconnect from
-  saved creds (no QR re-scan).
+- **Suspended**: tenant users are locked out (they can still authenticate,
+  but every SSR page redirects to `/suspended` and the BFF returns 401 - a
+  clear error, never a broken dashboard), the agent loop stands down (no LLM
+  turns), the API token realm locks (keys and JWTs stop authenticating;
+  token mint returns `TENANT_SUSPENDED`), and scheduled campaigns pause
+  automatically (marked autoPaused so activation resumes exactly those).
+  Dated amendment 2026-11-09 (PRD 16 SEC-4): Baileys sockets STAY connected
+  while suspended - "disconnect sockets" contradicted "inbound still
+  ingested" (a disconnected socket cannot ingest), and disconnect is a
+  full logout that would force a QR re-scan on reactivation. The resolved
+  semantics: sockets stay up so inbound WhatsApp messages are STILL ingested
+  - data is never lost, the agent simply does not answer; all outbound
+  sends and LLM turns are suppressed by `tenantActive()` guards in the
+  worker engines.
+- **Activated**: everything above reverses without a QR re-scan; auto-paused
+  campaigns resume.
 - Every lifecycle action writes an AdminActionLog row (actor, target,
   before/after).
 

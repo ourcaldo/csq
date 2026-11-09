@@ -42,6 +42,28 @@ This PRD closes all three. It does not reopen completed PRD 09 work.
 | ID | Requirement | Acceptance |
 |---|---|---|
 | SEC-1 | Activate RLS as the second tenant layer. Provision a non-owner DB role, add a migration that runs `ALTER TABLE ... FORCE ROW LEVEL SECURITY` for every tenant-owned table, and wrap tenant-scoped Prisma work in a transaction that calls `set_config('app.current_tenant_id', ..., true)` on the same connection. Do not enable FORCE while the app still connects as the table owner. | With the app role, a query for tenant A returns zero rows when the session context is tenant B. Cross-tenant smoke check added. Document the role and connection string in the env examples. |
+| | Dated amendment 2026-11-09 (during implementation): FORCE ROW LEVEL SECURITY is NOT used. The app switched to the dedicated non-owner role `csq_app`, which is subject to the policies without FORCE; FORCE would additionally bind the table-owner role that runs `prisma migrate deploy`, breaking migrations for no additional security on the app path. The acceptance below was verified against the `csq_app` role. |
+
+## Implementation record 2026-11-09/10
+
+Every item in this PRD was implemented, verified, and deployed to the
+monorepo test stack (commits 01fe601 through a7421d7). Live verification:
+
+- All four apps build; the encoding gate passes (340 files).
+- `npm run check:rls` against the clone as `csq_app`: cross-tenant reads and
+  writes blocked, fail-closed without context, bypass works.
+- `npm run check:billing`: ledger idempotency, entitlements, exhaustion,
+  the open-request index (COR-5), provisioning defaults (ADM-8), Basic
+  catalog row (COR-7). All pass.
+- `npm run check:tools`: 18 registry asserts for order.refund and
+  support.create_ticket (FEA-2/3). All pass.
+- Smoke suite, 21 checks, ALL PASS against the live stack with RLS ACTIVE
+  on all four services (DATABASE_URL = csq_app on dashboard, api, worker,
+  admin since 2026-11-09): dashboard auth + reads, the /api/v1 token realm,
+  refresh rotation, admin login, tenant list, tenant create, suspend +
+  the /suspended lockout (BFF 401, SSR redirect), reactivation.
+- Live OpenAPI serves 10 paths (OPS-6); the alert check is green with a
+  fresh worker heartbeat under the app role.
 | SEC-2 | Gate every mutating import and Sheets route to OWNER: `api/import/excel/confirm.ts`, `api/import/sheets/{auth,callback,connect,confirm,sync}.ts`. STAFF receives 403. | STAFF session gets 403 on each route; OWNER still succeeds; attempts are audited. |
 | SEC-3 | Enforce the PRD 15.9 page gate: configuration pages require OWNER (`agents`, `products`, `inventory`, `orders`, `knowledge`, `memory`, `settings`, `sources`, `data`), while inbox stays open to OWNER and STAFF. Use `withAuth` with `requiredRole: "OWNER"`, not client-side hiding. | STAFF is redirected or shown the forbidden state on each config page; inbox still renders. |
 | SEC-4 | Complete suspension semantics. A shared `tenantActive(tenantId)` guard blocks: campaign fire and delivery, scheduler session-close sends, non-text courtesy sends, scenario runs, `/api/v1` token and refresh, and tool execution. Dashboard SSR pages show a suspended page for live sessions; login returns a distinct suspended error. On suspend, ACTIVE campaigns move to PAUSED. Baileys sockets stay connected so inbound is still ingested, but all outbound and LLM turns are suppressed; reactivation needs no QR rescan. | Suspended tenant: inbound rows still appear, no outbound rows, no LLM calls, API token mint returns `TENANT_SUSPENDED`, campaigns are PAUSED. Reactivated tenant resumes without QR. |
