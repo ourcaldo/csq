@@ -1,13 +1,12 @@
-// Full-page campaign wizard (replaces the old popup flow per owner request
-// 2026-11-10). Owns the 4-step state, the audience preview, media upload and
-// the save call. Used by /dashboard/campaigns/baru (create) and
-// /dashboard/campaigns/[id] (edit).
+// Full-page campaign form (owner requests 2026-11-10: no popup, and no
+// step navigation either - all four sections on one page, separated by the
+// numbered badge + dashed rule headers). Owns the form state, the audience
+// preview, media upload and the save call. Used by /dashboard/campaigns/baru
+// (create) and /dashboard/campaigns/[id] (edit).
 import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
-import { Check } from "@phosphor-icons/react";
-import { cn } from "@csq/ui/lib/utils";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
 import type { Category, Contact, ListResult, Tag } from "@csq/core/types/dashboard";
@@ -16,7 +15,7 @@ import { Button } from "@csq/ui/components/ui/button";
 import { StateNotice } from "@/components/dashboard/state-notice";
 import { LoadingSkeleton } from "@/components/dashboard/loading-skeleton";
 import {
-  CampaignWizardSteps,
+  CampaignWizardForm,
   type MessageTemplateRow,
 } from "@/components/dashboard/campaigns/campaign-wizard-steps";
 
@@ -26,8 +25,6 @@ type ChannelView = {
   status: string;
   phoneNumberId?: string;
 };
-
-const STEPS = ["Dasar", "Penerima", "Pesan", "Jadwal"];
 
 export function CampaignWizard({
   mode,
@@ -54,7 +51,6 @@ export function CampaignWizard({
     [channels.data]
   );
 
-  const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -216,55 +212,11 @@ export function CampaignWizard({
 
   return (
     <form onSubmit={onSave} className="flex flex-col gap-6">
-      {/* Stepper - same shape as the saluran onboarding indicator. */}
-      <div className="flex items-center gap-1 overflow-x-auto">
-        {STEPS.map((label, i) => {
-          const n = i + 1;
-          const done = step > n;
-          const active = step === n;
-          return (
-            <div key={label} className="flex shrink-0 items-center">
-              <div className="flex items-center gap-2">
-                <div
-                  className={cn(
-                    "flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold",
-                    active
-                      ? "bg-green-600 text-white"
-                      : done
-                        ? "bg-green-100 text-green-700"
-                        : "bg-slate-100 text-slate-400"
-                  )}
-                >
-                  {done ? <Check size={14} weight="bold" /> : n}
-                </div>
-                <span
-                  className={cn(
-                    "text-sm",
-                    active ? "font-semibold text-slate-900" : "text-slate-500"
-                  )}
-                >
-                  {label}
-                </span>
-              </div>
-              {i < STEPS.length - 1 && (
-                <div
-                  className={cn(
-                    "mx-2 h-px w-6 shrink-0 sm:w-12",
-                    done ? "bg-green-300" : "bg-slate-200"
-                  )}
-                />
-              )}
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
         {loading ? (
-          <LoadingSkeleton rows={4} />
+          <LoadingSkeleton rows={8} />
         ) : (
-          <CampaignWizardSteps
-            step={step}
+          <CampaignWizardForm
             channels={connectedChannels}
             channelId={channelId}
             onChannelId={setChannelId}
@@ -322,25 +274,9 @@ export function CampaignWizard({
         >
           Batal
         </Button>
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setStep((s) => Math.max(1, s - 1))}
-            disabled={step === 1 || saving}
-          >
-            Kembali
-          </Button>
-          {step < 4 ? (
-            <Button type="button" onClick={() => setStep((s) => s + 1)} disabled={loading}>
-              Lanjut
-            </Button>
-          ) : (
-            <Button type="submit" disabled={saving || loading}>
-              {saving ? "Menyimpan..." : mode === "edit" ? "Simpan Perubahan" : "Simpan"}
-            </Button>
-          )}
-        </div>
+        <Button type="submit" disabled={saving || loading}>
+          {saving ? "Menyimpan..." : mode === "edit" ? "Simpan Perubahan" : "Simpan"}
+        </Button>
       </div>
     </form>
   );

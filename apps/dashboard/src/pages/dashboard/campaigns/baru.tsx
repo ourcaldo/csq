@@ -14,7 +14,7 @@ export default function CampaignsBaruPage({ apiMediaBase }: BaruPageProps) {
   return (
     <DashboardShell
       title="Kampanye Baru"
-      description="Empat langkah: saluran, penerima, pesan, lalu jadwal."
+      description="Atur saluran, penerima, pesan, dan jadwal dalam satu halaman."
     >
       <CampaignWizard mode="create" campaign={null} apiMediaBase={apiMediaBase} />
     </DashboardShell>
