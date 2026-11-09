@@ -1,20 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
 import type { GetServerSideProps } from "next";
 import { useSession } from "next-auth/react";
-import {
-  WhatsappLogo,
-  Cloud,
-  PlugsConnected,
-  QrCode,
-  Check,
-  CheckCircle,
-  WarningCircle,
-  PaperPlaneRight,
-  ArrowLeft,
-  Plug,
-} from "@phosphor-icons/react";
-import { QRCodeSVG } from "qrcode.react";
+import { Check, Cloud, WhatsappLogo } from "@phosphor-icons/react";
 import { withAuth, getSSRSession } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { cloudApiConfigSchema } from "@csq/core/types/whatsapp";
@@ -23,61 +10,33 @@ import { z } from "zod";
 import { apiFetch, apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
-import { BadgeStatus } from "@/components/dashboard/badge-status";
 import { StateNotice } from "@/components/dashboard/state-notice";
 import { LoadingSkeleton } from "@/components/dashboard/loading-skeleton";
-import { Button } from "@csq/ui/components/ui/button";
-import { Switch } from "@csq/ui/components/ui/switch";
-import { Separator } from "@csq/ui/components/ui/separator";
 import { cn } from "@csq/ui/lib/utils";
+import { MethodCard } from "@/components/dashboard/channels/method-card";
+import { ConnectedChannelCard } from "@/components/dashboard/channels/connected-channel-card";
+import { CloudApiForm } from "@/components/dashboard/channels/cloud-api-form";
+import { BaileysForm } from "@/components/dashboard/channels/baileys-form";
+import { CloudApiEditForm } from "@/components/dashboard/channels/cloud-api-edit-form";
+import { Toast } from "@/components/dashboard/channels/toast";
+import {
+  EMPTY_CLOUD,
+  type AgentItem,
+  type ChannelView,
+  type CloudForm,
+  type ConnectResult,
+  type Provider,
+  type ToastState,
+} from "@/components/dashboard/channels/types";
 
-// ---------------------------------------------------------------------------
-// Channels / WhatsApp onboarding page (gap B). Step-by-step wizard:
-//   1. Pilih Metode  - pick how to connect (white-labeled; no provider names)
-//   2. Sambungkan    - configure the chosen method (creds, or scan QR)
-//   3. Aktif         - connected: test / disconnect / edit credentials
-// Wires to the existing channels backend (connect / disconnect / test / list).
-// The channel must link to an ACTIVE agent or runAgentReply stands down.
-// ---------------------------------------------------------------------------
-
-type Provider = "CLOUD_API" | "BAILEYS";
-
-type ChannelView = {
-  id: string;
-  provider: Provider;
-  type: "WHATSAPP";
-  status: string;
-  agentId: string | null;
-  phoneNumberId?: string;
-  tosAcknowledged?: boolean;
-  createdAt: string;
-  updatedAt: string;
-};
-
-type AgentItem = { id: string; name: string; status: string };
-
-type ConnectResult = {
-  channelId: string;
-  provider: string;
-  status: string;
-  qr: string | null;
-};
-
+// Channels / WhatsApp onboarding page (gap B). The wizard state lives here;
+// the method cards, forms and connected card are separate components under
+// components/dashboard/channels/ (PRD 09 page-splitting).
 const STEPS = ["Pilih Metode", "Sambungkan", "Aktif"];
-
-const EMPTY_CLOUD = {
-  phoneNumberId: "",
-  token: "",
-  appSecret: "",
-  businessAccountId: "",
-};
 
 function errMsg(e: unknown, fallback: string): string {
   return e instanceof Error ? e.message : fallback;
 }
-
-const inputCls =
-  "w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm placeholder-slate-400 focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20";
 
 export default function SaluranPage({
   webhookUrl,
@@ -110,12 +69,16 @@ export default function SaluranPage({
     if (!agentId && activeAgents[0]) setAgentId(activeAgents[0].id);
   }, [activeAgents, agentId]);
 
-  const [cloudForm, setCloudForm] = useState(EMPTY_CLOUD);
+  const [cloudForm, setCloudForm] = useState<CloudForm>(EMPTY_CLOUD);
   useEffect(() => {
     if (cloud?.phoneNumberId && !cloudForm.phoneNumberId) {
-      setCloudForm((f) => ({ ...f, phoneNumberId: cloud.phoneNumberId! }));
+      setCloudForm((f) => ({ ...f, phoneNumberId: cloud.phoneNumberId ?? "" }));
     }
   }, [cloud?.phoneNumberId, cloudForm.phoneNumberId]);
+
+  function setCloud(patch: Partial<CloudForm>) {
+    setCloudForm((f) => ({ ...f, ...patch }));
+  }
 
   const [connecting, setConnecting] = useState(false);
   const [tos, setTos] = useState(false);
@@ -123,16 +86,10 @@ export default function SaluranPage({
   const [qrAt, setQrAt] = useState<number | null>(null);
   const [byoChannelId, setByoChannelId] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
-  // Consecutive /qr polls that found no socket at all (qr:null + open:false).
-  // Two in a row (~6s) means the pending session died server-side - the QR on
-  // screen is dead and must not sit there forever.
   const deadPolls = useRef(0);
   const [testTo, setTestTo] = useState<Record<string, string>>({});
   const [testing, setTesting] = useState<string | null>(null);
-  const [toast, setToast] = useState<{
-    msg: string;
-    tone: "success" | "error";
-  } | null>(null);
+  const [toast, setToast] = useState<ToastState | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function showToast(msg: string, tone: "success" | "error") {
@@ -142,8 +99,8 @@ export default function SaluranPage({
   }
 
   // Poll the LIVE QR + open state while a Baileys QR is pending. Baileys
-  // rotates the QR periodically, so we must display the *current* one (not
-  // the QR from the initial connect call) and detect when the scan completes.
+  // rotates the QR periodically, so display the current one and detect when
+  // the scan completes.
   useEffect(() => {
     if (!byoChannelId || !qr) return;
     let active = true;
@@ -163,14 +120,10 @@ export default function SaluranPage({
           setQr(state.qr);
           setQrAt((prev) => prev ?? Date.now());
         } else if (++deadPolls.current >= 2) {
-          // No live socket and no QR: the pending login session is gone
-          // (e.g. WhatsApp restarted it and the reconnect failed).
           deadPolls.current = 0;
           setQr(null);
           setQrAt(null);
-          setPageError(
-            "Sesi QR berakhir. Klik Tampilkan QR untuk memulai ulang."
-          );
+          setPageError("Sesi QR berakhir. Klik Tampilkan QR untuk memulai ulang.");
         }
       } catch {
         /* ignore transient poll errors */
@@ -191,10 +144,7 @@ export default function SaluranPage({
     }
   }, [baileys?.status, qr]);
 
-  // The wizard's effective step (3 once connected & not editing creds).
   const currentStep = connected && !editCreds ? 3 : step;
-
-  // Show a retry hint if the QR has been sitting for >60s without a connection.
   const qrStale =
     qrAt !== null &&
     baileys?.status !== "CONNECTED" &&
@@ -296,9 +246,7 @@ export default function SaluranPage({
           {pageError}
         </p>
       )}
-      {fetchError && (
-        <p className="mb-4 text-sm text-destructive">{fetchError}</p>
-      )}
+      {fetchError && <p className="mb-4 text-sm text-destructive">{fetchError}</p>}
 
       {!isOwner && (
         <p className="mb-4 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700">
@@ -307,7 +255,6 @@ export default function SaluranPage({
         </p>
       )}
 
-      {/* Stepper */}
       {!loading && (
         <div className="mb-6 flex items-center gap-1 overflow-x-auto">
           {STEPS.map((label, i) => {
@@ -323,8 +270,8 @@ export default function SaluranPage({
                       active
                         ? "bg-green-600 text-white"
                         : done
-                        ? "bg-green-100 text-green-700"
-                        : "bg-slate-100 text-slate-400"
+                          ? "bg-green-100 text-green-700"
+                          : "bg-slate-100 text-slate-400"
                     )}
                   >
                     {done ? <Check size={14} weight="bold" /> : n}
@@ -332,9 +279,7 @@ export default function SaluranPage({
                   <span
                     className={cn(
                       "text-sm",
-                      active
-                        ? "font-semibold text-slate-900"
-                        : "text-slate-500"
+                      active ? "font-semibold text-slate-900" : "text-slate-500"
                     )}
                   >
                     {label}
@@ -363,93 +308,25 @@ export default function SaluranPage({
         />
       )}
 
-      {/* ───────────── Step 3: Aktif ───────────── */}
       {!loading && connected && !editCreds && (
-        <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-          <div className="flex flex-col gap-3 p-5 md:flex-row md:items-start md:justify-between">
-            <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-600 text-white">
-                {connected.provider === "CLOUD_API" ? (
-                  <Cloud size={20} weight="fill" />
-                ) : (
-                  <WhatsappLogo size={20} weight="fill" />
-                )}
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-base font-semibold text-slate-900">
-                    {connected.provider === "CLOUD_API"
-                      ? "WhatsApp Resmi"
-                      : "Bawa Nomor Sendiri"}
-                  </h2>
-                  <BadgeStatus tone="green">Terhubung</BadgeStatus>
-                </div>
-                <p className="mt-1 text-sm text-slate-500">
-                  {connected.provider === "CLOUD_API"
-                    ? `Phone Number ID: ${connected.phoneNumberId ?? "-"}`
-                    : "Terhubung via pindaian QR."}
-                </p>
-              </div>
-            </div>
-            <div className="flex shrink-0 items-center gap-2">
-              {connected.provider === "CLOUD_API" && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!isOwner}
-                  onClick={() => {
-                    setMethod("CLOUD_API");
-                    setEditCreds(true);
-                  }}
-                >
-                  Edit Kredensial
-                </Button>
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!isOwner}
-                onClick={() => disconnectChannel(connected.id)}
-              >
-                Putuskan
-              </Button>
-            </div>
-          </div>
-          <p className="px-5 pb-4 text-xs text-slate-400">
-            Ingin berganti metode? Putuskan saluran ini, lalu pilih metode lain
-            (mis. WhatsApp Resmi) dari langkah pertama.
-          </p>
-          {connected.provider === "CLOUD_API" && (
-            <div className="space-y-3 px-5 pb-5">
-              <Separator />
-              <p className="pt-4 text-xs font-medium text-slate-600">
-                Setelan webhook di Meta App Manager (WhatsApp → Configuration):
-              </p>
-              <ReadOnlyField label="Callback URL" value={webhookUrl} />
-              <ReadOnlyField
-                label="Verify Token"
-                value={cloudVerifyToken ?? "-"}
-                hint="Berganti otomatis setiap kali saluran disambungkan ulang - perbarui juga di Meta."
-              />
-            </div>
-          )}
-          <Separator />
-          <div className="p-5">
-            <TestBox
-              id={connected.id}
-              testTo={testTo}
-              testing={testing}
-              onTo={(v) =>
-                setTestTo((p) => ({ ...p, [connected.id]: v }))
-              }
-              onTest={() => testChannel(connected.id)}
-              disabled={!isOwner}
-            />
-          </div>
-        </div>
+        <ConnectedChannelCard
+          channel={connected}
+          webhookUrl={webhookUrl}
+          cloudVerifyToken={cloudVerifyToken}
+          isOwner={isOwner}
+          onEdit={() => {
+            setMethod("CLOUD_API");
+            setStep(2);
+            setEditCreds(true);
+          }}
+          onDisconnect={() => void disconnectChannel(connected.id)}
+          testTo={testTo}
+          testing={testing}
+          onTestTo={(v) => setTestTo((p) => ({ ...p, [connected.id]: v }))}
+          onTest={() => void testChannel(connected.id)}
+        />
       )}
 
-      {/* ───────────── Step 1: Pilih Metode ───────────── */}
       {!loading && !connected && step === 1 && (
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           <MethodCard
@@ -483,445 +360,51 @@ export default function SaluranPage({
         </div>
       )}
 
-      {/* ───────────── Step 2: Sambungkan ───────────── */}
       {!loading && !connected && step === 2 && method === "CLOUD_API" && (
-        <ConfigureCard
-          title="WhatsApp Resmi"
-          icon={<Cloud size={20} weight="fill" />}
+        <CloudApiForm
+          form={cloudForm}
+          onChange={setCloud}
+          agents={activeAgents}
+          agentId={agentId}
+          onAgentChange={setAgentId}
+          webhookUrl={webhookUrl}
+          cloudVerifyToken={cloudVerifyToken}
+          connecting={connecting}
+          isOwner={isOwner}
           onBack={() => setStep(1)}
-        >
-          <div className="space-y-3">
-            <Field
-              label="Phone Number ID"
-              value={cloudForm.phoneNumberId}
-              onChange={(v) => setCloudForm((f) => ({ ...f, phoneNumberId: v }))}
-              hint="Contoh: 103xxxxxxxxxx"
-              disabled={!isOwner}
-            />
-            <Field
-              label="Access Token"
-              value={cloudForm.token}
-              onChange={(v) => setCloudForm((f) => ({ ...f, token: v }))}
-              hint="Token akses Meta Graph API, diawali EAAG…"
-              disabled={!isOwner}
-              type="password"
-            />
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field
-                label="App Secret"
-                value={cloudForm.appSecret}
-                onChange={(v) => setCloudForm((f) => ({ ...f, appSecret: v }))}
-                hint="App Secret dari Meta App Manager"
-                disabled={!isOwner}
-                type="password"
-              />
-              <Field
-                label="Business Account ID (opsional)"
-                value={cloudForm.businessAccountId}
-                onChange={(v) =>
-                  setCloudForm((f) => ({ ...f, businessAccountId: v }))
-                }
-                hint="Opsional. Contoh: 10xxxx…"
-                disabled={!isOwner}
-              />
-            </div>
-
-            {/* Webhook setup comes BEFORE Sambungkan: Meta must verify the
-                callback, and the owner needs URL + token on screen while doing
-                the Meta-side config. Verify token is generated server-side on
-                connect - shown here as it will be after Sambungkan. */}
-            <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50/60 p-4">
-              <p className="text-xs font-medium text-slate-600">
-                Setel webhook di Meta App Manager (WhatsApp → Configuration)
-                dengan nilai berikut, lalu klik Sambungkan dan tekan Verify di
-                Meta:
-              </p>
-              <ReadOnlyField label="Callback URL" value={webhookUrl} />
-              <ReadOnlyField
-                label="Verify Token"
-                value={cloudVerifyToken ?? "-"}
-                hint="Token saat ini. Berganti otomatis setiap kali disambungkan ulang - salin nilai terbaru dari kartu saluran setelah Sambungkan."
-              />
-            </div>
-
-            <AgentPicker
-              agents={activeAgents}
-              value={agentId}
-              onChange={setAgentId}
-              disabled={!isOwner}
-            />
-
-            <div className="pt-1">
-              <Button
-                disabled={!isOwner || connecting}
-                onClick={connectCloud}
-              >
-                <PlugsConnected size={16} />
-                {connecting ? "Menyambungkan…" : "Sambungkan"}
-              </Button>
-            </div>
-          </div>
-        </ConfigureCard>
+          onSubmit={() => void connectCloud()}
+        />
       )}
 
       {!loading && !connected && step === 2 && method === "BAILEYS" && (
-        <ConfigureCard
-          title="Bawa Nomor Sendiri"
-          icon={<WhatsappLogo size={20} weight="fill" />}
+        <BaileysForm
+          agents={activeAgents}
+          agentId={agentId}
+          onAgentChange={setAgentId}
+          tos={tos}
+          onTosChange={setTos}
+          connecting={connecting}
+          isOwner={isOwner}
+          qr={qr}
+          qrStale={qrStale}
           onBack={() => setStep(1)}
-        >
-          <div className="space-y-4">
-            <AgentPicker
-              agents={activeAgents}
-              value={agentId}
-              onChange={setAgentId}
-              disabled={!isOwner}
-            />
-
-            <label className="flex items-center gap-2 text-sm text-slate-700">
-              <Switch checked={tos} disabled={!isOwner} onChange={setTos} />
-              Saya menyetujui ketentuan layanan untuk penggunaan nomor pribadi.
-            </label>
-
-            <div className="flex items-center gap-2">
-              <Button
-                disabled={!isOwner || !tos || connecting}
-                onClick={connectByo}
-              >
-                <Plug size={16} />
-                {connecting ? "Memulai…" : "Tampilkan QR"}
-              </Button>
-            </div>
-
-            {qr && (
-              <div className="flex flex-col items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <div className="rounded-lg bg-white p-3 shadow-sm">
-                  <QRCodeSVG value={qr} size={200} level="M" />
-                </div>
-                <p className="flex items-center gap-1.5 text-sm text-slate-600">
-                  <QrCode size={16} />
-                  Buka WhatsApp &gt; Tautkan perangkat, lalu pindai QR ini.
-                  Status diperbarui otomatis.
-                </p>
-                {qrStale && (
-                  <div className="mt-1 flex flex-col items-center gap-2">
-                    <p className="text-center text-xs text-amber-700">
-                      Scan belum terdeteksi setelah 1 menit. Pastikan telepon
-                      tersambung internet, lalu coba lagi.
-                    </p>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={connecting || !tos}
-                      onClick={connectByo}
-                    >
-                      <Plug size={16} />
-                      Coba Lagi
-                    </Button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </ConfigureCard>
+          onConnect={() => void connectByo()}
+        />
       )}
 
-      {/* Edit credentials for an already-connected Cloud channel */}
       {!loading && connected && editCreds && method === "CLOUD_API" && (
-        <ConfigureCard
-          title="Edit Kredensial"
-          icon={<Cloud size={20} weight="fill" />}
+        <CloudApiEditForm
+          form={cloudForm}
+          onChange={setCloud}
+          connecting={connecting}
+          isOwner={isOwner}
           onBack={() => setEditCreds(false)}
-        >
-          <div className="space-y-3">
-            <Field
-              label="Phone Number ID"
-              value={cloudForm.phoneNumberId}
-              onChange={(v) => setCloudForm((f) => ({ ...f, phoneNumberId: v }))}
-              hint="Contoh: 103xxxxxxxxxx"
-              disabled={!isOwner}
-            />
-            <Field
-              label="Access Token"
-              value={cloudForm.token}
-              onChange={(v) => setCloudForm((f) => ({ ...f, token: v }))}
-              hint="Masukkan ulang token akses Meta Graph API"
-              disabled={!isOwner}
-              type="password"
-            />
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field
-                label="App Secret"
-                value={cloudForm.appSecret}
-                onChange={(v) => setCloudForm((f) => ({ ...f, appSecret: v }))}
-                hint="Masukkan ulang App Secret dari Meta App Manager"
-                disabled={!isOwner}
-                type="password"
-              />
-            </div>
-            <div className="flex items-center gap-2 pt-1">
-              <Button disabled={!isOwner || connecting} onClick={connectCloud}>
-                <PlugsConnected size={16} />
-                {connecting ? "Menyimpan…" : "Simpan"}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setEditCreds(false)}
-                disabled={connecting}
-              >
-                Batal
-              </Button>
-            </div>
-            <p className="text-xs text-slate-400">
-              Menyimpan membuat verify token baru - perbarui token webhook di
-              Meta App Manager setelahnya.
-            </p>
-          </div>
-        </ConfigureCard>
+          onSubmit={() => void connectCloud()}
+        />
       )}
 
       <Toast toast={toast} />
     </DashboardShell>
-  );
-}
-
-// ─────────────────────────── Subcomponents ───────────────────────────
-
-function MethodCard(props: {
-  icon: ReactNode;
-  tone: "green" | "slate";
-  title: string;
-  subtitle: string;
-  points: string[];
-  ctaLabel: string;
-  disabled?: boolean;
-  onChoose: () => void;
-}) {
-  const iconWrap =
-    props.tone === "green"
-      ? "bg-green-600 text-white"
-      : "bg-slate-800 text-white";
-  return (
-    <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-center gap-3">
-        <div
-          className={cn(
-            "flex h-11 w-11 items-center justify-center rounded-lg",
-            iconWrap
-          )}
-        >
-          {props.icon}
-        </div>
-        <div>
-          <h3 className="text-base font-semibold text-slate-900">
-            {props.title}
-          </h3>
-          <p className="text-sm text-slate-500">{props.subtitle}</p>
-        </div>
-      </div>
-      <ul className="mt-4 flex-1 space-y-2">
-        {props.points.map((p) => (
-          <li
-            key={p}
-            className="flex items-start gap-2 text-sm text-slate-600"
-          >
-            <Check
-              size={16}
-              weight="bold"
-              className="mt-0.5 shrink-0 text-green-600"
-            />
-            {p}
-          </li>
-        ))}
-      </ul>
-      <div className="mt-5">
-        <Button
-          className="w-full"
-          disabled={props.disabled}
-          onClick={props.onChoose}
-        >
-          {props.ctaLabel}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-function ConfigureCard(props: {
-  title: string;
-  icon: ReactNode;
-  onBack: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex items-center gap-3 p-5">
-        <button
-          onClick={props.onBack}
-          className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
-          aria-label="Kembali"
-        >
-          <ArrowLeft size={18} />
-        </button>
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-green-600 text-white">
-          {props.icon}
-        </div>
-        <h2 className="text-base font-semibold text-slate-900">
-          {props.title}
-        </h2>
-      </div>
-      <Separator />
-      <div className="p-5">{props.children}</div>
-    </div>
-  );
-}
-
-function AgentPicker(props: {
-  agents: AgentItem[];
-  value: string;
-  onChange: (v: string) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-xs font-medium text-slate-600">
-        Agent yang Membalas
-      </span>
-      <select
-        value={props.value}
-        onChange={(e) => props.onChange(e.target.value)}
-        disabled={props.disabled}
-        className={cn(inputCls, "md:w-72")}
-      >
-        {props.agents.map((a) => (
-          <option key={a.id} value={a.id}>
-            {a.name}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-function Field(props: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  hint?: string;
-  disabled?: boolean;
-  type?: string;
-}) {
-  return (
-    <label className="block">
-      <span className="mb-1 block text-xs font-medium text-slate-600">
-        {props.label}
-      </span>
-      <input
-        type={props.type ?? "text"}
-        value={props.value}
-        onChange={(e) => props.onChange(e.target.value)}
-        disabled={props.disabled}
-        className={inputCls}
-      />
-      {props.hint && (
-        <span className="mt-1 block text-xs text-slate-400">
-          {props.hint}
-        </span>
-      )}
-    </label>
-  );
-}
-
-// Read-only credential display used for server-generated values (webhook URL,
-// verify token): same height/padding as Field's input, with an inline copy
-// button so it visually matches the editable fields beside it.
-function ReadOnlyField(props: { label: string; value: string; hint?: string }) {
-  return (
-    <div className="block">
-      <span className="mb-1 block text-xs font-medium text-slate-600">
-        {props.label}
-      </span>
-      <div className="flex items-center gap-2">
-        <code className="min-w-0 flex-1 truncate rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-          {props.value}
-        </code>
-        <button
-          type="button"
-          className="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-green-700 hover:bg-green-50"
-          onClick={() => {
-            void navigator.clipboard.writeText(props.value);
-          }}
-        >
-          Salin
-        </button>
-      </div>
-      {props.hint && (
-        <span className="mt-1 block text-xs text-slate-400">
-          {props.hint}
-        </span>
-      )}
-    </div>
-  );
-}
-
-function TestBox(props: {
-  id: string;
-  testTo: Record<string, string>;
-  testing: string | null;
-  onTo: (v: string) => void;
-  onTest: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-      <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
-        <PaperPlaneRight size={14} /> Kirim Pesan Test
-      </p>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <input
-          value={props.testTo[props.id] ?? ""}
-          onChange={(e) => props.onTo(e.target.value)}
-          disabled={props.disabled}
-          className={cn(inputCls, "sm:flex-1")}
-        />
-        <Button
-          size="sm"
-          variant="outline"
-          className="w-full sm:w-auto"
-          disabled={props.disabled || props.testing === props.id}
-          onClick={props.onTest}
-        >
-          {props.testing === props.id ? "Mengirim…" : "Test"}
-        </Button>
-      </div>
-      <p className="mt-2 text-xs text-slate-400">
-        Nomor tujuan format internasional, mis. 62812xxxxxxx
-      </p>
-    </div>
-  );
-}
-
-function Toast({
-  toast,
-}: {
-  toast: { msg: string; tone: "success" | "error" } | null;
-}) {
-  if (!toast) return null;
-  return (
-    <div
-      className={cn(
-        "fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium text-white shadow-lg",
-        toast.tone === "success" ? "bg-green-600" : "bg-red-600"
-      )}
-      role="status"
-    >
-      {toast.tone === "success" ? (
-        <CheckCircle size={18} weight="fill" />
-      ) : (
-        <WarningCircle size={18} weight="fill" />
-      )}
-      {toast.msg}
-    </div>
   );
 }
 
@@ -955,10 +438,8 @@ export const getServerSideProps: GetServerSideProps<SaluranProps> = withAuth<
       where: { tenantId, provider: "CLOUD_API" },
     });
     const parsed = cloudApiConfigSchema.safeParse(existing?.config);
-    const existingToken =
-      parsed.success ? parsed.data.verifyToken : undefined;
-    const isWeakToken =
-      !existingToken || existingToken === "demo-verify-token";
+    const existingToken = parsed.success ? parsed.data.verifyToken : undefined;
+    const isWeakToken = !existingToken || existingToken === "demo-verify-token";
     if (existingToken && !isWeakToken) {
       cloudVerifyToken = existingToken;
     } else if (existing) {

@@ -7,21 +7,19 @@ import { apiFetch, apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
 import type { Category, Contact, ListResult, Tag } from "@csq/core/types/dashboard";
 import type {
-  CampaignMessageRow,
   CampaignRow,
   CampaignRunRow,
 } from "@csq/core/types/campaign";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
-import { StateNotice } from "@/components/dashboard/state-notice";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import { Dialog } from "@csq/ui/components/ui/dialog";
 import { Button } from "@csq/ui/components/ui/button";
-import { Input } from "@csq/ui/components/ui/input";
-import { Label } from "@csq/ui/components/ui/label";
-import { Select } from "@csq/ui/components/ui/select";
-import { Textarea } from "@csq/ui/components/ui/textarea";
-import { Badge } from "@csq/ui/components/ui/badge";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@csq/ui/components/ui/table";
+import { CampaignTable } from "@/components/dashboard/campaigns/campaign-table";
+import { CampaignRunsDialog } from "@/components/dashboard/campaigns/campaign-runs-dialog";
+import {
+  CampaignWizardSteps,
+  type MessageTemplateRow,
+} from "@/components/dashboard/campaigns/campaign-wizard-steps";
 
 type ChannelView = {
   id: string;
@@ -30,58 +28,7 @@ type ChannelView = {
   phoneNumberId?: string;
 };
 
-type MessageTemplateRow = {
-  id: string;
-  key: string;
-  label: string;
-  kind: "CSQ" | "META";
-  body: string;
-  metaName?: string;
-  metaLanguage?: string;
-};
 
-const WEEKDAYS = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
-
-function formatDateTime(iso: string | null): string {
-  if (!iso) return "-";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleString("id-ID", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-// Local-time "YYYY-MM-DDTHH:MM" for the datetime-local input (it is parsed
-// back with `new Date(value)` in the browser's timezone, matching the market).
-function localDateTimeString(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function audienceLabel(c: CampaignRow): string {
-  if (c.audience === "ALL") return "Semua kontak";
-  if (c.audience === "MANUAL") return `${c.contactIds.length} kontak terpilih`;
-  return c.audience === "CATEGORY" ? "Kategori" : "Tag";
-}
-
-function scheduleLabel(c: CampaignRow): string {
-  const cfg = c.scheduleConfig;
-  switch (c.scheduleKind) {
-    case "ONCE":
-      return `Sekali - ${formatDateTime(cfg.startAt ?? null)}`;
-    case "DAILY":
-      return `Setiap hari ${cfg.time}`;
-    case "WEEKLY":
-      return `Setiap ${WEEKDAYS[cfg.dayOfWeek ?? 0]} ${cfg.time}`;
-    case "MONTHLY":
-      return `Tanggal ${cfg.dayOfMonth} setiap bulan ${cfg.time}`;
-    case "INTERVAL":
-      return `Setiap ${cfg.everyDays} hari ${cfg.time}`;
-  }
-}
 
 export default function CampaignsPage() {
   const { data: session } = useSession();
@@ -347,312 +294,6 @@ export default function CampaignsPage() {
     }
   }
 
-  const stepFields = (
-    <>
-      {step === 1 && (
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="campaign-name">Nama kampanye</Label>
-            <Input
-              id="campaign-name"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="mis. Promo Akhir Pekan"
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="campaign-channel">Saluran kirim</Label>
-            <Select
-              id="campaign-channel"
-              value={channelId}
-              onChange={(e) => setChannelId(e.target.value)}
-            >
-              <option value="">Pilih saluran…</option>
-              {connectedChannels.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.provider === "CLOUD_API" ? `WhatsApp API${c.phoneNumberId ? ` (${c.phoneNumberId})` : ""}` : "WhatsApp pribadi (Baileys)"}
-                </option>
-              ))}
-            </Select>
-            {channelId && (channels.data?.items ?? []).find((c) => c.id === channelId)?.provider ===
-              "CLOUD_API" && (
-              <p className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-700">
-                Di saluran resmi (Cloud API), pesan bebas hanya sampai ke pelanggan yang chat
-                &lt;24 jam terakhir; sisanya dilewati (tercatat). Untuk menjangkau semua, gunakan
-                template yang sudah disetujui Meta.
-              </p>
-            )}
-          </div>
-        </div>
-      )}
-
-      {step === 2 && (
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <Label>Penerima</Label>
-            <Select
-              value={audience}
-              onChange={(e) => setAudience(e.target.value as typeof audience)}
-            >
-              <option value="ALL">Semua kontak</option>
-              <option value="CATEGORY">Per kategori</option>
-              <option value="TAGS">Per tag</option>
-              <option value="MANUAL">Pilih manual</option>
-            </Select>
-          </div>
-          {audience === "CATEGORY" && (
-            <div className="flex flex-col gap-1.5">
-              <Label>Kategori</Label>
-              <div className="max-h-32 overflow-y-auto rounded-md border p-2">
-                {(categories.data ?? []).length === 0 && (
-                  <p className="text-xs text-muted-foreground">
-                    Belum ada kategori - buat dulu di halaman Tag.
-                  </p>
-                )}
-                {(categories.data ?? []).map((c) => (
-                  <label key={c.id} className="flex cursor-pointer items-center gap-2 px-1 py-0.5 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={categoryIds.includes(c.id)}
-                      onChange={() => setCategoryIds((l) => toggle(l, c.id))}
-                      className="h-4 w-4"
-                    />
-                    {c.name}
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
-          {audience === "TAGS" && (
-            <div className="flex flex-col gap-1.5">
-              <Label>Tag</Label>
-              <div className="max-h-32 overflow-y-auto rounded-md border p-2">
-                {(tags.data?.items ?? []).map((t) => (
-                  <label key={t.id} className="flex cursor-pointer items-center gap-2 px-1 py-0.5 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={tagIds.includes(t.id)}
-                      onChange={() => setTagIds((l) => toggle(l, t.id))}
-                      className="h-4 w-4"
-                    />
-                    {t.name}
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
-          {audience === "MANUAL" && (
-            <div className="flex flex-col gap-1.5">
-              <Label>Kontak ({contacts.data?.total ?? 0} terdaftar, 200 pertama tampil)</Label>
-              <div className="max-h-40 overflow-y-auto rounded-md border p-2">
-                {(contacts.data?.items ?? []).map((c) => (
-                  <label key={c.id} className="flex cursor-pointer items-center gap-2 px-1 py-0.5 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={contactIds.includes(c.id)}
-                      onChange={() => setContactIds((l) => toggle(l, c.id))}
-                      className="h-4 w-4"
-                    />
-                    {c.name ?? c.phoneDisplay ?? c.phone}
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
-          <p className="text-sm text-muted-foreground">
-            Estimasi penerima:{" "}
-            <strong>{audience === "ALL" ? contacts.data?.total ?? "…" : previewTotal ?? "…"}</strong>
-          </p>
-        </div>
-      )}
-
-      {step === 3 && (
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="campaign-template">Dari template (opsional)</Label>
-            <Select
-              id="campaign-template"
-              value={templateKey}
-              onChange={(e) => setTemplateKey(e.target.value)}
-            >
-              <option value="">Tulis baru</option>
-              {(templates.data?.items ?? []).map((t) => (
-                <option key={t.id} value={t.key}>
-                  {t.label} ({t.kind === "META" ? "Template Meta" : "CSQ"})
-                </option>
-              ))}
-            </Select>
-            {templateKey &&
-              (templates.data?.items ?? []).find((t) => t.key === templateKey)?.kind === "META" && (
-                <p className="rounded-md border border-blue-500/30 bg-blue-500/10 p-2 text-xs text-blue-700">
-                  Template Meta dipilih - teks di bawah tetap wajib (dipakai di saluran Baileys
-                  dan pratinjau); pelanggan di luar jendela 24 jam menerima template Meta
-                  tersebut.
-                </p>
-              )}
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="campaign-body">Isi pesan</Label>
-            <Textarea
-              id="campaign-body"
-              rows={4}
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              placeholder="Tulis isi pesan kampanye…"
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="campaign-images">Gambar (maks 4, 5 MB per gambar)</Label>
-            <input
-              id="campaign-images"
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              multiple
-              onChange={onUpload}
-              disabled={uploading}
-              className="text-sm"
-            />
-            {images.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {images.map((img) => (
-                  <div key={img.id} className="flex items-center gap-1 rounded-md border p-1">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={img.url} alt="" className="h-10 w-10 rounded object-cover" />
-                    <button
-                      type="button"
-                      onClick={() => setImages((l) => l.filter((x) => x.id !== img.id))}
-                      className="text-xs text-destructive hover:underline"
-                    >
-                      Hapus
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {step === 4 && (
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <Label>Jadwal</Label>
-            <Select
-              value={scheduleKind}
-              onChange={(e) => setScheduleKind(e.target.value as typeof scheduleKind)}
-            >
-              <option value="ONCE">Sekali, di waktu tertentu</option>
-              <option value="DAILY">Setiap hari</option>
-              <option value="WEEKLY">Setiap minggu</option>
-              <option value="MONTHLY">Setiap bulan</option>
-              <option value="INTERVAL">Setiap N hari</option>
-            </Select>
-          </div>
-          {scheduleKind === "ONCE" && (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="campaign-once">Waktu kirim</Label>
-              <Input
-                id="campaign-once"
-                type="datetime-local"
-                required
-                value={onceAt}
-                onChange={(e) => setOnceAt(e.target.value)}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="self-start"
-                onClick={() =>
-                  // "Instant": the engine tick runs every minute, so now+2min
-                  // fires within about two minutes of saving + activating.
-                  setOnceAt(localDateTimeString(new Date(Date.now() + 2 * 60_000)))
-                }
-              >
-                Kirim sekarang (± 2 menit)
-              </Button>
-            </div>
-          )}
-          {scheduleKind !== "ONCE" && (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="campaign-time">Jam kirim (WIB)</Label>
-              <Input
-                id="campaign-time"
-                type="time"
-                required
-                value={time}
-                onChange={(e) => setTime(e.target.value)}
-              />
-            </div>
-          )}
-          {scheduleKind === "WEEKLY" && (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="campaign-dow">Hari</Label>
-              <Select
-                id="campaign-dow"
-                value={String(dayOfWeek)}
-                onChange={(e) => setDayOfWeek(Number(e.target.value))}
-              >
-                {WEEKDAYS.map((d, i) => (
-                  <option key={d} value={i}>
-                    {d}
-                  </option>
-                ))}
-              </Select>
-            </div>
-          )}
-          {scheduleKind === "MONTHLY" && (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="campaign-dom">Tanggal</Label>
-              <Input
-                id="campaign-dom"
-                type="number"
-                min={1}
-                max={31}
-                required
-                value={dayOfMonth}
-                onChange={(e) => setDayOfMonth(Number(e.target.value))}
-              />
-            </div>
-          )}
-          {scheduleKind === "INTERVAL" && (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="campaign-interval">Setiap berapa hari</Label>
-              <Input
-                id="campaign-interval"
-                type="number"
-                min={1}
-                max={365}
-                required
-                value={everyDays}
-                onChange={(e) => setEveryDays(Number(e.target.value))}
-              />
-            </div>
-          )}
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="campaign-delay">Jeda antar kontak (detik)</Label>
-            <Input
-              id="campaign-delay"
-              type="number"
-              min={10}
-              max={3600}
-              required
-              value={delaySeconds}
-              onChange={(e) => setDelaySeconds(Number(e.target.value))}
-            />
-            {previewTotal !== null && (
-              <p className="text-xs text-muted-foreground">
-                ± {previewTotal} kontak × {delaySeconds} dtk ≈{" "}
-                {Math.round((previewTotal * delaySeconds) / 60)} menit per kirim
-              </p>
-            )}
-          </div>
-        </div>
-      )}
-    </>
-  );
-
   return (
     <DashboardShell
       title="Kampanye"
@@ -666,80 +307,17 @@ export default function CampaignsPage() {
         </p>
       )}
       {formError && <p className="mb-4 text-sm text-destructive">{formError}</p>}
-      {campaigns.loading && <StateNotice variant="loading" message="Memuat kampanye…" />}
-      {campaigns.error && <StateNotice variant="error" message={campaigns.error} />}
-      {!campaigns.loading && !campaigns.error && (
-        <div className="rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nama</TableHead>
-                <TableHead className="hidden md:table-cell">Penerima</TableHead>
-                <TableHead className="hidden lg:table-cell">Jadwal</TableHead>
-                <TableHead className="hidden xl:table-cell">Kirim berikutnya</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Aksi</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {campaigns.data && campaigns.data.items.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={6}>
-                    <StateNotice variant="empty" message="Belum ada kampanye." />
-                  </TableCell>
-                </TableRow>
-              )}
-              {campaigns.data?.items.map((c) => (
-                <TableRow key={c.id}>
-                  <TableCell className="font-medium">{c.name}</TableCell>
-                  <TableCell className="hidden md:table-cell">{audienceLabel(c)}</TableCell>
-                  <TableCell className="hidden text-muted-foreground lg:table-cell">
-                    {scheduleLabel(c)}
-                  </TableCell>
-                  <TableCell className="hidden text-muted-foreground xl:table-cell">
-                    {formatDateTime(c.nextRunAt)}
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={c.status === "ACTIVE" ? "success" : c.status === "PAUSED" ? "warning" : "secondary"}
-                    >
-                      {c.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {canManage && (
-                      <div className="flex flex-wrap justify-end gap-1">
-                        <Button variant="outline" size="sm" onClick={() => openRuns(c)}>
-                          Riwayat
-                        </Button>
-                        {c.status === "DRAFT" || c.status === "PAUSED" ? (
-                          <>
-                            <Button variant="outline" size="sm" onClick={() => openEdit(c)}>
-                              Edit
-                            </Button>
-                            <Button size="sm" onClick={() => onActivate(c)}>
-                              Aktifkan
-                            </Button>
-                          </>
-                        ) : c.status === "ACTIVE" ? (
-                          <Button variant="outline" size="sm" onClick={() => onPause(c)}>
-                            Jeda
-                          </Button>
-                        ) : null}
-                        {(c.status === "DRAFT" || c.status === "PAUSED") && (
-                          <Button variant="destructive" size="sm" onClick={() => setToDelete(c)}>
-                            Hapus
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+      <CampaignTable
+        items={campaigns.data?.items ?? []}
+        loading={campaigns.loading}
+        error={campaigns.error}
+        canManage={canManage}
+        onRuns={openRuns}
+        onEdit={openEdit}
+        onActivate={onActivate}
+        onPause={onPause}
+        onDelete={setToDelete}
+      />
 
       {/* Wizard */}
       <Dialog
@@ -752,7 +330,50 @@ export default function CampaignsPage() {
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Langkah {step} dari 4
           </p>
-          {stepFields}
+          <CampaignWizardSteps
+            step={step}
+            channels={connectedChannels}
+            channelId={channelId}
+            onChannelId={setChannelId}
+            name={name}
+            onName={setName}
+            audience={audience}
+            onAudience={setAudience}
+            categories={categories.data ?? []}
+            categoryIds={categoryIds}
+            onToggleCategory={(id) => setCategoryIds((l) => toggle(l, id))}
+            tags={tags.data?.items ?? []}
+            tagIds={tagIds}
+            onToggleTag={(id) => setTagIds((l) => toggle(l, id))}
+            contacts={contacts.data?.items ?? []}
+            contactTotal={contacts.data?.total ?? 0}
+            contactIds={contactIds}
+            onToggleContact={(id) => setContactIds((l) => toggle(l, id))}
+            previewTotal={previewTotal}
+            templates={templates.data?.items ?? []}
+            templateKey={templateKey}
+            onTemplateKey={setTemplateKey}
+            body={body}
+            onBody={setBody}
+            images={images}
+            onRemoveImage={(id) => setImages((l) => l.filter((x) => x.id !== id))}
+            onUpload={onUpload}
+            uploading={uploading}
+            scheduleKind={scheduleKind}
+            onScheduleKind={setScheduleKind}
+            onceAt={onceAt}
+            onOnceAt={setOnceAt}
+            time={time}
+            onTime={setTime}
+            dayOfWeek={dayOfWeek}
+            onDayOfWeek={setDayOfWeek}
+            dayOfMonth={dayOfMonth}
+            onDayOfMonth={setDayOfMonth}
+            everyDays={everyDays}
+            onEveryDays={setEveryDays}
+            delaySeconds={delaySeconds}
+            onDelaySeconds={setDelaySeconds}
+          />
           <div className="flex justify-between gap-2">
             <Button
               type="button"
@@ -775,69 +396,16 @@ export default function CampaignsPage() {
         </form>
       </Dialog>
 
-      {/* Run history */}
-      <Dialog
+      <CampaignRunsDialog
         open={runsFor !== null}
-        onClose={() => setRunsFor(null)}
         title={`Riwayat - ${runsFor?.name ?? ""}`}
-      >
-        <div className="max-h-[60vh] space-y-3 overflow-y-auto">
-          {runs === null && <StateNotice variant="loading" message="Memuat riwayat…" />}
-          {runs !== null && runs.length === 0 && (
-            <StateNotice variant="empty" message="Belum pernah kirim." />
-          )}
-          {runs?.map((r) => (
-            <div key={r.id} className="rounded-md border p-3 text-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">{formatDateTime(r.startedAt)}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {r.finishedAt ? `Selesai ${formatDateTime(r.finishedAt)}` : "Sedang berjalan"} -{" "}
-                    total {r.counts?.total ?? 0}, terkirim {r.counts?.sent ?? 0}, gagal{" "}
-                    {r.counts?.failed ?? 0}, dilewati {r.counts?.skipped ?? 0}
-                  </p>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => (runDetail?.id === r.id ? setRunDetail(null) : openRunDetail(r.id))}
-                >
-                  {runDetail?.id === r.id ? "Tutup" : "Detail"}
-                </Button>
-              </div>
-              {runDetail?.id === r.id && (
-                <div className="mt-3 max-h-48 overflow-y-auto rounded border">
-                  {runDetail.messages?.length === 0 && (
-                    <p className="p-2 text-xs text-muted-foreground">Tidak ada pesan.</p>
-                  )}
-                  {runDetail.messages?.map((m: CampaignMessageRow) => (
-                    <div
-                      key={m.id}
-                      className="flex items-center justify-between border-b px-2 py-1 text-xs last:border-b-0"
-                    >
-                      <span className="font-mono">{m.phone}</span>
-                      <span
-                        className={
-                          m.status === "SENT"
-                            ? "text-green-600"
-                            : m.status === "FAILED"
-                              ? "text-destructive"
-                              : m.status === "SKIPPED"
-                                ? "text-amber-600"
-                                : "text-muted-foreground"
-                        }
-                      >
-                        {m.status === "PENDING" ? "menunggu" : m.status.toLowerCase()}
-                        {m.reason ? ` - ${m.reason}` : ""}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </Dialog>
+        runs={runs}
+        runDetail={runDetail}
+        onClose={() => setRunsFor(null)}
+        onToggleDetail={(id) =>
+          runDetail?.id === id ? setRunDetail(null) : openRunDetail(id)
+        }
+      />
 
       <ConfirmDialog
         open={toDelete !== null}
