@@ -7,6 +7,7 @@
 // ROOT tsconfig's paths, the same mechanism the scripts/self-check-* tools
 // use. DATABASE_URL points at the same Postgres as the dashboard.
 import http from "http";
+import prisma from "@csq/core/lib/db";
 import { startScheduler } from "@csq/core/services/scheduler";
 import {
   startChannelRuntime,
@@ -29,11 +30,32 @@ startScheduler();
 startChannelRuntime();
 console.log("[worker] runtime up: scheduler + channel commands + outbox drain");
 
+// Runtime heartbeat (PRD 09 alerting). The health listener proves the process
+// is up; this lock proves the scheduler/channel runtime loop is still
+// executing. The alert check fails when it expires.
+const HEARTBEAT_KEY = "worker-heartbeat";
+const HEARTBEAT_TTL_MS = 90_000;
+async function heartbeat(): Promise<void> {
+  const lockedUntil = new Date(Date.now() + HEARTBEAT_TTL_MS);
+  await prisma.systemLock
+    .upsert({
+      where: { key: HEARTBEAT_KEY },
+      create: { key: HEARTBEAT_KEY, token: "worker", lockedUntil },
+      update: { lockedUntil },
+    })
+    .catch((err: unknown) =>
+      console.error("[worker] heartbeat failed:", err)
+    );
+}
+void heartbeat();
+const heartbeatTimer = setInterval(() => void heartbeat(), 30_000);
+
 // Deploy replacement: the platform sends SIGTERM. End every socket WITHOUT
 // logout so the saved creds stay valid - the next worker reconnects without
 // a QR re-scan.
 process.on("SIGTERM", () => {
   console.log("[worker] SIGTERM - shutting down");
+  clearInterval(heartbeatTimer);
   stopChannelRuntime();
   void shutdownBaileysChannels()
     .catch(() => undefined)
