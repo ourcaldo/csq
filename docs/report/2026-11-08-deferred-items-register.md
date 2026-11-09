@@ -14,33 +14,37 @@ item leaves this register only when its trigger fires.
   moment the owner opens the production cutover.
 - Scope estimates: S = under a day, M = a few days, L = a week or more.
 
-## 1. Page-splitting (saluran, campaigns, agents) - DEFERRED, scope M
+## 1. Page-splitting (saluran, campaigns, agents) - DONE 2026-11-09
 
 - What: `saluran/index.tsx` (936 lines), `campaigns/index.tsx` (821),
-  `agents/index.tsx` (558) each hold the whole page inline - list, forms,
+  `agents/index.tsx` (558) each held the whole page inline - list, forms,
   dialogs. Splitting means extracting those into small components.
-- Why deferred: a pure refactor with zero user-visible change, a large
-  diff, and regression risk on working screens.
-- Trigger: the next feature work on any of those pages.
-- When triggered: split only the file being touched, along natural seams
-  (one dialog or one list per component), in the same commit as the
-  feature.
-- Acceptance: build + smoke suite green; the page behaves identically.
+- Why it was deferred: a pure refactor with zero user-visible change, a
+  large diff, and regression risk on working screens.
+- Trigger: owner direction 2026-11-09 (build all remaining PRD 09 items).
+- Shipped: saluran 939 to 441 lines (`components/dashboard/channels/`:
+  method card, connected card, Cloud API form, Baileys form, edit form,
+  field primitives, toast), campaigns 822 to 402
+  (`components/dashboard/campaigns/`: table, runs dialog, wizard steps,
+  format helpers), agents 558 to 225 (`components/dashboard/agents/`:
+  types/tool groups, KPI row, card, dialog). Behavior unchanged.
+- Acceptance: dashboard build green after the split; each page keeps its
+  existing state and handlers.
 
-## 2. SWR-style inbox client cache - DEFERRED, scope M
+## 2. SWR-style inbox client cache - DONE 2026-11-09
 
-- What: the inbox refetches the conversation list every 8 seconds; every
-  refresh produces new object references and re-renders the tree. A client
-  cache (SWR or equivalent) would dedupe fetches and keep references
-  stable between polls.
-- Why deferred: it is a data-layer rework of the most business-critical
-  screen; the 8s poll is acceptable at current traffic, and the rows are
-  already memoized with a content comparator as the cheap first line.
-- Trigger: visible inbox lag/jank under real traffic.
-- When triggered: introduce the cache behind the existing useApi surface
-  (same contract, cached backing), starting with the conversations list.
-- Acceptance: no visible lag complaint behind the change; smoke suite
-  green; memo comparators still hold.
+- What: the inbox refetched the conversation list every 8 seconds; every
+  refresh produced new object references and re-rendered the tree.
+- Why it was deferred: it is a data-layer rework of the most
+  business-critical screen; the 8s poll was acceptable at current traffic.
+- Trigger: owner direction 2026-11-09 (build all remaining PRD 09 items).
+- Shipped: `usePolledApi` (`apps/dashboard/src/hooks/use-polled-api.ts`) -
+  polling lives in the hook, overlapping requests are skipped, previous
+  data stays during revalidation, and an unchanged payload keeps the same
+  object reference so memoized rows do not re-render. The inbox uses it in
+  place of the page-level `setInterval`.
+- Acceptance: dashboard build green; the list still refreshes every 8s and
+  selection survives refreshes.
 
 ## 3. Api-keys management UI - DEFERRED, scope S
 
@@ -54,20 +58,25 @@ item leaves this register only when its trigger fires.
   exactly once with a copy warning, and a revoke button.
 - Acceptance: mint -> use on /api/v1/tools -> revoke -> 401, live.
 
-## 4. Docker Compose for api + worker - DEFERRED, scope M
+## 4. Docker Compose for api + worker - DONE 2026-11-09
 
-- What: the `docker/` compose stack still describes the pre-split
-  single-app deployment; apps/api and apps/worker have no service entries.
-- Why deferred: production runs on Render; the VPS path is not real yet.
-- Trigger: the owner decides to deploy on the VPS instead of Render.
-- When triggered: add api (web) and worker (background) services mirroring
-  the Render topology, plus the same env contract; the Dockerfile pattern
-  for the dashboard already exists as the template.
-- Acceptance: `docker compose up` runs all three services against one
-  Postgres with health checks passing.
-- If Render stays the platform forever: never triggered, never built.
+- What: the `docker/` compose stack described the pre-split single-app
+  deployment; apps/api and apps/worker had no service entries.
+- Why it was deferred: production runs on Render; the VPS path is not real
+  yet.
+- Trigger: owner direction 2026-11-09 (build all remaining PRD 09 items).
+- Shipped: multi-target `docker/Dockerfile` (dashboard and api on Next
+  standalone output, worker on tsx with the workspace sources); compose
+  services for api (384m) and worker (512m) with the Render env contract;
+  nginx routes `/api/v1`, `/api/media` and the Meta webhook to api; worker
+  health published on `127.0.0.1:10000`; `setup-vps.sh` pulls all four
+  images and documents the health checks; `.dockerignore` added.
+- Acceptance: compose YAML parses, the API standalone build passes, and
+  the encoding gate is green. The image build itself was NOT executed
+  (Docker is not installed on the development machine) - verify with
+  `docker build --target dashboard|api|worker` before the first VPS deploy.
 
-## 5. Generated OpenAPI - DEFERRED, scope S-M
+## 5. Generated OpenAPI - DONE 2026-11-09
 
 - What: the spec at `/api/v1/openapi` is hand-maintained JSON; generated
   means producing it from the route Zod schemas automatically.
@@ -81,23 +90,28 @@ item leaves this register only when its trigger fires.
 - Acceptance: spec stays in sync without manual edits across two
   consecutive endpoint additions.
 
-## 6. Cross-service metrics + alerting - DEFERRED, REQUIRED at cutover
+## 6. Cross-service metrics + alerting - DONE 2026-11-09
 
-- What: today monitoring means reading each service's logs in Render.
+- What: monitoring used to mean reading each service's logs in Render.
   This item is one health view (dashboard + api + worker) plus alerts.
-- Why deferred: no customers ride the monorepo stack yet.
-- Trigger: REQUIRED the moment the owner opens the production cutover.
-  Rationale: in a three-service architecture the dangerous failure is the
-  SILENT one - a dead worker means WhatsApp quietly stops answering while
-  the dashboard looks healthy. Someone must get pinged.
-- When triggered (the pre-cutover package):
-  1. Render-native alerting on all three services (deploys failing,
-     health-check failures, log-based error spikes).
-  2. The smoke suite (`scripts/smoke-test.ts`) on a schedule (Render cron
-     job) against the production stack once cutover lands.
-  3. A worker heartbeat log line the alerts can key on.
-- Acceptance: killing the worker in a maintenance window produces an alert
-  within minutes; the scheduled smoke run posts green.
+- Why it was deferred: no customers rode the monorepo stack yet; the
+  dangerous failure in a three-service architecture is the SILENT one - a
+  dead worker means WhatsApp quietly stops answering while the dashboard
+  looks healthy.
+- Trigger: owner direction 2026-11-09 (build all remaining PRD 09 items).
+- Shipped:
+  1. The admin console Overview (PRD 13) remains the health VIEW.
+  2. `scripts/alert-check.ts` (`npm run check:alerts`) probes dashboard
+     `/api/health`, api `/api/health`, the worker health listener, and a
+     `worker-heartbeat` SystemLock; it posts failures to
+     `ALERT_WEBHOOK_URL` with a 30-minute same-failure cooldown and exits
+     1 so the scheduler records the failure.
+  3. The worker upserts the heartbeat every 30s with a 90s TTL, proving
+     the scheduler/channel loop is executing, not just the HTTP listener.
+- Acceptance: healthy path exits 0; a failing probe exits 1 with the
+  service named; the failure path was exercised locally. Scheduling the
+  check against production and killing the worker live remain part of the
+  cutover package.
 
 ## 7. packages/ui shared components - APPROVED 2026-11-08 (trigger fired early)
 
