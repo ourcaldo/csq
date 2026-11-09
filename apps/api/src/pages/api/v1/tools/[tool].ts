@@ -1,5 +1,4 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { z } from "zod";
 import prisma from "@csq/core/lib/db";
 import { executeTool } from "@csq/core/tools/execute";
 import { requireApiAuth } from "@csq/core/lib/api-auth";
@@ -7,17 +6,13 @@ import { assignRequestId } from "@csq/core/lib/request-id";
 import { checkRateLimit } from "@csq/core/lib/rate-limit";
 import { apiError, apiOk, type ApiResponse } from "@csq/core/types/api";
 import type { ApprovalPayload } from "@csq/core/types/tools";
+import { toolCallRequestSchema } from "@/lib/api-contract";
 
 // POST /api/v1/tools/[tool] - the agent-facing tool endpoint over the token
 // realm (PRD 23C Phase 7). Body: { agentId, params }. Auth: a tenant API key
 // (service tokens are not tenant-bound and get 403). tenantId always comes
 // from the key - never the body. Execution is the same executeTool the
 // agent loop uses in-process: tenant-scoped, permission-checked, audited.
-
-const toolCallSchema = z.object({
-  agentId: z.string().uuid(),
-  params: z.record(z.string(), z.unknown()),
-});
 
 export default async function handler(
   req: NextApiRequest,
@@ -51,7 +46,7 @@ export default async function handler(
     return res.status(400).json(apiError("VALIDATION_ERROR", "Missing tool name"));
   }
 
-  const parsed = toolCallSchema.safeParse(req.body);
+  const parsed = toolCallRequestSchema.safeParse(req.body);
   if (!parsed.success) {
     return res
       .status(400)

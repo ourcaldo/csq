@@ -1,5 +1,4 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { z } from "zod";
 import prisma from "@csq/core/lib/db";
 import { hashPassword, verifyPassword } from "@csq/core/lib/password";
 import { assignRequestId } from "@csq/core/lib/request-id";
@@ -11,27 +10,16 @@ import {
 } from "@csq/core/lib/refresh-tokens";
 import { apiError, apiOk, type ApiResponse } from "@csq/core/types/api";
 import { logAction } from "@csq/core/lib/audit";
+import { authTokenRequestSchema, type TokenPair } from "@/lib/api-contract";
 
 // POST /api/v1/auth/token - the mobile realm's credential exchange (PRD
 // 23C Phase 8): email + password -> short-lived access JWT + opaque refresh
 // token. Hard rate limit per IP (brute-force guard). Timing-equalized: an
 // unknown email still pays the bcrypt cost before being rejected.
 
-const credentialsSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1).max(200),
-});
-
-export type TokenResult = {
-  accessToken: string;
-  refreshToken: string;
-  tokenType: "Bearer";
-  expiresIn: number;
-};
-
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<ApiResponse<TokenResult>>
+  res: NextApiResponse<ApiResponse<TokenPair>>
 ) {
   assignRequestId(req, res);
   if (req.method !== "POST") {
@@ -46,7 +34,7 @@ export default async function handler(
     return res.status(429).json(apiError("RATE_LIMITED", "Terlalu banyak percobaan. Coba lagi sebentar."));
   }
 
-  const parsed = credentialsSchema.safeParse(req.body);
+  const parsed = authTokenRequestSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json(apiError("VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Payload tidak valid."));
   }

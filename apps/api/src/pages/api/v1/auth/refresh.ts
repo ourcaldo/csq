@@ -1,5 +1,4 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { z } from "zod";
 import prisma from "@csq/core/lib/db";
 import { assignRequestId } from "@csq/core/lib/request-id";
 import { checkRateLimit } from "@csq/core/lib/rate-limit";
@@ -10,23 +9,15 @@ import {
   REFRESH_TOKEN_TTL_MS,
 } from "@csq/core/lib/refresh-tokens";
 import { apiError, apiOk, type ApiResponse } from "@csq/core/types/api";
+import { refreshTokenRequestSchema, type TokenPair } from "@/lib/api-contract";
 
 // POST /api/v1/auth/refresh - rotate a refresh token for a fresh pair
 // (PRD 23C Phase 8). The presented token is ALWAYS revoked - replaying a
 // used refresh token yields 401 (rotation detects theft of the cookie jar).
 
-const refreshSchema = z.object({ refreshToken: z.string().min(10).max(200) });
-
-export type RefreshResult = {
-  accessToken: string;
-  refreshToken: string;
-  tokenType: "Bearer";
-  expiresIn: number;
-};
-
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<ApiResponse<RefreshResult>>
+  res: NextApiResponse<ApiResponse<TokenPair>>
 ) {
   assignRequestId(req, res);
   if (req.method !== "POST") {
@@ -41,7 +32,7 @@ export default async function handler(
     return res.status(429).json(apiError("RATE_LIMITED", "Terlalu banyak percobaan."));
   }
 
-  const parsed = refreshSchema.safeParse(req.body);
+  const parsed = refreshTokenRequestSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json(apiError("VALIDATION_ERROR", "Payload tidak valid."));
   }
