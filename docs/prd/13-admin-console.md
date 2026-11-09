@@ -91,10 +91,11 @@ duplicate the commercial rules here.
 
 ## Explicitly deferred beyond v1
 
-Payment processing, subscriptions, and invoicing (Stage 3), quota
-enforcement (Stage 2), impersonation ("login as tenant", needs its own
-audited design), announcement broadcasting, and anything across multiple
-installations.
+Payment gateway, subscriptions, auto-invoicing and dunning (Stage 3),
+impersonation ("login as tenant", needs its own audited design),
+announcement broadcasting, and anything across multiple installations.
+Quota enforcement and manual invoicing shipped with PRD 14 and are no
+longer deferred (amended 2026-11-09).
 
 ## Execution
 
