@@ -668,6 +668,7 @@ export class BaileysProvider implements WhatsAppProvider {
     const sent = await entry.sock.sendMessage(jid, {
       image: input.bytes,
       mimetype: input.mimeType,
+      ...(input.caption ? { caption: input.caption } : {}),
     });
     const sentKeySchema = z.object({ key: z.object({ id: z.string() }).optional() });
     const parsed = sentKeySchema.safeParse(sent);

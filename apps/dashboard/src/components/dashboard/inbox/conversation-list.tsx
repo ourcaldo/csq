@@ -120,8 +120,11 @@ const ConversationRow = memo(function ConversationRow({
                 ? "Anda: "
                 : c.lastMessage.senderType === "SCENARIO"
                   ? "Skenario: "
-                  : ""}
-            {c.lastMessage.body}
+                  : c.lastMessage.senderType === "CAMPAIGN"
+                    ? "Kampanye: "
+                    : ""}
+            {c.lastMessage.body ||
+              (c.lastMessage.kind === "MEDIA" ? "[Gambar]" : "")}
           </p>
         )}
         {c.assignee && (

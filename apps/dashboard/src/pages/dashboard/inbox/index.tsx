@@ -24,7 +24,11 @@ function isHumanAssigned(c: ConversationListItem): boolean {
   return !!c.assignee;
 }
 
-export default function InboxPage() {
+type InboxPageProps = {
+  apiMediaBase: string;
+};
+
+export default function InboxPage({ apiMediaBase }: InboxPageProps) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("unassigned");
   const [search, setSearch] = useState("");
@@ -145,6 +149,7 @@ export default function InboxPage() {
             customerPhone={selected.customerPhoneDisplay}
             aiActive={!selected.assignee && !!selected.assignedAgent}
             humanTakenOver={!!selected.assignee}
+            mediaBase={apiMediaBase}
             onBack={() => {
               setSelectedId(null);
               setDetailsOpen(false);
@@ -180,5 +185,13 @@ export default function InboxPage() {
 }
 
 export const getServerSideProps: GetServerSideProps = withAuth<Record<string, unknown>>(
-  async () => ({ props: {} })
+  async (ctx) => {
+    // Outbound campaign images live on the api service; the chat renders
+    // them from its origin (same fallback pattern as the campaigns page).
+    const apiBase = (process.env.API_URL ?? "").replace(/\/$/, "");
+    const fallback = (
+      process.env.NEXTAUTH_URL ?? `https://${ctx.req.headers.host}`
+    ).replace(/\/$/, "");
+    return { props: { apiMediaBase: apiBase || fallback } };
+  }
 );

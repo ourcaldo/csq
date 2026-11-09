@@ -63,7 +63,7 @@ export type ConversationListItem = {
   status: ConversationStatus;
   stage: Stage | null; // current pipeline stage (from Conversation.deal.stage)
   lastMessageAt: string | null;
-  lastMessage: { body: string; senderType: string } | null;
+  lastMessage: { body: string; senderType: string; kind: "TEXT" | "MEDIA" | "OTHER" } | null;
   // INBOUND messages after this user's last-read watermark (WhatsApp-style
   // unread badge); 0 when caught up.
   unreadCount: number;
@@ -88,6 +88,9 @@ export type Message = {
   // inbox but never trigger an agent turn; the body is a display placeholder
   // like "[image]".
   kind: "TEXT" | "MEDIA" | "OTHER";
+  // Outbound media reference (campaign image sends). When present the chat
+  // renders the actual image from the api service's /api/media/[id].
+  mediaId: string | null;
   isInternal: boolean;
   createdAt: string;
 };

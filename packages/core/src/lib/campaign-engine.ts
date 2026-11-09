@@ -319,12 +319,43 @@ async function deliverOne(
       }
     }
 
-    // Free-form burst: text message first, then each image as its own media
-    // message (plan 3.2.1). The pacing delay applies between contacts, not
-    // within a burst. Delivery order within a burst is best-effort - WhatsApp
-    // does not guarantee it (documented platform behavior).
+    // Free-form burst (plan 3.2.1, revised): when the campaign carries exactly
+    // ONE image, the text rides as that image's caption - one WhatsApp message,
+    // one chat bubble, exactly like sending a photo with a caption by hand.
+    // With no image (or several), the text is its own message first and each
+    // image follows as a separate media message (WhatsApp cannot group several
+    // images into one business message). Every media row stores its mediaId so
+    // the inbox renders the actual image, never a text placeholder.
+    const body = campaign.body.trim();
+    const imageIds = campaign.imageIds;
     const burstIds: Array<string | undefined> = [];
-    if (campaign.body.trim().length > 0) {
+
+    if (imageIds.length === 1) {
+      const imageId = imageIds[0];
+      const media = await asset(imageId);
+      if (!media) {
+        throw new Error(`Image asset not found: ${imageId}`);
+      }
+      const result = await provider.sendImage({
+        to: row.phone,
+        link: publicMediaUrl(imageId),
+        bytes: Buffer.from(media.data),
+        mimeType: media.mimeType,
+        caption: body.length > 0 ? campaign.body : undefined,
+      });
+      await recordOutbound({
+        tenantId: row.tenantId,
+        conversationId: conversation.id,
+        body: campaign.body,
+        waMessageId: result.waMessageId,
+        kind: "MEDIA",
+        mediaId: imageId,
+      });
+      await mark(row.id, "SENT", undefined, result.waMessageId);
+      return;
+    }
+
+    if (body.length > 0) {
       const result = await provider.sendText({ to: row.phone, body: campaign.body });
       await recordOutbound({
         tenantId: row.tenantId,
@@ -334,7 +365,7 @@ async function deliverOne(
       });
       burstIds.push(result.waMessageId);
     }
-    for (const imageId of campaign.imageIds) {
+    for (const imageId of imageIds) {
       const media = await asset(imageId);
       if (!media) {
         throw new Error(`Image asset not found: ${imageId}`);
@@ -348,8 +379,10 @@ async function deliverOne(
       await recordOutbound({
         tenantId: row.tenantId,
         conversationId: conversation.id,
-        body: `[image ${media.id.slice(0, 8)}]`,
+        body: "",
         waMessageId: result.waMessageId,
+        kind: "MEDIA",
+        mediaId: imageId,
       });
       burstIds.push(result.waMessageId);
     }
@@ -387,6 +420,8 @@ async function recordOutbound(args: {
   conversationId: string;
   body: string;
   waMessageId?: string;
+  kind?: "TEXT" | "MEDIA";
+  mediaId?: string;
 }): Promise<void> {
   await prisma.message.create({
     data: {
@@ -396,7 +431,8 @@ async function recordOutbound(args: {
       senderType: "CAMPAIGN",
       body: args.body,
       waMessageId: args.waMessageId,
-      kind: "TEXT",
+      kind: args.kind ?? "TEXT",
+      mediaId: args.mediaId,
     },
   });
   await prisma.conversation.update({

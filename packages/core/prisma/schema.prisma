@@ -994,6 +994,10 @@ model Message {
   body           String
   waMessageId    String?
   kind           MessageKind       @default(TEXT)
+  // Outbound media reference (campaign image sends). The bytes live in
+  // MediaAsset and are served by apps/api at /api/media/[id]; the inbox
+  // renders this as an image instead of a text placeholder.
+  mediaId        String?
   isInternal     Boolean           @default(false)
   createdAt      DateTime          @default(now())
 

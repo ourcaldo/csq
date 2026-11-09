@@ -142,6 +142,9 @@ export type SendImageInput = {
   link: string;
   bytes?: Buffer;
   mimeType?: string;
+  // Optional caption shown under the image. Callers use it when a single
+  // image carries the campaign text (one bubble instead of two).
+  caption?: string;
 };
 
 // Meta's response to POST /messages: { messaging_product, contacts[], messages[{id}] }.

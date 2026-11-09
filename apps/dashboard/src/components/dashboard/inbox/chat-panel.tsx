@@ -31,6 +31,8 @@ type ChatPanelProps = {
   customerPhone: string;
   aiActive: boolean; // an AI agent is assigned (not handed to a human)
   humanTakenOver: boolean; // a human staff member has taken over
+  /** Origin that serves /api/media (the api service in the monorepo split). */
+  mediaBase: string;
   /** Mobile back-to-list action. */
   onBack?: () => void;
   /** Mobile open-contact-details action (opens the slide-over drawer). */
@@ -45,7 +47,15 @@ function timeLabel(iso: string): string {
   return d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
 }
 
-function MessageBubble({ m, readByAgent }: { m: Message; readByAgent: boolean }) {
+function MessageBubble({
+  m,
+  readByAgent,
+  mediaBase,
+}: {
+  m: Message;
+  readByAgent: boolean;
+  mediaBase: string;
+}) {
   // Whitespace-pre-line: agent replies carry markdown/newlines (lists, line
   // breaks) that must render as-written like WhatsApp does, not collapse.
   const bodyClass = "px-3 py-2 text-sm shadow-sm whitespace-pre-line";
@@ -74,13 +84,19 @@ function MessageBubble({ m, readByAgent }: { m: Message; readByAgent: boolean })
     );
   }
   const isAi = m.senderType === "AGENT";
-  const isScenario = m.senderType === "SCENARIO" || m.senderType === "CAMPAIGN";
+  const isCampaign = m.senderType === "CAMPAIGN";
+  const isScenario = m.senderType === "SCENARIO";
   return (
     <div className="my-1 flex max-w-[80%] items-end justify-end gap-2 self-end">
       <div>
         {isAi && (
           <span className="mb-1 ml-1 inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">
             <Robot size={12} weight="fill" /> AI
+          </span>
+        )}
+        {isCampaign && (
+          <span className="mb-1 ml-1 inline-flex items-center rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700">
+            Kampanye
           </span>
         )}
         {isScenario && (
@@ -91,9 +107,19 @@ function MessageBubble({ m, readByAgent }: { m: Message; readByAgent: boolean })
         <div
           className={cn(
             bodyClass,
-            isScenario ? "msg-scenario" : isAi ? "msg-ai" : "msg-sent"
+            isScenario || isCampaign ? "msg-scenario" : isAi ? "msg-ai" : "msg-sent"
           )}
         >
+          {/* Outbound media (campaign images): render the real image; the
+              caption rides below it in the same bubble. */}
+          {m.mediaId && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={`${mediaBase}/api/media/${m.mediaId}`}
+              alt="Gambar"
+              className="mb-1 max-h-64 w-full rounded-md object-cover"
+            />
+          )}
           {m.body}
         </div>
         <span className="mt-1 mr-1 flex items-center justify-end gap-1 text-[10px] text-slate-400">
@@ -136,7 +162,7 @@ function TypingIndicator({ label }: { label: string }) {
   );
 }
 
-export function ChatPanel({ conversationId, customerName, customerPhone, aiActive, humanTakenOver, onBack, onOpenDetails }: ChatPanelProps) {
+export function ChatPanel({ conversationId, customerName, customerPhone, aiActive, humanTakenOver, mediaBase, onBack, onOpenDetails }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -318,6 +344,7 @@ export function ChatPanel({ conversationId, customerName, customerPhone, aiActiv
             <MessageBubble
               key={m.id}
               m={m}
+              mediaBase={mediaBase}
               readByAgent={
                 m.direction === "INBOUND" &&
                 !!messages.some(
@@ -397,7 +424,7 @@ export function ChatPanel({ conversationId, customerName, customerPhone, aiActiv
                 ? "Tulis catatan internal untuk tim…"
                 : `Balas ke ${customerPhone}…`
             }
-            className="max-h-32 w-full resize-none border-none bg-transparent py-2 text-sm text-slate-700 placeholder-slate-400 focus:ring-0"
+            className="max-h-32 w-full resize-none border-none bg-transparent py-2 text-sm text-slate-700 outline-none placeholder-slate-400 focus:outline-none focus:ring-0"
           />
           <div className="flex shrink-0 gap-1 pb-1">
             <button className="p-2 text-slate-400 hover:text-slate-600" aria-label="Lampiran">

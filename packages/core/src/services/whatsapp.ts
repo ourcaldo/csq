@@ -132,7 +132,10 @@ export class CloudApiProvider implements WhatsAppProvider {
         recipient_type: "individual",
         to: input.to,
         type: "image",
-        image: { link: input.link },
+        image: {
+          link: input.link,
+          ...(input.caption ? { caption: input.caption } : {}),
+        },
       }),
     });
     if (!res.ok) {

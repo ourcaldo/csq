@@ -25,7 +25,7 @@ type Item = Prisma.ConversationGetPayload<{
 // @s.whatsapp.net chats it's the bare phone number.
 type DisplayItem = Item & {
   customerPhoneDisplay: string;
-  lastMessage: { body: string; senderType: string } | null;
+  lastMessage: { body: string; senderType: string; kind: "TEXT" | "MEDIA" | "OTHER" } | null;
   stage: Stage | null;
   // Count of INBOUND messages newer than this user's last-read watermark
   // (WhatsApp-style unread badge). 0 when the user is caught up. Never counts
@@ -91,7 +91,7 @@ export default async function handler(
             assignee: true,
             tags: { include: { tag: true } },
             deal: { include: { stage: true } },
-            messages: { take: 1, orderBy: { createdAt: "desc" }, select: { body: true, senderType: true } },
+            messages: { take: 1, orderBy: { createdAt: "desc" }, select: { body: true, senderType: true, kind: true } },
           },
           orderBy: { lastMessageAt: "desc" },
         }),
@@ -134,7 +134,11 @@ export default async function handler(
           }
           const { messages: lastMsgs, ...rest } = item;
           const lastMessage = lastMsgs[0]
-            ? { body: lastMsgs[0].body, senderType: lastMsgs[0].senderType }
+            ? {
+                body: lastMsgs[0].body,
+                senderType: lastMsgs[0].senderType,
+                kind: lastMsgs[0].kind,
+              }
             : null;
           const stage = item.deal?.stage ?? null;
           return {
