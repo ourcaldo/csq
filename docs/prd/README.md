@@ -18,13 +18,14 @@ the file contents and names.
 | `06-technical-architecture.md` | 23, 23A | Architecture decisions, technology stack | Live; some single-process statements superseded by 08 |
 | `07-project-structure-monorepo.md` | 23B | Monorepo escalation (23B.0) + scaffolding plan | Live |
 | `08-enterprise-architecture.md` | 23C | Service topology, token realms, resilience isolation | Live - governs current architecture |
-| `09-deferred-items.md` | 23D | Deferred engineering items register (status: DEFERRED + triggers) | Live |
+| `09-deferred-items.md` | 23D | Deferred engineering items register (all items done; multi-channel PENDING) | Live - no DEFERRED items remain |
 | `10-positioning-future.md` | 24-29 | Differentiation, principles, future expansion | Live |
 | `11-campaigns-classification.md` | 30 | Contact classification + campaigns feature PRD | Live |
 | `12-shared-ui-package.md` | new | The `@csq/ui` shared design-system package - what is shared, what stays app-local | Live - extraction and adoption cleanup done 2026-11-09 |
 | `13-admin-console.md` | new | The SaaS-operator section: platform admin console - menus, suspension semantics, separate auth realm, deferred-beyond-v1 list | Live - console deployed; deferred list updated 2026-11-09 |
 | `14-plans-billing-quotas.md` | new | Packages, billing, quotas: entitlements, credit ledger, MAU, invoices, plan requests, tenant Paket & Kuota | Live - verification tracked in the plan |
 | `15-multi-channel.md` | new | Multiple WhatsApp channels per tenant: channel identity, connect flow, webhook routing, inbox, limits | Pending - not scheduled |
+| `16-completeness-remediation.md` | new | Remaining audit gaps outside PRD 15: security, correctness, missing features, admin, billing, operations, docs | Live - approved 2026-11-09; implementation tracked by item IDs |
 
 Companion working documents (plans, registers, status) stay in `docs/`
 with date prefixes, e.g. `docs/plans/2026-11-08-enterprise-architecture-plan.md`.
