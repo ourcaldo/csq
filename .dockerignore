@@ -1,28 +1,22 @@
-# Environment files — never bake secrets into the image
+# Environment files - never bake secrets into the image
 .env
 .env.*
 
-# Baileys auth state — runtime only, mounted as a volume in compose
+# Baileys auth state - runtime only (the worker stores auth in Postgres)
 .baileys-auth/
 
 # Build artifacts and dependencies (installed fresh inside the container)
 node_modules/
 .next/
+*.tsbuildinfo
 
 # Git history
 .git/
 
-# TypeScript incremental build cache
-*.tsbuildinfo
-
-# Docker config + scripts are needed by the build context for the Dockerfile,
-# but the docker/ directory contents (compose, setup scripts, nginx, certbot)
-# are not needed inside the app image.
+# Docker config and setup scripts are not needed inside the app image
 docker/
 
 # Documentation and planning files
 docs/
 plans/
-
-# Claude Code agent config
 .claude/

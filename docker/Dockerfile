@@ -1,56 +1,85 @@
 # syntax=docker/dockerfile:1
-# Multi-stage build for CSQ (Next.js standalone) from the npm-workspaces
-# monorepo. The app talks to the configured OpenAI-compatible LLM provider
-# over HTTPS - no sidecar CLIs needed. Never build on the 4GB VPS - build
-# elsewhere / in CI and pull, or build on a beefier machine and load.
+# Multi-target build for the CSQ monorepo. Build on a machine with enough
+# memory (never on the 4GB VPS): docker build --target dashboard|api|worker.
+#
+# The dashboard and api targets use Next standalone output. The worker runs
+# TypeScript through tsx and needs the full workspace + dev dependencies, so
+# its image is larger.
 
-# -- builder --
-FROM node:20-bookworm-slim AS builder
+# -- dependencies: every workspace manifest must match the root lockfile --
+FROM node:20-bookworm-slim AS deps
 WORKDIR /app
 
-# Workspace manifests first: npm ci needs every workspace package.json to
-# match the root lockfile.
 COPY package.json package-lock.json ./
 COPY apps/dashboard/package.json ./apps/dashboard/
+COPY apps/api/package.json ./apps/api/
+COPY apps/web/package.json ./apps/web/
+COPY apps/admin/package.json ./apps/admin/
+COPY apps/worker/package.json ./apps/worker/
 COPY packages/core/package.json ./packages/core/
+COPY packages/ui/package.json ./packages/ui/
 RUN npm ci
 
+# -- build: generate Prisma, then compile the two Next apps --
+FROM deps AS build
 COPY packages/core/prisma ./packages/core/prisma
 RUN npx prisma generate
-
 COPY . .
-RUN npm run build
+RUN npm run build -w apps/dashboard
+RUN npm run build -w apps/api
 
-# -- runner --
+# -- shared runner base --
 FROM node:20-bookworm-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-ENV PORT=3000
 
-# ca-certificates is needed for HTTPS calls the app makes to external APIs
-# (WhatsApp Graph API, Google Sheets, the LLM provider). No other apt
-# packages are required.
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Next standalone output mirrors the monorepo layout: server.js lives at
-# apps/dashboard/server.js inside the bundle, with the traced node_modules at
-# the bundle root. Static assets and public must sit next to the app.
-COPY --from=builder /app/apps/dashboard/.next/standalone ./
-COPY --from=builder /app/apps/dashboard/.next/static ./apps/dashboard/.next/static
-COPY --from=builder /app/apps/dashboard/public ./apps/dashboard/public
+# -- dashboard --
+FROM runner AS dashboard
+ENV PORT=3000
 
-# Prisma: schema + migrations for migrate deploy, the generated client
-# (tracing can miss the query engine binary), and the CLI to run it.
-COPY --from=builder /app/packages/core/prisma ./packages/core/prisma
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+COPY --from=build /app/apps/dashboard/.next/standalone ./
+COPY --from=build /app/apps/dashboard/.next/static ./apps/dashboard/.next/static
+COPY --from=build /app/apps/dashboard/public ./apps/dashboard/public
+
+COPY --from=build /app/packages/core/prisma ./packages/core/prisma
+COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=build /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=build /app/node_modules/prisma ./node_modules/prisma
 
 EXPOSE 3000
-
-# Apply migrations (never `migrate dev` in prod) then start the standalone
-# server. The prisma CLI is invoked directly - npx/.bin shims are not
-# guaranteed inside the trimmed runner image.
 CMD ["sh", "-c", "node ./node_modules/prisma/build/index.js migrate deploy --schema packages/core/prisma/schema.prisma && node apps/dashboard/server.js"]
+
+# -- api (token realm, Tool Gateway, Meta webhook, media) --
+FROM runner AS api
+ENV PORT=3000
+
+COPY --from=build /app/apps/api/.next/standalone ./
+COPY --from=build /app/apps/api/.next/static ./apps/api/.next/static
+
+COPY --from=build /app/packages/core/prisma ./packages/core/prisma
+COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=build /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=build /app/node_modules/prisma ./node_modules/prisma
+
+EXPOSE 3000
+CMD ["sh", "-c", "node ./node_modules/prisma/build/index.js migrate deploy --schema packages/core/prisma/schema.prisma && node apps/api/server.js"]
+
+# -- worker (sockets, ticks, outbox, commands) --
+FROM runner AS worker
+ENV PORT=10000
+
+# The worker executes TypeScript with tsx and resolves @csq/core through the
+# root tsconfig paths, so it needs the workspace sources and dev deps.
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/packages ./packages
+COPY --from=build /app/apps/worker ./apps/worker
+COPY --from=build /app/package.json ./package.json
+COPY --from=build /app/tsconfig.json ./tsconfig.json
+COPY --from=build /app/apps/dashboard/tsconfig.json ./apps/dashboard/tsconfig.json
+
+EXPOSE 10000
+CMD ["sh", "-c", "node ./node_modules/prisma/build/index.js migrate deploy --schema packages/core/prisma/schema.prisma && npx tsx apps/worker/src/main.ts"]

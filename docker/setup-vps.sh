@@ -1,25 +1,27 @@
 ﻿#!/usr/bin/env bash
 # One-shot VPS setup for CSQ on a fresh Ubuntu host
-# (HackFest: 4 vCPU / 4GB RAM / 20GB SSD). Idempotent. Run as root:
+# (4 vCPU / 4GB RAM / 20GB SSD). Idempotent. Run as root:
 #   bash docker/setup-vps.sh
 #
-# âš ï¸  PREREQUISITE â€” PREBUILT IMAGES: this script does NOT build on the 4GB
-# VPS (the Next.js build will OOM; see docker/Dockerfile header). You must
-# prebuild the app + nginx images elsewhere (CI or a beefier machine), push
-# them to a registry, and set the image names in .env.production:
+# PREREQUISITE - PREBUILT IMAGES: this script does NOT build on the 4GB VPS
+# (the Next.js build will OOM; see docker/Dockerfile header). Prebuild the
+# dashboard, api, worker and nginx images elsewhere (CI or a beefier
+# machine), push them to a registry, and set in .env.production:
 #   CSQ_APP_IMAGE=ghcr.io/yourorg/csq-app:latest
+#   CSQ_API_IMAGE=ghcr.io/yourorg/csq-api:latest
+#   CSQ_WORKER_IMAGE=ghcr.io/yourorg/csq-worker:latest
 #   CSQ_NGINX_IMAGE=ghcr.io/yourorg/csq-nginx:latest
 # This script runs `docker compose pull` to fetch them.
 #
-# âš ï¸  PREREQUISITE â€” TLS CERT: you MUST run init-certbot.sh BEFORE this script
-# (or at least before the first successful `up`). Nginx requires the cert files
-# to exist at startup, and the certbot compose service only renews â€” it does
-# not issue the initial certificate. This script checks for the cert and will
-# exit with instructions if it is missing.
+# PREREQUISITE - TLS CERT: you MUST run init-certbot.sh BEFORE this script
+# (or at least before the first successful `up`). Nginx requires the cert
+# files to exist at startup, and the certbot compose service only renews;
+# it does not issue the initial certificate. This script checks for the cert
+# and exits with instructions if it is missing.
 #
-# The app drives the configured OpenAI-compatible LLM provider directly over
-# HTTPS — no sidecar containers. Postgres runs on the VPS (pgvector image),
-# not Neon.
+# The services drive the configured OpenAI-compatible LLM provider directly
+# over HTTPS - no sidecar containers. Postgres runs on the VPS (pgvector
+# image), not Neon.
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
@@ -47,17 +49,13 @@ echo "==> Loading environment"
 if [ -f "$REPO_DIR/.env.production" ]; then
   set -a; . "$REPO_DIR/.env.production"; set +a
 else
-  echo "Missing $REPO_DIR/.env.production â€” copy .env.production.example and fill it in." >&2
+  echo "Missing $REPO_DIR/.env.production - copy .env.production.example and fill it in." >&2
   exit 1
 fi
 
-# â”€â”€ TLS gate: Nginx will fail to start without a cert for CERT_DOMAIN. â”€â”€
-# init-certbot.sh issues the initial certificate using a standalone certbot
-# container (does not need compose running). The certbot service in compose
-# only renews existing certs â€” it does not issue the first one, and will
-# restart-loop until init-certbot.sh has been run.
+# TLS gate: Nginx will fail to start without a cert for CERT_DOMAIN.
 if [ -z "${CERT_DOMAIN:-}" ]; then
-  echo "CERT_DOMAIN is not set in .env.production â€” set it and re-run." >&2
+  echo "CERT_DOMAIN is not set in .env.production - set it and re-run." >&2
   exit 1
 fi
 CERT_DIR="$REPO_DIR/docker/certbot/conf/live/${CERT_DOMAIN}"
@@ -71,22 +69,17 @@ fi
 
 cd "$REPO_DIR/docker"
 
-echo "==> Pulling prebuilt images (app=${CSQ_APP_IMAGE:-csq/app:latest}, nginx=${CSQ_NGINX_IMAGE:-csq/nginx:latest})"
+echo "==> Pulling prebuilt images (app=${CSQ_APP_IMAGE:-csq/app:latest}, api=${CSQ_API_IMAGE:-csq/api:latest}, worker=${CSQ_WORKER_IMAGE:-csq/worker:latest}, nginx=${CSQ_NGINX_IMAGE:-csq/nginx:latest})"
 docker compose --env-file "$REPO_DIR/.env.production" pull
 
-echo "==> Starting app + postgres + nginx + certbot (no sidecar containers)"
+echo "==> Starting dashboard + api + worker + postgres + nginx + certbot"
 docker compose --env-file "$REPO_DIR/.env.production" up -d
 
-echo "==> Waiting for postgres health"
-sleep 5
-
-# A clean production install does NOT seed the demo tenant â€” owners register
-# their own stores from /register. To seed the demo tenant for a throwaway
-# preview, uncomment the block below.
-# echo "==> Seeding demo tenant (optional)"
-# docker compose --env-file "$REPO_DIR/.env.production" exec -T app \
-#   npx prisma db seed --schema packages/core/prisma/schema.prisma || true
+echo "==> Waiting for health checks"
+sleep 10
 
 echo "==> Done."
-echo "    Agents run in-process against the configured LLM provider."
-echo "    Health check: curl -sf https://${CERT_DOMAIN}/api/health"
+echo "    Health checks:"
+echo "      dashboard: curl -sf https://${CERT_DOMAIN}/api/health"
+echo "      api:       curl -sf https://${CERT_DOMAIN}/api/v1/openapi > /dev/null"
+echo "      worker:    curl -sf http://127.0.0.1:10000"
