@@ -51,7 +51,7 @@ COPY --from=build /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=build /app/node_modules/prisma ./node_modules/prisma
 
 EXPOSE 3000
-CMD ["sh", "-c", "node ./node_modules/prisma/build/index.js migrate deploy --schema packages/core/prisma/schema.prisma && node apps/dashboard/server.js"]
+CMD ["sh", "-c", "DATABASE_URL=\"${DATABASE_URL_UNPOOLED:-$DATABASE_URL}\" node ./node_modules/prisma/build/index.js migrate deploy --schema packages/core/prisma/schema.prisma && node apps/dashboard/server.js"]
 
 # -- api (token realm, Tool Gateway, Meta webhook, media) --
 FROM runner AS api
@@ -66,7 +66,7 @@ COPY --from=build /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=build /app/node_modules/prisma ./node_modules/prisma
 
 EXPOSE 3000
-CMD ["sh", "-c", "node ./node_modules/prisma/build/index.js migrate deploy --schema packages/core/prisma/schema.prisma && node apps/api/server.js"]
+CMD ["sh", "-c", "DATABASE_URL=\"${DATABASE_URL_UNPOOLED:-$DATABASE_URL}\" node ./node_modules/prisma/build/index.js migrate deploy --schema packages/core/prisma/schema.prisma && node apps/api/server.js"]
 
 # -- worker (sockets, ticks, outbox, commands) --
 FROM runner AS worker
@@ -82,4 +82,4 @@ COPY --from=build /app/tsconfig.json ./tsconfig.json
 COPY --from=build /app/apps/dashboard/tsconfig.json ./apps/dashboard/tsconfig.json
 
 EXPOSE 10000
-CMD ["sh", "-c", "node ./node_modules/prisma/build/index.js migrate deploy --schema packages/core/prisma/schema.prisma && npx tsx apps/worker/src/main.ts"]
+CMD ["sh", "-c", "DATABASE_URL=\"${DATABASE_URL_UNPOOLED:-$DATABASE_URL}\" node ./node_modules/prisma/build/index.js migrate deploy --schema packages/core/prisma/schema.prisma && npx tsx apps/worker/src/main.ts"]

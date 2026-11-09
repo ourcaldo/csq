@@ -6,7 +6,8 @@
 // form) and executeTool returns a discriminated ExecuteOutcome that API routes
 // map to ApiResponse + HTTP status without string-to-code casts.
 
-import type { Prisma, PrismaClient } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
+import type prismaClient from "@csq/core/lib/db";
 import type { ZodType } from "zod";
 import type { ErrorCode } from "@csq/core/types/api";
 
@@ -51,7 +52,7 @@ export type ToolContext<P extends Record<string, unknown> = Record<string, unkno
   tenantId: string;
   agentId: string;
   params: P;
-  prisma: PrismaClient;
+  prisma: typeof prismaClient;
   audit: (entry: AuditEntryInput) => Promise<void>;
   // Server-authoritative conversation routing context (G1). Never supplied by
   // the agent - resolved from the inbound conversation by the caller, like
@@ -76,7 +77,7 @@ export type ApprovalChange = {
 // Optional - only write tools that may require approval implement it.
 export type DescribeChange<P extends Record<string, unknown> = Record<string, unknown>> = (
   params: P,
-  ctx: { tenantId: string; prisma: PrismaClient }
+  ctx: { tenantId: string; prisma: typeof prismaClient }
 ) => Promise<ApprovalChange>;
 
 export type ToolDefinition<P extends Record<string, unknown> = Record<string, unknown>> = {

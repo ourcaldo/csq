@@ -141,6 +141,12 @@ model PlanRequest {
   @@index([status, createdAt])
 }
 
+// COR-5 (PRD 16): SQL-only partial unique index (Prisma cannot express it):
+//   CREATE UNIQUE INDEX "PlanRequest_open_tenantId_key"
+//     ON "PlanRequest"("tenantId") WHERE "status" IN ('NEW', 'CONTACTED');
+// It makes the "one open request" guard race-safe. Applied in migration
+// 20261109120000_prd16_remediation, like the D10f SQL-only indexes before it.
+
 // Platform billing configuration (PRD 14). One row, id "singleton". Bank
 // details and due/grace days are edited in the admin console, not env.
 // Platform table - no tenantId (the documented exception class).
@@ -349,6 +355,10 @@ model Tenant {
   aiCreditUsage       AiCreditUsage[]
   invoices            Invoice[]
   planRequests        PlanRequest[]
+  refunds             Refund[]
+  supportTickets      SupportTicket[]
+  teamInvites         TeamInvite[]
+  syncLogs            SyncLog[]
   plan                Plan?             @relation(fields: [planId], references: [id], onDelete: SetNull)
 }
 
@@ -386,6 +396,9 @@ model User {
   // always run campaigns; STAFF may create/pause them only when the owner
   // grants this per-staff toggle from the Team page.
   canRunCampaigns Boolean  @default(false)
+  // FEA-5 (PRD 16): invite-token accounts must set their own password at
+  // first login; the invite credential is single-use.
+  mustChangePassword Boolean @default(false)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -394,6 +407,7 @@ model User {
   sentMessages          Message[]          @relation("MessageSenderUser")
   resolvedApprovals     Approval[]         @relation("ApprovalResolver")
   conversationReads     ConversationRead[]
+  teamInvitesSent       TeamInvite[]       @relation("TeamInviteInviter")
 
   @@index([tenantId])
 }
@@ -605,6 +619,9 @@ model AdminUser {
   email        String   @unique
   name         String
   passwordHash String
+  // SEC-5 (PRD 16): realm role. Single value today; the column exists so
+  // adding operators never needs a second migration.
+  role         String   @default("SUPERADMIN")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -681,6 +698,9 @@ model InventorySnapshot {
   source    InventorySource
   quantity  Int
   sourceRef String?
+  // FEA-8 (PRD 16): data-authority confidence for this observation
+  // (0-1). Defaults to 1.0; ingestion may lower it for fuzzy matches.
+  confidence Float         @default(1)
   syncedAt  DateTime        @default(now())
   createdAt DateTime        @default(now())
   updatedAt DateTime        @updatedAt
@@ -706,6 +726,7 @@ model Order {
   tenant         Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   createdByAgent Agent?      @relation("OrderCreatedByAgent", fields: [createdByAgentId], references: [id], onDelete: SetNull)
   items          OrderItem[]
+  refunds        Refund[]
 
   @@index([tenantId, status])
   @@index([tenantId, createdAt])
@@ -730,13 +751,17 @@ model OrderItem {
 }
 
 model Knowledge {
-  id        String        @id @default(uuid())
-  tenantId  String
-  type      KnowledgeType
-  title     String
-  content   String
-  createdAt DateTime      @default(now())
-  updatedAt DateTime      @updatedAt
+  id         String        @id @default(uuid())
+  tenantId    String
+  type        KnowledgeType
+  title       String
+  content     String
+  // FEA-1 (PRD 16): provenance for uploaded documents (PDF/DOCX). Manual
+  // entries leave both null.
+  sourceName  String?
+  mimeType    String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
   tenant    Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   embedding KnowledgeEmbedding?
@@ -792,6 +817,7 @@ model DataSource {
 
   tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   sourceRows SourceRow[]
+  syncLogs   SyncLog[]
 
   @@index([tenantId])
 }
@@ -1203,6 +1229,9 @@ enum CampaignSendKind {
 
 enum CampaignMessageStatus {
   PENDING
+  // COR-1 (PRD 16): claimed by a tick, in flight. Reset to PENDING at tick
+  // start when stale so a crash between claim and send cannot double-send.
+  SENDING
   SENT
   FAILED
   SKIPPED
@@ -1252,6 +1281,9 @@ model Campaign {
   delaySeconds  Int                 @default(30)
   nextRunAt     DateTime?
   lastRunAt     DateTime?
+  // SEC-4 (PRD 16): true when tenant suspension moved this campaign from
+  // ACTIVE to PAUSED, so activation can resume exactly those.
+  autoPaused    Boolean             @default(false)
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
 
@@ -1387,4 +1419,113 @@ model ScenarioRunStep {
   run    ScenarioRun @relation(fields: [runId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, runId, startedAt])
+}
+
+// ──────────────────── PRD 16 additions ────────────────────
+
+// FEA-2 (PRD 16): a recorded refund request on an order. Approval-gated:
+// the order.refund tool is allowed=false + requiresApproval=true, so a
+// customer request can never move money or data on its own. Record-only -
+// no payment-gateway integration (PRD 16 non-goal).
+enum RefundStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Refund {
+  id                 String       @id @default(uuid())
+  tenantId           String
+  orderId            String
+  amount             Decimal      @db.Decimal(14, 2)
+  reason             String?
+  status             RefundStatus @default(PENDING)
+  // Plain scalars (Campaign.channelId pattern): the creating agent and the
+  // resolving user are recorded for audit without cross-model cascade rules.
+  createdByAgentId   String?
+  resolvedById       String?
+  resolvedAt         DateTime?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  order  Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+  @@index([orderId])
+}
+
+// FEA-3 (PRD 16): a support ticket the agent opens for a customer issue
+// that needs a human beyond the conversation itself (PRD 03 section 17).
+enum SupportTicketStatus {
+  OPEN
+  RESOLVED
+}
+
+model SupportTicket {
+  id               String              @id @default(uuid())
+  tenantId         String
+  conversationId   String?
+  contactPhone     String?
+  subject          String
+  body             String
+  status           SupportTicketStatus @default(OPEN)
+  createdByAgentId String?
+  resolvedById     String?
+  resolvedAt       DateTime?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
+}
+
+// FEA-5 (PRD 16): one-time staff invite. The dashboard shows nothing; the
+// emailed link carries a raw token whose SHA-256 hash is stored here. The
+// set-password page consumes the token once and creates the User with
+// mustChangePassword=false (the password IS the user's choice).
+model TeamInvite {
+  id         String    @id @default(uuid())
+  tenantId   String
+  email      String
+  tokenHash  String    @unique
+  role       UserRole  @default(STAFF)
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  invitedById String
+  createdAt  DateTime  @default(now())
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invitedBy User   @relation("TeamInviteInviter", fields: [invitedById], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([email])
+}
+
+// FEA-7 (PRD 16): one row per source sync so the sources page can show
+// history, not just lastSyncAt. Written by the same code that performs the
+// sync; never updated after creation.
+enum SyncLogStatus {
+  SUCCESS
+  PARTIAL
+  FAILED
+}
+
+model SyncLog {
+  id           String        @id @default(uuid())
+  tenantId     String
+  dataSourceId String
+  status       SyncLogStatus
+  rowsCreated  Int           @default(0)
+  rowsUpdated  Int           @default(0)
+  rowsSkipped  Int           @default(0)
+  message      String?
+  createdAt    DateTime      @default(now())
+
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  dataSource DataSource @relation(fields: [dataSourceId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, dataSourceId, createdAt])
 }

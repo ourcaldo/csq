@@ -23,6 +23,7 @@
     "check:encoding": "node scripts/check-encoding.mjs",
     "check:openapi": "tsx scripts/self-check-openapi.ts",
     "check:alerts": "tsx scripts/alert-check.ts",
+    "check:rls": "tsx scripts/self-check-rls.ts",
     "db:migration-checksums": "node scripts/migration-checksums.mjs",
     "db:migrate": "npm run db:migrate -w packages/core",
     "db:seed": "npm run db:seed -w packages/core",
