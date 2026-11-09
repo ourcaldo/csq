@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiError, apiOk, type ApiResponse } from "@csq/core/types/api";
 
 type ApprovalSummary = {
@@ -35,20 +36,24 @@ export default async function handler(
       .json(apiError("PERMISSION_DENIED", "Only owners can manage approvals"));
   }
 
-  const approvals = await prisma.approval.findMany({
-    where: { tenantId: session.user.tenantId, status: "PENDING" },
-    orderBy: { createdAt: "asc" },
-  });
+  const tenantId = session.user.tenantId;
 
-  const data: ApprovalSummary[] = approvals.map((a) => ({
-    id: a.id,
-    action: a.action,
-    entityType: a.entityType,
-    entityId: a.entityId,
-    status: a.status,
-    proposedBefore: a.proposedBefore,
-    proposedAfter: a.proposedAfter,
-    createdAt: a.createdAt.toISOString(),
-  }));
-  return res.status(200).json(apiOk(data));
+  return withTenantContext(tenantId, async () => {
+    const approvals = await prisma.approval.findMany({
+      where: { tenantId, status: "PENDING" },
+      orderBy: { createdAt: "asc" },
+    });
+
+    const data: ApprovalSummary[] = approvals.map((a) => ({
+      id: a.id,
+      action: a.action,
+      entityType: a.entityType,
+      entityId: a.entityId,
+      status: a.status,
+      proposedBefore: a.proposedBefore,
+      proposedAfter: a.proposedAfter,
+      createdAt: a.createdAt.toISOString(),
+    }));
+    return res.status(200).json(apiOk(data));
+  });
 }

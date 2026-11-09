@@ -6,7 +6,9 @@ import { getServerSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { z } from "zod";
 import prisma from "@csq/core/lib/db";
-import { verifyPassword } from "@csq/core/lib/password";
+import { withSystemContext } from "@csq/core/lib/tenant-context";
+import { hashPassword, verifyPassword } from "@csq/core/lib/password";
+import { checkRateLimit } from "@csq/core/lib/rate-limit";
 import { apiError, type ApiResponse } from "@csq/core/types/api";
 
 // The admin auth realm (PRD 13). Everything mirrors the tenant realm's
@@ -20,13 +22,36 @@ const signInSchema = z.object({
 
 export const adminAuthOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
+  // SEC-5 (PRD 16): a distinct cookie name so the admin realm's session can
+  // never collide with the tenant realm's, even if the two ever share a host.
+  cookies: {
+    sessionToken: {
+      name:
+        process.env.NODE_ENV === "production"
+          ? "__Secure-csq.admin.session-token"
+          : "csq-admin-session-token",
+      options: {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
+  },
   providers: [
     CredentialsProvider({
       credentials: {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
+        // SEC-5 (PRD 16): per-IP rate limit on the operator login.
+        const ipRaw = req?.headers?.["x-forwarded-for"];
+        const ip = ((Array.isArray(ipRaw) ? ipRaw[0] : ipRaw) ?? "unknown")
+          .split(",")[0]
+          .trim();
+        if (!checkRateLimit(`admin-auth:${ip}`, 10, 60_000)) return null;
+
         const parsed = signInSchema.safeParse({
           email: credentials?.email,
           password: credentials?.password,
@@ -34,13 +59,18 @@ export const adminAuthOptions: NextAuthOptions = {
         if (!parsed.success) return null;
         const { email, password } = parsed.data;
 
-        const admin = await prisma.adminUser.findUnique({ where: { email } });
-        if (!admin) return null;
-
-        const ok = await verifyPassword(password, admin.passwordHash);
-        if (!ok) return null;
-
-        return { id: admin.id, email: admin.email, name: admin.name };
+        // AdminUser lookups cross no tenant but run before any request
+        // context exists: bypass context (PRD 16 SEC-1). Unknown emails
+        // still burn a bcrypt round (SEC-5 timing equalization).
+        return withSystemContext(async () => {
+          const admin = await prisma.adminUser.findUnique({ where: { email } });
+          const ok = await verifyPassword(
+            password,
+            admin?.passwordHash ?? (await hashPassword(password))
+          );
+          if (!admin || !ok) return null;
+          return { id: admin.id, email: admin.email, name: admin.name };
+        });
       },
     }),
   ],

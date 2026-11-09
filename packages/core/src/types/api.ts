@@ -21,6 +21,7 @@ export type ErrorCode =
   | "TOOL_NOT_FOUND"
   | "METHOD_NOT_ALLOWED"
   | "RATE_LIMITED"
+  | "TENANT_SUSPENDED"
   | "INTERNAL_ERROR";
 
 export const ErrorCodes: Record<ErrorCode, ErrorCode> = {
@@ -33,6 +34,7 @@ export const ErrorCodes: Record<ErrorCode, ErrorCode> = {
   TOOL_NOT_FOUND: "TOOL_NOT_FOUND",
   METHOD_NOT_ALLOWED: "METHOD_NOT_ALLOWED",
   RATE_LIMITED: "RATE_LIMITED",
+  TENANT_SUSPENDED: "TENANT_SUSPENDED",
   INTERNAL_ERROR: "INTERNAL_ERROR",
 };
 

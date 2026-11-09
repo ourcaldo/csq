@@ -3,6 +3,7 @@ import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { logAction } from "@csq/core/lib/audit";
 import { sendApprovalFollowUp } from "@csq/core/lib/agent-outbox";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiError, apiOk, type ApiResponse } from "@csq/core/types/api";
 
 // POST /api/dashboard/approvals/[id]/reject - owner rejects a pending action.
@@ -27,48 +28,52 @@ export default async function handler(
       .json(apiError("PERMISSION_DENIED", "Only owners can reject actions"));
   }
 
-  const id = typeof req.query.id === "string" ? req.query.id : undefined;
-  if (!id) {
-    return res.status(400).json(apiError("VALIDATION_ERROR", "Missing approval id"));
-  }
+  const tenantId = session.user.tenantId;
 
-  const approval = await prisma.approval.findUnique({ where: { id } });
-  if (!approval || approval.tenantId !== session.user.tenantId) {
-    return res.status(404).json(apiError("NOT_FOUND", "Approval not found"));
-  }
-  if (approval.status !== "PENDING") {
-    return res
-      .status(400)
-      .json(apiError("VALIDATION_ERROR", "Approval already resolved"));
-  }
-
-  await prisma.approval.update({
-    where: { id },
-    data: {
-      status: "REJECTED",
-      resolvedById: session.user.id,
-      resolvedAt: new Date(),
-    },
-  });
-
-  await logAction({
-    tenantId: approval.tenantId,
-    agentId: approval.agentId,
-    action: approval.action,
-    entityType: approval.entityType,
-    entityId: approval.id,
-    approvalStatus: "REJECTED",
-  });
-
-  // G1: close the loop - tell the customer the owner declined. Best-effort,
-  // fire-and-forget so the owner's reject response is never delayed or failed
-  // by the WhatsApp send.
-  void sendApprovalFollowUp({ approvalId: id, approved: false }).catch(
-    (err) => {
-      const msg = err instanceof Error ? err.message : String(err);
-      console.error(`[approval-followup] reject ${id} failed: ${msg}`);
+  return withTenantContext(tenantId, async () => {
+    const id = typeof req.query.id === "string" ? req.query.id : undefined;
+    if (!id) {
+      return res.status(400).json(apiError("VALIDATION_ERROR", "Missing approval id"));
     }
-  );
 
-  return res.status(200).json(apiOk({ id, status: "REJECTED" }));
+    const approval = await prisma.approval.findUnique({ where: { id } });
+    if (!approval || approval.tenantId !== tenantId) {
+      return res.status(404).json(apiError("NOT_FOUND", "Approval not found"));
+    }
+    if (approval.status !== "PENDING") {
+      return res
+        .status(400)
+        .json(apiError("VALIDATION_ERROR", "Approval already resolved"));
+    }
+
+    await prisma.approval.update({
+      where: { id },
+      data: {
+        status: "REJECTED",
+        resolvedById: session.user.id,
+        resolvedAt: new Date(),
+      },
+    });
+
+    await logAction({
+      tenantId: approval.tenantId,
+      agentId: approval.agentId,
+      action: approval.action,
+      entityType: approval.entityType,
+      entityId: approval.id,
+      approvalStatus: "REJECTED",
+    });
+
+    // G1: close the loop - tell the customer the owner declined. Best-effort,
+    // fire-and-forget so the owner's reject response is never delayed or failed
+    // by the WhatsApp send.
+    void sendApprovalFollowUp({ approvalId: id, approved: false }).catch(
+      (err) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`[approval-followup] reject ${id} failed: ${msg}`);
+      }
+    );
+
+    return res.status(200).json(apiOk({ id, status: "REJECTED" }));
+  });
 }

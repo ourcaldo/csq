@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { logHuman } from "@csq/core/lib/audit";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 
@@ -17,43 +18,46 @@ export default async function handler(
   const session = await getAuthSession(req, res);
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
   const tenantId = requireTenant(session);
-  if (!requireRole(session, "OWNER")) {
-    return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengatur izin tim.");
-  }
 
-  const { id } = req.query;
-  if (typeof id !== "string") {
-    return respondError(res, "VALIDATION_ERROR", "ID pengguna tidak valid.");
-  }
+  return withTenantContext(tenantId, async () => {
+    if (!requireRole(session, "OWNER")) {
+      return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengatur izin tim.");
+    }
 
-  if (req.method !== "PUT") {
-    return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
-  }
+    const { id } = req.query;
+    if (typeof id !== "string") {
+      return respondError(res, "VALIDATION_ERROR", "ID pengguna tidak valid.");
+    }
 
-  const parsed = z.object({ canRunCampaigns: z.boolean() }).safeParse(req.body);
-  if (!parsed.success) {
-    return respondError(res, "VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Input tidak valid.");
-  }
+    if (req.method !== "PUT") {
+      return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
+    }
 
-  const target = await prisma.user.findFirst({ where: { id, tenantId } });
-  if (!target) return respondError(res, "NOT_FOUND", "Pengguna tidak ditemukan.");
-  if (target.role !== "STAFF") {
-    return respondError(res, "VALIDATION_ERROR", "Izin kampanye hanya berlaku untuk staff.");
-  }
+    const parsed = z.object({ canRunCampaigns: z.boolean() }).safeParse(req.body);
+    if (!parsed.success) {
+      return respondError(res, "VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Input tidak valid.");
+    }
 
-  const updated = await prisma.user.update({
-    where: { id },
-    data: { canRunCampaigns: parsed.data.canRunCampaigns },
+    const target = await prisma.user.findFirst({ where: { id, tenantId } });
+    if (!target) return respondError(res, "NOT_FOUND", "Pengguna tidak ditemukan.");
+    if (target.role !== "STAFF") {
+      return respondError(res, "VALIDATION_ERROR", "Izin kampanye hanya berlaku untuk staff.");
+    }
+
+    const updated = await prisma.user.update({
+      where: { id },
+      data: { canRunCampaigns: parsed.data.canRunCampaigns },
+    });
+    await logHuman({
+      tenantId,
+      action: "user.campaign_permission",
+      entityType: "User",
+      entityId: id,
+      beforeValue: { canRunCampaigns: target.canRunCampaigns },
+      afterValue: { canRunCampaigns: updated.canRunCampaigns },
+    });
+    return res
+      .status(200)
+      .json(apiOk({ userId: id, canRunCampaigns: updated.canRunCampaigns }));
   });
-  await logHuman({
-    tenantId,
-    action: "user.campaign_permission",
-    entityType: "User",
-    entityId: id,
-    beforeValue: { canRunCampaigns: target.canRunCampaigns },
-    afterValue: { canRunCampaigns: updated.canRunCampaigns },
-  });
-  return res
-    .status(200)
-    .json(apiOk({ userId: id, canRunCampaigns: updated.canRunCampaigns }));
 }

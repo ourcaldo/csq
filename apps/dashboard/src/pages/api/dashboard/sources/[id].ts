@@ -3,6 +3,7 @@ import type { DataSource } from "@prisma/client";
 import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { logHuman } from "@csq/core/lib/audit";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 
@@ -14,35 +15,37 @@ export default async function handler(
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
   const tenantId = requireTenant(session);
 
-  const { id } = req.query;
-  if (typeof id !== "string") {
-    return respondError(res, "VALIDATION_ERROR", "ID sumber data tidak valid.");
-  }
-
-  if (req.method === "GET") {
-    const source = await prisma.dataSource.findFirst({ where: { id, tenantId } });
-    if (!source) return respondError(res, "NOT_FOUND", "Sumber data tidak ditemukan.");
-    return res.status(200).json(apiOk(source));
-  }
-
-  if (req.method === "DELETE") {
-    if (!requireRole(session, "OWNER")) {
-      return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat menghapus sumber data.");
+  return withTenantContext(tenantId, async () => {
+    const { id } = req.query;
+    if (typeof id !== "string") {
+      return respondError(res, "VALIDATION_ERROR", "ID sumber data tidak valid.");
     }
-    // "Disconnect" a source: hard delete the record. Credentials stored in
-    // config Json are removed with it. Phase 4 wires the actual sync teardown.
-    const existing = await prisma.dataSource.findFirst({ where: { id, tenantId } });
-    if (!existing) return respondError(res, "NOT_FOUND", "Sumber data tidak ditemukan.");
-    await prisma.dataSource.delete({ where: { id } });
-    await logHuman({
-      tenantId,
-      action: "source.delete",
-      entityType: "DataSource",
-      entityId: id,
-      beforeValue: existing,
-    });
-    return res.status(200).json(apiOk({ id }));
-  }
 
-  return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
+    if (req.method === "GET") {
+      const source = await prisma.dataSource.findFirst({ where: { id, tenantId } });
+      if (!source) return respondError(res, "NOT_FOUND", "Sumber data tidak ditemukan.");
+      return res.status(200).json(apiOk(source));
+    }
+
+    if (req.method === "DELETE") {
+      if (!requireRole(session, "OWNER")) {
+        return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat menghapus sumber data.");
+      }
+      // "Disconnect" a source: hard delete the record. Credentials stored in
+      // config Json are removed with it. Phase 4 wires the actual sync teardown.
+      const existing = await prisma.dataSource.findFirst({ where: { id, tenantId } });
+      if (!existing) return respondError(res, "NOT_FOUND", "Sumber data tidak ditemukan.");
+      await prisma.dataSource.delete({ where: { id } });
+      await logHuman({
+        tenantId,
+        action: "source.delete",
+        entityType: "DataSource",
+        entityId: id,
+        beforeValue: existing,
+      });
+      return res.status(200).json(apiOk({ id }));
+    }
+
+    return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
+  });
 }

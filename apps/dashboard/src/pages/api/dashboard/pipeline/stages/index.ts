@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
 import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import { requireFeatureApi } from "@csq/core/lib/feature-guard";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import { getOrCreatePipeline } from "@csq/core/lib/pipeline";
@@ -43,53 +44,55 @@ export default async function handler(
   }
   const tenantId = requireTenant(session);
 
-  const parsed = stageCreateSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return respondError(res, "VALIDATION_ERROR", parsed.error.message);
-  }
-  const { name, order, winProbability, expectedDays, kind } = parsed.data;
-
-  const pipeline = await getOrCreatePipeline(tenantId);
-
-  // Enforce one OPENING / one WON / one LOST per pipeline.
-  if (kind !== "NORMAL") {
-    const existing = await prisma.stage.count({
-      where: { pipelineId: pipeline.id, kind },
-    });
-    if (existing > 0) {
-      return respondError(
-        res,
-        "VALIDATION_ERROR",
-        `Tahap dengan peran "${kind}" sudah ada. Hanya boleh satu per pipeline.`
-      );
+  return withTenantContext(tenantId, async () => {
+    const parsed = stageCreateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return respondError(res, "VALIDATION_ERROR", parsed.error.message);
     }
-  }
+    const { name, order, winProbability, expectedDays, kind } = parsed.data;
 
-  // Default order to the end of the pipeline.
-  const maxOrder = await prisma.stage.aggregate({
-    where: { pipelineId: pipeline.id },
-    _max: { order: true },
-  });
-  const nextOrder = order ?? (maxOrder._max.order ?? 0) + 1;
+    const pipeline = await getOrCreatePipeline(tenantId);
 
-  const stage = await prisma.stage.create({
-    data: {
-      tenantId,
-      pipelineId: pipeline.id,
-      name,
-      order: nextOrder,
-      winProbability: winProbability ?? null,
-      expectedDays: expectedDays ?? null,
-      kind,
-    },
-    select: {
-      id: true,
-      name: true,
-      order: true,
-      winProbability: true,
-      expectedDays: true,
-      kind: true,
-    },
+    // Enforce one OPENING / one WON / one LOST per pipeline.
+    if (kind !== "NORMAL") {
+      const existing = await prisma.stage.count({
+        where: { pipelineId: pipeline.id, kind },
+      });
+      if (existing > 0) {
+        return respondError(
+          res,
+          "VALIDATION_ERROR",
+          `Tahap dengan peran "${kind}" sudah ada. Hanya boleh satu per pipeline.`
+        );
+      }
+    }
+
+    // Default order to the end of the pipeline.
+    const maxOrder = await prisma.stage.aggregate({
+      where: { pipelineId: pipeline.id },
+      _max: { order: true },
+    });
+    const nextOrder = order ?? (maxOrder._max.order ?? 0) + 1;
+
+    const stage = await prisma.stage.create({
+      data: {
+        tenantId,
+        pipelineId: pipeline.id,
+        name,
+        order: nextOrder,
+        winProbability: winProbability ?? null,
+        expectedDays: expectedDays ?? null,
+        kind,
+      },
+      select: {
+        id: true,
+        name: true,
+        order: true,
+        winProbability: true,
+        expectedDays: true,
+        kind: true,
+      },
+    });
+    return res.status(201).json(apiOk(stage));
   });
-  return res.status(201).json(apiOk(stage));
 }

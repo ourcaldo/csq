@@ -5,6 +5,7 @@ import prisma from "@csq/core/lib/db";
 import { logHuman } from "@csq/core/lib/audit";
 import { grantCapability } from "@csq/core/lib/permissions";
 import { requireTenant, respondError, strQuery } from "@csq/core/lib/queries";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 
 // Body schema for a capability override update. `tool` is the registry tool
@@ -40,33 +41,35 @@ export default async function handler(
   }
   const tenantId = requireTenant(session);
 
-  const id = strQuery(req.query, "id");
-  if (!id) return respondError(res, "VALIDATION_ERROR", "ID agent tidak valid.");
+  return withTenantContext(tenantId, async () => {
+    const id = strQuery(req.query, "id");
+    if (!id) return respondError(res, "VALIDATION_ERROR", "ID agent tidak valid.");
 
-  const parsed = capabilitySchema.safeParse(req.body);
-  if (!parsed.success) {
-    return respondError(res, "VALIDATION_ERROR", parsed.error.message);
-  }
-  const { tool, allowed, requiresApproval } = parsed.data;
+    const parsed = capabilitySchema.safeParse(req.body);
+    if (!parsed.success) {
+      return respondError(res, "VALIDATION_ERROR", parsed.error.message);
+    }
+    const { tool, allowed, requiresApproval } = parsed.data;
 
-  // Verify the agent belongs to this tenant before mutating capabilities.
-  const agent = await prisma.agent.findFirst({ where: { id, tenantId } });
-  if (!agent) return respondError(res, "NOT_FOUND", "Agent tidak ditemukan.");
+    // Verify the agent belongs to this tenant before mutating capabilities.
+    const agent = await prisma.agent.findFirst({ where: { id, tenantId } });
+    if (!agent) return respondError(res, "NOT_FOUND", "Agent tidak ditemukan.");
 
-  const before = await prisma.agentCapability.findUnique({
-    where: { agentId_tool: { agentId: agent.id, tool } },
+    const before = await prisma.agentCapability.findUnique({
+      where: { agentId_tool: { agentId: agent.id, tool } },
+    });
+
+    await grantCapability(tenantId, agent.id, tool, allowed, requiresApproval);
+
+    await logHuman({
+      tenantId,
+      action: "agent.capability.update",
+      entityType: "AgentCapability",
+      entityId: `${agent.id}:${tool}`,
+      beforeValue: before ?? undefined,
+      afterValue: { allowed, requiresApproval },
+    });
+
+    return res.status(200).json(apiOk({ ok: true }));
   });
-
-  await grantCapability(tenantId, agent.id, tool, allowed, requiresApproval);
-
-  await logHuman({
-    tenantId,
-    action: "agent.capability.update",
-    entityType: "AgentCapability",
-    entityId: `${agent.id}:${tool}`,
-    beforeValue: before ?? undefined,
-    afterValue: { allowed, requiresApproval },
-  });
-
-  return res.status(200).json(apiOk({ ok: true }));
 }

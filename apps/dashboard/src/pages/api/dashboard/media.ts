@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { getAuthSession } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import { canRunCampaigns } from "@csq/core/lib/campaign-access";
 
@@ -42,43 +43,46 @@ export default async function handler(
   const session = await getAuthSession(req, res);
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
   const tenantId = requireTenant(session);
-  if (!canRunCampaigns(session)) {
-    return respondError(res, "PERMISSION_DENIED", "Tidak punya izin kampanye.");
-  }
 
-  if (req.method !== "POST") {
-    return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
-  }
-
-  const rawMime = req.headers["content-type"];
-  const mimeType = Array.isArray(rawMime) ? rawMime[0] ?? "" : rawMime ?? "";
-  if (!ALLOWED_MIME.has(mimeType)) {
-    return respondError(res, "VALIDATION_ERROR", "Format gambar harus JPEG, PNG, atau WebP.");
-  }
-
-  let bytes: Buffer;
-  try {
-    bytes = await readRawBody(req);
-  } catch (err) {
-    if (err instanceof Error && err.message === "IMAGE_TOO_LARGE") {
-      return respondError(res, "VALIDATION_ERROR", "Gambar maksimal 5 MB.");
+  return withTenantContext(tenantId, async () => {
+    if (!canRunCampaigns(session)) {
+      return respondError(res, "PERMISSION_DENIED", "Tidak punya izin kampanye.");
     }
-    return respondError(res, "VALIDATION_ERROR", "Gagal membaca berkas gambar.");
-  }
-  if (bytes.length === 0) {
-    return respondError(res, "VALIDATION_ERROR", "Berkas kosong.");
-  }
 
-  const asset = await prisma.mediaAsset.create({
-    data: { tenantId, mimeType, byteSize: bytes.length, data: bytes },
+    if (req.method !== "POST") {
+      return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
+    }
+
+    const rawMime = req.headers["content-type"];
+    const mimeType = Array.isArray(rawMime) ? rawMime[0] ?? "" : rawMime ?? "";
+    if (!ALLOWED_MIME.has(mimeType)) {
+      return respondError(res, "VALIDATION_ERROR", "Format gambar harus JPEG, PNG, atau WebP.");
+    }
+
+    let bytes: Buffer;
+    try {
+      bytes = await readRawBody(req);
+    } catch (err) {
+      if (err instanceof Error && err.message === "IMAGE_TOO_LARGE") {
+        return respondError(res, "VALIDATION_ERROR", "Gambar maksimal 5 MB.");
+      }
+      return respondError(res, "VALIDATION_ERROR", "Gagal membaca berkas gambar.");
+    }
+    if (bytes.length === 0) {
+      return respondError(res, "VALIDATION_ERROR", "Berkas kosong.");
+    }
+
+    const asset = await prisma.mediaAsset.create({
+      data: { tenantId, mimeType, byteSize: bytes.length, data: bytes },
+    });
+
+    // Phase 7: media serving lives in apps/api - the public URL must point at
+    // its domain so Meta's fetcher can reach the image.
+    const base = (process.env.API_URL ?? "").replace(/\/$/, "");
+    if (!base) {
+      return respondError(res, "INTERNAL_ERROR", "API_URL belum dikonfigurasi.");
+    }
+    const url = `${base}/api/media/${asset.id}`;
+    return res.status(201).json(apiOk({ id: asset.id, url }));
   });
-
-  // Phase 7: media serving lives in apps/api - the public URL must point at
-  // its domain so Meta's fetcher can reach the image.
-  const base = (process.env.API_URL ?? "").replace(/\/$/, "");
-  if (!base) {
-    return respondError(res, "INTERNAL_ERROR", "API_URL belum dikonfigurasi.");
-  }
-  const url = `${base}/api/media/${asset.id}`;
-  return res.status(201).json(apiOk({ id: asset.id, url }));
 }

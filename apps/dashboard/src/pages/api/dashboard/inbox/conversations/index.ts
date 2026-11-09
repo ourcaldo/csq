@@ -3,6 +3,7 @@ import type { ConversationStatus, Prisma } from "@prisma/client";
 import { getAuthSession } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { paginate, requireTenant, respondError, strQuery } from "@csq/core/lib/queries";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import { getPnForLid } from "@csq/core/lib/baileys-auth-db";
 import type { Stage } from "@csq/core/types/inbox";
@@ -53,98 +54,100 @@ export default async function handler(
   const tenantId = requireTenant(session);
   const userId = session.user.id;
 
-  if (req.method === "GET") {
-    const { skip, take, page, pageSize } = paginate(req.query);
-    const statusKey = strQuery(req.query, "status");
-    const status = statusKey ? STATUS_BY_KEY[statusKey] : undefined;
-    const assignedAgentId = strQuery(req.query, "assignedAgentId");
-    const assigneeUserId = strQuery(req.query, "assigneeUserId");
-    const search = strQuery(req.query, "search");
-    const tagId = strQuery(req.query, "tagId");
+  return withTenantContext(tenantId, async () => {
+    if (req.method === "GET") {
+      const { skip, take, page, pageSize } = paginate(req.query);
+      const statusKey = strQuery(req.query, "status");
+      const status = statusKey ? STATUS_BY_KEY[statusKey] : undefined;
+      const assignedAgentId = strQuery(req.query, "assignedAgentId");
+      const assigneeUserId = strQuery(req.query, "assigneeUserId");
+      const search = strQuery(req.query, "search");
+      const tagId = strQuery(req.query, "tagId");
 
-    const where: Prisma.ConversationWhereInput = {
-      tenantId,
-      ...(status ? { status } : {}),
-      ...(assignedAgentId ? { assignedAgentId } : {}),
-      ...(assigneeUserId ? { assigneeUserId } : {}),
-      ...(search ? { customerPhone: { contains: search } } : {}),
-      ...(tagId ? { tags: { some: { tagId } } } : {}),
-    };
+      const where: Prisma.ConversationWhereInput = {
+        tenantId,
+        ...(status ? { status } : {}),
+        ...(assignedAgentId ? { assignedAgentId } : {}),
+        ...(assigneeUserId ? { assigneeUserId } : {}),
+        ...(search ? { customerPhone: { contains: search } } : {}),
+        ...(tagId ? { tags: { some: { tagId } } } : {}),
+      };
 
-    const [items, total] = await Promise.all([
-      prisma.conversation.findMany({
-        where,
-        skip,
-        take,
-        include: {
-          contact: {
-            include: {
-              categories: { include: { category: true } },
-              tags: { include: { tag: true } },
+      const [items, total] = await Promise.all([
+        prisma.conversation.findMany({
+          where,
+          skip,
+          take,
+          include: {
+            contact: {
+              include: {
+                categories: { include: { category: true } },
+                tags: { include: { tag: true } },
+              },
             },
+            assignedAgent: true,
+            assignee: true,
+            tags: { include: { tag: true } },
+            deal: { include: { stage: true } },
+            messages: { take: 1, orderBy: { createdAt: "desc" }, select: { body: true, senderType: true } },
           },
-          assignedAgent: true,
-          assignee: true,
-          tags: { include: { tag: true } },
-          deal: { include: { stage: true } },
-          messages: { take: 1, orderBy: { createdAt: "desc" }, select: { body: true, senderType: true } },
-        },
-        orderBy: { lastMessageAt: "desc" },
-      }),
-      prisma.conversation.count({ where }),
-    ]);
+          orderBy: { lastMessageAt: "desc" },
+        }),
+        prisma.conversation.count({ where }),
+      ]);
 
-    // Unread badges: this user's last-read watermark per conversation, then
-    // count INBOUND messages newer than the watermark. Conversations without
-    // a watermark row count from 0 (never opened → every inbound is unread).
-    const reads = await prisma.conversationRead.findMany({
-      where: { tenantId, userId, conversationId: { in: items.map((i) => i.id) } },
-      select: { conversationId: true, lastReadAt: true },
-    });
-    const readByConv = new Map(reads.map((r) => [r.conversationId, r.lastReadAt]));
-    const unreadCounts = new Map<string, number>();
-    await Promise.all(
-      items.map(async (item) => {
-        const watermark = readByConv.get(item.id);
-        const count = await prisma.message.count({
-          where: {
-            tenantId,
-            conversationId: item.id,
-            direction: "INBOUND",
-            ...(watermark ? { createdAt: { gt: watermark } } : {}),
-          },
-        });
-        unreadCounts.set(item.id, count);
-      })
-    );
+      // Unread badges: this user's last-read watermark per conversation, then
+      // count INBOUND messages newer than the watermark. Conversations without
+      // a watermark row count from 0 (never opened → every inbound is unread).
+      const reads = await prisma.conversationRead.findMany({
+        where: { tenantId, userId, conversationId: { in: items.map((i) => i.id) } },
+        select: { conversationId: true, lastReadAt: true },
+      });
+      const readByConv = new Map(reads.map((r) => [r.conversationId, r.lastReadAt]));
+      const unreadCounts = new Map<string, number>();
+      await Promise.all(
+        items.map(async (item) => {
+          const watermark = readByConv.get(item.id);
+          const count = await prisma.message.count({
+            where: {
+              tenantId,
+              conversationId: item.id,
+              direction: "INBOUND",
+              ...(watermark ? { createdAt: { gt: watermark } } : {}),
+            },
+          });
+          unreadCounts.set(item.id, count);
+        })
+      );
 
-    // Resolve LID → real phone number for display + attach the last message + stage.
-    const itemsWithDisplay: DisplayItem[] = await Promise.all(
-      items.map(async (item) => {
-        let customerPhoneDisplay = item.customerPhone;
-        if (item.customerPhone.includes("@lid")) {
-          const pn = await getPnForLid(item.channelId, item.customerPhone);
-          customerPhoneDisplay = pn ?? item.customerPhone.split("@")[0];
-        } else if (item.customerPhone.includes("@s.whatsapp.net")) {
-          customerPhoneDisplay = item.customerPhone.split("@")[0];
-        }
-        const { messages: lastMsgs, ...rest } = item;
-        const lastMessage = lastMsgs[0]
-          ? { body: lastMsgs[0].body, senderType: lastMsgs[0].senderType }
-          : null;
-        const stage = item.deal?.stage ?? null;
-        return {
-          ...rest,
-          stage,
-          customerPhoneDisplay,
-          lastMessage,
-          unreadCount: unreadCounts.get(item.id) ?? 0,
-        };
-      })
-    );
+      // Resolve LID → real phone number for display + attach the last message + stage.
+      const itemsWithDisplay: DisplayItem[] = await Promise.all(
+        items.map(async (item) => {
+          let customerPhoneDisplay = item.customerPhone;
+          if (item.customerPhone.includes("@lid")) {
+            const pn = await getPnForLid(item.channelId, item.customerPhone);
+            customerPhoneDisplay = pn ?? item.customerPhone.split("@")[0];
+          } else if (item.customerPhone.includes("@s.whatsapp.net")) {
+            customerPhoneDisplay = item.customerPhone.split("@")[0];
+          }
+          const { messages: lastMsgs, ...rest } = item;
+          const lastMessage = lastMsgs[0]
+            ? { body: lastMsgs[0].body, senderType: lastMsgs[0].senderType }
+            : null;
+          const stage = item.deal?.stage ?? null;
+          return {
+            ...rest,
+            stage,
+            customerPhoneDisplay,
+            lastMessage,
+            unreadCount: unreadCounts.get(item.id) ?? 0,
+          };
+        })
+      );
 
-    return res.status(200).json(apiOk({ items: itemsWithDisplay, total, page, pageSize }));
-  }
+      return res.status(200).json(apiOk({ items: itemsWithDisplay, total, page, pageSize }));
+    }
 
-  return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
+    return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
+  });
 }

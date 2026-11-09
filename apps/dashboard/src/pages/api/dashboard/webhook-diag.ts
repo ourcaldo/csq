@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
 import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { withSystemContext } from "@csq/core/lib/tenant-context";
 import { respondError } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 
@@ -43,31 +44,33 @@ export default async function handler(
     return;
   }
 
-  const base = (process.env.API_URL ?? "").replace(/\/$/, "");
-  const token = process.env.API_SERVICE_TOKEN ?? "";
-  if (!base || !token) {
-    respondError(
-      res,
-      "INTERNAL_ERROR",
-      "API_URL / API_SERVICE_TOKEN belum dikonfigurasi."
-    );
-    return;
-  }
-  const upstream = await fetch(`${base}/api/v1/webhook-diag`, {
-    headers: { Authorization: `Bearer ${token}` },
+  return withSystemContext(async () => {
+    const base = (process.env.API_URL ?? "").replace(/\/$/, "");
+    const token = process.env.API_SERVICE_TOKEN ?? "";
+    if (!base || !token) {
+      respondError(
+        res,
+        "INTERNAL_ERROR",
+        "API_URL / API_SERVICE_TOKEN belum dikonfigurasi."
+      );
+      return;
+    }
+    const upstream = await fetch(`${base}/api/v1/webhook-diag`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!upstream.ok) {
+      respondError(
+        res,
+        "INTERNAL_ERROR",
+        `Gagal membaca diagnostik (${upstream.status}).`
+      );
+      return;
+    }
+    const parsed = envelopeSchema.safeParse(await upstream.json());
+    if (!parsed.success) {
+      respondError(res, "INTERNAL_ERROR", "Respons diagnostik tidak valid.");
+      return;
+    }
+    res.status(200).json(apiOk({ items: parsed.data.data.items }));
   });
-  if (!upstream.ok) {
-    respondError(
-      res,
-      "INTERNAL_ERROR",
-      `Gagal membaca diagnostik (${upstream.status}).`
-    );
-    return;
-  }
-  const parsed = envelopeSchema.safeParse(await upstream.json());
-  if (!parsed.success) {
-    respondError(res, "INTERNAL_ERROR", "Respons diagnostik tidak valid.");
-    return;
-  }
-  res.status(200).json(apiOk({ items: parsed.data.data.items }));
 }

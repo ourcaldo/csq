@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import {
   cloudApiConfigSchema,
@@ -51,139 +52,141 @@ export default async function handler(
   }
   const tenantId = requireTenant(session);
 
-  const parsed = connectSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return respondError(res, "VALIDATION_ERROR", parsed.error.message);
-  }
-  const { provider, agentId } = parsed.data;
+  return withTenantContext(tenantId, async () => {
+    const parsed = connectSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return respondError(res, "VALIDATION_ERROR", parsed.error.message);
+    }
+    const { provider, agentId } = parsed.data;
 
-  // Upsert target (one channel per provider for MVP).
-  const existing = await prisma.channel.findFirst({
-    where: { tenantId, provider },
-  });
+    // Upsert target (one channel per provider for MVP).
+    const existing = await prisma.channel.findFirst({
+      where: { tenantId, provider },
+    });
 
-  // Plan channel limit (PRD 14): only CONNECTED channels count. Connecting a
-  // channel that is not already connected is blocked when the active count is
-  // at the limit; reconfiguring an already-connected channel is always allowed.
-  const alreadyConnected = existing?.status === "CONNECTED";
-  if (!alreadyConnected) {
-    const entitlements = await getTenantEntitlements(tenantId);
-    if (entitlements.channelLimit !== null) {
-      const active = await prisma.channel.count({
-        where: { tenantId, status: "CONNECTED" },
-      });
-      if (active >= entitlements.channelLimit) {
+    // Plan channel limit (PRD 14): only CONNECTED channels count. Connecting a
+    // channel that is not already connected is blocked when the active count is
+    // at the limit; reconfiguring an already-connected channel is always allowed.
+    const alreadyConnected = existing?.status === "CONNECTED";
+    if (!alreadyConnected) {
+      const entitlements = await getTenantEntitlements(tenantId);
+      if (entitlements.channelLimit !== null) {
+        const active = await prisma.channel.count({
+          where: { tenantId, status: "CONNECTED" },
+        });
+        if (active >= entitlements.channelLimit) {
+          return respondError(
+            res,
+            "PERMISSION_DENIED",
+            `Paket ${entitlements.planName ?? "tenant"} hanya mendukung ${entitlements.channelLimit} saluran aktif.`
+          );
+        }
+      }
+    }
+
+    let config: CloudApiConfig | BaileysConfig;
+    let status: "CONNECTED" | "DISCONNECTED";
+    if (provider === "CLOUD_API") {
+      const { verifyToken: _clientToken, ...rest } =
+        cloudApiConfigSchema.parse(parsed.data.config);
+      // The verify token was already generated server-side and shown to the
+      // owner when they entered the connect step (they pasted it into Meta's
+      // webhook config). Connect must PRESERVE it, not rotate it - rotating here
+      // would invalidate what Meta already verified. Rotation happens on
+      // disconnect (see disconnect.ts).
+      const parsedExisting = cloudApiConfigSchema.safeParse(existing?.config);
+      const token =
+        parsedExisting.success && parsedExisting.data.verifyToken
+          ? parsedExisting.data.verifyToken
+          : generateVerifyToken();
+      config = { ...rest, verifyToken: token };
+      status = "CONNECTED";
+    } else {
+      const cfg = baileysConfigSchema.parse(parsed.data.config);
+      if (!cfg.tosAcknowledged) {
         return respondError(
           res,
           "PERMISSION_DENIED",
-          `Paket ${entitlements.planName ?? "tenant"} hanya mendukung ${entitlements.channelLimit} saluran aktif.`
+          "Baileys berisiko banned. Owner harus menyetujui tosAcknowledged sebelum mengaktifkan."
         );
       }
+      config = cfg;
+      status = "DISCONNECTED"; // until the QR is scanned and the socket opens
     }
-  }
 
-  let config: CloudApiConfig | BaileysConfig;
-  let status: "CONNECTED" | "DISCONNECTED";
-  if (provider === "CLOUD_API") {
-    const { verifyToken: _clientToken, ...rest } =
-      cloudApiConfigSchema.parse(parsed.data.config);
-    // The verify token was already generated server-side and shown to the
-    // owner when they entered the connect step (they pasted it into Meta's
-    // webhook config). Connect must PRESERVE it, not rotate it - rotating here
-    // would invalidate what Meta already verified. Rotation happens on
-    // disconnect (see disconnect.ts).
-    const parsedExisting = cloudApiConfigSchema.safeParse(existing?.config);
-    const token =
-      parsedExisting.success && parsedExisting.data.verifyToken
-        ? parsedExisting.data.verifyToken
-        : generateVerifyToken();
-    config = { ...rest, verifyToken: token };
-    status = "CONNECTED";
-  } else {
-    const cfg = baileysConfigSchema.parse(parsed.data.config);
-    if (!cfg.tosAcknowledged) {
-      return respondError(
-        res,
-        "PERMISSION_DENIED",
-        "Baileys berisiko banned. Owner harus menyetujui tosAcknowledged sebelum mengaktifkan."
-      );
-    }
-    config = cfg;
-    status = "DISCONNECTED"; // until the QR is scanned and the socket opens
-  }
+    // Upsert the tenant's channel for this provider (one per provider for MVP).
+    // `existing` was already fetched above for the token-preserve path.
+    // Baileys: do NOT write status here. The socket events own it (open writes
+    // CONNECTED, a fatal close writes DISCONNECTED) - writing DISCONNECTED on
+    // every connect call desynced the row when the owner re-clicked connect on
+    // an already-open socket, and nothing repaired it.
+    const channel = existing
+      ? await prisma.channel.update({
+          where: { id: existing.id },
+          data:
+            provider === "BAILEYS"
+              ? { agentId: agentId ?? existing.agentId, config }
+              : { agentId: agentId ?? existing.agentId, config, status },
+        })
+      : await prisma.channel.create({
+          data: {
+            tenantId,
+            agentId,
+            type: "WHATSAPP",
+            provider,
+            config,
+            status,
+          },
+        });
 
-  // Upsert the tenant's channel for this provider (one per provider for MVP).
-  // `existing` was already fetched above for the token-preserve path.
-  // Baileys: do NOT write status here. The socket events own it (open writes
-  // CONNECTED, a fatal close writes DISCONNECTED) - writing DISCONNECTED on
-  // every connect call desynced the row when the owner re-clicked connect on
-  // an already-open socket, and nothing repaired it.
-  const channel = existing
-    ? await prisma.channel.update({
-        where: { id: existing.id },
-        data:
-          provider === "BAILEYS"
-            ? { agentId: agentId ?? existing.agentId, config }
-            : { agentId: agentId ?? existing.agentId, config, status },
-      })
-    : await prisma.channel.create({
-        data: {
-          tenantId,
-          agentId,
-          type: "WHATSAPP",
-          provider,
-          config,
-          status,
-        },
+    let qr: string | null = null;
+    let open = false;
+    if (provider === "BAILEYS") {
+      // Phase 6: the socket lives in the worker - pairing is a command the
+      // worker executes (it applies stealLease on the owner's behalf).
+      const cmdId = await createChannelCommand({
+        tenantId,
+        channelId: channel.id,
+        kind: "CONNECT",
+        requestedBy: session.user.id,
       });
-
-  let qr: string | null = null;
-  let open = false;
-  if (provider === "BAILEYS") {
-    // Phase 6: the socket lives in the worker - pairing is a command the
-    // worker executes (it applies stealLease on the owner's behalf).
-    const cmdId = await createChannelCommand({
-      tenantId,
-      channelId: channel.id,
-      kind: "CONNECT",
-      requestedBy: session.user.id,
-    });
-    const result = await awaitChannelCommand(cmdId, 25_000);
-    qr = result.qr;
-    open = result.open;
-    if (!qr && !open) {
-      // A silent qr:null left the Saluran page showing nothing at all. A 401
-      // means WhatsApp's server REFUSED the pairing handshake (rate-limited
-      // or flagged number, or a stale linked device still registered on the
-      // phone) - point the owner at the two things that actually clear it.
-      if (isFatalDisconnect(result.closeCode)) {
+      const result = await awaitChannelCommand(cmdId, 25_000);
+      qr = result.qr;
+      open = result.open;
+      if (!qr && !open) {
+        // A silent qr:null left the Saluran page showing nothing at all. A 401
+        // means WhatsApp's server REFUSED the pairing handshake (rate-limited
+        // or flagged number, or a stale linked device still registered on the
+        // phone) - point the owner at the two things that actually clear it.
+        if (isFatalDisconnect(result.closeCode)) {
+          return respondError(
+            res,
+            "VALIDATION_ERROR",
+            "WhatsApp menolak koneksi (401). Di telepon: hapus perangkat lama CSQ dari WhatsApp > Setelan > Perangkat Tertaut, tunggu sekitar 1 jam tanpa mencoba lagi, lalu klik Tampilkan QR sekali lagi."
+          );
+        }
+        if (!result.done) {
+          return respondError(
+            res,
+            "INTERNAL_ERROR",
+            "Worker tidak merespons - layanan pesan belum siap. Coba lagi sebentar."
+          );
+        }
         return respondError(
           res,
           "VALIDATION_ERROR",
-          "WhatsApp menolak koneksi (401). Di telepon: hapus perangkat lama CSQ dari WhatsApp > Setelan > Perangkat Tertaut, tunggu sekitar 1 jam tanpa mencoba lagi, lalu klik Tampilkan QR sekali lagi."
+          "QR tidak berhasil dibuat. Tunggu sebentar, lalu klik Tampilkan QR lagi."
         );
       }
-      if (!result.done) {
-        return respondError(
-          res,
-          "INTERNAL_ERROR",
-          "Worker tidak merespons - layanan pesan belum siap. Coba lagi sebentar."
-        );
-      }
-      return respondError(
-        res,
-        "VALIDATION_ERROR",
-        "QR tidak berhasil dibuat. Tunggu sebentar, lalu klik Tampilkan QR lagi."
-      );
     }
-  }
 
-  return res.status(200).json(
-    apiOk({
-      channelId: channel.id,
-      provider: channel.provider,
-      status: open ? "CONNECTED" : channel.status,
-      qr,
-    })
-  );
+    return res.status(200).json(
+      apiOk({
+        channelId: channel.id,
+        provider: channel.provider,
+        status: open ? "CONNECTED" : channel.status,
+        qr,
+      })
+    );
+  });
 }

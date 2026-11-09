@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getAuthSession } from "@csq/core/lib/auth";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import { isGoogleConnected } from "@csq/core/lib/google-connect";
 
@@ -20,6 +21,8 @@ export default async function handler(
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
   const tenantId = requireTenant(session);
 
-  const status = await isGoogleConnected(tenantId);
-  return res.status(200).json(apiOk(status));
+  return withTenantContext(tenantId, async () => {
+    const status = await isGoogleConnected(tenantId);
+    return res.status(200).json(apiOk(status));
+  });
 }

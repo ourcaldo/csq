@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import { logHuman } from "@csq/core/lib/audit";
 
@@ -31,47 +32,49 @@ export default async function handler(
   }
   const tenantId = requireTenant(session);
 
-  const { id } = req.query;
-  if (typeof id !== "string") {
-    return respondError(res, "VALIDATION_ERROR", "ID percakapan tidak valid.");
-  }
+  return withTenantContext(tenantId, async () => {
+    const { id } = req.query;
+    if (typeof id !== "string") {
+      return respondError(res, "VALIDATION_ERROR", "ID percakapan tidak valid.");
+    }
 
-  const conversation = await prisma.conversation.findFirst({
-    where: { id, tenantId },
-  });
-  if (!conversation) {
-    return respondError(res, "NOT_FOUND", "Percakapan tidak ditemukan.");
-  }
+    const conversation = await prisma.conversation.findFirst({
+      where: { id, tenantId },
+    });
+    if (!conversation) {
+      return respondError(res, "NOT_FOUND", "Percakapan tidak ditemukan.");
+    }
 
-  const parsed = noteSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return respondError(res, "VALIDATION_ERROR", parsed.error.message);
-  }
+    const parsed = noteSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return respondError(res, "VALIDATION_ERROR", parsed.error.message);
+    }
 
-  const message = await prisma.message.create({
-    data: {
+    const message = await prisma.message.create({
+      data: {
+        tenantId,
+        conversationId: id,
+        direction: "OUTBOUND",
+        senderType: "HUMAN",
+        senderUserId: session.user.id,
+        body: parsed.data.body,
+        isInternal: true,
+      },
+    });
+
+    await prisma.conversation.update({
+      where: { id },
+      data: { lastMessageAt: new Date() },
+    });
+
+    await logHuman({
       tenantId,
-      conversationId: id,
-      direction: "OUTBOUND",
-      senderType: "HUMAN",
-      senderUserId: session.user.id,
-      body: parsed.data.body,
-      isInternal: true,
-    },
-  });
+      action: "conversation.note",
+      entityType: "Message",
+      entityId: message.id,
+      afterValue: { body: parsed.data.body, isInternal: true },
+    });
 
-  await prisma.conversation.update({
-    where: { id },
-    data: { lastMessageAt: new Date() },
+    return res.status(201).json(apiOk(message));
   });
-
-  await logHuman({
-    tenantId,
-    action: "conversation.note",
-    entityType: "Message",
-    entityId: message.id,
-    afterValue: { body: parsed.data.body, isInternal: true },
-  });
-
-  return res.status(201).json(apiOk(message));
 }

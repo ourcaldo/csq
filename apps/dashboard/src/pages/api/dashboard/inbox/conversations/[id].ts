@@ -9,6 +9,7 @@ import {
   requireTenant,
   respondError,
 } from "@csq/core/lib/queries";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import { assignConversation } from "@csq/core/lib/inbox";
 
@@ -38,112 +39,114 @@ export default async function handler(
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
   const tenantId = requireTenant(session);
 
-  const { id } = req.query;
-  if (typeof id !== "string") {
-    return respondError(res, "VALIDATION_ERROR", "ID percakapan tidak valid.");
-  }
+  return withTenantContext(tenantId, async () => {
+    const { id } = req.query;
+    if (typeof id !== "string") {
+      return respondError(res, "VALIDATION_ERROR", "ID percakapan tidak valid.");
+    }
 
-  if (req.method === "GET") {
-    const { skip, take } = paginate(req.query);
-    const conv = await prisma.conversation.findFirst({
-      where: { id, tenantId },
-      include: {
-        contact: {
-          include: {
-            categories: { include: { category: true } },
-            tags: { include: { tag: true } },
+    if (req.method === "GET") {
+      const { skip, take } = paginate(req.query);
+      const conv = await prisma.conversation.findFirst({
+        where: { id, tenantId },
+        include: {
+          contact: {
+            include: {
+              categories: { include: { category: true } },
+              tags: { include: { tag: true } },
+            },
           },
+          assignedAgent: true,
+          assignee: true,
+          tags: { include: { tag: true } },
+          // Newest last (asc by time) for chat-panel rendering.
+          messages: { orderBy: { createdAt: "asc" }, skip, take },
         },
-        assignedAgent: true,
-        assignee: true,
-        tags: { include: { tag: true } },
-        // Newest last (asc by time) for chat-panel rendering.
-        messages: { orderBy: { createdAt: "asc" }, skip, take },
-      },
-    });
-    if (!conv) return respondError(res, "NOT_FOUND", "Percakapan tidak ditemukan.");
-    return res.status(200).json(apiOk(conv));
-  }
-
-  if (req.method === "POST") {
-    // Mark-as-read: upsert the caller's ConversationRead watermark to now.
-    // Called when the user opens a conversation - clears the unread badge.
-    if (!requireRole(session, "OWNER", "STAFF")) {
-      return respondError(
-        res,
-        "PERMISSION_DENIED",
-        "Hanya owner atau staff yang dapat membuka percakapan."
-      );
-    }
-    const existing = await prisma.conversation.findFirst({
-      where: { id, tenantId },
-      select: { id: true },
-    });
-    if (!existing) return respondError(res, "NOT_FOUND", "Percakapan tidak ditemukan.");
-    const lastReadAt = new Date();
-    await prisma.conversationRead.upsert({
-      where: { conversationId_userId: { conversationId: id, userId: session.user.id } },
-      create: { conversationId: id, userId: session.user.id, tenantId, lastReadAt },
-      update: { lastReadAt },
-    });
-    return res.status(200).json(apiOk({ id, lastReadAt: lastReadAt.toISOString() }));
-  }
-
-  if (req.method === "PATCH") {
-    // OWNER + STAFF can update status / assignment (FR-AU-009, FR-IC-005).
-    if (!requireRole(session, "OWNER", "STAFF")) {
-      return respondError(
-        res,
-        "PERMISSION_DENIED",
-        "Hanya owner atau staff yang dapat mengubah percakapan."
-      );
-    }
-    const parsed = conversationPatchSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return respondError(res, "VALIDATION_ERROR", parsed.error.message);
-    }
-    const { status, assignedAgentId, assigneeUserId } = parsed.data;
-
-    const existing = await prisma.conversation.findFirst({
-      where: { id, tenantId },
-    });
-    if (!existing) {
-      return respondError(res, "NOT_FOUND", "Percakapan tidak ditemukan.");
+      });
+      if (!conv) return respondError(res, "NOT_FOUND", "Percakapan tidak ditemukan.");
+      return res.status(200).json(apiOk(conv));
     }
 
-    try {
-      if (assignedAgentId !== undefined || assigneeUserId !== undefined) {
-        await assignConversation(id, tenantId, {
-          agentId: assignedAgentId ?? null,
-          userId: assigneeUserId ?? null,
-        });
+    if (req.method === "POST") {
+      // Mark-as-read: upsert the caller's ConversationRead watermark to now.
+      // Called when the user opens a conversation - clears the unread badge.
+      if (!requireRole(session, "OWNER", "STAFF")) {
+        return respondError(
+          res,
+          "PERMISSION_DENIED",
+          "Hanya owner atau staff yang dapat membuka percakapan."
+        );
       }
-      if (status) {
-        await prisma.conversation.update({
-          where: { id },
-          data: { status },
-        });
-      }
-    } catch (err) {
-      if (err instanceof HttpError) {
-        return respondError(res, err.code, err.message);
-      }
-      return respondError(res, "INTERNAL_ERROR", "Gagal memperbarui percakapan.");
+      const existing = await prisma.conversation.findFirst({
+        where: { id, tenantId },
+        select: { id: true },
+      });
+      if (!existing) return respondError(res, "NOT_FOUND", "Percakapan tidak ditemukan.");
+      const lastReadAt = new Date();
+      await prisma.conversationRead.upsert({
+        where: { conversationId_userId: { conversationId: id, userId: session.user.id } },
+        create: { conversationId: id, userId: session.user.id, tenantId, lastReadAt },
+        update: { lastReadAt },
+      });
+      return res.status(200).json(apiOk({ id, lastReadAt: lastReadAt.toISOString() }));
     }
 
-    const conv = await prisma.conversation.findFirst({
-      where: { id, tenantId },
-      include: {
-        contact: true,
-        assignedAgent: true,
-        assignee: true,
-        tags: { include: { tag: true } },
-        messages: { orderBy: { createdAt: "asc" } },
-      },
-    });
-    if (!conv) return respondError(res, "NOT_FOUND", "Percakapan tidak ditemukan.");
-    return res.status(200).json(apiOk(conv));
-  }
+    if (req.method === "PATCH") {
+      // OWNER + STAFF can update status / assignment (FR-AU-009, FR-IC-005).
+      if (!requireRole(session, "OWNER", "STAFF")) {
+        return respondError(
+          res,
+          "PERMISSION_DENIED",
+          "Hanya owner atau staff yang dapat mengubah percakapan."
+        );
+      }
+      const parsed = conversationPatchSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return respondError(res, "VALIDATION_ERROR", parsed.error.message);
+      }
+      const { status, assignedAgentId, assigneeUserId } = parsed.data;
 
-  return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
+      const existing = await prisma.conversation.findFirst({
+        where: { id, tenantId },
+      });
+      if (!existing) {
+        return respondError(res, "NOT_FOUND", "Percakapan tidak ditemukan.");
+      }
+
+      try {
+        if (assignedAgentId !== undefined || assigneeUserId !== undefined) {
+          await assignConversation(id, tenantId, {
+            agentId: assignedAgentId ?? null,
+            userId: assigneeUserId ?? null,
+          });
+        }
+        if (status) {
+          await prisma.conversation.update({
+            where: { id },
+            data: { status },
+          });
+        }
+      } catch (err) {
+        if (err instanceof HttpError) {
+          return respondError(res, err.code, err.message);
+        }
+        return respondError(res, "INTERNAL_ERROR", "Gagal memperbarui percakapan.");
+      }
+
+      const conv = await prisma.conversation.findFirst({
+        where: { id, tenantId },
+        include: {
+          contact: true,
+          assignedAgent: true,
+          assignee: true,
+          tags: { include: { tag: true } },
+          messages: { orderBy: { createdAt: "asc" } },
+        },
+      });
+      if (!conv) return respondError(res, "NOT_FOUND", "Percakapan tidak ditemukan.");
+      return res.status(200).json(apiOk(conv));
+    }
+
+    return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
+  });
 }

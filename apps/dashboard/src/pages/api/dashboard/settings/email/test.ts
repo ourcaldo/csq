@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import { logHuman } from "@csq/core/lib/audit";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import { getEmailProvider, maskEmailProvider } from "@csq/core/lib/email-config";
@@ -32,33 +33,35 @@ export default async function handler(
   }
   const tenantId = requireTenant(session);
 
-  const provider = await getEmailProvider(tenantId);
-  if (!provider) {
-    return respondError(
-      res,
-      "VALIDATION_ERROR",
-      "Email belum diatur - simpan konfigurasi SMTP/Resend terlebih dahulu."
-    );
-  }
+  return withTenantContext(tenantId, async () => {
+    const provider = await getEmailProvider(tenantId);
+    if (!provider) {
+      return respondError(
+        res,
+        "VALIDATION_ERROR",
+        "Email belum diatur - simpan konfigurasi SMTP/Resend terlebih dahulu."
+      );
+    }
 
-  const to = session.user.email;
-  try {
-    const info = await sendEmailWithProvider(provider, {
-      to,
-      subject: "CSQ - tes integrasi email",
-      text:
-        "Ini adalah email percobaan dari CSQ. Jika Anda menerima ini, integrasi email usaha Anda sudah siap dipakai modul Email pada Skenario.",
-    });
-    await logHuman({
-      tenantId,
-      action: "email.provider_test",
-      entityType: "Tenant",
-      entityId: tenantId,
-      afterValue: { ...maskEmailProvider(provider), to, messageId: info.messageId },
-    });
-    return res.status(200).json(apiOk({ sent: true, to, messageId: info.messageId }));
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Gagal mengirim email tes.";
-    return respondError(res, "VALIDATION_ERROR", `Email tes gagal terkirim: ${message}`);
-  }
+    const to = session.user.email;
+    try {
+      const info = await sendEmailWithProvider(provider, {
+        to,
+        subject: "CSQ - tes integrasi email",
+        text:
+          "Ini adalah email percobaan dari CSQ. Jika Anda menerima ini, integrasi email usaha Anda sudah siap dipakai modul Email pada Skenario.",
+      });
+      await logHuman({
+        tenantId,
+        action: "email.provider_test",
+        entityType: "Tenant",
+        entityId: tenantId,
+        afterValue: { ...maskEmailProvider(provider), to, messageId: info.messageId },
+      });
+      return res.status(200).json(apiOk({ sent: true, to, messageId: info.messageId }));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Gagal mengirim email tes.";
+      return respondError(res, "VALIDATION_ERROR", `Email tes gagal terkirim: ${message}`);
+    }
+  });
 }

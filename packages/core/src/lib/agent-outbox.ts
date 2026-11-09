@@ -7,6 +7,10 @@ import { hasBaileysSocket } from "@csq/core/services/baileys";
 import { enqueueOutbound, awaitOutbound } from "@csq/core/lib/outbox";
 import { logAction } from "@csq/core/lib/audit";
 import { CLOUD_API_WINDOW_MS } from "@csq/core/lib/inbox";
+import {
+  withSystemContext,
+  withTenantContext,
+} from "@csq/core/lib/tenant-context";
 import type { SendTextResult } from "@csq/core/types/whatsapp";
 
 // Conversation.settings is a Json column; read it as a plain record so
@@ -51,6 +55,16 @@ export type SendAgentMessageInput = {
 };
 
 export async function sendAgentMessage(
+  input: SendAgentMessageInput
+): Promise<SendAgentMessageResult> {
+  // RLS context (PRD 16 SEC-1): every write below is the channel's tenant.
+  // Callers that already hold the context simply re-enter it.
+  return withTenantContext(input.channel.tenantId, () =>
+    sendAgentMessageInner(input)
+  );
+}
+
+async function sendAgentMessageInner(
   input: SendAgentMessageInput
 ): Promise<SendAgentMessageResult> {
   const { channel, conversationId, customerPhone, agentId, action } = input;
@@ -189,16 +203,19 @@ export async function sendAgentMessage(
 export async function resolveConnectedChannel(
   conversationId: string
 ): Promise<{ channel: Channel; conversationId: string; customerPhone: string } | null> {
-  const conv = await prisma.conversation.findUnique({
-    where: { id: conversationId },
-    include: { channel: true },
+  // Cross-tenant conversation lookup: bypass context (PRD 16 SEC-1).
+  return withSystemContext(async () => {
+    const conv = await prisma.conversation.findUnique({
+      where: { id: conversationId },
+      include: { channel: true },
+    });
+    if (!conv || conv.channel.status !== "CONNECTED") return null;
+    return {
+      channel: conv.channel,
+      conversationId: conv.id,
+      customerPhone: conv.customerPhone,
+    };
   });
-  if (!conv || conv.channel.status !== "CONNECTED") return null;
-  return {
-    channel: conv.channel,
-    conversationId: conv.id,
-    customerPhone: conv.customerPhone,
-  };
 }
 
 // D6: a MEDIA inbound (image/video/document/audio/sticker with no caption)
@@ -213,6 +230,16 @@ const NON_TEXT_REPLY_BODY =
   "Maaf, saya belum bisa membuka foto, video, atau file. Tulis dalam teks ya, Kak, supaya saya bisa bantu.";
 
 export async function replyToNonText(args: {
+  channel: Channel;
+  conversationId: string;
+}): Promise<void> {
+  // RLS context: the channel's tenant (webhook callers already hold it).
+  await withTenantContext(args.channel.tenantId, async () => {
+    await replyToNonTextInner(args);
+  });
+}
+
+async function replyToNonTextInner(args: {
   channel: Channel;
   conversationId: string;
 }): Promise<void> {
@@ -259,6 +286,17 @@ export async function replyToNonText(args: {
 // connected, skip with a warning - never fail the owner's approve/reject
 // action because the follow-up couldn't be delivered.
 export async function sendApprovalFollowUp(args: {
+  approvalId: string;
+  approved: boolean;
+}): Promise<void> {
+  // Approval + conversation lookups cross tenants: bypass context; the send
+  // itself re-enters the tenant context inside sendAgentMessage.
+  await withSystemContext(async () => {
+    await sendApprovalFollowUpInner(args);
+  });
+}
+
+async function sendApprovalFollowUpInner(args: {
   approvalId: string;
   approved: boolean;
 }): Promise<void> {

@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { getAuthSession } from "@csq/core/lib/auth";
 import { requireFeatureApi } from "@csq/core/lib/feature-guard";
 import prisma from "@csq/core/lib/db";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import type { ListResult } from "@csq/core/types/dashboard";
@@ -36,23 +37,25 @@ export default async function handler(
   if (!(await requireFeatureApi(session, res, "scenarios"))) return;
   const tenantId = requireTenant(session);
 
-  const rows = await prisma.user.findMany({
-    where: { tenantId },
-    orderBy: { createdAt: "asc" },
-    take: 500,
-    select: { id: true, name: true, email: true, role: true },
+  return withTenantContext(tenantId, async () => {
+    const rows = await prisma.user.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: "asc" },
+      take: 500,
+      select: { id: true, name: true, email: true, role: true },
+    });
+
+    const items: ScenarioTeamMember[] = rows.map((u) => ({
+      id: u.id,
+      // Display label for the dropdown/node card; email keeps it identifiable
+      // when a member has no name set.
+      name: u.name ?? u.email,
+      // Narrow the Prisma UserRole enum to the literal union without `as`.
+      role: u.role === "OWNER" ? "OWNER" : "STAFF",
+    }));
+
+    return res
+      .status(200)
+      .json(apiOk({ items, total: items.length, page: 1, pageSize: items.length }));
   });
-
-  const items: ScenarioTeamMember[] = rows.map((u) => ({
-    id: u.id,
-    // Display label for the dropdown/node card; email keeps it identifiable
-    // when a member has no name set.
-    name: u.name ?? u.email,
-    // Narrow the Prisma UserRole enum to the literal union without `as`.
-    role: u.role === "OWNER" ? "OWNER" : "STAFF",
-  }));
-
-  return res
-    .status(200)
-    .json(apiOk({ items, total: items.length, page: 1, pageSize: items.length }));
 }

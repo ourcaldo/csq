@@ -4,6 +4,7 @@ import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { logHuman } from "@csq/core/lib/audit";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import { knowledgeUpdateSchema } from "@csq/core/types/knowledge";
 import { upsertEmbedding, deleteEmbedding } from "@csq/core/lib/vector";
@@ -17,79 +18,81 @@ export default async function handler(
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
   const tenantId = requireTenant(session);
 
-  const { id } = req.query;
-  if (typeof id !== "string") {
-    return respondError(res, "VALIDATION_ERROR", "ID knowledge tidak valid.");
-  }
-
-  if (req.method === "GET") {
-    const knowledge = await prisma.knowledge.findFirst({ where: { id, tenantId } });
-    if (!knowledge) return respondError(res, "NOT_FOUND", "Knowledge tidak ditemukan.");
-    return res.status(200).json(apiOk(knowledge));
-  }
-
-  if (req.method === "PUT") {
-    if (!requireRole(session, "OWNER")) {
-      return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengubah knowledge.");
+  return withTenantContext(tenantId, async () => {
+    const { id } = req.query;
+    if (typeof id !== "string") {
+      return respondError(res, "VALIDATION_ERROR", "ID knowledge tidak valid.");
     }
-    const parsed = knowledgeUpdateSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return respondError(res, "VALIDATION_ERROR", parsed.error.message);
+
+    if (req.method === "GET") {
+      const knowledge = await prisma.knowledge.findFirst({ where: { id, tenantId } });
+      if (!knowledge) return respondError(res, "NOT_FOUND", "Knowledge tidak ditemukan.");
+      return res.status(200).json(apiOk(knowledge));
     }
-    const existing = await prisma.knowledge.findFirst({ where: { id, tenantId } });
-    if (!existing) return respondError(res, "NOT_FOUND", "Knowledge tidak ditemukan.");
-    const knowledge = await prisma.knowledge.update({
-      where: { id },
-      data: parsed.data,
-    });
-    await logHuman({
-      tenantId,
-      action: "knowledge.update",
-      entityType: "Knowledge",
-      entityId: id,
-      beforeValue: existing,
-      afterValue: knowledge,
-    });
-    // Re-embed on update so the vector reflects new title/content. Best-effort
-    // graceful degradation - the update is already persisted above.
-    if (isEmbeddingsConfigured()) {
-      try {
-        const vec = await embed(`${knowledge.title}\n${knowledge.content}`);
-        await upsertEmbedding("KnowledgeEmbedding", id, tenantId, vec);
-      } catch (err) {
-        console.warn(
-          `[knowledge.update] embedding upsert skipped for ${id}:`,
-          err
-        );
+
+    if (req.method === "PUT") {
+      if (!requireRole(session, "OWNER")) {
+        return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengubah knowledge.");
       }
+      const parsed = knowledgeUpdateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return respondError(res, "VALIDATION_ERROR", parsed.error.message);
+      }
+      const existing = await prisma.knowledge.findFirst({ where: { id, tenantId } });
+      if (!existing) return respondError(res, "NOT_FOUND", "Knowledge tidak ditemukan.");
+      const knowledge = await prisma.knowledge.update({
+        where: { id },
+        data: parsed.data,
+      });
+      await logHuman({
+        tenantId,
+        action: "knowledge.update",
+        entityType: "Knowledge",
+        entityId: id,
+        beforeValue: existing,
+        afterValue: knowledge,
+      });
+      // Re-embed on update so the vector reflects new title/content. Best-effort
+      // graceful degradation - the update is already persisted above.
+      if (isEmbeddingsConfigured()) {
+        try {
+          const vec = await embed(`${knowledge.title}\n${knowledge.content}`);
+          await upsertEmbedding("KnowledgeEmbedding", id, tenantId, vec);
+        } catch (err) {
+          console.warn(
+            `[knowledge.update] embedding upsert skipped for ${id}:`,
+            err
+          );
+        }
+      }
+      return res.status(200).json(apiOk(knowledge));
     }
-    return res.status(200).json(apiOk(knowledge));
-  }
 
-  if (req.method === "DELETE") {
-    if (!requireRole(session, "OWNER")) {
-      return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat menghapus knowledge.");
+    if (req.method === "DELETE") {
+      if (!requireRole(session, "OWNER")) {
+        return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat menghapus knowledge.");
+      }
+      const existing = await prisma.knowledge.findFirst({ where: { id, tenantId } });
+      if (!existing) return respondError(res, "NOT_FOUND", "Knowledge tidak ditemukan.");
+      await prisma.knowledge.delete({ where: { id } });
+      // Explicit vector cleanup via lib/vector.ts (symmetric with the upsert on
+      // create/update). The FK cascade would also remove the row, but relying on
+      // hidden cascade behavior is worse than an explicit, best-effort delete.
+      try {
+        await deleteEmbedding("KnowledgeEmbedding", id, tenantId);
+      } catch (err) {
+        console.warn(`[knowledge.delete] embedding cleanup skipped for ${id}:`, err);
+      }
+      await logHuman({
+        tenantId,
+        action: "knowledge.delete",
+        entityType: "Knowledge",
+        entityId: id,
+        beforeValue: existing,
+      });
+      return res.status(200).json(apiOk({ id }));
     }
-    const existing = await prisma.knowledge.findFirst({ where: { id, tenantId } });
-    if (!existing) return respondError(res, "NOT_FOUND", "Knowledge tidak ditemukan.");
-    await prisma.knowledge.delete({ where: { id } });
-    // Explicit vector cleanup via lib/vector.ts (symmetric with the upsert on
-    // create/update). The FK cascade would also remove the row, but relying on
-    // hidden cascade behavior is worse than an explicit, best-effort delete.
-    try {
-      await deleteEmbedding("KnowledgeEmbedding", id, tenantId);
-    } catch (err) {
-      console.warn(`[knowledge.delete] embedding cleanup skipped for ${id}:`, err);
-    }
-    await logHuman({
-      tenantId,
-      action: "knowledge.delete",
-      entityType: "Knowledge",
-      entityId: id,
-      beforeValue: existing,
-    });
-    return res.status(200).json(apiOk({ id }));
-  }
 
-  return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
+    return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
+  });
 }

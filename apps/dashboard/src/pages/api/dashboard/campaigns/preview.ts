@@ -3,6 +3,7 @@ import { getAuthSession } from "@csq/core/lib/auth";
 import { requireFeatureApi } from "@csq/core/lib/feature-guard";
 import prisma from "@csq/core/lib/db";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import { canRunCampaigns } from "@csq/core/lib/campaign-access";
 import { campaignPreviewSchema } from "@csq/core/types/campaign";
@@ -20,29 +21,32 @@ export default async function handler(
 
   if (!(await requireFeatureApi(session, res, "campaigns"))) return;
   const tenantId = requireTenant(session);
-  if (!canRunCampaigns(session)) {
-    return respondError(res, "PERMISSION_DENIED", "Tidak punya izin kampanye.");
-  }
 
-  if (req.method !== "POST") {
-    return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
-  }
+  return withTenantContext(tenantId, async () => {
+    if (!canRunCampaigns(session)) {
+      return respondError(res, "PERMISSION_DENIED", "Tidak punya izin kampanye.");
+    }
 
-  const parsed = campaignPreviewSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return respondError(res, "VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Input tidak valid.");
-  }
-  const input = parsed.data;
+    if (req.method !== "POST") {
+      return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
+    }
 
-  const where =
-    input.audience === "ALL"
-      ? { tenantId }
-      : input.audience === "CATEGORY"
-        ? { tenantId, categories: { some: { categoryId: { in: input.categoryIds } } } }
-        : input.audience === "TAGS"
-          ? { tenantId, tags: { some: { tagId: { in: input.tagIds } } } }
-          : { tenantId, id: { in: input.contactIds } };
+    const parsed = campaignPreviewSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return respondError(res, "VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Input tidak valid.");
+    }
+    const input = parsed.data;
 
-  const total = await prisma.contact.count({ where });
-  return res.status(200).json(apiOk({ total }));
+    const where =
+      input.audience === "ALL"
+        ? { tenantId }
+        : input.audience === "CATEGORY"
+          ? { tenantId, categories: { some: { categoryId: { in: input.categoryIds } } } }
+          : input.audience === "TAGS"
+            ? { tenantId, tags: { some: { tagId: { in: input.tagIds } } } }
+            : { tenantId, id: { in: input.contactIds } };
+
+    const total = await prisma.contact.count({ where });
+    return res.status(200).json(apiOk({ total }));
+  });
 }

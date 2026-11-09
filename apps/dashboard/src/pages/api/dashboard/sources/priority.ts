@@ -3,6 +3,7 @@ import { z } from "zod";
 import prisma from "@csq/core/lib/db";
 import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import { logHuman } from "@csq/core/lib/audit";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import { readSourcePriority } from "@csq/core/lib/source-priority";
@@ -36,44 +37,46 @@ export default async function handler(
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
   const tenantId = requireTenant(session);
 
-  if (req.method === "GET") {
-    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
-    if (!tenant) return respondError(res, "NOT_FOUND", "Tenant tidak ditemukan.");
-    return res
-      .status(200)
-      .json(apiOk({ sourcePriority: readSourcePriority(tenant.settings) }));
-  }
-
-  if (req.method === "PUT") {
-    // Owner-only - priority is a tenant-wide policy (PRD §13).
-    if (!requireRole(session, "OWNER")) {
-      return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengubah prioritas sumber.");
+  return withTenantContext(tenantId, async () => {
+    if (req.method === "GET") {
+      const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+      if (!tenant) return respondError(res, "NOT_FOUND", "Tenant tidak ditemukan.");
+      return res
+        .status(200)
+        .json(apiOk({ sourcePriority: readSourcePriority(tenant.settings) }));
     }
-    const parsed = priorityUpdateSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return respondError(res, "VALIDATION_ERROR", parsed.error.message);
-    }
-    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
-    if (!tenant) return respondError(res, "NOT_FOUND", "Tenant tidak ditemukan.");
-    // Merge onto the existing settings (preserve unrelated keys), replacing
-    // sourcePriority with the validated order.
-    const existing = storedSettingsSchema.safeParse(tenant.settings ?? {});
-    const base = existing.success ? existing.data : {};
-    await prisma.tenant.update({
-      where: { id: tenantId },
-      data: {
-        settings: { ...base, sourcePriority: parsed.data.sourcePriority },
-      },
-    });
-    await logHuman({
-      tenantId,
-      action: "source.priority_update",
-      entityType: "Tenant",
-      entityId: tenantId,
-      afterValue: { sourcePriority: parsed.data.sourcePriority },
-    });
-    return res.status(200).json(apiOk({ sourcePriority: parsed.data.sourcePriority }));
-  }
 
-  return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
+    if (req.method === "PUT") {
+      // Owner-only - priority is a tenant-wide policy (PRD §13).
+      if (!requireRole(session, "OWNER")) {
+        return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengubah prioritas sumber.");
+      }
+      const parsed = priorityUpdateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return respondError(res, "VALIDATION_ERROR", parsed.error.message);
+      }
+      const tenant = await prisma.tenant.findUnique({ where: { id: tenantId } });
+      if (!tenant) return respondError(res, "NOT_FOUND", "Tenant tidak ditemukan.");
+      // Merge onto the existing settings (preserve unrelated keys), replacing
+      // sourcePriority with the validated order.
+      const existing = storedSettingsSchema.safeParse(tenant.settings ?? {});
+      const base = existing.success ? existing.data : {};
+      await prisma.tenant.update({
+        where: { id: tenantId },
+        data: {
+          settings: { ...base, sourcePriority: parsed.data.sourcePriority },
+        },
+      });
+      await logHuman({
+        tenantId,
+        action: "source.priority_update",
+        entityType: "Tenant",
+        entityId: tenantId,
+        afterValue: { sourcePriority: parsed.data.sourcePriority },
+      });
+      return res.status(200).json(apiOk({ sourcePriority: parsed.data.sourcePriority }));
+    }
+
+    return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
+  });
 }

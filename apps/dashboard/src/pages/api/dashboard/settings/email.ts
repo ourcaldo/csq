@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
 import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import { logHuman } from "@csq/core/lib/audit";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import {
@@ -62,72 +63,74 @@ export default async function handler(
   }
   const tenantId = requireTenant(session);
 
-  if (req.method === "GET") {
-    const provider = await getEmailProvider(tenantId);
-    return res
-      .status(200)
-      .json(apiOk(provider ? maskEmailProvider(provider) : { configured: false }));
-  }
-
-  if (req.method === "PUT") {
-    const input = emailProviderInputSchema.safeParse(req.body);
-    if (!input.success) {
-      return respondError(res, "VALIDATION_ERROR", input.error.message);
+  return withTenantContext(tenantId, async () => {
+    if (req.method === "GET") {
+      const provider = await getEmailProvider(tenantId);
+      return res
+        .status(200)
+        .json(apiOk(provider ? maskEmailProvider(provider) : { configured: false }));
     }
-    const existing = await getEmailProvider(tenantId);
 
-    // Merge: an omitted OR BLANK secret keeps the stored one (same provider
-    // type only - switching SMTP↔Resend always requires the new credential).
-    let config: unknown;
-    if (input.data.type === "SMTP") {
-      const password =
-        input.data.password || (existing?.type === "SMTP" ? existing.password : "");
-      if (!password) {
-        return respondError(res, "VALIDATION_ERROR", "Password SMTP wajib diisi.");
+    if (req.method === "PUT") {
+      const input = emailProviderInputSchema.safeParse(req.body);
+      if (!input.success) {
+        return respondError(res, "VALIDATION_ERROR", input.error.message);
       }
-      config = { ...input.data, password };
-    } else {
-      const apiKey =
-        input.data.apiKey || (existing?.type === "RESEND" ? existing.apiKey : "");
-      if (!apiKey) {
-        return respondError(res, "VALIDATION_ERROR", "API key Resend wajib diisi.");
+      const existing = await getEmailProvider(tenantId);
+
+      // Merge: an omitted OR BLANK secret keeps the stored one (same provider
+      // type only - switching SMTP↔Resend always requires the new credential).
+      let config: unknown;
+      if (input.data.type === "SMTP") {
+        const password =
+          input.data.password || (existing?.type === "SMTP" ? existing.password : "");
+        if (!password) {
+          return respondError(res, "VALIDATION_ERROR", "Password SMTP wajib diisi.");
+        }
+        config = { ...input.data, password };
+      } else {
+        const apiKey =
+          input.data.apiKey || (existing?.type === "RESEND" ? existing.apiKey : "");
+        if (!apiKey) {
+          return respondError(res, "VALIDATION_ERROR", "API key Resend wajib diisi.");
+        }
+        config = { ...input.data, apiKey };
       }
-      config = { ...input.data, apiKey };
-    }
 
-    // Re-validate the merged value against the stored schema - one shape,
-    // persisted exactly as every reader expects it.
-    const stored = emailProviderSchema.safeParse(config);
-    if (!stored.success) {
-      return respondError(res, "VALIDATION_ERROR", stored.error.message);
-    }
-    await saveEmailProvider(tenantId, stored.data);
-    await logHuman({
-      tenantId,
-      action: "email.provider_update",
-      entityType: "Tenant",
-      entityId: tenantId,
-      beforeValue: existing ? maskEmailProvider(existing) : { configured: false },
-      afterValue: maskEmailProvider(stored.data),
-    });
-    return res.status(200).json(apiOk(maskEmailProvider(stored.data)));
-  }
-
-  if (req.method === "DELETE") {
-    const before = await getEmailProvider(tenantId);
-    if (before) {
-      await clearEmailProvider(tenantId);
+      // Re-validate the merged value against the stored schema - one shape,
+      // persisted exactly as every reader expects it.
+      const stored = emailProviderSchema.safeParse(config);
+      if (!stored.success) {
+        return respondError(res, "VALIDATION_ERROR", stored.error.message);
+      }
+      await saveEmailProvider(tenantId, stored.data);
       await logHuman({
         tenantId,
-        action: "email.provider_disconnect",
+        action: "email.provider_update",
         entityType: "Tenant",
         entityId: tenantId,
-        beforeValue: maskEmailProvider(before),
-        afterValue: { configured: false },
+        beforeValue: existing ? maskEmailProvider(existing) : { configured: false },
+        afterValue: maskEmailProvider(stored.data),
       });
+      return res.status(200).json(apiOk(maskEmailProvider(stored.data)));
     }
-    return res.status(200).json(apiOk({ configured: false }));
-  }
 
-  return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
+    if (req.method === "DELETE") {
+      const before = await getEmailProvider(tenantId);
+      if (before) {
+        await clearEmailProvider(tenantId);
+        await logHuman({
+          tenantId,
+          action: "email.provider_disconnect",
+          entityType: "Tenant",
+          entityId: tenantId,
+          beforeValue: maskEmailProvider(before),
+          afterValue: { configured: false },
+        });
+      }
+      return res.status(200).json(apiOk({ configured: false }));
+    }
+
+    return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
+  });
 }

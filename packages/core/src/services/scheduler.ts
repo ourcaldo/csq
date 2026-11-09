@@ -2,6 +2,11 @@ import cron from "node-cron";
 import { z } from "zod";
 import { InventorySource } from "@prisma/client";
 import prisma from "@csq/core/lib/db";
+import {
+  withSystemContext,
+  withTenantContext,
+} from "@csq/core/lib/tenant-context";
+import { tenantActive } from "@csq/core/lib/tenant-status";
 import { applyImport } from "@csq/core/lib/import-apply";
 import { applyMapping } from "@csq/core/services/excel";
 import { readSheet } from "@csq/core/services/sheets";
@@ -103,62 +108,69 @@ async function closeIdleSessions(): Promise<void> {
   // 5-minute slack so a missed tick (e.g. mid-deploy) still closes the window.
   const cutoff = new Date(Date.now() - (SESSION_TTL_MS + 5 * 60 * 1000));
 
-  const conversations = await prisma.conversation.findMany({
-    where: {
-      status: "OPEN",
-      assigneeUserId: null, // human-owned: do not auto-close
-      lastMessageAt: { lt: cutoff },
-    },
-    orderBy: { lastMessageAt: "asc" },
-    take: 20,
-    include: { channel: true },
-  });
+  const conversations = await withSystemContext(async () =>
+    prisma.conversation.findMany({
+      where: {
+        status: "OPEN",
+        assigneeUserId: null, // human-owned: do not auto-close
+        lastMessageAt: { lt: cutoff },
+      },
+      orderBy: { lastMessageAt: "asc" },
+      take: 20,
+      include: { channel: true },
+    })
+  );
 
   for (const conversation of conversations) {
     try {
-      // Only close on the customer's last inbound (outbound activity alone
-      // must not trigger a close - session TTL counts from customer input).
-      const last = await prisma.message.findFirst({
-        where: { conversationId: conversation.id },
-        orderBy: { createdAt: "desc" },
-      });
-      if (!last || last.direction !== "INBOUND") continue;
-      if (last.createdAt > cutoff) continue;
+      // RLS context + suspension guard (PRD 16 SEC-1/SEC-4).
+      await withTenantContext(conversation.tenantId, async () => {
+        if (!(await tenantActive(conversation.tenantId))) return;
 
-      // Already closed for this window?
-      const rawSettings = conversationSettingsSchema.safeParse(
-        conversation.settings ?? {}
-      );
-      const settings = rawSettings.success ? rawSettings.data : {};
-      if (settings.lastInboundClosedAt === last.id) continue;
+        // Only close on the customer's last inbound (outbound activity alone
+        // must not trigger a close - session TTL counts from customer input).
+        const last = await prisma.message.findFirst({
+          where: { conversationId: conversation.id },
+          orderBy: { createdAt: "desc" },
+        });
+        if (!last || last.direction !== "INBOUND") return;
+        if (last.createdAt > cutoff) return;
 
-      if (conversation.channel.status !== "CONNECTED") continue;
+        // Already closed for this window?
+        const rawSettings = conversationSettingsSchema.safeParse(
+          conversation.settings ?? {}
+        );
+        const settings = rawSettings.success ? rawSettings.data : {};
+        if (settings.lastInboundClosedAt === last.id) return;
 
-      const body = await getTemplateBody(
-        conversation.tenantId,
-        "session_end",
-        "Terima kasih sudah mengobrol dengan kami! Jika ada pertanyaan lain, silakan chat kembali ya. 😊"
-      );
-      if (!body) continue;
+        if (conversation.channel.status !== "CONNECTED") return;
 
-      await sendAgentMessage({
-        channel: conversation.channel,
-        conversationId: conversation.id,
-        customerPhone: conversation.customerPhone,
-        body,
-        agentId: null,
-        action: "conversation.session_closed",
-      });
+        const body = await getTemplateBody(
+          conversation.tenantId,
+          "session_end",
+          "Terima kasih sudah mengobrol dengan kami! Jika ada pertanyaan lain, silakan chat kembali ya. 😊"
+        );
+        if (!body) return;
 
-      await prisma.conversation.update({
-        where: { id: conversation.id },
-        data: {
-          settings: {
-            ...settings,
-            sessionClosedAt: new Date().toISOString(),
-            lastInboundClosedAt: last.id,
+        await sendAgentMessage({
+          channel: conversation.channel,
+          conversationId: conversation.id,
+          customerPhone: conversation.customerPhone,
+          body,
+          agentId: null,
+          action: "conversation.session_closed",
+        });
+
+        await prisma.conversation.update({
+          where: { id: conversation.id },
+          data: {
+            settings: {
+              ...settings,
+              sessionClosedAt: new Date().toISOString(),
+              lastInboundClosedAt: last.id,
+            },
           },
-        },
+        });
       });
     } catch (err) {
       console.error(
@@ -174,16 +186,23 @@ async function syncAllSheetsSources(): Promise<void> {
   // hiccup) self-heals on the next tick instead of forcing the owner to
   // delete + re-add. syncOne flips status back to ACTIVE on success; on failure
   // it stays ERROR. Mirrors the Baileys startup-reconnect pattern.
-  const sources = await prisma.dataSource.findMany({
-    where: { type: "GOOGLE_SHEETS", status: { in: ["ACTIVE", "ERROR"] } },
-  });
+  const sources = await withSystemContext(async () =>
+    prisma.dataSource.findMany({
+      where: { type: "GOOGLE_SHEETS", status: { in: ["ACTIVE", "ERROR"] } },
+    })
+  );
   for (const source of sources) {
     try {
-      await syncOne(source.id, source.tenantId, source.config);
+      // RLS context (PRD 16 SEC-1): the sync writes this tenant's data.
+      await withTenantContext(source.tenantId, () =>
+        syncOne(source.id, source.tenantId, source.config)
+      );
     } catch {
-      await prisma.dataSource
-        .update({ where: { id: source.id }, data: { status: "ERROR" } })
-        .catch(() => undefined);
+      await withSystemContext(async () => {
+        await prisma.dataSource
+          .update({ where: { id: source.id }, data: { status: "ERROR" } })
+          .catch(() => undefined);
+      });
     }
   }
 }

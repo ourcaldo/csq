@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import prisma from "@csq/core/lib/db";
 import { executeTool } from "@csq/core/tools/execute";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { requireApiAuth } from "@csq/core/lib/api-auth";
 import { assignRequestId } from "@csq/core/lib/request-id";
 import { checkRateLimit } from "@csq/core/lib/rate-limit";
@@ -59,68 +60,72 @@ export default async function handler(
   }
   const { agentId, params } = parsed.data;
 
-  // The agent must belong to the key's tenant - a key can never drive
-  // another tenant's agent.
-  const agent = await prisma.agent.findUnique({
-    where: { id: agentId },
-    select: { tenantId: true },
-  });
-  if (!agent || agent.tenantId !== auth.tenantId) {
-    return res
-      .status(403)
-      .json(apiError("PERMISSION_DENIED", "Agent does not belong to your tenant"));
-  }
-
-  const outcome = await executeTool({
-    toolName,
-    tenantId: auth.tenantId,
-    agentId,
-    params,
-  });
-
-  switch (outcome.kind) {
-    case "ok": {
-      if (outcome.result.success) {
-        return res.status(200).json(apiOk(outcome.result.data ?? null));
-      }
-      // Handler-reported business failure (NOT_FOUND, insufficient stock, ...).
-      const code = outcome.result.errorCode ?? "INTERNAL_ERROR";
-      const status =
-        code === "NOT_FOUND" ? 404 : code === "VALIDATION_ERROR" ? 400 : 500;
-      return res
-        .status(status)
-        .json(apiError(code, outcome.result.error ?? "Tool failed"));
-    }
-    case "tool_not_found":
-      return res
-        .status(404)
-        .json(apiError("TOOL_NOT_FOUND", `Tool not found: ${toolName}`));
-    case "not_found":
-      return res.status(404).json(apiError("NOT_FOUND", outcome.message));
-    case "validation_error":
-      return res.status(400).json(apiError("VALIDATION_ERROR", outcome.message));
-    case "permission_denied":
+  // Tenant context for the RLS layer (PRD 16 SEC-1): every query and tool
+  // call below is the key's tenant.
+  return withTenantContext(auth.tenantId, async () => {
+    // The agent must belong to the key's tenant - a key can never drive
+    // another tenant's agent.
+    const agent = await prisma.agent.findUnique({
+      where: { id: agentId },
+      select: { tenantId: true },
+    });
+    if (!agent || agent.tenantId !== auth.tenantId) {
       return res
         .status(403)
-        .json(
-          apiError(
-            "PERMISSION_DENIED",
-            `Agent does not have permission for ${toolName}`
-          )
-        );
-    case "approval_required": {
-      // success:false carries data alongside (the approval payload) - SDD §5.1.
-      const body: ApiResponse<ApprovalPayload> = {
-        success: false,
-        error: {
-          code: "APPROVAL_REQUIRED",
-          message: "This action requires owner approval",
-        },
-        data: outcome.payload,
-      };
-      return res.status(403).json(body);
+        .json(apiError("PERMISSION_DENIED", "Agent does not belong to your tenant"));
     }
-    case "internal_error":
-      return res.status(500).json(apiError("INTERNAL_ERROR", outcome.message));
-  }
+
+    const outcome = await executeTool({
+      toolName,
+      tenantId: auth.tenantId,
+      agentId,
+      params,
+    });
+
+    switch (outcome.kind) {
+      case "ok": {
+        if (outcome.result.success) {
+          return res.status(200).json(apiOk(outcome.result.data ?? null));
+        }
+        // Handler-reported business failure (NOT_FOUND, insufficient stock, ...).
+        const code = outcome.result.errorCode ?? "INTERNAL_ERROR";
+        const status =
+          code === "NOT_FOUND" ? 404 : code === "VALIDATION_ERROR" ? 400 : 500;
+        return res
+          .status(status)
+          .json(apiError(code, outcome.result.error ?? "Tool failed"));
+      }
+      case "tool_not_found":
+        return res
+          .status(404)
+          .json(apiError("TOOL_NOT_FOUND", `Tool not found: ${toolName}`));
+      case "not_found":
+        return res.status(404).json(apiError("NOT_FOUND", outcome.message));
+      case "validation_error":
+        return res.status(400).json(apiError("VALIDATION_ERROR", outcome.message));
+      case "permission_denied":
+        return res
+          .status(403)
+          .json(
+            apiError(
+              "PERMISSION_DENIED",
+              `Agent does not have permission for ${toolName}`
+            )
+          );
+      case "approval_required": {
+        // success:false carries data alongside (the approval payload) - SDD §5.1.
+        const body: ApiResponse<ApprovalPayload> = {
+          success: false,
+          error: {
+            code: "APPROVAL_REQUIRED",
+            message: "This action requires owner approval",
+          },
+          data: outcome.payload,
+        };
+        return res.status(403).json(body);
+      }
+      case "internal_error":
+        return res.status(500).json(apiError("INTERNAL_ERROR", outcome.message));
+    }
+  });
 }

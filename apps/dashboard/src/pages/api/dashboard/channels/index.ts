@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getAuthSession } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import { cloudApiConfigSchema, baileysConfigSchema } from "@csq/core/types/whatsapp";
 
@@ -71,12 +72,14 @@ export default async function handler(
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
   const tenantId = requireTenant(session);
 
-  const channels = await prisma.channel.findMany({
-    where: { tenantId },
-    orderBy: { createdAt: "asc" },
-  });
+  return withTenantContext(tenantId, async () => {
+    const channels = await prisma.channel.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: "asc" },
+    });
 
-  return res
-    .status(200)
-    .json(apiOk({ items: channels.map(sanitize) }));
+    return res
+      .status(200)
+      .json(apiOk({ items: channels.map(sanitize) }));
+  });
 }

@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react";
 import { Check, Cloud, WhatsappLogo } from "@phosphor-icons/react";
 import { withAuth, getSSRSession } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { cloudApiConfigSchema } from "@csq/core/types/whatsapp";
 import { generateVerifyToken } from "@csq/core/lib/whatsapp-verify-token";
 import { z } from "zod";
@@ -434,42 +435,46 @@ export const getServerSideProps: GetServerSideProps<SaluranProps> = withAuth<
   let cloudVerifyToken: string | null = null;
   if (session?.user.tenantId) {
     const tenantId = session.user.tenantId;
-    const existing = await prisma.channel.findFirst({
-      where: { tenantId, provider: "CLOUD_API" },
+    // RLS context (PRD 16 SEC-1): the Channel reads/writes below are this
+    // tenant's rows.
+    await withTenantContext(tenantId, async () => {
+      const existing = await prisma.channel.findFirst({
+        where: { tenantId, provider: "CLOUD_API" },
+      });
+      const parsed = cloudApiConfigSchema.safeParse(existing?.config);
+      const existingToken = parsed.success ? parsed.data.verifyToken : undefined;
+      const isWeakToken = !existingToken || existingToken === "demo-verify-token";
+      if (existingToken && !isWeakToken) {
+        cloudVerifyToken = existingToken;
+      } else if (existing) {
+        // Channel exists but has no token (or still the pre-rotation default) -
+        // write a fresh one.
+        const rawConfig = z.record(z.unknown()).safeParse(existing.config);
+        const merged = {
+          ...(rawConfig.success ? rawConfig.data : {}),
+          verifyToken: generateVerifyToken(),
+        };
+        await prisma.channel.update({
+          where: { id: existing.id },
+          data: { config: merged },
+        });
+        cloudVerifyToken = merged.verifyToken;
+      } else {
+        // No channel row yet: create the stub now (DISCONNECTED, no secrets)
+        // so a verified webhook + on-screen token exist before Sambungkan.
+        const token = generateVerifyToken();
+        await prisma.channel.create({
+          data: {
+            tenantId,
+            type: "WHATSAPP",
+            provider: "CLOUD_API",
+            status: "DISCONNECTED",
+            config: { verifyToken: token },
+          },
+        });
+        cloudVerifyToken = token;
+      }
     });
-    const parsed = cloudApiConfigSchema.safeParse(existing?.config);
-    const existingToken = parsed.success ? parsed.data.verifyToken : undefined;
-    const isWeakToken = !existingToken || existingToken === "demo-verify-token";
-    if (existingToken && !isWeakToken) {
-      cloudVerifyToken = existingToken;
-    } else if (existing) {
-      // Channel exists but has no token (or still the pre-rotation default) -
-      // write a fresh one.
-      const rawConfig = z.record(z.unknown()).safeParse(existing.config);
-      const merged = {
-        ...(rawConfig.success ? rawConfig.data : {}),
-        verifyToken: generateVerifyToken(),
-      };
-      await prisma.channel.update({
-        where: { id: existing.id },
-        data: { config: merged },
-      });
-      cloudVerifyToken = merged.verifyToken;
-    } else {
-      // No channel row yet: create the stub now (DISCONNECTED, no secrets)
-      // so a verified webhook + on-screen token exist before Sambungkan.
-      const token = generateVerifyToken();
-      await prisma.channel.create({
-        data: {
-          tenantId,
-          type: "WHATSAPP",
-          provider: "CLOUD_API",
-          status: "DISCONNECTED",
-          config: { verifyToken: token },
-        },
-      });
-      cloudVerifyToken = token;
-    }
   }
 
   return { props: { webhookUrl, cloudVerifyToken } };

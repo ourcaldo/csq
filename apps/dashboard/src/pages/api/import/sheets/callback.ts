@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import prisma from "@csq/core/lib/db";
 import { getAuthSession } from "@csq/core/lib/auth";
 import { requireTenant } from "@csq/core/lib/queries";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { handleOAuthCallback } from "@csq/core/services/sheets";
 import { setGoogleCreds } from "@csq/core/lib/google-connect";
 
@@ -25,31 +26,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
   const tenantId = requireTenant(session);
 
-  const code = typeof req.query.code === "string" ? req.query.code : "";
-  if (!code) {
-    res.redirect("/dashboard/sources?error=sheets_no_code");
-    return;
-  }
+  return withTenantContext(tenantId, async () => {
+    const code = typeof req.query.code === "string" ? req.query.code : "";
+    if (!code) {
+      res.redirect("/dashboard/sources?error=sheets_no_code");
+      return;
+    }
 
-  try {
-    const creds = await handleOAuthCallback(code);
-    // Persist the connection at the tenant level (no tokens in DataSource.config).
-    await setGoogleCreds(tenantId, creds);
-    const source = await prisma.dataSource.create({
-      data: {
-        tenantId,
-        type: "GOOGLE_SHEETS",
-        name: "Google Sheets",
-        config: {
-          spreadsheetId: "",
-          sheetName: "",
-          mapping: { name: null, price: null, quantity: null },
+    try {
+      const creds = await handleOAuthCallback(code);
+      // Persist the connection at the tenant level (no tokens in DataSource.config).
+      await setGoogleCreds(tenantId, creds);
+      const source = await prisma.dataSource.create({
+        data: {
+          tenantId,
+          type: "GOOGLE_SHEETS",
+          name: "Google Sheets",
+          config: {
+            spreadsheetId: "",
+            sheetName: "",
+            mapping: { name: null, price: null, quantity: null },
+          },
+          status: "INACTIVE",
         },
-        status: "INACTIVE",
-      },
-    });
-    res.redirect(`/dashboard/sources?google=connected&sheets_source=${source.id}`);
-  } catch {
-    res.redirect("/dashboard/sources?error=sheets_callback");
-  }
+      });
+      res.redirect(`/dashboard/sources?google=connected&sheets_source=${source.id}`);
+    } catch {
+      res.redirect("/dashboard/sources?error=sheets_callback");
+    }
+  });
 }

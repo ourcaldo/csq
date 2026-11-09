@@ -6,6 +6,7 @@ import { buildSystemPrompt } from "@csq/core/lib/prompt-builder";
 import { runConversation } from "@csq/core/services/llm-runtime";
 import { sendAgentMessage } from "@csq/core/lib/agent-outbox";
 import { acquireTurnLease, releaseTurnLease } from "@csq/core/lib/turn-lock";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { chargeCredits, getCreditStatus } from "@csq/core/lib/credits";
 import { logAction } from "@csq/core/lib/audit";
 import type { ChatMessage, ToolCallRecord } from "@csq/core/types/chat";
@@ -264,6 +265,18 @@ export async function runAgentReply(args: {
 const MAX_DRAIN_TURNS = 3;
 
 export async function processInboundWithAgent(args: {
+  channel: Channel;
+  conversationId: string;
+}): Promise<void> {
+  // RLS context (PRD 16 SEC-1): the whole turn - lease, drain, LLM, send -
+  // runs as the channel's tenant. The webhook and the Baileys runtime both
+  // call this; entering the context here means neither caller can forget it.
+  await withTenantContext(args.channel.tenantId, () =>
+    processInboundWithAgentInner(args)
+  );
+}
+
+async function processInboundWithAgentInner(args: {
   channel: Channel;
   conversationId: string;
 }): Promise<void> {

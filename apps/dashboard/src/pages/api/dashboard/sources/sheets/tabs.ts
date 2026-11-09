@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getAuthSession } from "@csq/core/lib/auth";
 import { requireTenant, respondError, strQuery } from "@csq/core/lib/queries";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import { getGoogleCreds } from "@csq/core/lib/google-connect";
 import { listSheets } from "@csq/core/services/sheets";
@@ -21,19 +22,21 @@ export default async function handler(
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
   const tenantId = requireTenant(session);
 
-  const spreadsheetId = strQuery(req.query, "spreadsheetId");
-  if (!spreadsheetId) {
-    return respondError(res, "VALIDATION_ERROR", "Parameter spreadsheetId diperlukan.");
-  }
+  return withTenantContext(tenantId, async () => {
+    const spreadsheetId = strQuery(req.query, "spreadsheetId");
+    if (!spreadsheetId) {
+      return respondError(res, "VALIDATION_ERROR", "Parameter spreadsheetId diperlukan.");
+    }
 
-  const creds = await getGoogleCreds(tenantId);
-  if (!creds) {
-    return respondError(res, "VALIDATION_ERROR", "Akun Google belum terhubung.");
-  }
-  try {
-    const tabs = await listSheets(creds, spreadsheetId);
-    return res.status(200).json(apiOk({ tabs }));
-  } catch {
-    return respondError(res, "INTERNAL_ERROR", "Gagal mengambil daftar tab dari spreadsheet.");
-  }
+    const creds = await getGoogleCreds(tenantId);
+    if (!creds) {
+      return respondError(res, "VALIDATION_ERROR", "Akun Google belum terhubung.");
+    }
+    try {
+      const tabs = await listSheets(creds, spreadsheetId);
+      return res.status(200).json(apiOk({ tabs }));
+    } catch {
+      return respondError(res, "INTERNAL_ERROR", "Gagal mengambil daftar tab dari spreadsheet.");
+    }
+  });
 }

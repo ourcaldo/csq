@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import { clearGoogleCreds } from "@csq/core/lib/google-connect";
 import prisma from "@csq/core/lib/db";
@@ -25,11 +26,13 @@ export default async function handler(
   }
   const tenantId = requireTenant(session);
 
-  await clearGoogleCreds(tenantId);
-  await prisma.dataSource.updateMany({
-    where: { tenantId, type: "GOOGLE_SHEETS" },
-    data: { status: "INACTIVE" },
-  });
+  return withTenantContext(tenantId, async () => {
+    await clearGoogleCreds(tenantId);
+    await prisma.dataSource.updateMany({
+      where: { tenantId, type: "GOOGLE_SHEETS" },
+      data: { status: "INACTIVE" },
+    });
 
-  return res.status(200).json(apiOk({ disconnected: true }));
+    return res.status(200).json(apiOk({ disconnected: true }));
+  });
 }

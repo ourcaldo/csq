@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import prisma from "@csq/core/lib/db";
+import { withSystemContext } from "@csq/core/lib/tenant-context";
 
 // Public media serving (plan 3.2.1). UNAUTHENTICATED by design: Meta's Cloud
 // API fetcher must reach the image over HTTPS, so this route carries the same
@@ -17,7 +18,11 @@ export default async function handler(
     return;
   }
 
-  const asset = await prisma.mediaAsset.findUnique({ where: { id } });
+  // UUID-addressed fetch crosses tenants by design: bypass context
+  // (PRD 16 SEC-1).
+  const asset = await withSystemContext(async () =>
+    prisma.mediaAsset.findUnique({ where: { id } })
+  );
   if (!asset) {
     res.status(404).send("Not Found");
     return;

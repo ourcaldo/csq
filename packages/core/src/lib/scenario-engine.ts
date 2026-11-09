@@ -1,6 +1,11 @@
 ﻿import { Prisma } from "@prisma/client";
 import type { ScenarioRunStatus } from "@prisma/client";
 import prisma from "@csq/core/lib/db";
+import {
+  withSystemContext,
+  withTenantContext,
+} from "@csq/core/lib/tenant-context";
+import { tenantActive } from "@csq/core/lib/tenant-status";
 import { getProvider } from "@csq/core/lib/whatsapp-provider";
 import { logAction, toJsonValue } from "@csq/core/lib/audit";
 import { CLOUD_API_WINDOW_MS, assignConversation } from "@csq/core/lib/inbox";
@@ -107,10 +112,19 @@ async function startRunsForTrigger(
   tenantId: string,
   input: TriggerInput
 ): Promise<void> {
-  const scenarios = await prisma.scenario.findMany({
-    where: { tenantId, triggerType, status: "ACTIVE" },
-  });
-  if (scenarios.length === 0) return;
+  // SEC-4 (PRD 16): no scenario starts for a suspended tenant. The trigger
+  // simply does not fire; the events that would re-fire it do so again after
+  // activation.
+  if (!(await tenantActive(tenantId))) return;
+
+  // RLS context (PRD 16 SEC-1): scenario/run reads and writes below are this
+  // tenant's. Event-bus callers inherit it anyway; entering it here keeps
+  // the function safe in every caller.
+  await withTenantContext(tenantId, async () => {
+    const scenarios = await prisma.scenario.findMany({
+      where: { tenantId, triggerType, status: "ACTIVE" },
+    });
+    if (scenarios.length === 0) return;
 
   for (const scenario of scenarios) {
     // ON_TAG_ADDED: filter by triggerConfig.tagName if set.
@@ -150,7 +164,8 @@ async function startRunsForTrigger(
         console.error(`[scenario] scheduleAdvance ${runId} threw:`, err)
       );
     }
-  }
+    }
+  });
 }
 
 // Create one run, idempotently: @@unique([scenarioId, dedupKey]) means a
@@ -227,12 +242,37 @@ type Transition =
   | { kind: "end"; result?: Prisma.InputJsonValue };
 
 async function advanceRun(runId: string): Promise<void> {
-  const run = await prisma.scenarioRun.findUnique({
-    where: { id: runId },
-    include: { scenario: true },
-  });
+  // RLS context (PRD 16 SEC-1): the run lookup crosses tenants, the run's
+  // work does not. Split so the load runs in the bypass context and the
+  // execution runs in the run's tenant.
+  const run = await withSystemContext(async () =>
+    prisma.scenarioRun.findUnique({
+      where: { id: runId },
+      include: { scenario: true },
+    })
+  );
   if (!run || !run.scenario) return;
+  await withTenantContext(run.tenantId, () => advanceRunInner(run));
+}
+
+type ScenarioRunWithScenario = Prisma.ScenarioRunGetPayload<{
+  include: { scenario: true };
+}>;
+
+async function advanceRunInner(run: ScenarioRunWithScenario): Promise<void> {
   if (run.status === "COMPLETED" || run.status === "FAILED") return;
+
+  // SEC-4 (PRD 16): a suspended tenant's runs stay WAITING and retry after
+  // activation - the same pause machinery Wait nodes use.
+  if (!(await tenantActive(run.tenantId))) {
+    await prisma.scenarioRun
+      .update({
+        where: { id: run.id },
+        data: { status: "WAITING", resumeAt: new Date() },
+      })
+      .catch(() => undefined);
+    return;
+  }
 
   // Plan gate (PRD 13): a tenant without the scenarios feature must not keep
   // executing (and burning credits for) runs that were created earlier.
@@ -803,10 +843,12 @@ export function interpolate(body: string, context: RunContext): string {
 // passed (Wait nodes) and deferred-at-cap runs (resumeAt=now). Bounded: each
 // resumed run goes through scheduleAdvance, which respects the concurrency cap.
 export async function resumePausedRuns(): Promise<void> {
-  const due = await prisma.scenarioRun.findMany({
-    where: { status: "WAITING", resumeAt: { lte: new Date() } },
-    take: 50, // bounded per tick; remaining picked up next tick
-  });
+  const due = await withSystemContext(async () =>
+    prisma.scenarioRun.findMany({
+      where: { status: "WAITING", resumeAt: { lte: new Date() } },
+      take: 50, // bounded per tick; remaining picked up next tick
+    })
+  );
   for (const run of due) {
     void scheduleAdvance(run.id).catch((err: unknown) =>
       console.error(`[scenario] resume ${run.id} threw:`, err)
@@ -864,11 +906,13 @@ export async function runScheduledTriggers(): Promise<void> {
   const now = nowInScheduleTz(new Date());
   const time = `${String(now.hour).padStart(2, "0")}:${String(now.minute).padStart(2, "0")}`;
 
-  // ON_SCHEDULE: fires in the configured minute; the dedup key (below) makes
-  // a re-fire within the same day a no-op, so an exact minute match suffices.
-  const scheduled = await prisma.scenario.findMany({
-    where: { triggerType: "ON_SCHEDULE", status: "ACTIVE" },
-  });
+  // Cross-tenant trigger scans run in the bypass context (PRD 16 SEC-1);
+  // fireFor* enters each scenario's tenant context.
+  const scheduled = await withSystemContext(async () =>
+    prisma.scenario.findMany({
+      where: { triggerType: "ON_SCHEDULE", status: "ACTIVE" },
+    })
+  );
   for (const scenario of scheduled) {
     const cfg = parseTriggerConfig(scenario.triggerConfig);
     if (!cfg?.scheduleTime) continue;
@@ -884,9 +928,11 @@ export async function runScheduledTriggers(): Promise<void> {
   // ON_NO_REPLY: conversations where OUR last message has gone unanswered for
   // longer than the configured silence window. At most one run per
   // conversation per day (dedup key carries the date).
-  const noReply = await prisma.scenario.findMany({
-    where: { triggerType: "ON_NO_REPLY", status: "ACTIVE" },
-  });
+  const noReply = await withSystemContext(async () =>
+    prisma.scenario.findMany({
+      where: { triggerType: "ON_NO_REPLY", status: "ACTIVE" },
+    })
+  );
   for (const scenario of noReply) {
     const cfg = parseTriggerConfig(scenario.triggerConfig);
     if (!cfg?.noReplyAfterMinutes) continue;
@@ -901,7 +947,11 @@ async function fireForConversations(
   scenario: { id: string; tenantId: string },
   opts: { dedupPrefix: string; tagFilter: string | null }
 ): Promise<void> {
-  const convs = await prisma.conversation.findMany({
+  // SEC-4 + RLS (PRD 16): no fire for a suspended tenant; the conversation
+  // scan and run creation run in the scenario's tenant context.
+  if (!(await tenantActive(scenario.tenantId))) return;
+  await withTenantContext(scenario.tenantId, async () => {
+    const convs = await prisma.conversation.findMany({
     where: {
       tenantId: scenario.tenantId,
       status: "OPEN",
@@ -942,7 +992,8 @@ async function fireForConversations(
         console.error(`[scenario] scheduleAdvance ${runId} threw:`, err)
       );
     }
-  }
+    }
+  });
 }
 
 // ON_NO_REPLY targets: OPEN conversations on CONNECTED channels whose last
@@ -955,46 +1006,50 @@ async function fireForSilentConversations(
   afterMinutes: number,
   dateKey: string
 ): Promise<void> {
-  const cutoff = new Date(Date.now() - afterMinutes * 60 * 1000);
-  const candidates = await prisma.conversation.findMany({
-    where: {
-      tenantId: scenario.tenantId,
-      status: "OPEN",
-      channel: { status: "CONNECTED" },
-      lastMessageAt: { lte: cutoff },
-    },
-    include: { contact: true },
-    orderBy: { lastMessageAt: "asc" },
-    take: SCHEDULE_TARGET_CAP,
-  });
-  if (candidates.length === 0) return;
-
-  const prefix = `noreply:${dateKey}:`;
-  const todays = await prisma.scenarioRun.findMany({
-    where: { scenarioId: scenario.id, dedupKey: { startsWith: prefix } },
-    select: { dedupKey: true },
-  });
-  const nudged = new Set(todays.map((r) => r.dedupKey.slice(prefix.length)));
-
-  for (const conv of candidates) {
-    if (nudged.has(conv.id)) continue;
-    const last = await prisma.message.findFirst({
-      where: { tenantId: scenario.tenantId, conversationId: conv.id },
-      orderBy: { createdAt: "desc" },
-      select: { direction: true },
+  // SEC-4 + RLS (PRD 16): same guard and context as fireForConversations.
+  if (!(await tenantActive(scenario.tenantId))) return;
+  await withTenantContext(scenario.tenantId, async () => {
+    const cutoff = new Date(Date.now() - afterMinutes * 60 * 1000);
+    const candidates = await prisma.conversation.findMany({
+      where: {
+        tenantId: scenario.tenantId,
+        status: "OPEN",
+        channel: { status: "CONNECTED" },
+        lastMessageAt: { lte: cutoff },
+      },
+      include: { contact: true },
+      orderBy: { lastMessageAt: "asc" },
+      take: SCHEDULE_TARGET_CAP,
     });
-    if (!last || last.direction !== "OUTBOUND") continue;
-    const runId = await createRunOnce(scenario, conv.id, `${prefix}${conv.id}`, {
-      customer_name: conv.contact?.name ?? "",
-      customer_phone: conv.customerPhone,
-      conversation_id: conv.id,
+    if (candidates.length === 0) return;
+
+    const prefix = `noreply:${dateKey}:`;
+    const todays = await prisma.scenarioRun.findMany({
+      where: { scenarioId: scenario.id, dedupKey: { startsWith: prefix } },
+      select: { dedupKey: true },
     });
-    if (runId) {
-      void scheduleAdvance(runId).catch((err: unknown) =>
-        console.error(`[scenario] scheduleAdvance ${runId} threw:`, err)
-      );
+    const nudged = new Set(todays.map((r) => r.dedupKey.slice(prefix.length)));
+
+    for (const conv of candidates) {
+      if (nudged.has(conv.id)) continue;
+      const last = await prisma.message.findFirst({
+        where: { tenantId: scenario.tenantId, conversationId: conv.id },
+        orderBy: { createdAt: "desc" },
+        select: { direction: true },
+      });
+      if (!last || last.direction !== "OUTBOUND") continue;
+      const runId = await createRunOnce(scenario, conv.id, `${prefix}${conv.id}`, {
+        customer_name: conv.contact?.name ?? "",
+        customer_phone: conv.customerPhone,
+        conversation_id: conv.id,
+      });
+      if (runId) {
+        void scheduleAdvance(runId).catch((err: unknown) =>
+          console.error(`[scenario] scheduleAdvance ${runId} threw:`, err)
+        );
+      }
     }
-  }
+  });
 }
 
 // ─────────────────────────── Helpers ───────────────────────────

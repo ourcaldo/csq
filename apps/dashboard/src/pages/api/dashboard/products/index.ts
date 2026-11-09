@@ -3,6 +3,7 @@ import type { Prisma, Product } from "@prisma/client";
 import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { logHuman } from "@csq/core/lib/audit";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { paginate, requireTenant, respondError, strQuery } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import { productCreateSchema } from "@csq/core/types/product";
@@ -17,40 +18,42 @@ export default async function handler(
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
   const tenantId = requireTenant(session);
 
-  if (req.method === "GET") {
-    const { skip, take, page, pageSize } = paginate(req.query);
-    const search = strQuery(req.query, "search");
-    const where: Prisma.ProductWhereInput = {
-      tenantId,
-      ...(search ? { name: { contains: search, mode: "insensitive" } } : {}),
-    };
-    const [items, total] = await Promise.all([
-      prisma.product.findMany({ where, skip, take, orderBy: { createdAt: "desc" } }),
-      prisma.product.count({ where }),
-    ]);
-    return res.status(200).json(apiOk({ items, total, page, pageSize }));
-  }
-
-  if (req.method === "POST") {
-    if (!requireRole(session, "OWNER")) {
-      return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat membuat produk.");
+  return withTenantContext(tenantId, async () => {
+    if (req.method === "GET") {
+      const { skip, take, page, pageSize } = paginate(req.query);
+      const search = strQuery(req.query, "search");
+      const where: Prisma.ProductWhereInput = {
+        tenantId,
+        ...(search ? { name: { contains: search, mode: "insensitive" } } : {}),
+      };
+      const [items, total] = await Promise.all([
+        prisma.product.findMany({ where, skip, take, orderBy: { createdAt: "desc" } }),
+        prisma.product.count({ where }),
+      ]);
+      return res.status(200).json(apiOk({ items, total, page, pageSize }));
     }
-    const parsed = productCreateSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return respondError(res, "VALIDATION_ERROR", parsed.error.message);
-    }
-    const product = await prisma.product.create({
-      data: { ...parsed.data, tenantId },
-    });
-    await logHuman({
-      tenantId,
-      action: "product.create",
-      entityType: "Product",
-      entityId: product.id,
-      afterValue: product,
-    });
-    return res.status(201).json(apiOk(product));
-  }
 
-  return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
+    if (req.method === "POST") {
+      if (!requireRole(session, "OWNER")) {
+        return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat membuat produk.");
+      }
+      const parsed = productCreateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return respondError(res, "VALIDATION_ERROR", parsed.error.message);
+      }
+      const product = await prisma.product.create({
+        data: { ...parsed.data, tenantId },
+      });
+      await logHuman({
+        tenantId,
+        action: "product.create",
+        entityType: "Product",
+        entityId: product.id,
+        afterValue: product,
+      });
+      return res.status(201).json(apiOk(product));
+    }
+
+    return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
+  });
 }

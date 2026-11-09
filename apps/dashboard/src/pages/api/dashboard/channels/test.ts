@@ -4,6 +4,7 @@ import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { enqueueOutbound, awaitOutbound } from "@csq/core/lib/outbox";
 import { requireTenant, respondError, strQuery } from "@csq/core/lib/queries";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 
 // Test a channel by sending a small text to a given number via the channel's
@@ -30,37 +31,39 @@ export default async function handler(
   }
   const tenantId = requireTenant(session);
 
-  const id = strQuery(req.query, "id");
-  if (!id) return respondError(res, "VALIDATION_ERROR", "ID channel tidak valid.");
+  return withTenantContext(tenantId, async () => {
+    const id = strQuery(req.query, "id");
+    if (!id) return respondError(res, "VALIDATION_ERROR", "ID channel tidak valid.");
 
-  const parsed = testSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return respondError(res, "VALIDATION_ERROR", parsed.error.message);
-  }
-
-  const channel = await prisma.channel.findFirst({ where: { id, tenantId } });
-  if (!channel) return respondError(res, "NOT_FOUND", "Channel tidak ditemukan.");
-  if (channel.status !== "CONNECTED") {
-    return respondError(res, "VALIDATION_ERROR", "Channel belum terhubung.");
-  }
-
-  try {
-    // Phase 6: the send flows through the worker's outbox (the dashboard
-    // holds no socket); the bounded await keeps the old synchronous UX.
-    const outboxId = await enqueueOutbound({
-      tenantId,
-      channelId: channel.id,
-      to: parsed.data.to,
-      body: "Test dari CSQ dashboard ✅ - channel aktif.",
-      source: "TEST",
-    });
-    const result = await awaitOutbound(outboxId);
-    if (result.status !== "SENT") {
-      return respondError(res, "INTERNAL_ERROR", result.error ?? "Gagal mengirim test.");
+    const parsed = testSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return respondError(res, "VALIDATION_ERROR", parsed.error.message);
     }
-    return res.status(200).json(apiOk({ ok: true, waMessageId: result.waMessageId }));
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Gagal mengirim test.";
-    return respondError(res, "INTERNAL_ERROR", message);
-  }
+
+    const channel = await prisma.channel.findFirst({ where: { id, tenantId } });
+    if (!channel) return respondError(res, "NOT_FOUND", "Channel tidak ditemukan.");
+    if (channel.status !== "CONNECTED") {
+      return respondError(res, "VALIDATION_ERROR", "Channel belum terhubung.");
+    }
+
+    try {
+      // Phase 6: the send flows through the worker's outbox (the dashboard
+      // holds no socket); the bounded await keeps the old synchronous UX.
+      const outboxId = await enqueueOutbound({
+        tenantId,
+        channelId: channel.id,
+        to: parsed.data.to,
+        body: "Test dari CSQ dashboard ✅ - channel aktif.",
+        source: "TEST",
+      });
+      const result = await awaitOutbound(outboxId);
+      if (result.status !== "SENT") {
+        return respondError(res, "INTERNAL_ERROR", result.error ?? "Gagal mengirim test.");
+      }
+      return res.status(200).json(apiOk({ ok: true, waMessageId: result.waMessageId }));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Gagal mengirim test.";
+      return respondError(res, "INTERNAL_ERROR", message);
+    }
+  });
 }

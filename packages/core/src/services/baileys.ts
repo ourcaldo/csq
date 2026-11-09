@@ -9,6 +9,7 @@ import { pino } from "pino";
 import { randomUUID } from "crypto";
 import { z } from "zod";
 import prisma from "@csq/core/lib/db";
+import { withSystemContext } from "@csq/core/lib/tenant-context";
 import { ingestInboundMessage } from "@csq/core/lib/inbox";
 import { processInboundWithAgent } from "@csq/core/lib/agent-loop";
 import { replyToNonText } from "@csq/core/lib/agent-outbox";
@@ -167,6 +168,19 @@ function extractContent(
 // stealLease: set by the connect route (the owner's explicit action) to take
 // the session over from a peer instance that is still draining.
 export async function connectBaileysChannel(
+  channel: Channel,
+  opts?: { stealLease?: boolean }
+): Promise<{ qr: string | null; open: boolean; closeCode: number | null }> {
+  // Bypass context (PRD 16 SEC-1): the socket runtime owns Channel and
+  // BaileysAuth rows across tenants, and the socket's event callbacks capture
+  // this context at registration time - so cred saves and status writes made
+  // later from connection.update/messages.upsert handlers stay covered.
+  // Inbound message handling re-enters the tenant context inside
+  // ingestInboundMessage/processInboundWithAgent.
+  return withSystemContext(() => connectBaileysChannelInner(channel, opts));
+}
+
+async function connectBaileysChannelInner(
   channel: Channel,
   opts?: { stealLease?: boolean }
 ): Promise<{ qr: string | null; open: boolean; closeCode: number | null }> {
@@ -477,9 +491,13 @@ export function hasBaileysSocket(channelId: string): boolean {
 // persist in the BaileysAuth table, so no re-scan unless logged out). Called
 // from the scheduler start.
 export async function startBaileysChannels(): Promise<void> {
-  const channels = await prisma.channel.findMany({
-    where: { provider: "BAILEYS", status: "CONNECTED" },
-  });
+  // Cross-tenant boot scan: bypass context (PRD 16 SEC-1). connectBaileysChannel
+  // enters its own context.
+  const channels = await withSystemContext(async () =>
+    prisma.channel.findMany({
+      where: { provider: "BAILEYS", status: "CONNECTED" },
+    })
+  );
   for (const c of channels) {
     void connectBaileysChannel(c).catch((err: unknown) =>
       console.error(`[baileys:${c.id}] boot reconnect failed:`, err)
@@ -499,9 +517,11 @@ let heartbeat: ReturnType<typeof setInterval> | null = null;
 export function startBaileysHeartbeat(): void {
   if (heartbeat) return;
   heartbeat = setInterval(async () => {
-    const channels = await prisma.channel.findMany({
-      where: { provider: "BAILEYS", status: "CONNECTED" },
-    });
+    const channels = await withSystemContext(async () =>
+      prisma.channel.findMany({
+        where: { provider: "BAILEYS", status: "CONNECTED" },
+      })
+    );
     for (const c of channels) {
       // Renew the session lease; a non-holder stands down entirely (its peer
       // instance owns the socket - reconnecting would 440-conflict both).
@@ -546,7 +566,9 @@ export async function disconnectBaileysChannel(channelId: string): Promise<void>
     sockets.delete(channelId);
   }
   // Destroy the saved creds so reconnect requires a fresh QR scan.
-  await prisma.baileysAuth.delete({ where: { channelId } }).catch(() => undefined);
+  await withSystemContext(async () => {
+    await prisma.baileysAuth.delete({ where: { channelId } }).catch(() => undefined);
+  });
   // Owner ended the session - release the lease immediately.
   await releaseSystemLease(leaseKey(channelId), instanceToken).catch(() => undefined);
 }

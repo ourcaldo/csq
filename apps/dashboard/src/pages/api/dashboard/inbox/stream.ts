@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { requireTenant, respondError, strQuery } from "@csq/core/lib/queries";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 
 // Server-Sent Events stream of new messages for a conversation (plan 7.7).
 // OWNER + STAFF, tenant-scoped. Polls Postgres every few seconds and pushes
@@ -40,58 +41,60 @@ export default async function handler(
   }
   const tenantId = requireTenant(session);
 
-  const conversationId = strQuery(req.query, "conversationId");
-  if (!conversationId) {
-    return respondError(res, "VALIDATION_ERROR", "conversationId diperlukan.");
-  }
-
-  const conversation = await prisma.conversation.findFirst({
-    where: { id: conversationId, tenantId },
-  });
-  if (!conversation) {
-    return respondError(res, "NOT_FOUND", "Percakapan tidak ditemukan.");
-  }
-
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache, no-transform");
-  res.setHeader("Connection", "keep-alive");
-  res.setHeader("X-Accel-Buffering", "no");
-  res.flushHeaders?.();
-
-  let lastSeen = new Date();
-  const sentIds = new Set<string>();
-  let closed = false;
-
-  const poll = setInterval(async () => {
-    if (closed) return;
-    try {
-      const since = new Date(lastSeen.getTime() - CURSOR_OVERLAP_MS);
-      const msgs = await prisma.message.findMany({
-        where: { conversationId, tenantId, createdAt: { gte: since } },
-        orderBy: { createdAt: "asc" },
-        take: 100,
-      });
-      for (const m of msgs) {
-        if (sentIds.has(m.id)) continue;
-        sentIds.add(m.id);
-        if (m.createdAt.getTime() > lastSeen.getTime()) lastSeen = m.createdAt;
-        res.write(`data: ${JSON.stringify(m)}\n\n`);
-      }
-      if (sentIds.size > MAX_TRACKED_IDS) sentIds.clear();
-    } catch {
-      // Swallow transient DB errors; next tick retries.
+  return withTenantContext(tenantId, async () => {
+    const conversationId = strQuery(req.query, "conversationId");
+    if (!conversationId) {
+      return respondError(res, "VALIDATION_ERROR", "conversationId diperlukan.");
     }
-  }, POLL_INTERVAL_MS);
 
-  const heartbeat = setInterval(() => {
-    if (closed) return;
-    res.write(`:heartbeat\n\n`);
-  }, HEARTBEAT_INTERVAL_MS);
+    const conversation = await prisma.conversation.findFirst({
+      where: { id: conversationId, tenantId },
+    });
+    if (!conversation) {
+      return respondError(res, "NOT_FOUND", "Percakapan tidak ditemukan.");
+    }
 
-  req.on("close", () => {
-    closed = true;
-    clearInterval(poll);
-    clearInterval(heartbeat);
-    res.end();
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache, no-transform");
+    res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
+    res.flushHeaders?.();
+
+    let lastSeen = new Date();
+    const sentIds = new Set<string>();
+    let closed = false;
+
+    const poll = setInterval(async () => {
+      if (closed) return;
+      try {
+        const since = new Date(lastSeen.getTime() - CURSOR_OVERLAP_MS);
+        const msgs = await prisma.message.findMany({
+          where: { conversationId, tenantId, createdAt: { gte: since } },
+          orderBy: { createdAt: "asc" },
+          take: 100,
+        });
+        for (const m of msgs) {
+          if (sentIds.has(m.id)) continue;
+          sentIds.add(m.id);
+          if (m.createdAt.getTime() > lastSeen.getTime()) lastSeen = m.createdAt;
+          res.write(`data: ${JSON.stringify(m)}\n\n`);
+        }
+        if (sentIds.size > MAX_TRACKED_IDS) sentIds.clear();
+      } catch {
+        // Swallow transient DB errors; next tick retries.
+      }
+    }, POLL_INTERVAL_MS);
+
+    const heartbeat = setInterval(() => {
+      if (closed) return;
+      res.write(`:heartbeat\n\n`);
+    }, HEARTBEAT_INTERVAL_MS);
+
+    req.on("close", () => {
+      closed = true;
+      clearInterval(poll);
+      clearInterval(heartbeat);
+      res.end();
+    });
   });
 }

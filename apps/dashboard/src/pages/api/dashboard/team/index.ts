@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { paginate, requireTenant, respondError } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import type { ListResult } from "@csq/core/types/dashboard";
@@ -37,37 +38,39 @@ export default async function handler(
   }
   const tenantId = requireTenant(session);
 
-  const { skip, take, page, pageSize } = paginate(req.query);
+  return withTenantContext(tenantId, async () => {
+    const { skip, take, page, pageSize } = paginate(req.query);
 
-  const [rows, total] = await Promise.all([
-    prisma.user.findMany({
-      where: { tenantId },
-      skip,
-      take,
-      orderBy: { createdAt: "asc" },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        canRunCampaigns: true,
-        createdAt: true,
-      },
-    }),
-    prisma.user.count({ where: { tenantId } }),
-  ]);
+    const [rows, total] = await Promise.all([
+      prisma.user.findMany({
+        where: { tenantId },
+        skip,
+        take,
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          canRunCampaigns: true,
+          createdAt: true,
+        },
+      }),
+      prisma.user.count({ where: { tenantId } }),
+    ]);
 
-  const items: UserItem[] = rows.map((u) => ({
-    id: u.id,
-    email: u.email,
-    name: u.name,
-    // Narrow the Prisma UserRole enum to the literal union without `as`.
-    // The ternary branches return string literals, so the result type is
-    // "OWNER" | "STAFF" (string-enum ↔ string-literal comparison is allowed).
-    role: u.role === "OWNER" ? "OWNER" : "STAFF",
-    canRunCampaigns: u.role === "OWNER" ? true : u.canRunCampaigns,
-    createdAt: u.createdAt.toISOString(),
-  }));
+    const items: UserItem[] = rows.map((u) => ({
+      id: u.id,
+      email: u.email,
+      name: u.name,
+      // Narrow the Prisma UserRole enum to the literal union without `as`.
+      // The ternary branches return string literals, so the result type is
+      // "OWNER" | "STAFF" (string-enum ↔ string-literal comparison is allowed).
+      role: u.role === "OWNER" ? "OWNER" : "STAFF",
+      canRunCampaigns: u.role === "OWNER" ? true : u.canRunCampaigns,
+      createdAt: u.createdAt.toISOString(),
+    }));
 
-  return res.status(200).json(apiOk({ items, total, page, pageSize }));
+    return res.status(200).json(apiOk({ items, total, page, pageSize }));
+  });
 }

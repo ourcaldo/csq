@@ -9,6 +9,7 @@ import {
   requireTenant,
   respondError,
 } from "@csq/core/lib/queries";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import { sendHumanReply } from "@csq/core/lib/inbox";
 
@@ -33,67 +34,69 @@ export default async function handler(
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
   const tenantId = requireTenant(session);
 
-  const { id } = req.query;
-  if (typeof id !== "string") {
-    return respondError(res, "VALIDATION_ERROR", "ID percakapan tidak valid.");
-  }
-
-  // Ensure the conversation belongs to this tenant before any work.
-  const conversation = await prisma.conversation.findFirst({
-    where: { id, tenantId },
-  });
-  if (!conversation) {
-    return respondError(res, "NOT_FOUND", "Percakapan tidak ditemukan.");
-  }
-
-  if (req.method === "GET") {
-    const { skip, take, page, pageSize } = paginate(req.query);
-    const where: Prisma.MessageWhereInput = {
-      tenantId,
-      conversationId: id,
-    };
-    const [items, total] = await Promise.all([
-      // Newest last (asc) for chat-panel rendering.
-      prisma.message.findMany({
-        where,
-        skip,
-        take,
-        orderBy: { createdAt: "asc" },
-      }),
-      prisma.message.count({ where }),
-    ]);
-    return res.status(200).json(apiOk({ items, total, page, pageSize }));
-  }
-
-  if (req.method === "POST") {
-    // OWNER + STAFF can send human replies (FR-IC-005).
-    if (!requireRole(session, "OWNER", "STAFF")) {
-      return respondError(
-        res,
-        "PERMISSION_DENIED",
-        "Hanya owner atau staff yang dapat membalas."
-      );
-    }
-    const parsed = sendReplySchema.safeParse(req.body);
-    if (!parsed.success) {
-      return respondError(res, "VALIDATION_ERROR", parsed.error.message);
+  return withTenantContext(tenantId, async () => {
+    const { id } = req.query;
+    if (typeof id !== "string") {
+      return respondError(res, "VALIDATION_ERROR", "ID percakapan tidak valid.");
     }
 
-    try {
-      const message = await sendHumanReply({
-        conversationId: id,
+    // Ensure the conversation belongs to this tenant before any work.
+    const conversation = await prisma.conversation.findFirst({
+      where: { id, tenantId },
+    });
+    if (!conversation) {
+      return respondError(res, "NOT_FOUND", "Percakapan tidak ditemukan.");
+    }
+
+    if (req.method === "GET") {
+      const { skip, take, page, pageSize } = paginate(req.query);
+      const where: Prisma.MessageWhereInput = {
         tenantId,
-        userId: session.user.id,
-        body: parsed.data.body,
-      });
-      return res.status(201).json(apiOk(message));
-    } catch (err) {
-      if (err instanceof HttpError) {
-        return respondError(res, err.code, err.message);
-      }
-      return respondError(res, "INTERNAL_ERROR", "Gagal mengirim balasan.");
+        conversationId: id,
+      };
+      const [items, total] = await Promise.all([
+        // Newest last (asc) for chat-panel rendering.
+        prisma.message.findMany({
+          where,
+          skip,
+          take,
+          orderBy: { createdAt: "asc" },
+        }),
+        prisma.message.count({ where }),
+      ]);
+      return res.status(200).json(apiOk({ items, total, page, pageSize }));
     }
-  }
 
-  return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
+    if (req.method === "POST") {
+      // OWNER + STAFF can send human replies (FR-IC-005).
+      if (!requireRole(session, "OWNER", "STAFF")) {
+        return respondError(
+          res,
+          "PERMISSION_DENIED",
+          "Hanya owner atau staff yang dapat membalas."
+        );
+      }
+      const parsed = sendReplySchema.safeParse(req.body);
+      if (!parsed.success) {
+        return respondError(res, "VALIDATION_ERROR", parsed.error.message);
+      }
+
+      try {
+        const message = await sendHumanReply({
+          conversationId: id,
+          tenantId,
+          userId: session.user.id,
+          body: parsed.data.body,
+        });
+        return res.status(201).json(apiOk(message));
+      } catch (err) {
+        if (err instanceof HttpError) {
+          return respondError(res, err.code, err.message);
+        }
+        return respondError(res, "INTERNAL_ERROR", "Gagal mengirim balasan.");
+      }
+    }
+
+    return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
+  });
 }

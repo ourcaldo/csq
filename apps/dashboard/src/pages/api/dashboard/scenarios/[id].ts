@@ -5,6 +5,7 @@ import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import { requireFeatureApi } from "@csq/core/lib/feature-guard";
 import prisma from "@csq/core/lib/db";
 import { logHuman } from "@csq/core/lib/audit";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import {
@@ -35,100 +36,102 @@ export default async function handler(
   if (!(await requireFeatureApi(session, res, "scenarios"))) return;
   const tenantId = requireTenant(session);
 
-  const { id } = req.query;
-  if (typeof id !== "string") {
-    return respondError(res, "VALIDATION_ERROR", "ID scenario tidak valid.");
-  }
-
-  // Ensure the scenario belongs to this tenant on every method.
-  const existing = await prisma.scenario.findFirst({ where: { id, tenantId } });
-  if (!existing) {
-    return respondError(res, "NOT_FOUND", "Scenario tidak ditemukan.");
-  }
-
-  if (req.method === "GET") {
-    return res.status(200).json(apiOk(existing));
-  }
-
-  if (req.method === "PUT") {
-    // Editing allowed for OWNER + STAFF (staff can build drafts).
-    if (!requireRole(session, "OWNER", "STAFF")) {
-      return respondError(res, "PERMISSION_DENIED", "Tidak ada izin mengubah scenario.");
-    }
-    const parsed = updateSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return respondError(res, "VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Input tidak valid.");
-    }
-    const data = parsed.data;
-
-    // Per-trigger-type required fields must survive the update: either this
-    // update's triggerConfig carries them, or the existing one already does.
-    const effectiveTriggerType = data.triggerType ?? existing.triggerType;
-    const existingCfg = parseExistingConfig(existing.triggerConfig);
-    const effectiveTagName = data.triggerConfig?.tagName ?? existingCfg?.tagName;
-    if (effectiveTriggerType === "ON_TAG_ADDED" && !effectiveTagName) {
-      return respondError(
-        res,
-        "VALIDATION_ERROR",
-        "Trigger ON_TAG_ADDED memerlukan nama tag."
-      );
-    }
-    const effectiveScheduleTime =
-      data.triggerConfig?.scheduleTime ?? existingCfg?.scheduleTime;
-    if (effectiveTriggerType === "ON_SCHEDULE" && !effectiveScheduleTime) {
-      return respondError(
-        res,
-        "VALIDATION_ERROR",
-        "Trigger ON_SCHEDULE memerlukan jam (triggerConfig.scheduleTime, HH:MM)."
-      );
-    }
-    const effectiveNoReply =
-      data.triggerConfig?.noReplyAfterMinutes ?? existingCfg?.noReplyAfterMinutes;
-    if (effectiveTriggerType === "ON_NO_REPLY" && !effectiveNoReply) {
-      return respondError(
-        res,
-        "VALIDATION_ERROR",
-        "Trigger ON_NO_REPLY memerlukan durasi tanpa balasan (triggerConfig.noReplyAfterMinutes)."
-      );
+  return withTenantContext(tenantId, async () => {
+    const { id } = req.query;
+    if (typeof id !== "string") {
+      return respondError(res, "VALIDATION_ERROR", "ID scenario tidak valid.");
     }
 
-    const updated = await prisma.scenario.update({
-      where: { id },
-      data: {
-        ...(data.name !== undefined ? { name: data.name } : {}),
-        ...(data.description !== undefined ? { description: data.description } : {}),
-        ...(data.triggerType !== undefined ? { triggerType: data.triggerType } : {}),
-        ...(data.triggerConfig !== undefined ? { triggerConfig: data.triggerConfig } : {}),
-        ...(data.graph !== undefined ? { graph: data.graph } : {}),
-        version: { increment: 1 },
-      },
-    });
-    await logHuman({
-      tenantId,
-      action: "scenario.update",
-      entityType: "Scenario",
-      entityId: id,
-      afterValue: { name: updated.name },
-    });
-    return res.status(200).json(apiOk(updated));
-  }
-
-  if (req.method === "DELETE") {
-    if (!requireRole(session, "OWNER")) {
-      return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat menghapus scenario.");
+    // Ensure the scenario belongs to this tenant on every method.
+    const existing = await prisma.scenario.findFirst({ where: { id, tenantId } });
+    if (!existing) {
+      return respondError(res, "NOT_FOUND", "Scenario tidak ditemukan.");
     }
-    await prisma.scenario.delete({ where: { id } });
-    await logHuman({
-      tenantId,
-      action: "scenario.delete",
-      entityType: "Scenario",
-      entityId: id,
-      beforeValue: { name: existing.name },
-    });
-    return res.status(200).json(apiOk(existing));
-  }
 
-  return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
+    if (req.method === "GET") {
+      return res.status(200).json(apiOk(existing));
+    }
+
+    if (req.method === "PUT") {
+      // Editing allowed for OWNER + STAFF (staff can build drafts).
+      if (!requireRole(session, "OWNER", "STAFF")) {
+        return respondError(res, "PERMISSION_DENIED", "Tidak ada izin mengubah scenario.");
+      }
+      const parsed = updateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return respondError(res, "VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Input tidak valid.");
+      }
+      const data = parsed.data;
+
+      // Per-trigger-type required fields must survive the update: either this
+      // update's triggerConfig carries them, or the existing one already does.
+      const effectiveTriggerType = data.triggerType ?? existing.triggerType;
+      const existingCfg = parseExistingConfig(existing.triggerConfig);
+      const effectiveTagName = data.triggerConfig?.tagName ?? existingCfg?.tagName;
+      if (effectiveTriggerType === "ON_TAG_ADDED" && !effectiveTagName) {
+        return respondError(
+          res,
+          "VALIDATION_ERROR",
+          "Trigger ON_TAG_ADDED memerlukan nama tag."
+        );
+      }
+      const effectiveScheduleTime =
+        data.triggerConfig?.scheduleTime ?? existingCfg?.scheduleTime;
+      if (effectiveTriggerType === "ON_SCHEDULE" && !effectiveScheduleTime) {
+        return respondError(
+          res,
+          "VALIDATION_ERROR",
+          "Trigger ON_SCHEDULE memerlukan jam (triggerConfig.scheduleTime, HH:MM)."
+        );
+      }
+      const effectiveNoReply =
+        data.triggerConfig?.noReplyAfterMinutes ?? existingCfg?.noReplyAfterMinutes;
+      if (effectiveTriggerType === "ON_NO_REPLY" && !effectiveNoReply) {
+        return respondError(
+          res,
+          "VALIDATION_ERROR",
+          "Trigger ON_NO_REPLY memerlukan durasi tanpa balasan (triggerConfig.noReplyAfterMinutes)."
+        );
+      }
+
+      const updated = await prisma.scenario.update({
+        where: { id },
+        data: {
+          ...(data.name !== undefined ? { name: data.name } : {}),
+          ...(data.description !== undefined ? { description: data.description } : {}),
+          ...(data.triggerType !== undefined ? { triggerType: data.triggerType } : {}),
+          ...(data.triggerConfig !== undefined ? { triggerConfig: data.triggerConfig } : {}),
+          ...(data.graph !== undefined ? { graph: data.graph } : {}),
+          version: { increment: 1 },
+        },
+      });
+      await logHuman({
+        tenantId,
+        action: "scenario.update",
+        entityType: "Scenario",
+        entityId: id,
+        afterValue: { name: updated.name },
+      });
+      return res.status(200).json(apiOk(updated));
+    }
+
+    if (req.method === "DELETE") {
+      if (!requireRole(session, "OWNER")) {
+        return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat menghapus scenario.");
+      }
+      await prisma.scenario.delete({ where: { id } });
+      await logHuman({
+        tenantId,
+        action: "scenario.delete",
+        entityType: "Scenario",
+        entityId: id,
+        beforeValue: { name: existing.name },
+      });
+      return res.status(200).json(apiOk(existing));
+    }
+
+    return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
+  });
 }
 
 // Extract tagName from a stored triggerConfig Json without `as`.

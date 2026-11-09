@@ -1,5 +1,6 @@
 import type { NextApiRequest } from "next";
 import prisma from "@csq/core/lib/db";
+import { withSystemContext } from "@csq/core/lib/tenant-context";
 import { hashApiToken } from "@csq/core/lib/api-tokens";
 import { verifyAccessToken } from "@csq/core/lib/api-jwt";
 
@@ -24,29 +25,46 @@ export function bearerToken(req: NextApiRequest): string | null {
 }
 
 export async function requireApiAuth(req: NextApiRequest): Promise<ApiAuth | null> {
-  const token = bearerToken(req);
-  if (!token) return null;
-  // Hash both sides before comparing - constant-shape comparison, and the
-  // configured list never meets the raw token.
-  const presented = hashApiToken(token);
-  const services = (process.env.API_SERVICE_TOKENS ?? "")
-    .split(",")
-    .map((t) => t.trim())
-    .filter(Boolean)
-    .map((t) => hashApiToken(t));
-  if (services.includes(presented)) return { kind: "SERVICE" };
-  const key = await prisma.apiKey.findUnique({
-    where: { tokenHash: presented },
+  // Key lookup crosses tenants (hashed-token join), so it runs in the bypass
+  // context (PRD 16 SEC-1). A SUSPENDED tenant is locked out of the API
+  // realm entirely (SEC-4): its keys and JWTs stop authenticating.
+  return withSystemContext(async () => {
+    const token = bearerToken(req);
+    if (!token) return null;
+    // Hash both sides before comparing - constant-shape comparison, and the
+    // configured list never meets the raw token.
+    const presented = hashApiToken(token);
+    const services = (process.env.API_SERVICE_TOKENS ?? "")
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean)
+      .map((t) => hashApiToken(t));
+    if (services.includes(presented)) return { kind: "SERVICE" };
+    const key = await prisma.apiKey.findUnique({
+      where: { tokenHash: presented },
+    });
+    if (key && !key.revokedAt) {
+      if (await tenantSuspended(key.tenantId)) return null;
+      void prisma.apiKey
+        .update({ where: { id: key.id }, data: { lastUsedAt: new Date() } })
+        .catch(() => undefined);
+      return { kind: "API_KEY", tenantId: key.tenantId, keyId: key.id };
+    }
+    // Phase 8: the mobile realm - a signed access JWT is a user-scoped
+    // credential carrying its own tenantId.
+    const jwt = await verifyAccessToken(token);
+    if (jwt) {
+      if (await tenantSuspended(jwt.tenantId)) return null;
+      return { kind: "JWT_USER", ...jwt };
+    }
+    return null;
   });
-  if (key && !key.revokedAt) {
-    void prisma.apiKey
-      .update({ where: { id: key.id }, data: { lastUsedAt: new Date() } })
-      .catch(() => undefined);
-    return { kind: "API_KEY", tenantId: key.tenantId, keyId: key.id };
-  }
-  // Phase 8: the mobile realm - a signed access JWT is a user-scoped
-  // credential carrying its own tenantId.
-  const jwt = await verifyAccessToken(token);
-  if (jwt) return { kind: "JWT_USER", ...jwt };
-  return null;
+}
+
+async function tenantSuspended(tenantId: string): Promise<boolean> {
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { status: true },
+  });
+  return tenant?.status === "SUSPENDED";
 }

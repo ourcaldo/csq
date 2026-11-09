@@ -3,6 +3,7 @@ import type { ScenarioRun } from "@prisma/client";
 import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import { requireFeatureApi } from "@csq/core/lib/feature-guard";
 import prisma from "@csq/core/lib/db";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { paginate, requireTenant, respondError } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 
@@ -37,36 +38,38 @@ export default async function handler(
   }
   const tenantId = requireTenant(session);
 
-  const { id } = req.query;
-  if (typeof id !== "string") {
-    return respondError(res, "VALIDATION_ERROR", "ID scenario tidak valid.");
-  }
+  return withTenantContext(tenantId, async () => {
+    const { id } = req.query;
+    if (typeof id !== "string") {
+      return respondError(res, "VALIDATION_ERROR", "ID scenario tidak valid.");
+    }
 
-  // Confirm the scenario belongs to this tenant before listing its runs.
-  const scenario = await prisma.scenario.findFirst({ where: { id, tenantId } });
-  if (!scenario) {
-    return respondError(res, "NOT_FOUND", "Scenario tidak ditemukan.");
-  }
+    // Confirm the scenario belongs to this tenant before listing its runs.
+    const scenario = await prisma.scenario.findFirst({ where: { id, tenantId } });
+    if (!scenario) {
+      return respondError(res, "NOT_FOUND", "Scenario tidak ditemukan.");
+    }
 
-  const { skip, take, page, pageSize } = paginate(req.query);
-  const [items, total] = await Promise.all([
-    prisma.scenarioRun.findMany({
-      where: { scenarioId: id, tenantId },
-      select: {
-        id: true,
-        status: true,
-        currentNodeId: true,
-        resumeAt: true,
-        dedupKey: true,
-        conversationId: true,
-        createdAt: true,
-        updatedAt: true,
-      },
-      skip,
-      take,
-      orderBy: { createdAt: "desc" },
-    }),
-    prisma.scenarioRun.count({ where: { scenarioId: id, tenantId } }),
-  ]);
-  return res.status(200).json(apiOk({ items, total, page, pageSize }));
+    const { skip, take, page, pageSize } = paginate(req.query);
+    const [items, total] = await Promise.all([
+      prisma.scenarioRun.findMany({
+        where: { scenarioId: id, tenantId },
+        select: {
+          id: true,
+          status: true,
+          currentNodeId: true,
+          resumeAt: true,
+          dedupKey: true,
+          conversationId: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+        skip,
+        take,
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.scenarioRun.count({ where: { scenarioId: id, tenantId } }),
+    ]);
+    return res.status(200).json(apiOk({ items, total, page, pageSize }));
+  });
 }

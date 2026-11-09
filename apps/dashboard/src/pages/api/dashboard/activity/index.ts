@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { paginate, requireTenant, respondError } from "@csq/core/lib/queries";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import type { ListResult } from "@csq/core/types/dashboard";
 
@@ -29,21 +30,23 @@ export default async function handler(
   }
   const tenantId = requireTenant(session);
 
-  if (req.method === "GET") {
-    const { skip, take, page, pageSize } = paginate(req.query);
-    const where: Prisma.AuditLogWhereInput = { tenantId };
-    const [items, total] = await Promise.all([
-      prisma.auditLog.findMany({
-        where,
-        skip,
-        take,
-        orderBy: { createdAt: "desc" },
-        include: auditLogInclude,
-      }),
-      prisma.auditLog.count({ where }),
-    ]);
-    return res.status(200).json(apiOk({ items, total, page, pageSize }));
-  }
+  return withTenantContext(tenantId, async () => {
+    if (req.method === "GET") {
+      const { skip, take, page, pageSize } = paginate(req.query);
+      const where: Prisma.AuditLogWhereInput = { tenantId };
+      const [items, total] = await Promise.all([
+        prisma.auditLog.findMany({
+          where,
+          skip,
+          take,
+          orderBy: { createdAt: "desc" },
+          include: auditLogInclude,
+        }),
+        prisma.auditLog.count({ where }),
+      ]);
+      return res.status(200).json(apiOk({ items, total, page, pageSize }));
+    }
 
-  return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
+    return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
+  });
 }

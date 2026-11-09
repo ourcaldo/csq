@@ -3,6 +3,7 @@ import type { Conversation, Message } from "@prisma/client";
 import prisma from "@csq/core/lib/db";
 import { HttpError } from "@csq/core/lib/queries";
 import { logAction } from "@csq/core/lib/audit";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { enqueueOutbound, awaitOutbound } from "@csq/core/lib/outbox";
 import type { InboundMessage, InboundKind } from "@csq/core/types/whatsapp";
 import { events } from "@csq/core/lib/events";
@@ -97,35 +98,40 @@ export type IngestedInbound = {
 export async function ingestInboundMessage(
   msg: InboundMessage
 ): Promise<IngestedInbound> {
-  const { conversation, created } = await findOrCreateConversation(
-    msg.tenantId,
-    msg.channelId,
-    msg.from
-  );
-  const { message, duplicate } = await recordInboundMessage({
-    tenantId: msg.tenantId,
-    conversationId: conversation.id,
-    from: msg.from,
-    body: msg.body,
-    kind: msg.kind,
-    waMessageId: msg.waMessageId,
-    receivedAt: msg.receivedAt,
-    customerName: msg.customerName,
-  });
-
-  // The trigger fires only for a genuinely new message on a genuinely new
-  // conversation - a redelivery must never start a second scenario run.
-  if (created && !duplicate) {
-    events.conversationNew.emit({
+  // RLS context (PRD 16 SEC-1): every write below is msg.tenantId's data.
+  // Called from the webhook (which also holds the context) and from the
+  // Baileys runtime (which does not) - entering it here covers both.
+  return withTenantContext(msg.tenantId, async () => {
+    const { conversation, created } = await findOrCreateConversation(
+      msg.tenantId,
+      msg.channelId,
+      msg.from
+    );
+    const { message, duplicate } = await recordInboundMessage({
       tenantId: msg.tenantId,
       conversationId: conversation.id,
-      channelId: msg.channelId,
-      customerPhone: msg.from,
+      from: msg.from,
+      body: msg.body,
+      kind: msg.kind,
+      waMessageId: msg.waMessageId,
+      receivedAt: msg.receivedAt,
       customerName: msg.customerName,
     });
-  }
 
-  return { message, conversationId: conversation.id, duplicate };
+    // The trigger fires only for a genuinely new message on a genuinely new
+    // conversation - a redelivery must never start a second scenario run.
+    if (created && !duplicate) {
+      events.conversationNew.emit({
+        tenantId: msg.tenantId,
+        conversationId: conversation.id,
+        channelId: msg.channelId,
+        customerPhone: msg.from,
+        customerName: msg.customerName,
+      });
+    }
+
+    return { message, conversationId: conversation.id, duplicate };
+  });
 }
 
 // Persist an inbound customer message. direction=INBOUND, senderType=CUSTOMER.

@@ -4,6 +4,7 @@ import type { Prisma } from "@prisma/client";
 import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 
 // Prisma payload shape for an Agent with its AgentCapability overrides included.
@@ -33,39 +34,41 @@ export default async function handler(
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
   const tenantId = requireTenant(session);
 
-  if (req.method === "GET") {
-    const items = await prisma.agent.findMany({
-      where: { tenantId },
-      include: { capabilities: true },
-      orderBy: { createdAt: "asc" },
-    });
-    return res.status(200).json(apiOk({ items }));
-  }
-
-  if (req.method === "POST") {
-    if (!requireRole(session, "OWNER")) {
-      return respondError(
-        res,
-        "PERMISSION_DENIED",
-        "Hanya owner yang dapat membuat agent."
-      );
+  return withTenantContext(tenantId, async () => {
+    if (req.method === "GET") {
+      const items = await prisma.agent.findMany({
+        where: { tenantId },
+        include: { capabilities: true },
+        orderBy: { createdAt: "asc" },
+      });
+      return res.status(200).json(apiOk({ items }));
     }
-    const parsed = createSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return respondError(res, "VALIDATION_ERROR", parsed.error.message);
-    }
-    const agent = await prisma.agent.create({
-      data: {
-        tenantId,
-        name: parsed.data.name,
-        type: parsed.data.type ?? "CUSTOMER_SERVICE",
-        instructions: parsed.data.instructions ?? null,
-        status: "DRAFT",
-      },
-      include: { capabilities: true },
-    });
-    return res.status(201).json(apiOk(agent));
-  }
 
-  return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
+    if (req.method === "POST") {
+      if (!requireRole(session, "OWNER")) {
+        return respondError(
+          res,
+          "PERMISSION_DENIED",
+          "Hanya owner yang dapat membuat agent."
+        );
+      }
+      const parsed = createSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return respondError(res, "VALIDATION_ERROR", parsed.error.message);
+      }
+      const agent = await prisma.agent.create({
+        data: {
+          tenantId,
+          name: parsed.data.name,
+          type: parsed.data.type ?? "CUSTOMER_SERVICE",
+          instructions: parsed.data.instructions ?? null,
+          status: "DRAFT",
+        },
+        include: { capabilities: true },
+      });
+      return res.status(201).json(apiOk(agent));
+    }
+
+    return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
+  });
 }

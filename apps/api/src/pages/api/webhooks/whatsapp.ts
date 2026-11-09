@@ -1,6 +1,10 @@
 ﻿import type { NextApiRequest, NextApiResponse } from "next";
 import crypto from "crypto";
 import prisma from "@csq/core/lib/db";
+import {
+  withSystemContext,
+  withTenantContext,
+} from "@csq/core/lib/tenant-context";
 import { ingestInboundMessage } from "@csq/core/lib/inbox";
 import { processInboundWithAgent } from "@csq/core/lib/agent-loop";
 import { replyToNonText } from "@csq/core/lib/agent-outbox";
@@ -69,12 +73,15 @@ export default async function handler(
     }
     // Find the CLOUD_API channel whose config.verifyToken matches. JSON path
     // filter keeps this multi-tenant ready (each channel its own token).
-    const channel = await prisma.channel.findFirst({
-      where: {
-        provider: "CLOUD_API",
-        config: { path: ["verifyToken"], equals: verifyToken },
-      },
-    });
+    // Cross-tenant lookup: bypass context (PRD 16 SEC-1).
+    const channel = await withSystemContext(async () =>
+      prisma.channel.findFirst({
+        where: {
+          provider: "CLOUD_API",
+          config: { path: ["verifyToken"], equals: verifyToken },
+        },
+      })
+    );
     if (!channel) {
       res.status(403).send("Forbidden");
       return;
@@ -132,12 +139,15 @@ export default async function handler(
       res.status(400).send("Bad Request");
       return;
     }
-    const channel = await prisma.channel.findFirst({
-      where: {
-        provider: "CLOUD_API",
-        config: { path: ["phoneNumberId"], equals: phoneNumberId },
-      },
-    });
+    // Cross-tenant lookup by phone id: bypass context (PRD 16 SEC-1).
+    const channel = await withSystemContext(async () =>
+      prisma.channel.findFirst({
+        where: {
+          provider: "CLOUD_API",
+          config: { path: ["phoneNumberId"], equals: phoneNumberId },
+        },
+      })
+    );
     if (!channel) {
       // Unknown number - ACK to stop retries, but do nothing.
       recordWebhookDiag({
@@ -204,7 +214,7 @@ export default async function handler(
     // loop. A human-owned conversation makes the loop stand down (FR-AS-003).
     // A redelivery is skipped: no second agent turn, no second reply.
     for (const m of inboundMessages) {
-      void (async () => {
+      void withTenantContext(channel.tenantId, async () => {
         const recorded = await ingestInboundMessage({
           channelId: channel.id,
           tenantId: channel.tenantId,
@@ -234,7 +244,7 @@ export default async function handler(
             );
           });
         }
-      })().catch((err: unknown) => {
+      }).catch((err: unknown) => {
         console.error(
           `[whatsapp-webhook] ingest failed for ${m.waMessageId}:`,
           err

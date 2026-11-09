@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
 import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import { requireFeatureApi } from "@csq/core/lib/feature-guard";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { requireTenant, respondError, strQuery, HttpError } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import { setConversationStage } from "@csq/core/lib/pipeline";
@@ -30,30 +31,33 @@ export default async function handler(
     return respondError(res, "PERMISSION_DENIED", "Hanya owner/staff yang dapat mengubah tahap.");
   }
   const tenantId = requireTenant(session);
-  const conversationId = strQuery(req.query, "conversationId");
-  if (!conversationId) {
-    return respondError(res, "VALIDATION_ERROR", "ID percakapan tidak valid.");
-  }
 
-  const parsed = dealPatchSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return respondError(res, "VALIDATION_ERROR", parsed.error.message);
-  }
-  const { stage, reason } = parsed.data;
-
-  try {
-    const result = await setConversationStage({
-      tenantId,
-      conversationId,
-      stageName: stage,
-      movedByUserId: session.user.id,
-      reason,
-    });
-    return res.status(200).json(apiOk(result));
-  } catch (err) {
-    if (err instanceof HttpError) {
-      return respondError(res, err.code, err.message);
+  return withTenantContext(tenantId, async () => {
+    const conversationId = strQuery(req.query, "conversationId");
+    if (!conversationId) {
+      return respondError(res, "VALIDATION_ERROR", "ID percakapan tidak valid.");
     }
-    return respondError(res, "INTERNAL_ERROR", "Gagal mengubah tahap.");
-  }
+
+    const parsed = dealPatchSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return respondError(res, "VALIDATION_ERROR", parsed.error.message);
+    }
+    const { stage, reason } = parsed.data;
+
+    try {
+      const result = await setConversationStage({
+        tenantId,
+        conversationId,
+        stageName: stage,
+        movedByUserId: session.user.id,
+        reason,
+      });
+      return res.status(200).json(apiOk(result));
+    } catch (err) {
+      if (err instanceof HttpError) {
+        return respondError(res, err.code, err.message);
+      }
+      return respondError(res, "INTERNAL_ERROR", "Gagal mengubah tahap.");
+    }
+  });
 }

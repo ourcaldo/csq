@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import prisma from "@csq/core/lib/db";
+import { withSystemContext } from "@csq/core/lib/tenant-context";
 import { assignRequestId } from "@csq/core/lib/request-id";
 import { hashRefreshToken } from "@csq/core/lib/refresh-tokens";
 import { apiError, apiOk, type ApiResponse } from "@csq/core/types/api";
@@ -22,11 +23,14 @@ export default async function handler(
   if (!parsed.success) {
     return res.status(400).json(apiError("VALIDATION_ERROR", "Payload tidak valid."));
   }
-  await prisma.refreshToken
-    .updateMany({
-      where: { tokenHash: hashRefreshToken(parsed.data.refreshToken), revokedAt: null },
-      data: { revokedAt: new Date() },
-    })
-    .catch(() => undefined);
+  // Hash lookup crosses tenants: bypass context (PRD 16 SEC-1).
+  await withSystemContext(async () => {
+    await prisma.refreshToken
+      .updateMany({
+        where: { tokenHash: hashRefreshToken(parsed.data.refreshToken), revokedAt: null },
+        data: { revokedAt: new Date() },
+      })
+      .catch(() => undefined);
+  });
   return res.status(200).json(apiOk({ revoked: true }));
 }

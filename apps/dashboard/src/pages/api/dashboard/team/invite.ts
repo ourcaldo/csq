@@ -5,6 +5,7 @@ import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import { getTenantEntitlements } from "@csq/core/lib/entitlements";
 import prisma from "@csq/core/lib/db";
 import { hashPassword } from "@csq/core/lib/password";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 
@@ -51,50 +52,52 @@ export default async function handler(
   }
   const tenantId = requireTenant(session);
 
-  const parsed = inviteSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return respondError(res, "VALIDATION_ERROR", parsed.error.message);
-  }
-
-  const email = parsed.data.email.toLowerCase();
-  const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) {
-    return respondError(res, "VALIDATION_ERROR", "Email sudah terdaftar.");
-  }
-
-  // Plan staff seats (PRD 13). Owner is not a seat; only STAFF users count.
-  const entitlements = await getTenantEntitlements(tenantId);
-  if (entitlements.staffLimit !== null) {
-    const staff = await prisma.user.count({ where: { tenantId, role: "STAFF" } });
-    if (staff >= entitlements.staffLimit) {
-      return respondError(
-        res,
-        "PERMISSION_DENIED",
-        `Paket ${entitlements.planName ?? "tenant"} hanya mendukung ${entitlements.staffLimit} staf.`
-      );
+  return withTenantContext(tenantId, async () => {
+    const parsed = inviteSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return respondError(res, "VALIDATION_ERROR", parsed.error.message);
     }
-  }
 
-  const tempPassword = parsed.data.password ?? generateTempPassword();
-  const passwordHash = await hashPassword(tempPassword);
+    const email = parsed.data.email.toLowerCase();
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      return respondError(res, "VALIDATION_ERROR", "Email sudah terdaftar.");
+    }
 
-  const user = await prisma.user.create({
-    data: {
-      email,
-      name: parsed.data.name,
-      passwordHash,
-      role: "STAFF",
-      tenantId,
-    },
+    // Plan staff seats (PRD 13). Owner is not a seat; only STAFF users count.
+    const entitlements = await getTenantEntitlements(tenantId);
+    if (entitlements.staffLimit !== null) {
+      const staff = await prisma.user.count({ where: { tenantId, role: "STAFF" } });
+      if (staff >= entitlements.staffLimit) {
+        return respondError(
+          res,
+          "PERMISSION_DENIED",
+          `Paket ${entitlements.planName ?? "tenant"} hanya mendukung ${entitlements.staffLimit} staf.`
+        );
+      }
+    }
+
+    const tempPassword = parsed.data.password ?? generateTempPassword();
+    const passwordHash = await hashPassword(tempPassword);
+
+    const user = await prisma.user.create({
+      data: {
+        email,
+        name: parsed.data.name,
+        passwordHash,
+        role: "STAFF",
+        tenantId,
+      },
+    });
+
+    return res.status(201).json(
+      apiOk({
+        userId: user.id,
+        email: user.email,
+        name: user.name ?? parsed.data.name,
+        role: "STAFF",
+        tempPassword,
+      })
+    );
   });
-
-  return res.status(201).json(
-    apiOk({
-      userId: user.id,
-      email: user.email,
-      name: user.name ?? parsed.data.name,
-      role: "STAFF",
-      tempPassword,
-    })
-  );
 }

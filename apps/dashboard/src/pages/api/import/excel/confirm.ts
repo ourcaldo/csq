@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getAuthSession } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { parseFile, applyMappingWithStats } from "@csq/core/services/excel";
 import { excelConfirmSchema } from "@csq/core/types/import";
 import { apiError, apiOk, type ApiResponse } from "@csq/core/types/api";
@@ -39,40 +40,43 @@ export default async function handler(
     return res.status(400).json(apiError("VALIDATION_ERROR", "Mapping kolom diperlukan untuk tipe data produk."));
   }
   const tenantId = session.user.tenantId;
-  const { rows } = await parseFile(Buffer.from(base64, "base64"), filename);
-  const { products, skipped } = isProduct && mapping ? applyMappingWithStats(rows, mapping) : { products: [], skipped: 0 };
 
-  const dataSource = await prisma.dataSource.create({
-    data: {
-      tenantId,
-      type: "EXCEL",
-      name: filename,
-      dataType,
-      config: { filename, mapping: mapping ?? null, dataType },
-      status: "ACTIVE",
-      lastSyncAt: new Date(),
-    },
-  });
+  return withTenantContext(tenantId, async () => {
+    const { rows } = await parseFile(Buffer.from(base64, "base64"), filename);
+    const { products, skipped } = isProduct && mapping ? applyMappingWithStats(rows, mapping) : { products: [], skipped: 0 };
 
-  let imported = 0;
-  if (isProduct) {
-    // C2: route through applyImport so Excel writes InventorySnapshot + uses
-    // source-priority resolution (G8), matching the Sheets path. The import is
-    // atomic; skipped counts Zod-rejected rows (here) + batch dedup (inside).
-    const summary = await applyImport(tenantId, products, "EXCEL", filename);
-    imported = summary.created + summary.updated;
-    // Surface skipped rows in the server log so the owner can diagnose drops
-    // even though the response shape carries only the imported count.
-    if (skipped > 0 || (summary.skipped ?? 0) > 0) {
-      console.info(`[excel import] ${filename}: imported=${imported}, zod-skipped=${skipped}, dedup-skipped=${summary.skipped ?? 0}, errors=${summary.errors.length}`);
+    const dataSource = await prisma.dataSource.create({
+      data: {
+        tenantId,
+        type: "EXCEL",
+        name: filename,
+        dataType,
+        config: { filename, mapping: mapping ?? null, dataType },
+        status: "ACTIVE",
+        lastSyncAt: new Date(),
+      },
+    });
+
+    let imported = 0;
+    if (isProduct) {
+      // C2: route through applyImport so Excel writes InventorySnapshot + uses
+      // source-priority resolution (G8), matching the Sheets path. The import is
+      // atomic; skipped counts Zod-rejected rows (here) + batch dedup (inside).
+      const summary = await applyImport(tenantId, products, "EXCEL", filename);
+      imported = summary.created + summary.updated;
+      // Surface skipped rows in the server log so the owner can diagnose drops
+      // even though the response shape carries only the imported count.
+      if (skipped > 0 || (summary.skipped ?? 0) > 0) {
+        console.info(`[excel import] ${filename}: imported=${imported}, zod-skipped=${skipped}, dedup-skipped=${summary.skipped ?? 0}, errors=${summary.errors.length}`);
+      }
+    } else {
+      imported = rows.length;
     }
-  } else {
-    imported = rows.length;
-  }
 
-  // Persist the full parsed rows (all columns) so source.search can read
-  // inside the uploaded file - not just the five mapped product fields.
-  await replaceSourceRows(tenantId, dataSource.id, rows);
+    // Persist the full parsed rows (all columns) so source.search can read
+    // inside the uploaded file - not just the five mapped product fields.
+    await replaceSourceRows(tenantId, dataSource.id, rows);
 
-  return res.status(201).json(apiOk({ imported, dataSourceId: dataSource.id }));
+    return res.status(201).json(apiOk({ imported, dataSourceId: dataSource.id }));
+  });
 }

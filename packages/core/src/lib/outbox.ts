@@ -2,6 +2,10 @@ import prisma from "@csq/core/lib/db";
 import type { Channel, OutboundMessage, OutboundSource } from "@prisma/client";
 import { getProvider } from "@csq/core/lib/whatsapp-provider";
 import { withSystemLock } from "@csq/core/lib/system-lock";
+import {
+  withSystemContext,
+  withTenantContext,
+} from "@csq/core/lib/tenant-context";
 
 // Outbound send queue (PRD 23C Phase 6). Web processes (the dashboard) no
 // longer hold WhatsApp sockets, so every send a dashboard route initiates
@@ -75,49 +79,53 @@ export async function awaitOutbound(
 // system lock keeps a second worker boot from double-draining.
 export async function drainOutbox(): Promise<void> {
   await withSystemLock("outbox-drain", 60, async () => {
-    const rows: OutboundMessage[] = await prisma.outboundMessage.findMany({
-      where: { status: "QUEUED" },
-      orderBy: { createdAt: "asc" },
-      take: 20,
-    });
+    const rows: OutboundMessage[] = await withSystemContext(async () =>
+      prisma.outboundMessage.findMany({
+        where: { status: "QUEUED" },
+        orderBy: { createdAt: "asc" },
+        take: 20,
+      })
+    );
     for (const row of rows) {
-      await prisma.outboundMessage.update({
-        where: { id: row.id },
-        data: { status: "SENDING" },
-      });
-      try {
-        const channel: Channel | null = await prisma.channel.findUnique({
-          where: { id: row.channelId },
-        });
-        if (!channel || channel.status !== "CONNECTED") {
-          throw new Error("Channel tidak terhubung.");
-        }
-        const provider = getProvider(channel);
-        const result = row.templateName
-          ? await provider.sendTemplate({
-              to: row.toJid,
-              templateName: row.templateName,
-              languageCode: row.language ?? "id",
-            })
-          : await provider.sendText({ to: row.toJid, body: row.body ?? "" });
+      await withTenantContext(row.tenantId, async () => {
         await prisma.outboundMessage.update({
           where: { id: row.id },
-          data: {
-            status: "SENT",
-            waMessageId: result.waMessageId ?? null,
-            sentAt: new Date(),
-            error: null,
-          },
+          data: { status: "SENDING" },
         });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Gagal mengirim.";
-        await prisma.outboundMessage
-          .update({
+        try {
+          const channel: Channel | null = await prisma.channel.findUnique({
+            where: { id: row.channelId },
+          });
+          if (!channel || channel.status !== "CONNECTED") {
+            throw new Error("Channel tidak terhubung.");
+          }
+          const provider = getProvider(channel);
+          const result = row.templateName
+            ? await provider.sendTemplate({
+                to: row.toJid,
+                templateName: row.templateName,
+                languageCode: row.language ?? "id",
+              })
+            : await provider.sendText({ to: row.toJid, body: row.body ?? "" });
+          await prisma.outboundMessage.update({
             where: { id: row.id },
-            data: { status: "FAILED", error: message.slice(0, 500) },
-          })
-          .catch(() => undefined);
-      }
+            data: {
+              status: "SENT",
+              waMessageId: result.waMessageId ?? null,
+              sentAt: new Date(),
+              error: null,
+            },
+          });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Gagal mengirim.";
+          await prisma.outboundMessage
+            .update({
+              where: { id: row.id },
+              data: { status: "FAILED", error: message.slice(0, 500) },
+            })
+            .catch(() => undefined);
+        }
+      });
     }
   });
 }

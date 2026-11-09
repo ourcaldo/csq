@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { requireTenant, respondError, strQuery } from "@csq/core/lib/queries";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 
 // Pause an agent: set status PAUSED so the agent loop stands down for its
@@ -24,17 +25,19 @@ export default async function handler(
   }
   const tenantId = requireTenant(session);
 
-  const id = strQuery(req.query, "id");
-  if (!id) return respondError(res, "VALIDATION_ERROR", "ID agent tidak valid.");
+  return withTenantContext(tenantId, async () => {
+    const id = strQuery(req.query, "id");
+    if (!id) return respondError(res, "VALIDATION_ERROR", "ID agent tidak valid.");
 
-  const agent = await prisma.agent.findFirst({ where: { id, tenantId } });
-  if (!agent) return respondError(res, "NOT_FOUND", "Agent tidak ditemukan.");
+    const agent = await prisma.agent.findFirst({ where: { id, tenantId } });
+    if (!agent) return respondError(res, "NOT_FOUND", "Agent tidak ditemukan.");
 
-  const updated = await prisma.agent.update({
-    where: { id: agent.id },
-    data: { status: "PAUSED" },
-    select: { id: true, status: true },
+    const updated = await prisma.agent.update({
+      where: { id: agent.id },
+      data: { status: "PAUSED" },
+      select: { id: true, status: true },
+    });
+
+    return res.status(200).json(apiOk(updated));
   });
-
-  return res.status(200).json(apiOk(updated));
 }

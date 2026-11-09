@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getAuthSession } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 
@@ -24,15 +25,17 @@ export default async function handler(
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
   const tenantId = requireTenant(session);
 
-  const tenant = await prisma.tenant.findUnique({
-    where: { id: tenantId },
-    select: {
-      id: true,
-      name: true,
-      slug: true,
-    },
-  });
-  if (!tenant) return respondError(res, "NOT_FOUND", "Tenant tidak ditemukan.");
+  return withTenantContext(tenantId, async () => {
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+      },
+    });
+    if (!tenant) return respondError(res, "NOT_FOUND", "Tenant tidak ditemukan.");
 
-  return res.status(200).json(apiOk(tenant));
+    return res.status(200).json(apiOk(tenant));
+  });
 }

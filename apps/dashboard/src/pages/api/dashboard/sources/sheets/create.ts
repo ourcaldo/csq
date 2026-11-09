@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import { getGoogleCreds } from "@csq/core/lib/google-connect";
 import prisma from "@csq/core/lib/db";
@@ -26,24 +27,26 @@ export default async function handler(
   }
   const tenantId = requireTenant(session);
 
-  const creds = await getGoogleCreds(tenantId);
-  if (!creds) {
-    return respondError(res, "VALIDATION_ERROR", "Akun Google belum terhubung. Sambungkan dulu.");
-  }
+  return withTenantContext(tenantId, async () => {
+    const creds = await getGoogleCreds(tenantId);
+    if (!creds) {
+      return respondError(res, "VALIDATION_ERROR", "Akun Google belum terhubung. Sambungkan dulu.");
+    }
 
-  const source = await prisma.dataSource.create({
-    data: {
-      tenantId,
-      type: "GOOGLE_SHEETS",
-      name: "Google Sheets",
-      config: {
-        spreadsheetId: "",
-        sheetName: "",
-        mapping: { name: null, price: null, quantity: null },
+    const source = await prisma.dataSource.create({
+      data: {
+        tenantId,
+        type: "GOOGLE_SHEETS",
+        name: "Google Sheets",
+        config: {
+          spreadsheetId: "",
+          sheetName: "",
+          mapping: { name: null, price: null, quantity: null },
+        },
+        status: "INACTIVE",
       },
-      status: "INACTIVE",
-    },
-  });
+    });
 
-  return res.status(201).json(apiOk({ id: source.id }));
+    return res.status(201).json(apiOk({ id: source.id }));
+  });
 }

@@ -4,6 +4,7 @@ import { getAuthSession } from "@csq/core/lib/auth";
 import { requireFeatureApi } from "@csq/core/lib/feature-guard";
 import prisma from "@csq/core/lib/db";
 import { requireTenant, respondError, paginate } from "@csq/core/lib/queries";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import type { CampaignMessageRow, CampaignRunRow } from "@csq/core/types/campaign";
 
@@ -36,64 +37,66 @@ export default async function handler(
   if (!(await requireFeatureApi(session, res, "campaigns"))) return;
   const tenantId = requireTenant(session);
 
-  const { id } = req.query;
-  const runId = typeof req.query.runId === "string" ? req.query.runId : undefined;
-  if (typeof id !== "string") {
-    return respondError(res, "VALIDATION_ERROR", "ID kampanye tidak valid.");
-  }
+  return withTenantContext(tenantId, async () => {
+    const { id } = req.query;
+    const runId = typeof req.query.runId === "string" ? req.query.runId : undefined;
+    if (typeof id !== "string") {
+      return respondError(res, "VALIDATION_ERROR", "ID kampanye tidak valid.");
+    }
 
-  const campaign = await prisma.campaign.findFirst({ where: { id, tenantId } });
-  if (!campaign) return respondError(res, "NOT_FOUND", "Kampanye tidak ditemukan.");
+    const campaign = await prisma.campaign.findFirst({ where: { id, tenantId } });
+    if (!campaign) return respondError(res, "NOT_FOUND", "Kampanye tidak ditemukan.");
 
-  if (req.method !== "GET") {
-    return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
-  }
+    if (req.method !== "GET") {
+      return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
+    }
 
-  if (runId) {
-    const { skip, take } = paginate(req.query);
-    const run = await prisma.campaignRun.findFirst({
-      where: { id: runId, campaignId: campaign.id, tenantId },
-    });
-    if (!run) return respondError(res, "NOT_FOUND", "Riwayat kirim tidak ditemukan.");
-    const messages = await prisma.campaignMessage.findMany({
-      where: { runId: run.id },
-      orderBy: { scheduledFor: "asc" },
-      skip,
-      take,
+    if (runId) {
+      const { skip, take } = paginate(req.query);
+      const run = await prisma.campaignRun.findFirst({
+        where: { id: runId, campaignId: campaign.id, tenantId },
+      });
+      if (!run) return respondError(res, "NOT_FOUND", "Riwayat kirim tidak ditemukan.");
+      const messages = await prisma.campaignMessage.findMany({
+        where: { runId: run.id },
+        orderBy: { scheduledFor: "asc" },
+        skip,
+        take,
+      });
+      return res.status(200).json(
+        apiOk({
+          run: {
+            id: run.id,
+            startedAt: run.startedAt.toISOString(),
+            finishedAt: run.finishedAt?.toISOString() ?? null,
+            counts: parseCounts(run.counts),
+            messages: messages.map((m) => ({
+              id: m.id,
+              phone: m.phone,
+              status: m.status === "SENT" ? "SENT" : m.status === "FAILED" ? "FAILED" : m.status === "SKIPPED" ? "SKIPPED" : "PENDING",
+              scheduledFor: m.scheduledFor.toISOString(),
+              sentAt: m.sentAt?.toISOString() ?? null,
+              reason: m.reason,
+            })),
+          },
+        })
+      );
+    }
+
+    const runs = await prisma.campaignRun.findMany({
+      where: { campaignId: campaign.id, tenantId },
+      orderBy: { startedAt: "desc" },
+      take: 50,
     });
     return res.status(200).json(
       apiOk({
-        run: {
-          id: run.id,
-          startedAt: run.startedAt.toISOString(),
-          finishedAt: run.finishedAt?.toISOString() ?? null,
-          counts: parseCounts(run.counts),
-          messages: messages.map((m) => ({
-            id: m.id,
-            phone: m.phone,
-            status: m.status === "SENT" ? "SENT" : m.status === "FAILED" ? "FAILED" : m.status === "SKIPPED" ? "SKIPPED" : "PENDING",
-            scheduledFor: m.scheduledFor.toISOString(),
-            sentAt: m.sentAt?.toISOString() ?? null,
-            reason: m.reason,
-          })),
-        },
+        runs: runs.map((r) => ({
+          id: r.id,
+          startedAt: r.startedAt.toISOString(),
+          finishedAt: r.finishedAt?.toISOString() ?? null,
+          counts: parseCounts(r.counts),
+        })),
       })
     );
-  }
-
-  const runs = await prisma.campaignRun.findMany({
-    where: { campaignId: campaign.id, tenantId },
-    orderBy: { startedAt: "desc" },
-    take: 50,
   });
-  return res.status(200).json(
-    apiOk({
-      runs: runs.map((r) => ({
-        id: r.id,
-        startedAt: r.startedAt.toISOString(),
-        finishedAt: r.finishedAt?.toISOString() ?? null,
-        counts: parseCounts(r.counts),
-      })),
-    })
-  );
 }

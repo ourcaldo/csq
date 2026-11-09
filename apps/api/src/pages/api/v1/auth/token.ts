@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import prisma from "@csq/core/lib/db";
+import { withSystemContext } from "@csq/core/lib/tenant-context";
 import { hashPassword, verifyPassword } from "@csq/core/lib/password";
 import { assignRequestId } from "@csq/core/lib/request-id";
 import { checkRateLimit } from "@csq/core/lib/rate-limit";
@@ -39,51 +40,66 @@ export default async function handler(
     return res.status(400).json(apiError("VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Payload tidak valid."));
   }
 
-  const user = await prisma.user.findUnique({ where: { email: parsed.data.email } });
-  // Unknown email still burns a bcrypt round - the response time must not
-  // reveal whether the account exists.
-  const passwordOk = await verifyPassword(
-    parsed.data.password,
-    user?.passwordHash ?? (await hashPassword(parsed.data.password))
-  );
-  if (!user || !passwordOk) {
-    return res.status(401).json(apiError("UNAUTHORIZED", "Email atau password salah."));
-  }
-  if (!user.tenantId) {
-    return res.status(403).json(apiError("PERMISSION_DENIED", "Akun tidak terhubung ke tenant."));
-  }
+  // The email lookup happens before the tenant is known: bypass context
+  // (PRD 16 SEC-1).
+  return withSystemContext(async () => {
+    const user = await prisma.user.findUnique({ where: { email: parsed.data.email } });
+    // Unknown email still burns a bcrypt round - the response time must not
+    // reveal whether the account exists.
+    const passwordOk = await verifyPassword(
+      parsed.data.password,
+      user?.passwordHash ?? (await hashPassword(parsed.data.password))
+    );
+    if (!user || !passwordOk) {
+      return res.status(401).json(apiError("UNAUTHORIZED", "Email atau password salah."));
+    }
+    if (!user.tenantId) {
+      return res.status(403).json(apiError("PERMISSION_DENIED", "Akun tidak terhubung ke tenant."));
+    }
+    // SEC-4 (PRD 16): a suspended tenant is locked out of the token realm
+    // with a distinct code.
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: user.tenantId },
+      select: { status: true },
+    });
+    if (tenant?.status === "SUSPENDED") {
+      return res
+        .status(403)
+        .json(apiError("TENANT_SUSPENDED", "Tenant dinonaktifkan. Hubungi operator."));
+    }
 
-  const accessToken = await signAccessToken({
-    userId: user.id,
-    tenantId: user.tenantId,
-    role: user.role,
-  });
-  const refresh = generateRefreshToken();
-  await prisma.refreshToken.create({
-    data: {
-      tenantId: user.tenantId,
+    const accessToken = await signAccessToken({
       userId: user.id,
-      tokenHash: refresh.hash,
-      expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
-    },
-  });
-  await logAction({
-    tenantId: user.tenantId,
-    agentId: null,
-    action: "user.api_token_issued",
-    entityType: "User",
-    entityId: user.id,
-    approvalStatus: "NONE",
-    customerPhone: undefined,
-    afterValue: { email: user.email },
-  });
+      tenantId: user.tenantId,
+      role: user.role,
+    });
+    const refresh = generateRefreshToken();
+    await prisma.refreshToken.create({
+      data: {
+        tenantId: user.tenantId,
+        userId: user.id,
+        tokenHash: refresh.hash,
+        expiresAt: new Date(Date.now() + REFRESH_TOKEN_TTL_MS),
+      },
+    });
+    await logAction({
+      tenantId: user.tenantId,
+      agentId: null,
+      action: "user.api_token_issued",
+      entityType: "User",
+      entityId: user.id,
+      approvalStatus: "NONE",
+      customerPhone: undefined,
+      afterValue: { email: user.email },
+    });
 
-  return res.status(200).json(
-    apiOk({
-      accessToken,
-      refreshToken: refresh.token,
-      tokenType: "Bearer",
-      expiresIn: ACCESS_TOKEN_TTL_SECONDS,
-    })
-  );
+    return res.status(200).json(
+      apiOk({
+        accessToken,
+        refreshToken: refresh.token,
+        tokenType: "Bearer",
+        expiresIn: ACCESS_TOKEN_TTL_SECONDS,
+      })
+    );
+  });
 }

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { requireTenant, respondError, strQuery } from "@csq/core/lib/queries";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import { events } from "@csq/core/lib/events";
 
@@ -18,77 +19,79 @@ export default async function handler(
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
   const tenantId = requireTenant(session);
 
-  const { id } = req.query;
-  if (typeof id !== "string") {
-    return respondError(res, "VALIDATION_ERROR", "ID percakapan tidak valid.");
-  }
+  return withTenantContext(tenantId, async () => {
+    const { id } = req.query;
+    if (typeof id !== "string") {
+      return respondError(res, "VALIDATION_ERROR", "ID percakapan tidak valid.");
+    }
 
-  // OWNER + STAFF manage tags on a conversation (FR-IC-005).
-  if (!requireRole(session, "OWNER", "STAFF")) {
-    return respondError(
-      res,
-      "PERMISSION_DENIED",
-      "Hanya owner atau staff yang dapat mengelola tag."
-    );
-  }
+    // OWNER + STAFF manage tags on a conversation (FR-IC-005).
+    if (!requireRole(session, "OWNER", "STAFF")) {
+      return respondError(
+        res,
+        "PERMISSION_DENIED",
+        "Hanya owner atau staff yang dapat mengelola tag."
+      );
+    }
 
-  // Ensure the conversation belongs to this tenant.
-  const conversation = await prisma.conversation.findFirst({
-    where: { id, tenantId },
+    // Ensure the conversation belongs to this tenant.
+    const conversation = await prisma.conversation.findFirst({
+      where: { id, tenantId },
+    });
+    if (!conversation) {
+      return respondError(res, "NOT_FOUND", "Percakapan tidak ditemukan.");
+    }
+
+    if (req.method === "POST") {
+      const parsed = addTagSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return respondError(res, "VALIDATION_ERROR", parsed.error.message);
+      }
+      // Tag must belong to the same tenant.
+      const tag = await prisma.tag.findFirst({
+        where: { id: parsed.data.tagId, tenantId },
+      });
+      if (!tag) {
+        return respondError(res, "NOT_FOUND", "Tag tidak ditemukan.");
+      }
+      // Upsert handles the @@unique([conversationId, tagId]) - idempotent re-add.
+      const ct = await prisma.conversationTag.upsert({
+        where: {
+          conversationId_tagId: { conversationId: id, tagId: parsed.data.tagId },
+        },
+        update: {},
+        create: { tenantId, conversationId: id, tagId: parsed.data.tagId },
+      });
+
+      // Emit `conversation.tagged` so active ON_TAG_ADDED scenarios whose
+      // triggerConfig.tagName matches can start a run. Fire-and-forget; only
+      // fired from this manual staff path (the scenario Tag node does NOT emit,
+      // preventing scenario→tag→scenario loops).
+      events.conversationTagged.emit({
+        tenantId,
+        conversationId: id,
+        tagName: tag.name,
+        tagId: tag.id,
+      });
+
+      return res.status(201).json(apiOk(ct));
+    }
+
+    if (req.method === "DELETE") {
+      const tagId = strQuery(req.query, "tagId");
+      if (!tagId) {
+        return respondError(res, "VALIDATION_ERROR", "tagId diperlukan.");
+      }
+      const existing = await prisma.conversationTag.findFirst({
+        where: { conversationId: id, tagId },
+      });
+      if (!existing) {
+        return respondError(res, "NOT_FOUND", "Tag tidak terpasang pada percakapan ini.");
+      }
+      await prisma.conversationTag.delete({ where: { id: existing.id } });
+      return res.status(200).json(apiOk({ removed: true }));
+    }
+
+    return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
   });
-  if (!conversation) {
-    return respondError(res, "NOT_FOUND", "Percakapan tidak ditemukan.");
-  }
-
-  if (req.method === "POST") {
-    const parsed = addTagSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return respondError(res, "VALIDATION_ERROR", parsed.error.message);
-    }
-    // Tag must belong to the same tenant.
-    const tag = await prisma.tag.findFirst({
-      where: { id: parsed.data.tagId, tenantId },
-    });
-    if (!tag) {
-      return respondError(res, "NOT_FOUND", "Tag tidak ditemukan.");
-    }
-    // Upsert handles the @@unique([conversationId, tagId]) - idempotent re-add.
-    const ct = await prisma.conversationTag.upsert({
-      where: {
-        conversationId_tagId: { conversationId: id, tagId: parsed.data.tagId },
-      },
-      update: {},
-      create: { tenantId, conversationId: id, tagId: parsed.data.tagId },
-    });
-
-    // Emit `conversation.tagged` so active ON_TAG_ADDED scenarios whose
-    // triggerConfig.tagName matches can start a run. Fire-and-forget; only
-    // fired from this manual staff path (the scenario Tag node does NOT emit,
-    // preventing scenario→tag→scenario loops).
-    events.conversationTagged.emit({
-      tenantId,
-      conversationId: id,
-      tagName: tag.name,
-      tagId: tag.id,
-    });
-
-    return res.status(201).json(apiOk(ct));
-  }
-
-  if (req.method === "DELETE") {
-    const tagId = strQuery(req.query, "tagId");
-    if (!tagId) {
-      return respondError(res, "VALIDATION_ERROR", "tagId diperlukan.");
-    }
-    const existing = await prisma.conversationTag.findFirst({
-      where: { conversationId: id, tagId },
-    });
-    if (!existing) {
-      return respondError(res, "NOT_FOUND", "Tag tidak terpasang pada percakapan ini.");
-    }
-    await prisma.conversationTag.delete({ where: { id: existing.id } });
-    return res.status(200).json(apiOk({ removed: true }));
-  }
-
-  return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
 }

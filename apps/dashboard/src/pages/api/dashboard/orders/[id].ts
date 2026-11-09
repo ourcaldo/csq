@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { logHuman } from "@csq/core/lib/audit";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import { orderStatusUpdateSchema } from "@csq/core/types/order";
@@ -17,45 +18,47 @@ export default async function handler(
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
   const tenantId = requireTenant(session);
 
-  const { id } = req.query;
-  if (typeof id !== "string") {
-    return respondError(res, "VALIDATION_ERROR", "ID pesanan tidak valid.");
-  }
-
-  if (req.method === "GET") {
-    const order = await prisma.order.findFirst({
-      where: { id, tenantId },
-      include: { items: true },
-    });
-    if (!order) return respondError(res, "NOT_FOUND", "Pesanan tidak ditemukan.");
-    return res.status(200).json(apiOk(order));
-  }
-
-  if (req.method === "PUT") {
-    if (!requireRole(session, "OWNER")) {
-      return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengubah status pesanan.");
+  return withTenantContext(tenantId, async () => {
+    const { id } = req.query;
+    if (typeof id !== "string") {
+      return respondError(res, "VALIDATION_ERROR", "ID pesanan tidak valid.");
     }
-    const parsed = orderStatusUpdateSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return respondError(res, "VALIDATION_ERROR", parsed.error.message);
-    }
-    const existing = await prisma.order.findFirst({ where: { id, tenantId } });
-    if (!existing) return respondError(res, "NOT_FOUND", "Pesanan tidak ditemukan.");
-    const order = await prisma.order.update({
-      where: { id },
-      data: { status: parsed.data.status },
-      include: { items: true },
-    });
-    await logHuman({
-      tenantId,
-      action: "order.update_status",
-      entityType: "Order",
-      entityId: id,
-      beforeValue: existing,
-      afterValue: order,
-    });
-    return res.status(200).json(apiOk(order));
-  }
 
-  return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
+    if (req.method === "GET") {
+      const order = await prisma.order.findFirst({
+        where: { id, tenantId },
+        include: { items: true },
+      });
+      if (!order) return respondError(res, "NOT_FOUND", "Pesanan tidak ditemukan.");
+      return res.status(200).json(apiOk(order));
+    }
+
+    if (req.method === "PUT") {
+      if (!requireRole(session, "OWNER")) {
+        return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengubah status pesanan.");
+      }
+      const parsed = orderStatusUpdateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return respondError(res, "VALIDATION_ERROR", parsed.error.message);
+      }
+      const existing = await prisma.order.findFirst({ where: { id, tenantId } });
+      if (!existing) return respondError(res, "NOT_FOUND", "Pesanan tidak ditemukan.");
+      const order = await prisma.order.update({
+        where: { id },
+        data: { status: parsed.data.status },
+        include: { items: true },
+      });
+      await logHuman({
+        tenantId,
+        action: "order.update_status",
+        entityType: "Order",
+        entityId: id,
+        beforeValue: existing,
+        afterValue: order,
+      });
+      return res.status(200).json(apiOk(order));
+    }
+
+    return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
+  });
 }

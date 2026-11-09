@@ -1,5 +1,10 @@
 import type { Campaign, MediaAsset } from "@prisma/client";
 import prisma from "@csq/core/lib/db";
+import {
+  withSystemContext,
+  withTenantContext,
+} from "@csq/core/lib/tenant-context";
+import { tenantActive } from "@csq/core/lib/tenant-status";
 import { findOrCreateConversation, CLOUD_API_WINDOW_MS } from "@csq/core/lib/inbox";
 import { getProvider } from "@csq/core/lib/whatsapp-provider";
 import { logAction } from "@csq/core/lib/audit";
@@ -19,9 +24,11 @@ import {
 // Concurrency: the system lock serializes ticks across instances. The lock TTL
 // (300s) is deliberately far above a tick's worst case (SEND_PER_TICK sends,
 // each a bounded provider call), so no second instance can start while a tick
-// is in flight. Trade-off, documented: a process crash between the provider
-// send and the row update can re-send one message after the lock expires -
-// one duplicate bubble in a rare crash, never a double blast.
+// is in flight. COR-1 (PRD 16): each row is claimed atomically
+// (PENDING -> SENDING via updateMany) BEFORE the provider call, and stale
+// SENDING rows are reset to PENDING at tick start - the only surviving
+// duplicate window is a crash between the provider send and the SENT mark,
+// the accepted edge of at-least-once delivery.
 
 const FIRE_CAMPAIGNS_PER_TICK = 5;
 const SEND_PER_TICK = 50;
@@ -41,6 +48,15 @@ function publicMediaUrl(assetId: string): string {
 }
 
 export async function processCampaigns(): Promise<void> {
+  // COR-1 (PRD 16): a SENDING row at tick start is from a crashed tick (the
+  // lock serializes ticks; a live tick never leaves one behind). Reset it so
+  // delivery resumes; the atomic claim below prevents any concurrent claim.
+  await withSystemContext(async () =>
+    prisma.campaignMessage.updateMany({
+      where: { status: "SENDING" },
+      data: { status: "PENDING" },
+    })
+  );
   await fireDueCampaigns();
   await deliverDueCampaignMessages();
   await closeFinishedRuns();
@@ -49,19 +65,42 @@ export async function processCampaigns(): Promise<void> {
 // ─────────────────────────── Fire ───────────────────────────
 
 async function fireDueCampaigns(): Promise<void> {
-  const due = await prisma.campaign.findMany({
-    where: { status: "ACTIVE", nextRunAt: { lte: new Date() } },
-    take: FIRE_CAMPAIGNS_PER_TICK,
-    orderBy: { nextRunAt: "asc" },
-  });
+  const due = await withSystemContext(async () =>
+    prisma.campaign.findMany({
+      where: { status: "ACTIVE", nextRunAt: { lte: new Date() } },
+      take: FIRE_CAMPAIGNS_PER_TICK,
+      orderBy: { nextRunAt: "asc" },
+    })
+  );
   for (const campaign of due) {
-    await fireCampaign(campaign).catch((err: unknown) => {
+    await withTenantContext(campaign.tenantId, () =>
+      fireCampaign(campaign)
+    ).catch((err: unknown) => {
       console.error(`[campaign] fire failed for ${campaign.id}:`, err);
     });
   }
 }
 
 async function fireCampaign(campaign: Campaign): Promise<void> {
+  // SEC-4 (PRD 16): a suspended tenant's campaigns do not fire. Marked with
+  // autoPaused so tenant activation resumes exactly these.
+  if (!(await tenantActive(campaign.tenantId))) {
+    await prisma.campaign.update({
+      where: { id: campaign.id },
+      data: { status: "PAUSED", autoPaused: true },
+    });
+    await logAction({
+      tenantId: campaign.tenantId,
+      agentId: null,
+      action: "campaign.paused_suspension",
+      entityType: "Campaign",
+      entityId: campaign.id,
+      approvalStatus: "NONE",
+      afterValue: { reason: "Tenant dinonaktifkan." },
+    });
+    return;
+  }
+
   // Plan gate (PRD 13): downgraded tenants must not keep firing. Pausing is
   // deliberate - the campaign stays visible and can be reactivated after an
   // upgrade. In-flight CampaignMessage rows still drain (bounded work).
@@ -164,12 +203,14 @@ async function resolveAudience(campaign: Campaign) {
 // ─────────────────────────── Deliver ───────────────────────────
 
 async function deliverDueCampaignMessages(): Promise<void> {
-  const due = await prisma.campaignMessage.findMany({
-    where: { status: "PENDING", scheduledFor: { lte: new Date() } },
-    orderBy: { scheduledFor: "asc" },
-    take: SEND_PER_TICK,
-    include: { run: { include: { campaign: true } } },
-  });
+  const due = await withSystemContext(async () =>
+    prisma.campaignMessage.findMany({
+      where: { status: "PENDING", scheduledFor: { lte: new Date() } },
+      orderBy: { scheduledFor: "asc" },
+      take: SEND_PER_TICK,
+      include: { run: { include: { campaign: true } } },
+    })
+  );
 
   // Media bytes are loaded once per asset per tick (a blast reuses the same
   // images; 5 MB × 50 recipients must not become 50 reads).
@@ -185,7 +226,9 @@ async function deliverDueCampaignMessages(): Promise<void> {
   }
 
   for (const row of due) {
-    await deliverOne(row, asset).catch((err: unknown) => {
+    await withTenantContext(row.tenantId, () =>
+      deliverOne(row, asset)
+    ).catch((err: unknown) => {
       console.error(`[campaign] deliver failed for ${row.id}:`, err);
     });
   }
@@ -200,6 +243,19 @@ async function deliverOne(
   },
   asset: (id: string) => Promise<MediaAsset | null>
 ): Promise<void> {
+  // COR-1 (PRD 16): atomic claim before any provider call. If the claim
+  // affects zero rows, another tick instance already owns this row.
+  const claimed = await prisma.campaignMessage.updateMany({
+    where: { id: row.id, status: "PENDING" },
+    data: { status: "SENDING" },
+  });
+  if (claimed.count !== 1) return;
+
+  // SEC-4 (PRD 16): suspended tenants send nothing. The row stays SENDING
+  // for this tick and is reset to PENDING by the next tick's stale sweep -
+  // delivery resumes on activation, nothing is dropped.
+  if (!(await tenantActive(row.tenantId))) return;
+
   const run = await prisma.campaignRun.findUniqueOrThrow({
     where: { id: row.runId },
     include: { campaign: true },
@@ -265,8 +321,8 @@ async function deliverOne(
 
     // Free-form burst: text message first, then each image as its own media
     // message (plan 3.2.1). The pacing delay applies between contacts, not
-    // within a burst. Delivery order within a burst is best-effort -
-    // WhatsApp does not guarantee it (documented platform behavior).
+    // within a burst. Delivery order within a burst is best-effort - WhatsApp
+    // does not guarantee it (documented platform behavior).
     const burstIds: Array<string | undefined> = [];
     if (campaign.body.trim().length > 0) {
       const result = await provider.sendText({ to: row.phone, body: campaign.body });
@@ -352,26 +408,34 @@ async function recordOutbound(args: {
 // ─────────────────────────── Close runs ───────────────────────────
 
 async function closeFinishedRuns(): Promise<void> {
-  // Runs with zero remaining PENDING rows (including zero-recipient fires).
-  const stale = await prisma.campaignRun.findMany({
-    where: { finishedAt: null, messages: { none: { status: "PENDING" } } },
-    take: CLOSE_RUNS_PER_TICK,
-  });
+  // Runs with zero remaining PENDING or SENDING rows (including
+  // zero-recipient fires). A claimed-but-unsent row must never close its run.
+  const stale = await withSystemContext(async () =>
+    prisma.campaignRun.findMany({
+      where: {
+        finishedAt: null,
+        messages: { none: { status: { in: ["PENDING", "SENDING"] } } },
+      },
+      take: CLOSE_RUNS_PER_TICK,
+    })
+  );
   for (const run of stale) {
-    const grouped = await prisma.campaignMessage.groupBy({
-      by: ["status"],
-      where: { runId: run.id },
-      _count: { _all: true },
-    });
-    const counts = {
-      total: grouped.reduce((sum, g) => sum + g._count._all, 0),
-      sent: grouped.find((g) => g.status === "SENT")?._count._all ?? 0,
-      failed: grouped.find((g) => g.status === "FAILED")?._count._all ?? 0,
-      skipped: grouped.find((g) => g.status === "SKIPPED")?._count._all ?? 0,
-    };
-    await prisma.campaignRun.update({
-      where: { id: run.id },
-      data: { finishedAt: new Date(), counts },
+    await withTenantContext(run.tenantId, async () => {
+      const grouped = await prisma.campaignMessage.groupBy({
+        by: ["status"],
+        where: { runId: run.id },
+        _count: { _all: true },
+      });
+      const counts = {
+        total: grouped.reduce((sum, g) => sum + g._count._all, 0),
+        sent: grouped.find((g) => g.status === "SENT")?._count._all ?? 0,
+        failed: grouped.find((g) => g.status === "FAILED")?._count._all ?? 0,
+        skipped: grouped.find((g) => g.status === "SKIPPED")?._count._all ?? 0,
+      };
+      await prisma.campaignRun.update({
+        where: { id: run.id },
+        data: { finishedAt: new Date(), counts },
+      });
     });
   }
 }

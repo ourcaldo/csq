@@ -1,6 +1,10 @@
 import prisma from "@csq/core/lib/db";
 import type { ChannelCommand } from "@prisma/client";
 import { withSystemLock } from "@csq/core/lib/system-lock";
+import {
+  withSystemContext,
+  withTenantContext,
+} from "@csq/core/lib/tenant-context";
 import { drainOutbox } from "@csq/core/lib/outbox";
 import {
   connectBaileysChannel,
@@ -46,17 +50,22 @@ async function tick(): Promise<void> {
 }
 
 async function processChannelCommands(): Promise<void> {
-  const commands: ChannelCommand[] = await prisma.channelCommand.findMany({
-    where: { status: "PENDING" },
-    orderBy: { createdAt: "asc" },
-    take: 3,
-  });
+  const commands: ChannelCommand[] = await withSystemContext(async () =>
+    prisma.channelCommand.findMany({
+      where: { status: "PENDING" },
+      orderBy: { createdAt: "asc" },
+      take: 3,
+    })
+  );
   for (const cmd of commands) {
-    if (cmd.kind === "CONNECT") {
-      await runConnectCommand(cmd);
-    } else {
-      await runDisconnectCommand(cmd);
-    }
+    // RLS context (PRD 16 SEC-1): each command's writes are its tenant's.
+    await withTenantContext(cmd.tenantId, async () => {
+      if (cmd.kind === "CONNECT") {
+        await runConnectCommand(cmd);
+      } else {
+        await runDisconnectCommand(cmd);
+      }
+    });
   }
 }
 

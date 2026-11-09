@@ -5,6 +5,7 @@ import { requireFeatureApi } from "@csq/core/lib/feature-guard";
 import prisma from "@csq/core/lib/db";
 import { logHuman } from "@csq/core/lib/audit";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import { canRunCampaigns } from "@csq/core/lib/campaign-access";
 import { nextCampaignOccurrence, scheduleTz, type ScheduleConfig } from "@csq/core/lib/campaign-schedule";
@@ -23,69 +24,72 @@ export default async function handler(
 
   if (!(await requireFeatureApi(session, res, "campaigns"))) return;
   const tenantId = requireTenant(session);
-  if (!canRunCampaigns(session)) {
-    return respondError(res, "PERMISSION_DENIED", "Tidak punya izin kampanye.");
-  }
 
-  const { id, action } = req.query;
-  if (typeof id !== "string" || (action !== "activate" && action !== "pause")) {
-    return respondError(res, "VALIDATION_ERROR", "Permintaan tidak valid.");
-  }
-
-  const existing = await prisma.campaign.findFirst({ where: { id, tenantId } });
-  if (!existing) return respondError(res, "NOT_FOUND", "Kampanye tidak ditemukan.");
-
-  if (action === "pause") {
-    if (existing.status !== "ACTIVE") {
-      return respondError(res, "VALIDATION_ERROR", "Kampanye tidak sedang aktif.");
+  return withTenantContext(tenantId, async () => {
+    if (!canRunCampaigns(session)) {
+      return respondError(res, "PERMISSION_DENIED", "Tidak punya izin kampanye.");
     }
-    const updated = await prisma.campaign.update({ where: { id }, data: { status: "PAUSED" } });
+
+    const { id, action } = req.query;
+    if (typeof id !== "string" || (action !== "activate" && action !== "pause")) {
+      return respondError(res, "VALIDATION_ERROR", "Permintaan tidak valid.");
+    }
+
+    const existing = await prisma.campaign.findFirst({ where: { id, tenantId } });
+    if (!existing) return respondError(res, "NOT_FOUND", "Kampanye tidak ditemukan.");
+
+    if (action === "pause") {
+      if (existing.status !== "ACTIVE") {
+        return respondError(res, "VALIDATION_ERROR", "Kampanye tidak sedang aktif.");
+      }
+      const updated = await prisma.campaign.update({ where: { id }, data: { status: "PAUSED" } });
+      await logHuman({
+        tenantId,
+        action: "campaign.pause",
+        entityType: "Campaign",
+        entityId: id,
+        beforeValue: existing,
+        afterValue: updated,
+      });
+      return res.status(200).json(apiOk(serialize(updated)));
+    }
+
+    // activate
+    if (existing.status !== "DRAFT" && existing.status !== "PAUSED") {
+      return respondError(res, "VALIDATION_ERROR", "Kampanye sudah aktif.");
+    }
+    const channel = await prisma.channel.findUnique({ where: { id: existing.channelId } });
+    if (!channel || channel.status !== "CONNECTED") {
+      return respondError(res, "VALIDATION_ERROR", "Saluran belum terhubung - sambungkan dulu di halaman Saluran.");
+    }
+    const now = new Date();
+    const config = existing.scheduleConfig as ScheduleConfig;
+    let next: Date | null;
+    if (existing.scheduleKind === "ONCE") {
+      next = config.startAt ? new Date(config.startAt) : null;
+      if (!next || next.getTime() <= now.getTime()) {
+        return respondError(res, "VALIDATION_ERROR", "Waktu kampanye sekali jalan harus di masa depan.");
+      }
+    } else {
+      next = nextCampaignOccurrence(existing.scheduleKind, config, now, scheduleTz());
+      if (!next) {
+        return respondError(res, "VALIDATION_ERROR", "Jadwal tidak valid.");
+      }
+    }
+    const updated = await prisma.campaign.update({
+      where: { id },
+      data: { status: "ACTIVE", nextRunAt: next },
+    });
     await logHuman({
       tenantId,
-      action: "campaign.pause",
+      action: "campaign.activate",
       entityType: "Campaign",
       entityId: id,
       beforeValue: existing,
       afterValue: updated,
     });
     return res.status(200).json(apiOk(serialize(updated)));
-  }
-
-  // activate
-  if (existing.status !== "DRAFT" && existing.status !== "PAUSED") {
-    return respondError(res, "VALIDATION_ERROR", "Kampanye sudah aktif.");
-  }
-  const channel = await prisma.channel.findUnique({ where: { id: existing.channelId } });
-  if (!channel || channel.status !== "CONNECTED") {
-    return respondError(res, "VALIDATION_ERROR", "Saluran belum terhubung - sambungkan dulu di halaman Saluran.");
-  }
-  const now = new Date();
-  const config = existing.scheduleConfig as ScheduleConfig;
-  let next: Date | null;
-  if (existing.scheduleKind === "ONCE") {
-    next = config.startAt ? new Date(config.startAt) : null;
-    if (!next || next.getTime() <= now.getTime()) {
-      return respondError(res, "VALIDATION_ERROR", "Waktu kampanye sekali jalan harus di masa depan.");
-    }
-  } else {
-    next = nextCampaignOccurrence(existing.scheduleKind, config, now, scheduleTz());
-    if (!next) {
-      return respondError(res, "VALIDATION_ERROR", "Jadwal tidak valid.");
-    }
-  }
-  const updated = await prisma.campaign.update({
-    where: { id },
-    data: { status: "ACTIVE", nextRunAt: next },
   });
-  await logHuman({
-    tenantId,
-    action: "campaign.activate",
-    entityType: "Campaign",
-    entityId: id,
-    beforeValue: existing,
-    afterValue: updated,
-  });
-  return res.status(200).json(apiOk(serialize(updated)));
 }
 
 function serialize(c: Campaign): CampaignRow {

@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getAuthSession } from "@csq/core/lib/auth";
 import { requireFeatureApi } from "@csq/core/lib/feature-guard";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import { funnelCounts } from "@csq/core/lib/pipeline";
@@ -28,6 +29,8 @@ export default async function handler(
   if (!(await requireFeatureApi(session, res, "pipeline"))) return;
   const tenantId = requireTenant(session);
 
-  const counts = await funnelCounts(tenantId);
-  return res.status(200).json(apiOk(counts));
+  return withTenantContext(tenantId, async () => {
+    const counts = await funnelCounts(tenantId);
+    return res.status(200).json(apiOk(counts));
+  });
 }

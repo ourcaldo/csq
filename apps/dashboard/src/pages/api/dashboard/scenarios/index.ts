@@ -5,6 +5,7 @@ import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import { requireFeatureApi } from "@csq/core/lib/feature-guard";
 import prisma from "@csq/core/lib/db";
 import { logHuman } from "@csq/core/lib/audit";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { paginate, requireTenant, respondError } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import {
@@ -76,77 +77,79 @@ export default async function handler(
   if (!(await requireFeatureApi(session, res, "scenarios"))) return;
   const tenantId = requireTenant(session);
 
-  if (req.method === "GET") {
-    const { skip, take, page, pageSize } = paginate(req.query);
-    const [items, total] = await Promise.all([
-      prisma.scenario.findMany({
-        where: { tenantId },
-        skip,
-        take,
-        orderBy: { updatedAt: "desc" },
-      }),
-      prisma.scenario.count({ where: { tenantId } }),
-    ]);
-    return res.status(200).json(apiOk({ items, total, page, pageSize }));
-  }
-
-  if (req.method === "POST") {
-    // Staff can draft; only OWNER activates. Creation allowed for both.
-    if (!requireRole(session, "OWNER", "STAFF")) {
-      return respondError(
-        res,
-        "PERMISSION_DENIED",
-        "Hanya owner atau staff yang dapat membuat scenario."
-      );
-    }
-    const parsed = createSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return respondError(res, "VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Input tidak valid.");
-    }
-    const data = parsed.data;
-    // Per-trigger-type required fields at creation.
-    if (data.triggerType === "ON_TAG_ADDED" && !data.triggerConfig?.tagName) {
-      return respondError(
-        res,
-        "VALIDATION_ERROR",
-        "Trigger ON_TAG_ADDED memerlukan nama tag (triggerConfig.tagName)."
-      );
-    }
-    if (data.triggerType === "ON_SCHEDULE" && !data.triggerConfig?.scheduleTime) {
-      return respondError(
-        res,
-        "VALIDATION_ERROR",
-        "Trigger ON_SCHEDULE memerlukan jam (triggerConfig.scheduleTime, HH:MM)."
-      );
-    }
-    if (data.triggerType === "ON_NO_REPLY" && !data.triggerConfig?.noReplyAfterMinutes) {
-      return respondError(
-        res,
-        "VALIDATION_ERROR",
-        "Trigger ON_NO_REPLY memerlukan durasi tanpa balasan (triggerConfig.noReplyAfterMinutes)."
-      );
+  return withTenantContext(tenantId, async () => {
+    if (req.method === "GET") {
+      const { skip, take, page, pageSize } = paginate(req.query);
+      const [items, total] = await Promise.all([
+        prisma.scenario.findMany({
+          where: { tenantId },
+          skip,
+          take,
+          orderBy: { updatedAt: "desc" },
+        }),
+        prisma.scenario.count({ where: { tenantId } }),
+      ]);
+      return res.status(200).json(apiOk({ items, total, page, pageSize }));
     }
 
-    const scenario = await prisma.scenario.create({
-      data: {
+    if (req.method === "POST") {
+      // Staff can draft; only OWNER activates. Creation allowed for both.
+      if (!requireRole(session, "OWNER", "STAFF")) {
+        return respondError(
+          res,
+          "PERMISSION_DENIED",
+          "Hanya owner atau staff yang dapat membuat scenario."
+        );
+      }
+      const parsed = createSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return respondError(res, "VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Input tidak valid.");
+      }
+      const data = parsed.data;
+      // Per-trigger-type required fields at creation.
+      if (data.triggerType === "ON_TAG_ADDED" && !data.triggerConfig?.tagName) {
+        return respondError(
+          res,
+          "VALIDATION_ERROR",
+          "Trigger ON_TAG_ADDED memerlukan nama tag (triggerConfig.tagName)."
+        );
+      }
+      if (data.triggerType === "ON_SCHEDULE" && !data.triggerConfig?.scheduleTime) {
+        return respondError(
+          res,
+          "VALIDATION_ERROR",
+          "Trigger ON_SCHEDULE memerlukan jam (triggerConfig.scheduleTime, HH:MM)."
+        );
+      }
+      if (data.triggerType === "ON_NO_REPLY" && !data.triggerConfig?.noReplyAfterMinutes) {
+        return respondError(
+          res,
+          "VALIDATION_ERROR",
+          "Trigger ON_NO_REPLY memerlukan durasi tanpa balasan (triggerConfig.noReplyAfterMinutes)."
+        );
+      }
+
+      const scenario = await prisma.scenario.create({
+        data: {
+          tenantId,
+          name: data.name,
+          description: data.description,
+          status: "DRAFT",
+          triggerType: data.triggerType,
+          triggerConfig: data.triggerConfig ?? {},
+          graph: data.graph ?? defaultGraph(data.triggerType, data.triggerConfig),
+        },
+      });
+      await logHuman({
         tenantId,
-        name: data.name,
-        description: data.description,
-        status: "DRAFT",
-        triggerType: data.triggerType,
-        triggerConfig: data.triggerConfig ?? {},
-        graph: data.graph ?? defaultGraph(data.triggerType, data.triggerConfig),
-      },
-    });
-    await logHuman({
-      tenantId,
-      action: "scenario.create",
-      entityType: "Scenario",
-      entityId: scenario.id,
-      afterValue: { name: scenario.name, triggerType: scenario.triggerType },
-    });
-    return res.status(201).json(apiOk(scenario));
-  }
+        action: "scenario.create",
+        entityType: "Scenario",
+        entityId: scenario.id,
+        afterValue: { name: scenario.name, triggerType: scenario.triggerType },
+      });
+      return res.status(201).json(apiOk(scenario));
+    }
 
-  return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
+    return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
+  });
 }

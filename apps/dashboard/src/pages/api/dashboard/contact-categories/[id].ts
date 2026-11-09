@@ -4,6 +4,7 @@ import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { logHuman } from "@csq/core/lib/audit";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
+import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import { categoryUpdateSchema } from "@csq/core/types/contact";
 import { normalizeHex } from "@/lib/tag-color";
@@ -18,63 +19,65 @@ export default async function handler(
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
   const tenantId = requireTenant(session);
 
-  const { id } = req.query;
-  if (typeof id !== "string") {
-    return respondError(res, "VALIDATION_ERROR", "ID kategori tidak valid.");
-  }
-
-  if (req.method === "PUT") {
-    if (!requireRole(session, "OWNER")) {
-      return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengubah kategori.");
+  return withTenantContext(tenantId, async () => {
+    const { id } = req.query;
+    if (typeof id !== "string") {
+      return respondError(res, "VALIDATION_ERROR", "ID kategori tidak valid.");
     }
-    const parsed = categoryUpdateSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return respondError(res, "VALIDATION_ERROR", parsed.error.message);
+
+    if (req.method === "PUT") {
+      if (!requireRole(session, "OWNER")) {
+        return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengubah kategori.");
+      }
+      const parsed = categoryUpdateSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return respondError(res, "VALIDATION_ERROR", parsed.error.message);
+      }
+      const existing = await prisma.category.findFirst({ where: { id, tenantId } });
+      if (!existing) return respondError(res, "NOT_FOUND", "Kategori tidak ditemukan.");
+
+      const color =
+        parsed.data.color === undefined
+          ? undefined
+          : parsed.data.color === null
+            ? null
+            : normalizeHex(parsed.data.color) ?? undefined;
+      const category = await prisma.category.update({
+        where: { id },
+        data: {
+          ...(parsed.data.name !== undefined ? { name: parsed.data.name } : {}),
+          ...(color !== undefined ? { color } : {}),
+        },
+      });
+      await logHuman({
+        tenantId,
+        action: "category.update",
+        entityType: "Category",
+        entityId: id,
+        beforeValue: existing,
+        afterValue: category,
+      });
+      return res.status(200).json(apiOk(category));
     }
-    const existing = await prisma.category.findFirst({ where: { id, tenantId } });
-    if (!existing) return respondError(res, "NOT_FOUND", "Kategori tidak ditemukan.");
 
-    const color =
-      parsed.data.color === undefined
-        ? undefined
-        : parsed.data.color === null
-          ? null
-          : normalizeHex(parsed.data.color) ?? undefined;
-    const category = await prisma.category.update({
-      where: { id },
-      data: {
-        ...(parsed.data.name !== undefined ? { name: parsed.data.name } : {}),
-        ...(color !== undefined ? { color } : {}),
-      },
-    });
-    await logHuman({
-      tenantId,
-      action: "category.update",
-      entityType: "Category",
-      entityId: id,
-      beforeValue: existing,
-      afterValue: category,
-    });
-    return res.status(200).json(apiOk(category));
-  }
-
-  if (req.method === "DELETE") {
-    if (!requireRole(session, "OWNER")) {
-      return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat menghapus kategori.");
+    if (req.method === "DELETE") {
+      if (!requireRole(session, "OWNER")) {
+        return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat menghapus kategori.");
+      }
+      const existing = await prisma.category.findFirst({ where: { id, tenantId } });
+      if (!existing) return respondError(res, "NOT_FOUND", "Kategori tidak ditemukan.");
+      // Join rows cascade: contacts are detached, never deleted.
+      await prisma.category.delete({ where: { id } });
+      await logHuman({
+        tenantId,
+        action: "category.delete",
+        entityType: "Category",
+        entityId: id,
+        beforeValue: existing,
+      });
+      return res.status(200).json(apiOk(existing));
     }
-    const existing = await prisma.category.findFirst({ where: { id, tenantId } });
-    if (!existing) return respondError(res, "NOT_FOUND", "Kategori tidak ditemukan.");
-    // Join rows cascade: contacts are detached, never deleted.
-    await prisma.category.delete({ where: { id } });
-    await logHuman({
-      tenantId,
-      action: "category.delete",
-      entityType: "Category",
-      entityId: id,
-      beforeValue: existing,
-    });
-    return res.status(200).json(apiOk(existing));
-  }
 
-  return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
+    return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
+  });
 }
