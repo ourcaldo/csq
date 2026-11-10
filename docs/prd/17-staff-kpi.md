@@ -43,6 +43,13 @@ Decisions baked in (veto in review if wrong):
 4. **Chats the human never answered do not count against `FIRST_RESPONSE`.**
    AI-handled chats are invisible to the staff responsiveness KPI; only
    conversations where a human actually replied are measured.
+5. **The response clock is the customer's clock.** FIRST_RESPONSE measures
+   inbound arrival -> first human reply. The takeover rule (PRD 03 amendment
+   2026-11-10: a human reply takes over the conversation immediately) makes
+   "replied" and "assigned" the same event for AI-handled chats - once a
+   staff member replies, the chat is theirs and the AI stops, so the latency
+   measured is genuinely the human's response time with no AI interference
+   after it.
 
 ## 17.2 KPI targets (configuration)
 

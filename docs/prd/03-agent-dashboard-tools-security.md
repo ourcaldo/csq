@@ -184,6 +184,15 @@ handle customer conversations alongside the AI agent.
 -   **Assignment:** each conversation can be assigned to the AI agent
     (autonomous) or to a human staff member. Reassignment is supported;
     changes are audited.
+    Amendment 2026-11-10 (owner decision, for the KPI work): **a human reply
+    is a takeover.** When OWNER/STAFF send a customer-facing reply from the
+    inbox on a conversation not already theirs, the conversation is
+    reassigned to them immediately (assignee set, AI assignment cleared,
+    audited) - replying to a chat another human owns reassigns it to the
+    replier. The AI stands down from that moment, so it never answers on top
+    of a human who is actively handling the chat. Private notes do NOT take
+    over (internal only). The existing explicit "Ambil alih / Lepas" actions
+    stay.
 -   **Tags / labels:** conversations can be tagged (e.g., "needs
     follow-up", "VIP", "refund") and filtered by tag.
 -   **Status:** OPEN / PENDING / RESOLVED, with filtering.

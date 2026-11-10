@@ -18,6 +18,25 @@ database; production cutover stays frozen.
 - RLS: both tables get policies + `csq_app` grants in the migration,
   following the exact pattern of the PRD 16 SEC-1 migrations.
 
+## Phase 0 - Reply-as-takeover (PRD 03 amendment 2026-11-10, prerequisite)
+
+The KPI semantics assume it, and it fixes a real inbox defect: today a
+human reply leaves the chat assigned to the AI, so the AI keeps
+auto-answering the customer while a human is handling them.
+
+- [ ] `sendHumanReply` (packages/core/src/lib/inbox.ts): after a successful
+      reply, if the conversation is not already assigned to the sender,
+      reassign (assigneeUserId = sender, assignedAgentId = null) via the
+      existing `assignConversation` so the XOR invariant and audit path
+      hold; the takeover is audited (conversation.reassign-style row with
+      the reason "reply").
+- [ ] Private notes (notes route) explicitly do NOT reassign.
+- [ ] Manual verification on the clone: reply from the inbox on an
+      AI-handled chat -> list badge flips to "Diambil alih tim", AI badge
+      gone; next inbound gets no AI reply until released; a reply by a
+      second staff member reassigns to them; "Lepas" gives it back to the
+      AI.
+
 ## Phase 1 - Data model
 
 - [ ] `packages/core/prisma/schema.prisma`: `KpiTarget` model
