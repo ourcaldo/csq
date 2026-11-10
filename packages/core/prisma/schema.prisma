@@ -241,6 +241,26 @@ enum ConversationStatus {
   RESOLVED
 }
 
+// PRD 17 (staff KPI): what a KPI target measures and over which period.
+enum KpiScope {
+  TENANT
+  USER
+}
+
+enum KpiMetric {
+  ORDERS
+  DEALS_WON
+  FIRST_RESPONSE
+  REPLIES
+}
+
+enum KpiPeriod {
+  DAY
+  WEEK
+  TWO_WEEK
+  MONTH
+}
+
 // Role of a stage in a pipeline. OPENING is the single first stage a new
 // conversation lands on; WON and LOST are terminal (deals stop there). A
 // pipeline has exactly one of each (enforced by a partial unique index).
@@ -359,6 +379,8 @@ model Tenant {
   supportTickets      SupportTicket[]
   teamInvites         TeamInvite[]
   syncLogs            SyncLog[]
+  kpiTargets          KpiTarget[]
+  kpiSnapshots        KpiSnapshot[]
   plan                Plan?             @relation(fields: [planId], references: [id], onDelete: SetNull)
 }
 
@@ -408,6 +430,7 @@ model User {
   resolvedApprovals     Approval[]         @relation("ApprovalResolver")
   conversationReads     ConversationRead[]
   teamInvitesSent       TeamInvite[]       @relation("TeamInviteInviter")
+  kpiTargets            KpiTarget[]        @relation("KpiTargetUser")
 
   @@index([tenantId])
 }
@@ -1537,4 +1560,64 @@ model SyncLog {
   dataSource DataSource @relation(fields: [dataSourceId], references: [id], onDelete: Cascade)
 
   @@index([tenantId, dataSourceId, createdAt])
+}
+
+// PRD 17 (staff KPI, 2026-11-10): an OWNER-configured performance target.
+// Scope TENANT measures the business; scope USER measures one staff member
+// (userId). Metrics and periods are fixed enums; FIRST_RESPONSE also carries
+// a threshold in minutes. Deactivation hides a KPI from the report but never
+// deletes its history. The cap (max 5 active per holder) is enforced in the
+// API, not the schema.
+model KpiTarget {
+  id               String     @id @default(uuid())
+  tenantId         String
+  scope            KpiScope
+  // The staff member this KPI measures; null when scope = TENANT.
+  userId           String?
+  metric           KpiMetric
+  period           KpiPeriod
+  // FIRST_RESPONSE only: the "within X minutes" threshold.
+  thresholdMinutes Int?
+  // Count target; for FIRST_RESPONSE the percent target (0-100).
+  targetValue      Float
+  active           Boolean    @default(true)
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  tenant    Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User?         @relation("KpiTargetUser", fields: [userId], references: [id], onDelete: SetNull)
+  snapshots KpiSnapshot[]
+
+  @@index([tenantId, active])
+}
+
+// PRD 17: one row per KPI target per CLOSED period, written by the worker
+// at period close (idempotent upsert; first run backfills up to 12 prior
+// periods from raw data). The target value is denormalized so later target
+// edits never rewrite history. The current period is never snapshotted -
+// it is computed live.
+model KpiSnapshot {
+  id          String   @id @default(uuid())
+  tenantId    String
+  kpiTargetId String
+  // Sortable per-period key: day 2026-11-10, week 2026-W45, two-week
+  // 2026-11-H1/H2, month 2026-11. All snapshots of one target share the
+  // format, so string order equals chronological order.
+  periodKey   String
+  periodStart DateTime
+  periodEnd   DateTime
+  actualValue Float
+  // Target as it was when the period closed - history is never rewritten.
+  targetValue Float
+  achieved    Boolean
+  // Metric context needed to interpret the row later (threshold minutes,
+  // measured reply count for FIRST_RESPONSE).
+  meta        Json?
+  createdAt   DateTime @default(now())
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  kpiTarget KpiTarget @relation(fields: [kpiTargetId], references: [id], onDelete: Cascade)
+
+  @@unique([kpiTargetId, periodKey])
+  @@index([tenantId, kpiTargetId, periodKey])
 }

@@ -1,6 +1,16 @@
 # Changelogs
 
-Version format: `XX.YY.ZZ` — YY (minor) and ZZ (patch) stay within 0–10; XX (major) may grow beyond. Minor = new feature/behavior change, patch = fix, major = breaking change (schema, API contract, env vars).
+Version format: `XX.YY.ZZ` - YY (minor) and ZZ (patch) stay within 0-10; XX (major) may grow beyond. Minor = new feature/behavior change, patch = fix, major = breaking change (schema, API contract, env vars).
+
+## 4.1.0 - 2026-11-10 (branch `monorepo`)
+
+Post-4.0.0 work on the testing stack. Minor: new features and behavior changes, one schema addition (PRD 17 KPI tables).
+
+- **WhatsApp/Baileys remediation:** Baileys 6.7.24 -> 7.0.0-rc14 (tsx-compatible ESM graph; `"type": "module"` on root, `@csq/core`, `@csq/worker`), fixing the LID "Menunggu pesan ini" placeholder bug (outbound sessions bound to the LID, WhiskeySockets #1701/#1744/#1964) and the 405 handshake rejection from the stale WA Web version tuple (#2370/#2376) - socket creation now resolves the current upstream version at connect with a package-default fallback, and `connect.ts` surfaces the worker's real error instead of "Worker tidak merespons". One-time Signal session reset (migration `20261110160000`), conversation identity made canonical per customer across LID/phone (`20261110150000`), inbound/outbound media download + render, and newest-slice messages endpoint.
+- **Agent resilience (owner request):** an AI error is never answered with a canned apology - the turn retries up to 10 times with capped exponential backoff (turn lease renewed between attempts), then hands the conversation to staff with an internal note carrying the reason (`conversation.agent_error_handoff` audit).
+- **Inbox fixes:** customer bubble avatar shows the stable name initial (was: first letter of each message), optimistic send (no 1-2s composer freeze), silent SSE refreshes (no skeleton flash or scroll yank), and the unread badge now clears on reply and on live arrivals while the chat is open (was: stuck at the last-open watermark). Private notes show author + timestamp, and the right panel gained a notes list (preview 5, expand toggle). `Message` type gains `senderUserName`.
+- **Reply-as-takeover (PRD 03 amendment 2026-11-10):** a customer-facing human reply from the inbox reassigns the conversation to the replier and the AI stands down - previously the AI kept auto-answering while a human handled the chat. Private notes do not take over.
+- **Staff KPI (PRD 17, new):** OWNER-defined KPIs per staff member and tenant-wide - Pesanan dibuat (tenant), Deal menang, Respons chat (% first human reply within X minutes), Balasan chat - over Jakarta-calendar day/week/2-week/month periods. New `KpiTarget`/`KpiSnapshot` tables (RLS day one, migration `20261110190000`), live current-period report plus closed-period snapshot history (worker closes periods daily at 00:10 Jakarta + boot catch-up, idempotent, 12-period backfill, targets denormalized so history is never rewritten), OWNER-only `/dashboard/kpi` page with management UI, cap of 5 active KPIs per holder, DEALS_WON gated on the pipeline plan feature. `npm run check:kpi` asserts the period math.
 
 ## 4.0.0 - 2026-11-08 (branch `monorepo`)
 

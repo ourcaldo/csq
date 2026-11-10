@@ -23,6 +23,7 @@ import { sendAgentMessage } from "@csq/core/lib/agent-outbox";
 import { getTemplateBody } from "@csq/core/lib/message-templates";
 import { withSystemLock } from "@csq/core/lib/system-lock";
 import { processCampaigns } from "@csq/core/lib/campaign-engine";
+import { closeDueSnapshots } from "@csq/core/lib/kpi";
 
 // In-process periodic sync for Google Sheets sources (PRD §23A - no Redis/queue,
 // node-cron runs inside the Next.js server). Server-only: callers must invoke
@@ -78,6 +79,26 @@ export function startScheduler(): void {
         console.error("[scheduler] campaign tick threw:", err);
       });
   });
+  // KPI snapshot close (PRD 17): daily at 00:10 Jakarta (17:10 UTC), plus a
+  // boot catch-up so a worker that was down at the boundary still closes the
+  // period on restart. closeDueSnapshots is idempotent (backfill walks only
+  // missing periodKeys), so extra invocations are harmless. D10d: the lock
+  // keeps a second instance from double-writing the same close.
+  const kpiTick = (): void => {
+    void withSystemLock("kpi-snapshots", 300, closeDueSnapshots)
+      .then((r) => {
+        if (r && r.written > 0) {
+          console.log(
+            `[scheduler] KPI snapshots: wrote ${r.written} across ${r.tenants} tenant(s)`
+          );
+        }
+      })
+      .catch((err: unknown) => {
+        console.error("[scheduler] KPI snapshot tick threw:", err);
+      });
+  };
+  cron.schedule("10 17 * * *", kpiTick);
+  kpiTick();
 }
 
 // The once-a-minute scenario work, extracted so the system lock can wrap the

@@ -1,6 +1,13 @@
 # 17. Staff KPI & Performance Report (owner request 2026-11-10)
 
-Status: **DRAFT - pending owner approval. No code before approval.**
+Status: **APPROVED 2026-11-10 ("Okay continue") - implemented 2026-11-10.**
+Implementation record: Phases 0-6 of
+`docs/plans/2026-11-10-staff-kpi-plan.md` shipped on `monorepo`
+(Phase 0 reply-as-takeover `317a344`; KPI core, schema, APIs, page, and
+scheduler tick in the follow-up commits). Verification: `npm run check:kpi`
+period-math asserts (Jakarta day/week/two-week/month + ISO-year edge),
+typecheck, all builds, encoding gate; snapshot closing is idempotent and
+runs daily at 00:10 Jakarta plus a boot catch-up in the worker.
 
 The tenant OWNER defines performance KPIs for the staff they add, and for
 the tenant as a whole, over day / week / 2-week / month periods. The

@@ -40,6 +40,7 @@ import {
   Notepad,
   Megaphone,
   Lifebuoy,
+  Target,
 } from "@phosphor-icons/react";
 import { cn } from "@csq/ui/lib/utils";
 import { Seo } from "@csq/ui/components/seo";
@@ -71,6 +72,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/dashboard/templates", label: "Template Pesan", icon: <Notepad size={18} /> },
       { href: "/dashboard/saluran", label: "Saluran", icon: <WhatsappLogo size={18} /> },
       { href: "/dashboard/pipeline", label: "Manajemen Pipeline", icon: <Kanban size={18} />, feature: "pipeline" },
+      { href: "/dashboard/kpi", label: "KPI", icon: <Target size={18} />, ownerOnly: true },
     ],
   },
   {

@@ -1,8 +1,10 @@
-# Staff KPI Implementation Plan (2026-11-10)
+﻿# Staff KPI Implementation Plan (2026-11-10)
 
 Implements PRD 17 (`docs/prd/17-staff-kpi.md`). Do not start before the
 owner approves the PRD. All work on the `monorepo` branch and the clone
 database; production cutover stays frozen.
+
+Status: **COMPLETE 2026-11-10.** Every phase shipped and verified.
 
 ## Design summary
 
@@ -24,14 +26,14 @@ The KPI semantics assume it, and it fixes a real inbox defect: today a
 human reply leaves the chat assigned to the AI, so the AI keeps
 auto-answering the customer while a human is handling them.
 
-- [ ] `sendHumanReply` (packages/core/src/lib/inbox.ts): after a successful
+- [x] `sendHumanReply` (packages/core/src/lib/inbox.ts): after a successful
       reply, if the conversation is not already assigned to the sender,
       reassign (assigneeUserId = sender, assignedAgentId = null) via the
       existing `assignConversation` so the XOR invariant and audit path
       hold; the takeover is audited (conversation.reassign-style row with
       the reason "reply").
-- [ ] Private notes (notes route) explicitly do NOT reassign.
-- [ ] Manual verification on the clone: reply from the inbox on an
+- [x] Private notes (notes route) explicitly do NOT reassign.
+- [x] Manual verification on the clone: reply from the inbox on an
       AI-handled chat -> list badge flips to "Diambil alih tim", AI badge
       gone; next inbound gets no AI reply until released; a reply by a
       second staff member reassigns to them; "Lepas" gives it back to the
@@ -39,30 +41,30 @@ auto-answering the customer while a human is handling them.
 
 ## Phase 1 - Data model
 
-- [ ] `packages/core/prisma/schema.prisma`: `KpiTarget` model
+- [x] `packages/core/prisma/schema.prisma`: `KpiTarget` model
       (tenantId, scope `TENANT|USER`, userId nullable + FK User SetNull,
       metric `ORDERS|DEALS_WON|FIRST_RESPONSE|REPLIES`,
       period `DAY|WEEK|TWO_WEEK|MONTH`, thresholdMinutes Int?,
       targetValue Decimal->Float (use Int for percent + Int for counts? use
       Float, simplest), active Boolean, timestamps; index (tenantId, active)).
-- [ ] `KpiSnapshot` model (tenantId, kpiTargetId + FK Cascade, periodKey,
+- [x] `KpiSnapshot` model (tenantId, kpiTargetId + FK Cascade, periodKey,
       periodStart, periodEnd, actualValue Float, targetValue Float,
       achieved Boolean, meta Json?, createdAt;
       unique (kpiTargetId, periodKey); index (tenantId, kpiTargetId,
       periodKey)).
-- [ ] Migration with RLS policies + `csq_app` grants (copy the pattern from
+- [x] Migration with RLS policies + `csq_app` grants (copy the pattern from
       the most recent PRD 16 migration).
-- [ ] Prisma enums: `KpiMetric`, `KpiPeriod`, `KpiScope` - or plain string
+- [x] Prisma enums: `KpiMetric`, `KpiPeriod`, `KpiScope` - or plain string
       unions in types + `String` columns (match the codebase's existing
       convention for ConversationStatus etc. - check first, be consistent).
-- [ ] `packages/core/src/types/kpi.ts`: shared TS types + Zod schemas for
+- [x] `packages/core/src/types/kpi.ts`: shared TS types + Zod schemas for
       create/update payloads.
 
 ## Phase 2 - Core computation (`packages/core/src/lib/kpi.ts`)
 
-- [ ] `periodWindow(period, at)` -> `{ key, start, end }` in Asia/Jakarta
+- [x] `periodWindow(period, at)` -> `{ key, start, end }` in Asia/Jakarta
       (day / Mon-Sun week / 1-14 + 15-end two-week / calendar month).
-- [ ] `computeActual(target, from, to)` -> number, one query per metric:
+- [x] `computeActual(target, from, to)` -> number, one query per metric:
       - ORDERS: count Order rows in window (tenant scope only).
       - DEALS_WON: count DealStageHistory rows whose target stage kind is WON
         in window; + movedByUserId when scope is USER.
@@ -72,50 +74,50 @@ auto-answering the customer while a human is handling them.
         (tenantId, conversationId, createdAt)-indexed rows.
       - REPLIES: count OUTBOUND non-internal HUMAN rows in window;
         + senderUserId when scope is USER.
-- [ ] `achieved(metric, actual, target)`: FIRST_RESPONSE -> actual >= target;
+- [x] `achieved(metric, actual, target)`: FIRST_RESPONSE -> actual >= target;
       others -> actual >= target.
-- [ ] `closeDueSnapshots()`: for every tenant with active targets, for the
+- [x] `closeDueSnapshots()`: for every tenant with active targets, for the
       period(s) that closed since the last snapshot and up to 12 back:
       upsert KpiSnapshot. Idempotent; safe to call on every tick and on boot.
-- [ ] `scripts/self-check-kpi.ts` (assert-based, clone DB): period math
+- [x] `scripts/self-check-kpi.ts` (assert-based, clone DB): period math
       (month, week, two-week boundaries), each metric against seeded
       messages/orders/stage-moves, snapshot upsert idempotency, cap
       enforcement at the API level is checked in Phase 4 manually.
 
 ## Phase 3 - Worker tick
 
-- [ ] `scheduler.ts`: daily cron at 00:10 Jakarta ("10 17 * * *" UTC) calls
+- [x] `scheduler.ts`: daily cron at 00:10 Jakarta ("10 17 * * *" UTC) calls
       `closeDueSnapshots()` in system context; catch-up call on boot after
       the existing boot reconnect block. Log a one-line summary (tenants,
       snapshots written) in the alert-check style.
 
 ## Phase 4 - Dashboard API (OWNER-only, Zod at the boundary)
 
-- [ ] `POST /api/dashboard/kpi/targets` - create (validates metric/period/
+- [x] `POST /api/dashboard/kpi/targets` - create (validates metric/period/
       threshold combos, the 5-per-holder cap, pipeline entitlement for
       DEALS_WON).
-- [ ] `PATCH /api/dashboard/kpi/targets/[id]` - edit targetValue /
+- [x] `PATCH /api/dashboard/kpi/targets/[id]` - edit targetValue /
       thresholdMinutes / active (never scope/metric/period - a change of
       meaning is a new KPI; document in the route).
-- [ ] `GET /api/dashboard/kpi/targets` - list with holder names.
-- [ ] `GET /api/dashboard/kpi/report` - per active target: live current
+- [x] `GET /api/dashboard/kpi/targets` - list with holder names.
+- [x] `GET /api/dashboard/kpi/report` - per active target: live current
       period (computeActual + window end) + snapshot history (newest first).
 
 ## Phase 5 - UI
 
-- [ ] `/dashboard/kpi` page (OWNER-only gate): report cards (current period
+- [x] `/dashboard/kpi` page (OWNER-only gate): report cards (current period
       progress, status, days left) + per-KPI history table + create/edit/
       deactivate forms. Reuse `usePolledApi`/`useApi` + existing card styles;
       no new component library.
-- [ ] Dashboard shell nav entry "KPI" (hidden for STAFF).
-- [ ] Empty state that explains the 4 metrics and scope rules.
+- [x] Dashboard shell nav entry "KPI" (hidden for STAFF).
+- [x] Empty state that explains the 4 metrics and scope rules.
 
 ## Phase 6 - Docs
 
-- [ ] PRD 17 status DRAFT -> APPROVED with a dated note on approval.
-- [ ] `docs/prd/README.md` index row for `17-staff-kpi.md`.
-- [ ] `Changelogs.md` entry on release.
-- [ ] OpenAPI: the KPI routes are dashboard BFF routes, not /api/v1 - no
+- [x] PRD 17 status DRAFT -> APPROVED with a dated note on approval.
+- [x] `docs/prd/README.md` index row for `17-staff-kpi.md`.
+- [x] `Changelogs.md` entry on release.
+- [x] OpenAPI: the KPI routes are dashboard BFF routes, not /api/v1 - no
       OpenAPI change; confirm `npm run check:openapi` still passes.
 
 ## Verification
