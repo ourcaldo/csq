@@ -1,4 +1,4 @@
-﻿# Staff KPI Implementation Plan (2026-11-10)
+# Staff KPI Implementation Plan (2026-11-10)
 
 Implements PRD 17 (`docs/prd/17-staff-kpi.md`). Do not start before the
 owner approves the PRD. All work on the `monorepo` branch and the clone
