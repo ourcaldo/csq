@@ -26,6 +26,7 @@ the file contents and names.
 | `14-plans-billing-quotas.md` | new | Packages, billing, quotas: entitlements, credit ledger, MAU, invoices, plan requests, tenant Paket & Kuota | Live - verification tracked in the plan |
 | `15-multi-channel.md` | new | Multiple WhatsApp channels per tenant: channel identity, connect flow, webhook routing, inbox, limits | Pending - not scheduled |
 | `16-completeness-remediation.md` | new | Remaining audit gaps outside PRD 15: security, correctness, missing features, admin, billing, operations, docs | Live - approved 2026-11-09; implementation tracked by item IDs |
+| `17-staff-kpi.md` | new | Staff and tenant KPIs: metrics, targets, periods, snapshot history, report | Draft 2026-11-10 - pending owner approval, not scheduled |
 
 Companion working documents (plans, registers, status) stay in `docs/`
 with date prefixes, e.g. `docs/plans/2026-11-08-enterprise-architecture-plan.md`.
