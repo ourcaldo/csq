@@ -5,7 +5,7 @@ import prisma from "@csq/core/lib/db";
 import { buildSystemPrompt } from "@csq/core/lib/prompt-builder";
 import { runConversation } from "@csq/core/services/llm-runtime";
 import { sendAgentMessage } from "@csq/core/lib/agent-outbox";
-import { acquireTurnLease, releaseTurnLease } from "@csq/core/lib/turn-lock";
+import { acquireTurnLease, releaseTurnLease, renewTurnLease } from "@csq/core/lib/turn-lock";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { chargeCredits, getCreditStatus } from "@csq/core/lib/credits";
 import { getTemplateBody } from "@csq/core/lib/message-templates";
@@ -351,6 +351,71 @@ export async function runAgentReply(args: {
 // unanswered) terminates; each pass answers one message.
 const MAX_DRAIN_TURNS = 3;
 
+// Owner request 2026-11-10: when the AI errors, retry the turn instead of
+// apologizing to the customer, and move the conversation to staff after the
+// retries are exhausted. Capped exponential backoff: 2s doubling, 30s cap -
+// 10 retries span roughly 3.5 minutes, which covers transient LLM outages
+// (429 rate limits, provider blips) without the customer waiting on silence
+// indefinitely.
+const MAX_AGENT_RETRIES = 10;
+const RETRY_DELAY_BASE_MS = 2_000;
+const RETRY_DELAY_CAP_MS = 30_000;
+
+// Last resort after MAX_AGENT_RETRIES failed turns: assign the conversation
+// to the tenant owner - the same mutation conversation.handoff performs, so
+// the AI stands down on the next inbound - and leave an internal note with
+// the failure reason so staff knows why it landed on their desk.
+async function escalateToHuman(args: {
+  tenantId: string;
+  conversationId: string;
+  reason: string;
+}): Promise<void> {
+  const owner = await prisma.user.findFirst({
+    where: { tenantId: args.tenantId, role: "OWNER" },
+    orderBy: { createdAt: "asc" },
+  });
+  if (!owner) {
+    console.error(
+      `[agent-loop] cannot escalate conversation ${args.conversationId}: no owner user`
+    );
+    return;
+  }
+  await prisma.conversation.updateMany({
+    where: { id: args.conversationId, tenantId: args.tenantId },
+    data: {
+      assigneeUserId: owner.id,
+      assignedAgentId: null,
+      lastMessageAt: new Date(),
+    },
+  });
+  await prisma.message.create({
+    data: {
+      tenantId: args.tenantId,
+      conversationId: args.conversationId,
+      direction: "OUTBOUND",
+      senderType: "HUMAN",
+      senderUserId: owner.id,
+      body: `Dialihkan otomatis ke staff: AI gagal membalas setelah ${
+        MAX_AGENT_RETRIES + 1
+      }x percobaan (${args.reason}). Mohon balas pelanggan secara manual.`,
+      isInternal: true,
+    },
+  });
+  await logAction({
+    tenantId: args.tenantId,
+    agentId: null,
+    action: "conversation.agent_error_handoff",
+    entityType: "Conversation",
+    entityId: args.conversationId,
+    approvalStatus: "NONE",
+    afterValue: {
+      reason: args.reason,
+      escalatedToUserId: owner.id,
+      at: new Date().toISOString(),
+    },
+  });
+}
+
 export async function processInboundWithAgent(args: {
   channel: Channel;
   conversationId: string;
@@ -379,35 +444,50 @@ async function processInboundWithAgentInner(args: {
   }
 
   try {
-    await drainUnansweredInbound(channel, conversationId, tenantId);
+    // Owner request 2026-11-10: an AI error is never answered with a canned
+    // apology to the customer. The drain is retried through transient LLM
+    // failures with capped exponential backoff; the turn lease is renewed
+    // between attempts so the stale window can never let a second turn
+    // double-reply during the backoff.
+    let attempt = 0;
+    for (;;) {
+      try {
+        await drainUnansweredInbound(channel, conversationId, tenantId);
+        break;
+      } catch (err) {
+        if (attempt >= MAX_AGENT_RETRIES) throw err;
+        attempt += 1;
+        const delayMs = Math.min(
+          RETRY_DELAY_BASE_MS * 2 ** (attempt - 1),
+          RETRY_DELAY_CAP_MS
+        );
+        console.error(
+          `[agent-loop] turn ${attempt}/${MAX_AGENT_RETRIES} failed for ${conversationId}, retrying in ${delayMs}ms: ${
+            err instanceof Error ? err.message : String(err)
+          }`
+        );
+        const stillOurs = await renewTurnLease(conversationId, tenantId, leaseId);
+        if (!stillOurs) {
+          // The lease was stolen while we backed off. Another turn now owns
+          // the conversation - retrying on top of it would double-reply.
+          throw err;
+        }
+        await new Promise((r) => setTimeout(r, delayMs));
+      }
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error(
       `[agent-loop] Failed to process inbound for conversation ${conversationId}: ${message}`
     );
-    // G5: don't leave the customer in silence when the agent errors (LLM
-    // down, send failure, etc.). Best-effort canned fallback - the 24h window
-    // is open because the inbound that triggered this turn just arrived. Guarded
-    // so a second failure here can never throw out of this catch.
+    // All retries exhausted: move the conversation to staff with a note
+    // explaining why. Guarded - an escalation failure must not throw here.
     try {
-      const conversation = await prisma.conversation.findFirst({
-        where: { id: conversationId, tenantId },
-      });
-      if (!conversation) return;
-      await sendAgentMessage({
-        channel,
-        conversationId,
-        customerPhone: conversation.customerPhone,
-        body:
-          "Maaf, sistem kami sedang mengalami gangguan sebentar. Pesan Anda akan kami balas secepatnya.",
-        action: "conversation.agent_error",
-        templateName: process.env.WHATSAPP_AGENT_FALLBACK_TEMPLATE || undefined,
-        auditAfter: { error: message },
-      });
-    } catch (sendErr) {
-      const sendMsg = sendErr instanceof Error ? sendErr.message : String(sendErr);
+      await escalateToHuman({ tenantId, conversationId, reason: message });
+    } catch (escalationErr) {
       console.error(
-        `[agent-loop] fallback send also failed for conversation ${conversationId}: ${sendMsg}`
+        `[agent-loop] escalation to staff failed for ${conversationId}:`,
+        escalationErr
       );
     }
   } finally {

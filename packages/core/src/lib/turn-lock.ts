@@ -56,3 +56,26 @@ export async function releaseTurnLease(
     `
   );
 }
+
+// Touch the lease timestamp while we still own it. The agent-loop's retry
+// backoff (agent-loop.ts) can outlive the 3-minute stale window; renewing
+// between attempts keeps a live turn from being stolen mid-retry. Returns
+// false when the lease is no longer ours (stolen/expired) - the caller must
+// stop retrying then, or it would double-reply on top of the new owner.
+export async function renewTurnLease(
+  conversationId: string,
+  tenantId: string,
+  leaseId: string
+): Promise<boolean> {
+  const updated = await tenantRaw(
+    tenantId,
+    prisma.$executeRaw`
+      UPDATE "Conversation"
+      SET "turnLockedAt" = NOW()
+      WHERE "id" = ${conversationId}
+        AND "tenantId" = ${tenantId}
+        AND "turnLockId" = ${leaseId}
+    `
+  );
+  return updated === 1;
+}
