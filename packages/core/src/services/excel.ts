@@ -1,4 +1,7 @@
-import { Workbook } from "exceljs";
+// exceljs is CJS whose export shape defeats Node's named-export detection
+// under real ESM, so it must be loaded via the default export (the module
+// object) and accessed by property.
+import ExcelJS from "exceljs";
 import { Readable } from "stream";
 import { z } from "zod";
 
@@ -61,7 +64,7 @@ export const mappedProductSchema = z.object({
 
 
 export async function parseFile(buffer: Buffer, filename: string): Promise<ParsedSheet> {
-  const wb = new Workbook();
+  const wb = new ExcelJS.Workbook();
   const lower = filename.toLowerCase();
   // OPS-5 (PRD 16): legacy .xls (BIFF) is NOT the xlsx format - exceljs
   // cannot read it. Reject it with a clear message instead of a cryptic
