@@ -29,8 +29,9 @@ import { cn } from "@csq/ui/lib/utils";
 import { apiFetch, apiSend } from "@/lib/api-client";
 import { readableTextColor } from "@/lib/tag-color";
 import { Select } from "@csq/ui/components/ui/select";
-import type { ConversationListItem, Stage, Tag, User } from "@csq/core/types/inbox";
+import type { ConversationListItem, Message, Stage, Tag, User } from "@csq/core/types/inbox";
 import { useSession } from "next-auth/react";
+import { usePolledApi } from "@/hooks/use-polled-api";
 import {
   hasFeature,
   useEntitlements,
@@ -167,8 +168,7 @@ function historyEventIcon(e: HistoryEvent) {
 export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMobile, hidden, onToggleHide }: ContactDetailsProps) {
   const { data: session } = useSession();
   const entitlements = useEntitlements();
-  const me = session?.user?.id;
-  const [tags, setTags] = useState<Tag[] | null>(null);
+  const me = session?.user?.id;  const [tags, setTags] = useState<Tag[] | null>(null);
   const [stages, setStages] = useState<Stage[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -353,6 +353,14 @@ export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMob
   const assignedToMe = !!conversation.assignee && conversation.assignee.id === me;
   const usedTagIds = new Set(conversation.tags.map((t) => t.tag.id));
   const availableTags = (tags ?? []).filter((t) => !usedTagIds.has(t.id));
+
+  // All internal notes on this conversation (newest first, author + time) so
+  // reading past notes never requires scrolling the chat thread to the top
+  // (owner request 2026-11-10). Polled silently - notes added from the chat
+  // composer appear here within one interval without extra plumbing.
+  const notesUrl = `/api/dashboard/inbox/conversations/${conversation.id}/notes`;
+  const { data: notesData } = usePolledApi<{ items: Message[] }>(notesUrl, 8000);
+  const notes = notesData?.items ?? [];
 
   const detailsContent = (
     <>
@@ -633,6 +641,36 @@ export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMob
                 Selesai
               </button>
             </div>
+          )}
+        </div>
+
+        {/* Catatan - every internal note on this conversation, newest first
+            with author and time, so the team does not scroll the chat thread
+            to the top to find them. */}
+        <div>
+          <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Catatan Tim
+          </h4>
+          {notesData === null ? (
+            <p className="text-xs text-slate-400">Memuat catatan…</p>
+          ) : notes.length === 0 ? (
+            <p className="text-xs text-slate-400">
+              Belum ada catatan. Tambahkan lewat mode Catatan Tim di panel chat.
+            </p>
+          ) : (
+            <ol className="space-y-3">
+              {notes.map((n) => (
+                <li key={n.id} className="rounded-lg border border-amber-100 bg-amber-50/60 p-2.5 text-xs">
+                  <p className="flex items-baseline justify-between gap-2 font-medium text-amber-800">
+                    <span className="truncate">{n.senderUserName ?? "Tim"}</span>
+                    <span className="shrink-0 font-normal text-slate-400">
+                      {historyDateLabel(n.createdAt)}
+                    </span>
+                  </p>
+                  <p className="mt-1 whitespace-pre-line text-slate-600">{n.body}</p>
+                </li>
+              ))}
+            </ol>
           )}
         </div>
 

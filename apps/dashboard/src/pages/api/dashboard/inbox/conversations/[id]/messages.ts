@@ -54,7 +54,7 @@ export default async function handler(
         tenantId,
         conversationId: id,
       };
-      const [newest, total] = await Promise.all([
+      const [rows, total] = await Promise.all([
         // The chat panel always wants the LATEST slice of the thread. It used
         // to load the OLDEST pageSize messages (asc, page 1) - fine until a
         // merged conversation grew past the 100 cap, at which point the newest
@@ -66,10 +66,17 @@ export default async function handler(
           where,
           take: pageSize,
           orderBy: { createdAt: "desc" },
+          // Join the human author so internal notes can show who wrote them.
+          include: { senderUser: { select: { name: true, email: true } } },
         }),
         prisma.message.count({ where }),
       ]);
-      const items = newest.reverse();
+      const items = rows
+        .reverse()
+        .map(({ senderUser, ...m }) => ({
+          ...m,
+          senderUserName: senderUser?.name ?? senderUser?.email ?? null,
+        }));
       return res.status(200).json(apiOk({ items, total, page: 1, pageSize }));
     }
 
@@ -94,7 +101,12 @@ export default async function handler(
           userId: session.user.id,
           body: parsed.data.body,
         });
-        return res.status(201).json(apiOk(message));
+        // Enrich with the author's display name (same shape as the GET).
+        const enriched = {
+          ...message,
+          senderUserName: session.user.name ?? session.user.email ?? null,
+        };
+        return res.status(201).json(apiOk(enriched));
       } catch (err) {
         if (err instanceof HttpError) {
           return respondError(res, err.code, err.message);

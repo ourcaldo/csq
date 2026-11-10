@@ -82,6 +82,10 @@ export type Message = {
   senderType: MessageSenderType;
   senderAgentId: string | null;
   senderUserId: string | null;
+  // Display name of the human author (OWNER/STAFF) for internal notes and
+  // human replies - name, else email, else null (AI/system rows). Joined
+  // server-side; never client-supplied.
+  senderUserName: string | null;
   body: string;
   waMessageId: string | null;
   // How the inbound content arrived (D6). Non-text rows are stored for the

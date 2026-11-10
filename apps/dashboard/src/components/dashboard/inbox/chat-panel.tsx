@@ -21,6 +21,7 @@ import {
 import { cn } from "@csq/ui/lib/utils";
 import { apiFetch, apiSend } from "@/lib/api-client";
 import type { Message } from "@csq/core/types/inbox";
+import { useSession } from "next-auth/react";
 import { LoadingSkeleton } from "@/components/dashboard/loading-skeleton";
 import { EmptyState } from "@/components/dashboard/empty-state";
 import { Dialog } from "@csq/ui/components/ui/dialog";
@@ -68,8 +69,13 @@ function MessageBubble({
     return (
       <div className="my-1 flex justify-center">
         <div className="msg-note max-w-[80%] px-3 py-2 text-xs whitespace-pre-line">
-          <span className="font-semibold">Catatan tim: </span>
-          {m.body}
+          {/* Who + when + what (owner request 2026-11-10): the note carries
+              its author and time, not just the body. */}
+          <span className="font-semibold">
+            Catatan tim{m.senderUserName ? ` - ${m.senderUserName}` : ""}
+          </span>{" "}
+          <span className="text-slate-400">{timeLabel(m.createdAt)}</span>
+          <div>{m.body}</div>
         </div>
       </div>
     );
@@ -182,6 +188,7 @@ function TypingIndicator({ label }: { label: string }) {
 }
 
 export function ChatPanel({ conversationId, customerName, customerPhone, aiActive, humanTakenOver, mediaBase, onBack, onOpenDetails, onRead }: ChatPanelProps) {
+  const { data: session } = useSession();
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -306,6 +313,10 @@ export function ChatPanel({ conversationId, customerName, customerPhone, aiActiv
       senderType: "HUMAN",
       senderAgentId: null,
       senderUserId: null,
+      // The author's name for the optimistic note bubble; replaced by the
+      // server row (same field) once the POST resolves.
+      senderUserName:
+        session?.user?.name ?? session?.user?.email ?? null,
       body,
       waMessageId: null,
       kind: "TEXT",
