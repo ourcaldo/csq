@@ -155,6 +155,7 @@ export default function InboxPage({ apiMediaBase }: InboxPageProps) {
               setDetailsOpen(false);
             }}
             onOpenDetails={() => setDetailsOpen(true)}
+            onRead={() => void refresh()}
           />
         ) : (
           <div className="hidden flex-1 flex-col items-center justify-center bg-slate-50 text-center lg:flex">

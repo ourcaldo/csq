@@ -37,6 +37,9 @@ type ChatPanelProps = {
   onBack?: () => void;
   /** Mobile open-contact-details action (opens the slide-over drawer). */
   onOpenDetails?: () => void;
+  /** Fired after the panel advances the user's read watermark, so the page
+   * can refresh the list and clear the unread badge promptly. */
+  onRead?: () => void;
 };
 
 type ComposerMode = "reply" | "note";
@@ -51,10 +54,12 @@ function MessageBubble({
   m,
   readByAgent,
   mediaBase,
+  customerInitial,
 }: {
   m: Message;
   readByAgent: boolean;
   mediaBase: string;
+  customerInitial: string;
 }) {
   // Whitespace-pre-line: agent replies carry markdown/newlines (lists, line
   // breaks) that must render as-written like WhatsApp does, not collapse.
@@ -74,7 +79,9 @@ function MessageBubble({
     return (
       <div className="my-1 flex max-w-[80%] items-end gap-2">
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
-          {(m.body.charAt(0) || "?").toUpperCase()}
+          {/* Customer avatar: stable per conversation (contact-name or phone
+              initial) - never the first letter of whatever they sent. */}
+          {customerInitial}
         </div>
         <div>
           <div className={cn("msg-received", bodyClass)}>
@@ -174,7 +181,7 @@ function TypingIndicator({ label }: { label: string }) {
   );
 }
 
-export function ChatPanel({ conversationId, customerName, customerPhone, aiActive, humanTakenOver, mediaBase, onBack, onOpenDetails }: ChatPanelProps) {
+export function ChatPanel({ conversationId, customerName, customerPhone, aiActive, humanTakenOver, mediaBase, onBack, onOpenDetails, onRead }: ChatPanelProps) {
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -188,19 +195,47 @@ export function ChatPanel({ conversationId, customerName, customerPhone, aiActiv
   const [templateSending, setTemplateSending] = useState(false);
   const [templateError, setTemplateError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // First render of a conversation's messages vs a silent background refresh.
+  const hadMessagesRef = useRef(false);
+  // Last server-side message id we rendered; a silent refresh that grows the
+  // thread means the customer (or AI) wrote while this panel is open.
+  const lastIdRef = useRef<string | null>(null);
 
-  async function loadMessages() {
-    setLoading(true);
+  // Stable per-conversation avatar initial, same rule as the left list.
+  const customerInitial = customerName.trim().charAt(0).toUpperCase() || "?";
+
+  // Advance the caller's read watermark. Opening the chat marks it read once
+  // (page onSelect); this keeps it advancing while the panel is open and on
+  // replies, so the unread badge cannot stick (owner report 2026-11-10: it
+  // stayed at 6 through six owner replies).
+  function markRead() {
+    void apiSend(`/api/dashboard/inbox/conversations/${conversationId}`, "POST")
+      .then(() => onRead?.())
+      .catch(() => undefined);
+  }
+
+  async function loadMessages(showLoading: boolean) {
+    if (showLoading) setLoading(true);
     try {
       const data = await apiFetch<{ items: Message[] }>(
         `/api/dashboard/inbox/conversations/${conversationId}/messages?pageSize=200`
       );
-      setMessages(data.items);
+      setMessages((prev) => {
+        // Silent SSE refreshes must keep bubbles whose POST has not
+        // resolved yet (optimistic sends), or they flash out mid-flight.
+        const pending = (prev ?? []).filter((m) => m.id.startsWith("pending-"));
+        return pending.length ? [...data.items, ...pending] : data.items;
+      });
       setError(null);
+      const lastId = data.items.at(-1)?.id ?? null;
+      if (!showLoading && lastId && lastId !== lastIdRef.current) {
+        markRead();
+      }
+      lastIdRef.current = lastId;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal memuat pesan.");
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }
 
@@ -208,13 +243,23 @@ export function ChatPanel({ conversationId, customerName, customerPhone, aiActiv
     setMessages(null);
     setDraft("");
     setSendError(null);
-    loadMessages();
+    hadMessagesRef.current = false;
+    lastIdRef.current = null;
+    void loadMessages(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId]);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const el = scrollRef.current;
+    if (!el || messages === null) return;
+    const firstLoad = !hadMessagesRef.current;
+    hadMessagesRef.current = true;
+    // Silent SSE refreshes must not yank the user back to the bottom while
+    // they are scrolled up reading history; the first load always pins to
+    // the newest message.
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 160;
+    if (firstLoad || nearBottom) {
+      el.scrollTop = el.scrollHeight;
     }
   }, [messages]);
 
@@ -229,10 +274,12 @@ export function ChatPanel({ conversationId, customerName, customerPhone, aiActiv
     // deploy, laptop sleep) is never replayed. Re-fetch the full history on
     // every (re)connect so the panel is always back in sync.
     es.onopen = () => {
-      void loadMessages();
+      void loadMessages(false);
     };
     es.onmessage = () => {
-      void loadMessages();
+      // Silent: a skeleton flash on every live message is what made the
+      // thread look like it was "refreshing" (owner report 2026-11-10).
+      void loadMessages(false);
     };
     es.onerror = () => {
       // Transient - the browser auto-reconnects; swallow.
@@ -246,15 +293,40 @@ export function ChatPanel({ conversationId, customerName, customerPhone, aiActiv
     if (!body || sending) return;
     setSending(true);
     setSendError(null);
+    setDraft("");
+    // Optimistic bubble (owner report 2026-11-10): the send POST waits for
+    // the worker's outbox drain (~1-2s), so the message is appended to the
+    // thread immediately and reconciled with the real row when the POST
+    // resolves. On failure the bubble is removed and the draft restored.
+    const pendingId = `pending-${Date.now()}`;
+    const optimistic: Message = {
+      id: pendingId,
+      conversationId,
+      direction: "OUTBOUND",
+      senderType: "HUMAN",
+      senderAgentId: null,
+      senderUserId: null,
+      body,
+      waMessageId: null,
+      kind: "TEXT",
+      mediaId: null,
+      isInternal: mode === "note",
+      createdAt: new Date().toISOString(),
+    };
+    setMessages((prev) => [...(prev ?? []), optimistic]);
     try {
       const endpoint =
         mode === "note"
           ? `/api/dashboard/inbox/conversations/${conversationId}/notes`
           : `/api/dashboard/inbox/conversations/${conversationId}/messages`;
       const created = await apiSend<Message>(endpoint, "POST", { body });
-      setMessages((prev) => [...(prev ?? []), created]);
-      setDraft("");
+      setMessages((prev) => (prev ?? []).map((m) => (m.id === pendingId ? created : m)));
+      // Replying means the thread was read: advance the watermark so the
+      // left-panel badge clears instead of sticking.
+      if (mode === "reply") markRead();
     } catch (err) {
+      setMessages((prev) => (prev ?? []).filter((m) => m.id !== pendingId));
+      setDraft(body);
       setSendError(err instanceof Error ? err.message : "Gagal mengirim.");
     } finally {
       setSending(false);
@@ -350,13 +422,15 @@ export function ChatPanel({ conversationId, customerName, customerPhone, aiActiv
         {!loading && !error && (messages?.length ?? 0) === 0 && (
           <EmptyState title="Belum ada pesan" description="Mulai percakapan dengan pelanggan." />
         )}
-        {!loading &&
-          !error &&
-          messages?.map((m) => (
+        {/* Not gated on !loading/!error: a background (SSE) refresh or a
+            transient error must never blank the thread - that was the
+            "screen refresh" flash. */}
+        {messages?.map((m) => (
             <MessageBubble
               key={m.id}
               m={m}
               mediaBase={mediaBase}
+              customerInitial={customerInitial}
               readByAgent={
                 m.direction === "INBOUND" &&
                 !!messages.some(
