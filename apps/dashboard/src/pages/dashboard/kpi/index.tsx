@@ -271,14 +271,21 @@ export default function KpiPage() {
                           </span>
                         )}
                       </div>
-                      <div className="mb-2 flex items-baseline justify-between">
-                        <span className="text-2xl font-bold text-slate-900">{valueText}</span>
-                        <span className="text-xs text-slate-500">
-                          {isResp
-                            ? "chat masuk yang direspons tepat waktu"
-                            : `Target: ${k.targetValue} ${PERIOD_LABELS[k.period]}`}
-                        </span>
-                      </div>
+                      {isResp ? (
+                        <div className="mb-2">
+                          <span className="text-2xl font-bold text-slate-900">{valueText}</span>
+                          <p className="text-xs text-slate-500">
+                            chat masuk yang direspons tepat waktu
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="mb-2 flex items-baseline justify-between">
+                          <span className="text-2xl font-bold text-slate-900">{valueText}</span>
+                          <span className="text-xs text-slate-500">
+                            Target: {k.targetValue} {PERIOD_LABELS[k.period]}
+                          </span>
+                        </div>
+                      )}
                       {isResp ? (
                         <p className="mb-2 text-xs text-slate-400">
                           {typeof meta.incomingChats === "number"
