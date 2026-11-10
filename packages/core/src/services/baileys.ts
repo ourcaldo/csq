@@ -94,16 +94,16 @@ export function toJid(number: string): string {
 // customer, owner request 2026-11-10):
 // - a "@s.whatsapp.net" JID -> bare phone digits (the same form the Cloud API
 //   stores, so the two channels share ONE thread);
-// - a "@lid" JID -> the real phone digits from key.senderPn when WhatsApp
-//   provided them (LID and PN chats of the same person must not split), else
-//   the raw LID JID (last resort; sends still resolve via LidMapping).
+// - a "@lid" JID -> the real phone digits from key.remoteJidAlt (Baileys 7
+//   carries the PN JID there; 6.x called it senderPn), else the raw LID JID
+//   (last resort; sends still resolve via the LID mapping).
 export function canonicalIdentity(
   remoteJid: string,
-  senderPn: string | null | undefined
+  altJid: string | null | undefined
 ): string {
   const bare = (jid: string): string => jid.split("@")[0].split(":")[0];
   if (remoteJid.endsWith("@lid")) {
-    return senderPn ? bare(senderPn) : remoteJid;
+    return altJid ? bare(altJid) : remoteJid;
   }
   if (remoteJid.endsWith("@s.whatsapp.net")) return bare(remoteJid);
   return remoteJid;
@@ -427,13 +427,14 @@ async function connectBaileysChannelInner(
         // thread.
         const remoteJid = m.key.remoteJid ?? "";
         if (!remoteJid) continue;
-        // Capture the LID -> phone-number mapping from this inbound
-        // (key.senderPn carries the sender's real number even when the chat
-        // is LID-addressed). Kept for legacy LID-keyed conversations and the
+        // Baileys 7 carries the alternative JID (the PN when the chat is
+        // LID-addressed) on the message key. Capture the LID -> phone-number
+        // mapping from it; kept for legacy LID-keyed conversations and the
         // provider's send re-route.
-        if (remoteJid.endsWith("@lid") && m.key.senderPn) {
+        const altJid = m.key.remoteJidAlt ?? m.key.participantAlt ?? null;
+        if (remoteJid.endsWith("@lid") && altJid) {
           const lidUser = remoteJid.split("@")[0].split(":")[0];
-          const pnUser = m.key.senderPn.split("@")[0].split(":")[0];
+          const pnUser = altJid.split("@")[0].split(":")[0];
           if (lidUser && pnUser) {
             void storeLidPnMapping(channel.id, lidUser, pnUser).catch(
               (err: unknown) =>
@@ -444,7 +445,7 @@ async function connectBaileysChannelInner(
             );
           }
         }
-        const from = canonicalIdentity(remoteJid, m.key.senderPn);
+        const from = canonicalIdentity(remoteJid, altJid);
         const tenantId = channel.tenantId;
         void (async () => {
           // Inbound image: download the bytes (bounded - 10 MB cap, best

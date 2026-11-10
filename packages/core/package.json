@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
-    "@whiskeysockets/baileys": "^6.7.24",
+    "@whiskeysockets/baileys": "7.0.0-rc14",
     "bcryptjs": "^3.0.3",
     "exceljs": "^4.4.0",
     "googleapis": "^144.0.0",
