@@ -12,7 +12,7 @@ import { CLOUD_API_WINDOW_MS, assignConversation } from "@csq/core/lib/inbox";
 import { setConversationStage } from "@csq/core/lib/pipeline";
 import { generateText, isTextLlmConfigured } from "@csq/core/services/llm";
 import { sendEmailWithProvider } from "@csq/core/services/email";
-import { getEmailProvider } from "@csq/core/lib/email-config";
+import { resolveEmailProvider } from "@csq/core/lib/email-config";
 import { getTenantEntitlements } from "@csq/core/lib/entitlements";
 import { chargeCredits } from "@csq/core/lib/credits";
 import { events } from "@csq/core/lib/events";
@@ -560,7 +560,9 @@ async function executeNode(
 
     case "email": {
       const to = await resolveContactEmail(ctx.tenantId, ctx.conversationId);
-      const provider = await getEmailProvider(ctx.tenantId);
+      // Tenant's own provider first; platform SMTP (admin console) is the
+      // fallback (owner request 2026-11-10).
+      const provider = await resolveEmailProvider(ctx.tenantId);
       if (!to || !provider) {
         await logAction({
           tenantId: ctx.tenantId,
@@ -573,7 +575,7 @@ async function executeNode(
             subject: node.data.subject,
             reason: !to
               ? "Kontak tidak memiliki email."
-              : "Email belum diatur oleh pemilik usaha (Pengaturan → Email).",
+              : "Email belum diatur (tenant maupun platform).",
           },
         });
         return {

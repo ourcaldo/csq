@@ -4,13 +4,15 @@ import { logHuman } from "@csq/core/lib/audit";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
-import { getEmailProvider, maskEmailProvider } from "@csq/core/lib/email-config";
+import { maskEmailProvider, resolveEmailProvider } from "@csq/core/lib/email-config";
 import { sendEmailWithProvider } from "@csq/core/services/email";
 
 // Test-send for Settings → Email: sends one plain-text email through the
-// SAVED provider config to the owner's own address, so the owner can confirm
-// their SMTP/Resend setup works before wiring scenario Email nodes. OWNER-only
-// (same boundary as the config route). Never echoes the credential back.
+// provider that would ACTUALLY send (the tenant's own, or the platform SMTP
+// fallback - owner request 2026-11-10) to the owner's own address, so the
+// owner can confirm the setup works before wiring scenario Email nodes.
+// OWNER-only (same boundary as the config route). Never echoes the credential
+// back.
 
 type TestResponse = { sent: true; to: string; messageId: string };
 
@@ -34,12 +36,14 @@ export default async function handler(
   const tenantId = requireTenant(session);
 
   return withTenantContext(tenantId, async () => {
-    const provider = await getEmailProvider(tenantId);
+    // Test the provider that would actually send: the tenant's own, or the
+    // platform SMTP fallback when the tenant has none configured.
+    const provider = await resolveEmailProvider(tenantId);
     if (!provider) {
       return respondError(
         res,
         "VALIDATION_ERROR",
-        "Email belum diatur - simpan konfigurasi SMTP/Resend terlebih dahulu."
+        "Email belum diatur - simpan konfigurasi SMTP/Resend Anda, atau minta admin mengatur SMTP platform."
       );
     }
 

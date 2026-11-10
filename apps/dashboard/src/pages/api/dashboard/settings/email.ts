@@ -8,6 +8,7 @@ import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import {
   emailProviderSchema,
   getEmailProvider,
+  getPlatformEmailProvider,
   saveEmailProvider,
   clearEmailProvider,
   maskEmailProvider,
@@ -46,7 +47,9 @@ const emailProviderInputSchema = z.discriminatedUnion("type", [
   }),
 ]);
 
-type EmailStatusResponse = { configured: false } | EmailProviderStatus;
+type EmailStatusResponse =
+  | { configured: false; platformConfigured: boolean }
+  | (EmailProviderStatus & { platformConfigured: boolean });
 
 export default async function handler(
   req: NextApiRequest,
@@ -64,11 +67,21 @@ export default async function handler(
   const tenantId = requireTenant(session);
 
   return withTenantContext(tenantId, async () => {
+    // Shared across responses: whether the platform SMTP fallback exists.
+    const platform = await getPlatformEmailProvider();
+
     if (req.method === "GET") {
       const provider = await getEmailProvider(tenantId);
-      return res
-        .status(200)
-        .json(apiOk(provider ? maskEmailProvider(provider) : { configured: false }));
+      // platformConfigured: whether the admin's platform SMTP exists as the
+      // fallback when this tenant has no own provider (owner request
+      // 2026-11-10) - shown as a hint on the Settings page.
+      return res.status(200).json(
+        apiOk(
+          provider
+            ? { ...maskEmailProvider(provider), platformConfigured: !!platform }
+            : { configured: false, platformConfigured: !!platform }
+        )
+      );
     }
 
     if (req.method === "PUT") {
@@ -112,7 +125,9 @@ export default async function handler(
         beforeValue: existing ? maskEmailProvider(existing) : { configured: false },
         afterValue: maskEmailProvider(stored.data),
       });
-      return res.status(200).json(apiOk(maskEmailProvider(stored.data)));
+      return res
+        .status(200)
+        .json(apiOk({ ...maskEmailProvider(stored.data), platformConfigured: !!platform }));
     }
 
     if (req.method === "DELETE") {
@@ -128,7 +143,9 @@ export default async function handler(
           afterValue: { configured: false },
         });
       }
-      return res.status(200).json(apiOk({ configured: false }));
+      return res
+        .status(200)
+        .json(apiOk({ configured: false, platformConfigured: !!platform }));
     }
 
     return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");

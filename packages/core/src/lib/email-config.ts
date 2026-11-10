@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { Prisma } from "@prisma/client";
 import prisma from "@csq/core/lib/db";
 
 // Per-tenant email delivery config for the scenario Email module. Each store
@@ -63,6 +64,49 @@ export async function getEmailProvider(
   });
   if (!tenant) return null;
   return parseStoredProvider(tenant.settings);
+}
+
+// Platform fallback provider (owner request 2026-11-10): the admin console
+// stores a default SMTP on the BillingSetting singleton. Same shape, same
+// secret-at-rest pattern as the per-tenant provider. Returns null when the
+// platform has none configured.
+export async function getPlatformEmailProvider(): Promise<EmailProviderConfig | null> {
+  const row = await prisma.billingSetting.findUnique({
+    where: { id: "singleton" },
+    select: { emailProvider: true },
+  });
+  if (!row?.emailProvider) return null;
+  const parsed = emailProviderSchema.safeParse(row.emailProvider);
+  return parsed.success ? parsed.data : null;
+}
+
+// Resolution order for every send: the tenant's own provider first, the
+// platform's as fallback. This is the one callers should use when actually
+// SENDING (invites, scenario Email nodes, test sends); the tenant settings
+// routes keep getEmailProvider because they manage the tenant's own config.
+export async function resolveEmailProvider(
+  tenantId: string
+): Promise<EmailProviderConfig | null> {
+  return (await getEmailProvider(tenantId)) ?? (await getPlatformEmailProvider());
+}
+
+// Save the platform provider onto the BillingSetting singleton (admin console
+// only). Stored exactly as the shared schema dictates, like the tenant path.
+export async function savePlatformEmailProvider(
+  config: EmailProviderConfig
+): Promise<void> {
+  await prisma.billingSetting.upsert({
+    where: { id: "singleton" },
+    create: { id: "singleton", emailProvider: config },
+    update: { emailProvider: config },
+  });
+}
+
+export async function clearPlatformEmailProvider(): Promise<void> {
+  await prisma.billingSetting.updateMany({
+    where: { id: "singleton" },
+    data: { emailProvider: Prisma.DbNull },
+  });
 }
 
 // Pure variant over a settings JSON value (for tests / callers that already

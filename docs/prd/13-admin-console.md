@@ -41,6 +41,14 @@ reach an admin route and vice versa. The first admin is created by CLI
 8. **Paket & Penggunaan (Plans & Usage)** - plan list/create/edit,
    per-tenant plan assignment, and the monthly usage table against plan
    limits with over-limit badges (see the monetization section below).
+9. **Email (platform SMTP)** - amendment 2026-11-10 (owner request): the
+   admin console configures a platform SMTP (host/port/secure/username/
+   password/sender, masked GET, audit-logged, secret never leaves the
+   server; stored on the BillingSetting singleton). Precedence: a tenant's
+   own email provider always wins; every tenant without one falls back to
+   the platform SMTP for staff invites, scenario Email nodes, and test
+   sends. The tenant Settings page shows a hint when the fallback is
+   active.
 
 ## Suspension semantics (the core product decision)
 

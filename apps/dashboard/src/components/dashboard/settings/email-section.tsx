@@ -25,7 +25,7 @@ import { Separator } from "@csq/ui/components/ui/separator";
 
 // Mirrors the masked GET shape from /api/dashboard/settings/email.
 type EmailStatus =
-  | { configured: false }
+  | { configured: false; platformConfigured?: boolean }
   | {
       configured: true;
       type: "SMTP" | "RESEND";
@@ -35,6 +35,7 @@ type EmailStatus =
       secure?: boolean;
       username?: string;
       hasSecret: true;
+      platformConfigured?: boolean;
     };
 
 type ProviderType = "SMTP" | "RESEND";
@@ -172,6 +173,17 @@ export function EmailSection() {
 
       <Separator className="my-4" />
 
+      {/* Platform SMTP fallback (owner request 2026-11-10): when this tenant
+          has no own provider, sends go through the admin console's SMTP. */}
+      {!loading && !error && !configured && status?.platformConfigured && (
+        <div className="mb-4 flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700">
+          <EnvelopeSimple size={18} className="mt-0.5 shrink-0" />
+          <span>
+            Anda belum mengatur SMTP sendiri - email Anda saat ini terkirim memakai SMTP
+            platform yang dikonfigurasi admin.
+          </span>
+        </div>
+      )}
       {loading && <StateNotice variant="loading" message="Memuat pengaturan email…" />}
       {error && <StateNotice variant="error" message={error} />}
       {formError && (

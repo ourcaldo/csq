@@ -7,7 +7,7 @@ import prisma from "@csq/core/lib/db";
 import { logHuman } from "@csq/core/lib/audit";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
-import { getEmailProvider } from "@csq/core/lib/email-config";
+import { resolveEmailProvider } from "@csq/core/lib/email-config";
 import { sendEmailWithProvider } from "@csq/core/services/email";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 
@@ -102,7 +102,9 @@ export default async function handler(
 
     const inviteLink = `${process.env.NEXTAUTH_URL ?? ""}/accept-invite?token=${token}`;
 
-    const provider = await getEmailProvider(tenantId);
+    // Tenant's own provider first; platform SMTP (admin console) is the
+    // fallback (owner request 2026-11-10).
+    const provider = await resolveEmailProvider(tenantId);
     let emailed = false;
     if (provider) {
       try {

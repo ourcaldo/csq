@@ -157,6 +157,12 @@ model BillingSetting {
   bankAccountHolder String?
   dueDays           Int      @default(7)
   graceDays         Int      @default(7)
+  // Platform email provider (owner request 2026-11-10): the admin console's
+  // SMTP used as the DEFAULT sender for every email (invites, scenario Email
+  // nodes). A tenant's own emailProvider in Tenant.settings takes precedence;
+  // when a tenant has none, sends fall back to this. Same shape and secret
+  // handling as the per-tenant provider (src/lib/email-config.ts).
+  emailProvider     Json?
   updatedById       String?
   updatedAt         DateTime @updatedAt
 
