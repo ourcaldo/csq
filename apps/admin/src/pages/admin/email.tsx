@@ -42,6 +42,10 @@ export default function PlatformEmailPage() {
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [testTo, setTestTo] = useState("");
+  const [testing, setTesting] = useState(false);
+  const [testInfo, setTestInfo] = useState<string | null>(null);
+  const [testError, setTestError] = useState<string | null>(null);
 
   // Prefill non-secret fields from the saved config so editing the host or
   // sender never requires re-entering the password.
@@ -101,6 +105,26 @@ export default function PlatformEmailPage() {
     }
   }
 
+  async function sendTest(e: FormEvent) {
+    e.preventDefault();
+    if (testing || !testTo.trim()) return;
+    setTesting(true);
+    setTestError(null);
+    setTestInfo(null);
+    try {
+      const r = await adminFetch<{ sent: true; to: string; messageId: string }>(
+        "/api/admin/email-settings/test",
+        "POST",
+        { to: testTo.trim() }
+      );
+      setTestInfo(`Email tes terkirim ke ${r.to} (ID: ${r.messageId}).`);
+    } catch (err) {
+      setTestError(err instanceof Error ? err.message : "Gagal mengirim email tes.");
+    } finally {
+      setTesting(false);
+    }
+  }
+
   return (
     <AdminShell title="Email">
       <PageHead
@@ -115,7 +139,7 @@ export default function PlatformEmailPage() {
         </div>
       )}
       {saved && (
-        <div className="mb-4 rounded-xl border border-border border-l-2 border-l-good bg-card px-5 py-3 text-[13px] text-good">
+        <div className="mb-4 rounded-xl border border-border border-l-2 border-l-ok bg-card px-5 py-3 text-[13px] text-ok">
           SMTP platform tersimpan. Email tenant tanpa SMTP sendiri kini terkirim lewat sini.
         </div>
       )}
@@ -221,6 +245,41 @@ export default function PlatformEmailPage() {
               {busy ? "Menyimpan..." : "Simpan SMTP Platform"}
             </Btn>
           </div>
+        </form>
+      </div>
+
+      {/* Test-send through the saved platform SMTP - the exact provider every
+          tenant fallback send uses. */}
+      <div className="mt-6 rounded-xl border border-border bg-card p-6">
+        <p className="mb-1 text-sm font-medium">Tes Kirim Email</p>
+        <p className="mb-4 text-[13px] text-muted-foreground">
+          Kirim satu email percobaan melalui SMTP platform yang tersimpan, ke alamat mana pun.
+        </p>
+        {testInfo && (
+          <div className="mb-4 rounded-md border border-ok/40 bg-ok/10 px-4 py-2 text-[13px] text-ok">
+            {testInfo}
+          </div>
+        )}
+        {testError && (
+          <div className="mb-4 rounded-md border border-bad/40 bg-bad/10 px-4 py-2 text-[13px] text-bad">
+            {testError}
+          </div>
+        )}
+        <form onSubmit={sendTest} className="flex max-w-xl items-end gap-3">
+          <div className="flex-1">
+            <Label htmlFor="test-to">Alamat tujuan</Label>
+            <Input
+              id="test-to"
+              type="email"
+              required
+              value={testTo}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setTestTo(e.target.value)}
+              placeholder="nama@contoh.com"
+            />
+          </div>
+          <Btn type="submit" variant="line" disabled={testing || !data?.configured}>
+            {testing ? "Mengirim..." : "Kirim Email Tes"}
+          </Btn>
         </form>
       </div>
     </AdminShell>
