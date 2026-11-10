@@ -377,5 +377,15 @@ export async function sendHumanReply(input: {
     afterValue: { body: input.body, waMessageId: result.waMessageId },
   });
 
+  // Reply-as-takeover (PRD 03 amendment 2026-11-10): a customer-facing human
+  // reply makes the replier own the conversation - the AI stands down from
+  // now on instead of auto-answering on top of the human. Reassignment via
+  // assignConversation keeps the XOR invariant and writes the audit row.
+  if (conv.assigneeUserId !== input.userId) {
+    await assignConversation(input.conversationId, input.tenantId, {
+      userId: input.userId,
+    });
+  }
+
   return message;
 }
