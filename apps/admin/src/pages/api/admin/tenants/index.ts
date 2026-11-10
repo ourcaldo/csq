@@ -4,6 +4,8 @@ import prisma from "@csq/core/lib/db";
 import { apiError, apiOk, type ApiResponse } from "@csq/core/types/api";
 import { requireAdmin, auditAdminAction } from "@/lib/admin-auth";
 import { createTenantWithOwner } from "@csq/core/lib/provision-tenant";
+import { resolveEmailProvider } from "@csq/core/lib/email-config";
+import { sendEmailWithProvider } from "@csq/core/services/email";
 import { z } from "zod";
 import { withSystemContext } from "@csq/core/lib/tenant-context";
 
@@ -105,7 +107,38 @@ export default async function handler(
         targetType: "Tenant", targetId: tenantId,
         afterValue: { name, slug, ownerEmail },
       });
-      return res.status(201).json(apiOk({ id: tenantId, name, slug }));
+
+      // Welcome email with the login credentials (owner request 2026-11-10):
+      // sent through resolveEmailProvider - the new tenant has no own provider,
+      // so this goes via the platform SMTP. A failed/absent provider must
+      // never fail the creation; the response tells the admin what happened
+      // so credentials can still be relayed manually.
+      let welcomeEmailSent = false;
+      try {
+        const provider = await resolveEmailProvider(tenantId);
+        if (provider) {
+          const loginUrl = (process.env.DASHBOARD_URL ?? "https://csq-dashboard.onrender.com").replace(/\/$/, "");
+          await sendEmailWithProvider(provider, {
+            to: ownerEmail,
+            subject: "Selamat datang di CSQ",
+            text:
+              `Halo ${ownerName},\n\n` +
+              `Akun CSQ untuk usaha "${name}" sudah dibuat.\n\n` +
+              `Masuk di: ${loginUrl}\n` +
+              `Email: ${ownerEmail}\n` +
+              `Password: ${ownerPassword}\n\n` +
+              "Simpan email dan password ini baik-baik untuk masuk ke dashboard CSQ.\n\n" +
+              "Jika Anda tidak merasa mendaftar, abaikan email ini.",
+          });
+          welcomeEmailSent = true;
+        }
+      } catch {
+        welcomeEmailSent = false;
+      }
+
+      return res
+        .status(201)
+        .json(apiOk({ id: tenantId, name, slug, welcomeEmailSent }));
     }
 
     return res.status(405).json(apiError("METHOD_NOT_ALLOWED", "Method not allowed"));

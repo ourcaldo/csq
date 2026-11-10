@@ -44,16 +44,27 @@ export default function TenantsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [createNotice, setCreateNotice] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
 
   async function createTenant(e: FormEvent) {
     e.preventDefault();
     setBusy("create");
     setActionError(null);
+    setCreateNotice(null);
     try {
-      await adminFetch("/api/admin/tenants", "POST", form);
+      const r = await adminFetch<{ id: string; welcomeEmailSent: boolean }>(
+        "/api/admin/tenants",
+        "POST",
+        form
+      );
       setShowCreate(false);
       setForm(EMPTY_FORM);
+      setCreateNotice(
+        r.welcomeEmailSent
+          ? "Tenant dibuat. Email selamat datang (berisi kredensial login) terkirim ke pemiliknya."
+          : "Tenant dibuat, tetapi email selamat datang TIDAK terkirim (SMTP platform belum diatur atau gagal). Serahkan email + password secara manual."
+      );
       refresh();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Gagal membuat tenant.");
@@ -96,6 +107,12 @@ export default function TenantsPage() {
       {(actionError || error) && (
         <div className="mb-4 rounded-xl border border-border border-l-2 border-l-bad bg-card px-5 py-3 text-[13px] text-bad">
           {actionError ?? error}
+        </div>
+      )}
+
+      {createNotice && (
+        <div className="mb-4 rounded-xl border border-border border-l-2 border-l-ok bg-card px-5 py-3 text-[13px] text-foreground">
+          {createNotice}
         </div>
       )}
 
