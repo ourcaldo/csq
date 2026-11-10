@@ -39,7 +39,7 @@ const METRIC_LABELS: Record<KpiMetricName, string> = {
   ORDERS: "Pesanan dibuat",
   DEALS_WON: "Deal menang",
   FIRST_RESPONSE: "Respons chat",
-  REPLIES: "Balasan chat",
+  REPLIES: "Chat direspons",
 };
 
 const PERIOD_LABELS: Record<KpiPeriodName, string> = {
@@ -78,12 +78,16 @@ export default function KpiPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const [scope, setScope] = useState<"TENANT" | "USER">("TENANT");
+  // THREE apply-to modes (owner review 2026-11-10): tenant, one specific
+  // member, or every member at once (allStaff batch).
+  const [applyTo, setApplyTo] = useState<"TENANT" | "ONE_STAFF" | "ALL_STAFF">("TENANT");
   const [userId, setUserId] = useState("");
   const [metric, setMetric] = useState<KpiMetricName>("REPLIES");
   const [period, setPeriod] = useState<KpiPeriodName>("WEEK");
   const [targetValue, setTargetValue] = useState("");
   const [thresholdMinutes, setThresholdMinutes] = useState("");
+  // Report filter: all KPIs or one staff member's.
+  const [staffFilter, setStaffFilter] = useState("");
 
   const [editId, setEditId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -95,7 +99,7 @@ export default function KpiPage() {
   useEffect(() => {
     if (createOpen) {
       setCreateError(null);
-      setScope("TENANT");
+      setApplyTo("TENANT");
       setUserId("");
       setMetric("REPLIES");
       setPeriod("WEEK");
@@ -109,6 +113,17 @@ export default function KpiPage() {
     void refreshTargets();
   }
 
+  const visibleReport = staffFilter
+    ? report.filter((k) => k.userId === staffFilter)
+    : report;
+  const staffOptions = Array.from(
+    new Map(
+      report
+        .filter((k) => k.scope === "USER" && k.userName)
+        .map((k) => [k.userId as string, k.userName as string])
+    ).entries()
+  );
+
   async function createKpi(e: FormEvent) {
     e.preventDefault();
     if (creating) return;
@@ -116,8 +131,9 @@ export default function KpiPage() {
     setCreateError(null);
     try {
       await apiSend("/api/dashboard/kpi/targets", "POST", {
-        scope,
-        ...(scope === "USER" ? { userId } : {}),
+        scope: applyTo === "TENANT" ? "TENANT" : "USER",
+        ...(applyTo === "ONE_STAFF" ? { userId } : {}),
+        ...(applyTo === "ALL_STAFF" ? { allStaff: true } : {}),
         metric,
         period,
         targetValue: Number(targetValue),
@@ -140,8 +156,13 @@ export default function KpiPage() {
     setEditing(true);
     setEditError(null);
     try {
+      const t = targets.find((x) => x.id === editId);
       await apiSend(`/api/dashboard/kpi/targets/${editId}`, "PATCH", {
-        ...(editValue !== "" ? { targetValue: Number(editValue) } : {}),
+        // FIRST_RESPONSE is measurement-only: only its SLA threshold is
+        // editable, never a numeric target.
+        ...(editValue !== "" && t && t.metric !== "FIRST_RESPONSE"
+          ? { targetValue: Number(editValue) }
+          : {}),
         ...(editThreshold !== "" ? { thresholdMinutes: Number(editThreshold) } : {}),
       });
       setEditId(null);
@@ -169,7 +190,8 @@ export default function KpiPage() {
     setEditError(null);
   }
 
-  const metricOptions = (scope === "USER" ? (["DEALS_WON", "FIRST_RESPONSE", "REPLIES"] as KpiMetricName[]) : (["ORDERS", "DEALS_WON", "FIRST_RESPONSE", "REPLIES"] as KpiMetricName[]));
+  const isMeasurement = metric === "FIRST_RESPONSE";
+  const metricOptions = (applyTo === "TENANT" ? (["ORDERS", "DEALS_WON", "FIRST_RESPONSE", "REPLIES"] as KpiMetricName[]) : (["DEALS_WON", "FIRST_RESPONSE", "REPLIES"] as KpiMetricName[]));
 
   return (
     <DashboardShell
@@ -192,84 +214,127 @@ export default function KpiPage() {
             description="Buat KPI pertama untuk mulai mengukur kinerja tim dan tenant."
           />
         ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            {report.map((k) => {
-              const isPercent = k.metric === "FIRST_RESPONSE";
-              const valueText = isPercent
-                ? `${k.current.actual.toFixed(1)}%`
-                : String(Math.round(k.current.actual));
-              const targetText = isPercent
-                ? `${k.targetValue}% dalam ${k.thresholdMinutes} menit`
-                : `${k.targetValue} ${PERIOD_LABELS[k.period]}`;
-              return (
-                <div key={k.id} className="rounded-xl border border-slate-200 bg-white p-4">
-                  <div className="mb-3 flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-900">
-                        {METRIC_LABELS[k.metric]}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {k.scope === "TENANT" ? "Seluruh tenant" : (k.userName ?? "Staf")}
-                        {" - "}
-                        {PERIOD_LABELS[k.period]}
-                      </p>
-                    </div>
-                    <span
-                      className={cn(
-                        "rounded-full px-2 py-0.5 text-xs font-medium",
-                        k.current.achieved
-                          ? "bg-green-50 text-green-700"
-                          : "bg-amber-50 text-amber-700"
+          <>
+            {staffOptions.length > 0 && (
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-medium text-slate-500">Tampilkan</label>
+                <Select
+                  value={staffFilter}
+                  onChange={(e: ChangeEvent<HTMLSelectElement>) => setStaffFilter(e.target.value)}
+                  className="h-8 w-auto text-xs"
+                  aria-label="Filter staf"
+                >
+                  <option value="">Semua KPI</option>
+                  {staffOptions.map(([id, name]) => (
+                    <option key={id} value={id}>
+                      {name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            )}
+            {visibleReport.length === 0 ? (
+              <EmptyState title="Tidak ada KPI" description="Staf ini belum memiliki KPI aktif." />
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2">
+                {visibleReport.map((k) => {
+                  const isResp = k.metric === "FIRST_RESPONSE";
+                  const meta = k.current.meta ?? {};
+                  const valueText = isResp
+                    ? `${k.current.actual.toFixed(0)}%`
+                    : String(Math.round(k.current.actual));
+                  return (
+                    <div key={k.id} className="rounded-xl border border-slate-200 bg-white p-4">
+                      <div className="mb-3 flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">
+                            {METRIC_LABELS[k.metric]}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {k.scope === "TENANT" ? "Seluruh tenant" : (k.userName ?? "Staf")}
+                            {" - "}
+                            {isResp
+                              ? `respons < ${k.thresholdMinutes} menit`
+                              : PERIOD_LABELS[k.period]}
+                          </p>
+                        </div>
+                        {!isResp && (
+                          <span
+                            className={cn(
+                              "rounded-full px-2 py-0.5 text-xs font-medium",
+                              k.current.achieved
+                                ? "bg-green-50 text-green-700"
+                                : "bg-amber-50 text-amber-700"
+                            )}
+                          >
+                            {k.current.achieved ? "Tercapai" : "Berjalan"}
+                          </span>
+                        )}
+                      </div>
+                      <div className="mb-2 flex items-baseline justify-between">
+                        <span className="text-2xl font-bold text-slate-900">{valueText}</span>
+                        <span className="text-xs text-slate-500">
+                          {isResp
+                            ? "chat masuk yang direspons tepat waktu"
+                            : `Target: ${k.targetValue} ${PERIOD_LABELS[k.period]}`}
+                        </span>
+                      </div>
+                      {isResp ? (
+                        <p className="mb-2 text-xs text-slate-400">
+                          {typeof meta.incomingChats === "number"
+                            ? `${meta.answeredChats ?? 0} dari ${meta.incomingChats} chat direspons < ${k.thresholdMinutes} menit`
+                            : "Belum ada chat masuk"}
+                          {typeof meta.avgMinutes === "number"
+                            ? ` - rata-rata ${meta.avgMinutes} menit`
+                            : ""}
+                        </p>
+                      ) : (
+                        <div className="mb-2 h-2 overflow-hidden rounded-full bg-slate-100">
+                          <div
+                            className={cn(
+                              "h-full rounded-full transition-all",
+                              k.current.achieved ? "bg-green-500" : "bg-amber-500"
+                            )}
+                            style={{ width: `${Math.max(2, k.current.progress)}%` }}
+                          />
+                        </div>
                       )}
-                    >
-                      {k.current.achieved ? "Tercapai" : "Berjalan"}
-                    </span>
-                  </div>
-                  <div className="mb-2 flex items-baseline justify-between">
-                    <span className="text-2xl font-bold text-slate-900">{valueText}</span>
-                    <span className="text-xs text-slate-500">Target: {targetText}</span>
-                  </div>
-                  <div className="mb-2 h-2 overflow-hidden rounded-full bg-slate-100">
-                    <div
-                      className={cn(
-                        "h-full rounded-full transition-all",
-                        k.current.achieved ? "bg-green-500" : "bg-amber-500"
-                      )}
-                      style={{ width: `${Math.max(2, k.current.progress)}%` }}
-                    />
-                  </div>
-                  <p className="mb-3 text-xs text-slate-400">
-                    Sisa {daysLeft(k.current.end)} hari di periode ini ({k.current.key})
-                  </p>
-                  {k.history.length > 0 && (
-                    <div className="border-t border-slate-100 pt-2">
-                      <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                        Riwayat
+                      <p className="mb-3 text-xs text-slate-400">
+                        Sisa {daysLeft(k.current.end)} hari di periode ini ({k.current.key})
                       </p>
-                      <ul className="space-y-1">
-                        {k.history.slice(0, 6).map((h) => (
-                          <li key={h.key} className="flex items-center justify-between text-xs">
-                            <span className="text-slate-600">{periodKeyLabel(h.key)}</span>
-                            <span className="flex items-center gap-1.5">
-                              <span className="text-slate-900">
-                                {isPercent ? `${h.actual.toFixed(1)}%` : h.actual} /{" "}
-                                {isPercent ? `${h.target}%` : h.target}
-                              </span>
-                              {h.achieved ? (
-                                <Check size={13} weight="bold" className="text-green-600" />
-                              ) : (
-                                <X size={13} weight="bold" className="text-red-500" />
-                              )}
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
+                      {k.history.length > 0 && (
+                        <div className="border-t border-slate-100 pt-2">
+                          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                            Riwayat
+                          </p>
+                          <ul className="space-y-1">
+                            {k.history.slice(0, 6).map((h) => (
+                              <li key={h.key} className="flex items-center justify-between text-xs">
+                                <span className="text-slate-600">{periodKeyLabel(h.key)}</span>
+                                <span className="flex items-center gap-1.5">
+                                  <span className="text-slate-900">
+                                    {isResp
+                                      ? `${h.actual.toFixed(0)}%`
+                                      : `${h.actual} / ${h.target}`}
+                                  </span>
+                                  {!isResp &&
+                                    (h.achieved ? (
+                                      <Check size={13} weight="bold" className="text-green-600" />
+                                    ) : (
+                                      <X size={13} weight="bold" className="text-red-500" />
+                                    ))}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
         )}
 
         {/* Management */}
@@ -302,7 +367,7 @@ export default function KpiPage() {
                       <td className="px-4 py-2.5 text-slate-600">{PERIOD_LABELS[t.period]}</td>
                       <td className="px-4 py-2.5 text-slate-600">
                         {t.metric === "FIRST_RESPONSE"
-                          ? `${t.targetValue}% < ${t.thresholdMinutes} menit`
+                          ? `respons < ${t.thresholdMinutes} menit`
                           : `${t.targetValue}`}
                       </td>
                       <td className="px-4 py-2.5">
@@ -356,17 +421,18 @@ export default function KpiPage() {
             </p>
           )}
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Cakupan</label>
-            <Select value={scope} onChange={(e: ChangeEvent<HTMLSelectElement>) => setScope(e.target.value as "TENANT" | "USER")}>
-              <option value="TENANT">Seluruh tenant</option>
-              <option value="USER">Staf</option>
+            <label className="mb-1 block text-sm font-medium text-slate-700">Berlaku untuk</label>
+            <Select value={applyTo} onChange={(e: ChangeEvent<HTMLSelectElement>) => setApplyTo(e.target.value as "TENANT" | "ONE_STAFF" | "ALL_STAFF")}>
+              <option value="TENANT">Seluruh tenant (total tim)</option>
+              <option value="ONE_STAFF">Staf tertentu</option>
+              <option value="ALL_STAFF">Semua anggota tim (satu KPI per orang)</option>
             </Select>
           </div>
-          {scope === "USER" && (
+          {applyTo === "ONE_STAFF" && (
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">Anggota tim</label>
               <Select value={userId} onChange={(e: ChangeEvent<HTMLSelectElement>) => setUserId(e.target.value)}>
-                <option value="">- pilih staf -</option>
+                <option value="">- pilih anggota -</option>
                 {members.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.name ?? m.email}
@@ -387,6 +453,12 @@ export default function KpiPage() {
                 </option>
               ))}
             </Select>
+            {isMeasurement && (
+              <p className="mt-1 text-xs text-slate-400">
+                Metrik pengukuran: persentase chat yang direspons tepat waktu dihitung otomatis -
+                tidak ada target angka.
+              </p>
+            )}
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">Periode</label>
@@ -397,7 +469,7 @@ export default function KpiPage() {
               <option value="MONTH">Per bulan</option>
             </Select>
           </div>
-          {metric === "FIRST_RESPONSE" && (
+          {isMeasurement ? (
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">
                 Batas waktu respons (menit)
@@ -405,27 +477,27 @@ export default function KpiPage() {
               <input
                 type="number"
                 min={1}
+                required
                 value={thresholdMinutes}
                 onChange={(e) => setThresholdMinutes(e.target.value)}
-                placeholder="misal 5"
+                placeholder="misal 10"
+                className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200"
+              />
+            </div>
+          ) : (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Target jumlah</label>
+              <input
+                type="number"
+                min={1}
+                required
+                value={targetValue}
+                onChange={(e) => setTargetValue(e.target.value)}
+                placeholder="misal 20"
                 className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200"
               />
             </div>
           )}
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              {metric === "FIRST_RESPONSE" ? "Target persentase (0-100)" : "Target jumlah"}
-            </label>
-            <input
-              type="number"
-              min={0}
-              required
-              value={targetValue}
-              onChange={(e) => setTargetValue(e.target.value)}
-              placeholder={metric === "FIRST_RESPONSE" ? "misal 90" : "misal 20"}
-              className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200"
-            />
-          </div>
           <div className="flex justify-end gap-2 pt-2">
             <button
               type="button"
@@ -446,27 +518,14 @@ export default function KpiPage() {
       </Dialog>
 
       {/* Edit dialog */}
-      <Dialog open={editId !== null} onClose={() => setEditId(null)} title="Ubah Target KPI">
+      <Dialog open={editId !== null} onClose={() => setEditId(null)} title="Ubah KPI">
         <form onSubmit={saveEdit} className="space-y-3">
           {editError && (
             <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
               {editError}
             </p>
           )}
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              Target {editThreshold !== "" ? "persentase (0-100)" : "jumlah"}
-            </label>
-            <input
-              type="number"
-              min={0}
-              required
-              value={editValue}
-              onChange={(e) => setEditValue(e.target.value)}
-              className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200"
-            />
-          </div>
-          {editThreshold !== "" && (
+          {editThreshold !== "" ? (
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">
                 Batas waktu respons (menit)
@@ -477,6 +536,21 @@ export default function KpiPage() {
                 required
                 value={editThreshold}
                 onChange={(e) => setEditThreshold(e.target.value)}
+                className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200"
+              />
+              <p className="mt-1 text-xs text-slate-400">
+                Metrik pengukuran - tidak ada target angka; persentase dihitung otomatis.
+              </p>
+            </div>
+          ) : (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Target jumlah</label>
+              <input
+                type="number"
+                min={0}
+                required
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
                 className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200"
               />
             </div>

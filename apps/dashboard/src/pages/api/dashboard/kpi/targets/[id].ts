@@ -48,7 +48,8 @@ export default async function handler(
     const data = parsed.data;
 
     // thresholdMinutes only exists on FIRST_RESPONSE; a FIRST_RESPONSE target
-    // may not lose its threshold.
+    // may not lose its SLA. Its numeric target is not editable at all -
+    // it is measurement-only (targetValue is stored as 0).
     if (data.thresholdMinutes !== undefined) {
       if (existing.metric !== "FIRST_RESPONSE") {
         return respondError(
@@ -65,8 +66,23 @@ export default async function handler(
         );
       }
     }
-    if (existing.metric === "FIRST_RESPONSE" && data.targetValue !== undefined && data.targetValue > 100) {
-      return respondError(res, "VALIDATION_ERROR", "Target persentase maksimum 100.");
+    if (
+      existing.metric === "FIRST_RESPONSE" &&
+      data.targetValue !== undefined &&
+      data.targetValue !== 0
+    ) {
+      return respondError(
+        res,
+        "VALIDATION_ERROR",
+        "KPI waktu respons tidak memakai target angka - sistem menghitung persentasenya otomatis."
+      );
+    }
+    if (
+      existing.metric !== "FIRST_RESPONSE" &&
+      data.targetValue !== undefined &&
+      data.targetValue > 1e9
+    ) {
+      return respondError(res, "VALIDATION_ERROR", "Target terlalu besar.");
     }
 
     const updated = await prisma.kpiTarget.update({

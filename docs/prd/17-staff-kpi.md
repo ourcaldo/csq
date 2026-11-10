@@ -29,8 +29,8 @@ Four metrics:
 |---|---|---|---|
 | `ORDERS` | yes | **not offered** | Count of Order rows created in the period. |
 | `DEALS_WON` | yes | yes | Count of pipeline moves into a WON-kind stage in the period. Staff scope: only moves made by that user (`movedByUserId`). |
-| `FIRST_RESPONSE` | yes | yes | Share (%) of first human replies that arrived within the threshold minutes of the customer message that triggered them. Staff scope: only replies by that user. |
-| `REPLIES` | yes | yes | Count of human outbound messages (non-internal) in the period. Staff scope: only that user's. |
+| `FIRST_RESPONSE` | yes | yes | Measurement metric (amendment 2026-11-10, owner review): config is ONLY the period + an SLA threshold in minutes. The value is the DERIVED share of incoming chats answered by a human within the SLA (answered chats / chats that received a customer message), plus the average latency as context. No percentage target is configured - numeric targets exist only for ORDERS and DEALS_WON (owner direction: "target angka hanya untuk pesanan dan deal"). No achieved/progress state. |
+| `REPLIES` | yes | yes | Count of UNIQUE conversations that received at least one human reply in the period (amendment 2026-11-10: it previously counted every message; "balas 50 chat" means 50 chats, not 50 messages in one chat). Staff scope: chats that user replied in. |
 
 Decisions baked in (veto in review if wrong):
 
@@ -40,9 +40,11 @@ Decisions baked in (veto in review if wrong):
    always empty. Any per-staff order attribution would be fiction. The honest
    per-staff "closed" metric is `DEALS_WON` (the staff member moved the deal
    to a WON stage). Orders remain a tenant-wide metric.
-2. **`FIRST_RESPONSE` is a percentage against a threshold, not a median.**
-   Config: threshold minutes X + target percent (e.g. "90% of chats answered
-   within 5 minutes"). A median hides the customer who waited an hour.
+2. **`FIRST_RESPONSE` is measurement-only** (amended 2026-11-10 after owner
+   review of the first build; it originally configured a percentage target).
+   The percentage is derived from answered chats / incoming chats over the
+   whole period. Configurable numeric targets exist only for ORDERS and
+   DEALS_WON.
 3. **Only human activity counts for staff KPIs.** AI replies, AI orders, and
    AI stage moves never credit a staff member. Tenant-scope totals include
    AI work (a tenant KPI measures the business, a staff KPI measures the
@@ -74,8 +76,16 @@ One `KpiTarget` row per KPI:
 Rules:
 
 - OWNER-only: only the tenant OWNER creates, edits, deactivates KPIs.
+- **Three apply-to modes** (amendment 2026-11-10, owner review): `TENANT`
+  (one tenant-wide KPI), `ONE_STAFF` (one specific member), and
+  `ALL_STAFF` - one KPI row per current team member, created in a single
+  action, each tracked and reported individually. The report can be
+  filtered by staff name. Members who join later are not back-applied
+  (create a ONE_STAFF KPI or re-run ALL_STAFF after deactivating the old
+  ones).
 - Max 5 active KPI targets per holder (the tenant, or each staff member).
-  The create/update API enforces the cap.
+  The create/update API enforces the cap; an ALL_STAFF creation fails
+  whole (no partial batch) if any member is at the cap.
 - `DEALS_WON` requires the pipeline feature (plan-gated); the API rejects it
   for tenants without the entitlement.
 - No plan gating of the KPI feature itself in v1 (all plans). Revisit as a

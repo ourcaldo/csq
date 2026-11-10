@@ -49,6 +49,59 @@ export default async function handler(
       }
       const data = parsed.data;
 
+      // ALL_STAFF (amendment 2026-11-10): one KPI per current team member.
+      // The rows are ordinary USER-scope targets, so the report, history,
+      // and caps all work per person with no special casing downstream.
+      if (data.allStaff) {
+        const members = await prisma.user.findMany({
+          where: { tenantId },
+          select: { id: true },
+        });
+        if (members.length === 0) {
+          return respondError(res, "VALIDATION_ERROR", "Tim belum memiliki anggota.");
+        }
+        // Cap check per member first - the batch is all-or-nothing.
+        for (const member of members) {
+          const activeCount = await prisma.kpiTarget.count({
+            where: {
+              tenantId,
+              active: true,
+              scope: "USER",
+              userId: member.id,
+            },
+          });
+          if (activeCount >= MAX_ACTIVE_PER_HOLDER) {
+            const row = await prisma.user.findUnique({
+              where: { id: member.id },
+              select: { name: true, email: true },
+            });
+            return respondError(
+              res,
+              "VALIDATION_ERROR",
+              `${row?.name ?? row?.email ?? "Anggota"} sudah memiliki ${MAX_ACTIVE_PER_HOLDER} KPI aktif. Nonaktifkan salah satu dulu.`
+            );
+          }
+        }
+        const created = await Promise.all(
+          members.map((member) =>
+            prisma.kpiTarget.create({
+              data: {
+                tenantId,
+                scope: "USER",
+                userId: member.id,
+                metric: data.metric,
+                period: data.period,
+                thresholdMinutes:
+                  data.metric === "FIRST_RESPONSE" ? data.thresholdMinutes : null,
+                targetValue: data.metric === "FIRST_RESPONSE" ? 0 : (data.targetValue ?? 0),
+                active: true,
+              },
+            })
+          )
+        );
+        return res.status(201).json(apiOk({ created: created.length }));
+      }
+
       // The staff member must belong to this tenant.
       if (data.userId) {
         const member = await prisma.user.findFirst({
@@ -102,7 +155,7 @@ export default async function handler(
           metric: data.metric,
           period: data.period,
           thresholdMinutes: data.metric === "FIRST_RESPONSE" ? data.thresholdMinutes : null,
-          targetValue: data.targetValue,
+          targetValue: data.metric === "FIRST_RESPONSE" ? 0 : (data.targetValue ?? 0),
           active: true,
         },
       });

@@ -20,29 +20,40 @@ export type KpiScopeName = z.infer<typeof kpiScopeSchema>;
 
 // Create: metric/period/scope are fixed for the KPI's lifetime - a change of
 // meaning is a new KPI (the PATCH route only edits value/threshold/active).
+// Amendment 2026-11-10 (owner review): FIRST_RESPONSE is measurement-only -
+// threshold minutes (SLA), no percentage target; and ALL_STAFF creates one
+// KPI per team member in one action.
 export const kpiTargetCreateSchema = z
   .object({
     scope: kpiScopeSchema,
-    // The staff member; required when scope = USER.
+    // The staff member; required when scope = USER and allStaff is false.
     userId: z.string().uuid().nullable().optional(),
+    // scope = USER + allStaff = true: one KPI per current team member.
+    allStaff: z.boolean().optional(),
     metric: kpiMetricSchema,
     period: kpiPeriodSchema,
-    // FIRST_RESPONSE only: the "within X minutes" threshold.
+    // FIRST_RESPONSE only: the "respond within X minutes" SLA.
     thresholdMinutes: z.number().int().min(1).max(24 * 60).nullable().optional(),
-    // Count target; percent (0-100) for FIRST_RESPONSE.
-    targetValue: z.number().min(0),
+    // Count target. FIRST_RESPONSE is measurement-only: 0 (no target).
+    targetValue: z.number().min(0).optional(),
   })
   .superRefine((data, ctx) => {
-    if (data.scope === "USER" && !data.userId) {
+    if (data.scope === "USER" && !data.allStaff && !data.userId) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "KPI staf memerlukan anggota tim (userId).",
       });
     }
-    if (data.scope === "TENANT" && data.userId) {
+    if (data.scope === "TENANT" && (data.userId || data.allStaff)) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "KPI tenant tidak boleh menunjuk anggota tim.",
+      });
+    }
+    if (data.scope === "USER" && data.allStaff && data.userId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Pilih salah satu: anggota tim tertentu atau semua anggota.",
       });
     }
     // PRD 17.1: per-staff order attribution would be fiction - the AI
@@ -53,28 +64,40 @@ export const kpiTargetCreateSchema = z
         message: "KPI pesanan hanya tersedia untuk tenant, bukan per staf.",
       });
     }
-    if (data.metric === "FIRST_RESPONSE" && !data.thresholdMinutes) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "KPI waktu respons memerlukan batas waktu (thresholdMinutes).",
-      });
-    }
-    if (data.metric !== "FIRST_RESPONSE" && data.thresholdMinutes) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Batas waktu hanya berlaku untuk KPI waktu respons.",
-      });
-    }
-    if (data.metric === "FIRST_RESPONSE" && data.targetValue > 100) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Target persentase maksimum 100.",
-      });
+    if (data.metric === "FIRST_RESPONSE") {
+      // Measurement-only: SLA threshold in, percentage target out.
+      if (!data.thresholdMinutes) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "KPI waktu respons memerlukan batas waktu (thresholdMinutes).",
+        });
+      }
+      if (data.targetValue) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "KPI waktu respons tidak memakai target persentase - sistem menghitung otomatis.",
+        });
+      }
+    } else {
+      if (data.thresholdMinutes) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Batas waktu hanya berlaku untuk KPI waktu respons.",
+        });
+      }
+      if (!data.targetValue) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "KPI jumlah memerlukan target angka.",
+        });
+      }
     }
   });
 export type KpiTargetCreateInput = z.infer<typeof kpiTargetCreateSchema>;
 
-// Edit: value/threshold/active only - never scope/metric/period.
+// Edit: value/threshold/active only - never scope/metric/period. For
+// FIRST_RESPONSE (measurement-only) the numeric target is not editable -
+// only the SLA threshold and active state are.
 export const kpiTargetUpdateSchema = z.object({
   targetValue: z.number().min(0).optional(),
   thresholdMinutes: z.number().int().min(1).max(24 * 60).nullable().optional(),

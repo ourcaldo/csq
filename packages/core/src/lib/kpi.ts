@@ -139,7 +139,9 @@ export async function computeActual(
   }
 
   if (input.metric === "REPLIES") {
-    const value = await prisma.message.count({
+    // Amendment 2026-11-10: unique conversations replied in, not raw
+    // messages - "balas 50 chat" means 50 chats, not 50 bubbles in one chat.
+    const rows = await prisma.message.findMany({
       where: {
         tenantId: input.tenantId,
         direction: "OUTBOUND",
@@ -150,8 +152,10 @@ export async function computeActual(
           ? { senderUserId: input.userId }
           : {}),
       },
+      select: { conversationId: true },
+      distinct: ["conversationId"],
     });
-    return { value, meta: null };
+    return { value: rows.length, meta: null };
   }
 
   if (input.metric === "DEALS_WON") {
@@ -175,50 +179,72 @@ export async function computeActual(
     return { value, meta: null };
   }
 
-  // FIRST_RESPONSE: for every human reply in the window, the latency to the
-  // newest customer inbound before it in the same conversation. Replies with
-  // no preceding inbound (proactive outreach) are excluded from both the
-  // numerator and the denominator. Value = percent within the threshold.
-  const thresholdSeconds = (input.thresholdMinutes ?? 0) * 60;
+  // FIRST_RESPONSE (amended 2026-11-10, owner review): measurement-only.
+  // Incoming chats = conversations that received a customer message in the
+  // window. Answered = at least one human reply in the window whose latency
+  // to the newest customer message before it is within the SLA. Value =
+  // derived share (no configured percentage), meta carries the average
+  // latency and the raw chat counts.
+  const slaSeconds = (input.thresholdMinutes ?? 0) * 60;
   const userFilter =
     input.scope === "USER" && input.userId
-      ? Prisma.sql` AND m."senderUserId" = ${input.userId}`
+      ? Prisma.sql` AND r."senderUserId" = ${input.userId}`
       : Prisma.empty;
   const rows = await tenantRaw(
     input.tenantId,
-    prisma.$queryRaw<Array<{ measured: number; withinThreshold: number }>>`
-      WITH replies AS (
-        SELECT m."createdAt" AS reply_at,
-          (SELECT MAX(mi."createdAt") FROM "Message" mi
-           WHERE mi."conversationId" = m."conversationId"
-             AND mi."direction" = 'INBOUND'
-             AND mi."isInternal" = false
-             AND mi."createdAt" < m."createdAt") AS inbound_at
+    prisma.$queryRaw<
+      Array<{ incoming: number; answered: number; avgSeconds: number | null }>
+    >`
+      WITH incoming AS (
+        SELECT DISTINCT m."conversationId" AS cid
         FROM "Message" m
         WHERE m."tenantId" = ${input.tenantId}
-          AND m."direction" = 'OUTBOUND'
-          AND m."senderType" = 'HUMAN'
+          AND m."direction" = 'INBOUND'
           AND m."isInternal" = false
           AND m."createdAt" >= ${from}
-          AND m."createdAt" < ${to}${userFilter}
+          AND m."createdAt" < ${to}
+      ),
+      latencies AS (
+        SELECT r."conversationId" AS cid,
+               EXTRACT(EPOCH FROM (r."createdAt" - sub.inbound_at)) AS secs
+        FROM "Message" r
+        JOIN (
+          SELECT m2."conversationId", m2."id", m2."createdAt",
+                 (SELECT MAX(mi."createdAt") FROM "Message" mi
+                  WHERE mi."conversationId" = m2."conversationId"
+                    AND mi."direction" = 'INBOUND'
+                    AND mi."isInternal" = false
+                    AND mi."createdAt" < m2."createdAt") AS inbound_at
+          FROM "Message" m2
+          WHERE m2."tenantId" = ${input.tenantId}
+            AND m2."direction" = 'OUTBOUND'
+            AND m2."senderType" = 'HUMAN'
+            AND m2."isInternal" = false
+            AND m2."createdAt" >= ${from}
+            AND m2."createdAt" < ${to}
+        ) sub ON sub.id = r.id
+        WHERE sub.inbound_at IS NOT NULL${userFilter}
       )
-      SELECT COUNT(*)::int AS "measured",
-             COUNT(*) FILTER (
-               WHERE EXTRACT(EPOCH FROM ("reply_at" - "inbound_at")) <= ${thresholdSeconds}
-             )::int AS "withinThreshold"
-      FROM replies
-      WHERE "inbound_at" IS NOT NULL
+      SELECT
+        (SELECT COUNT(*) FROM incoming)::int AS "incoming",
+        (SELECT COUNT(DISTINCT l.cid) FROM latencies l
+          WHERE l.secs <= ${slaSeconds})::int AS "answered",
+        (SELECT AVG(l.secs) FROM latencies l) AS "avgSeconds"
     `
   );
-  const measured = rows[0]?.measured ?? 0;
-  const within = rows[0]?.withinThreshold ?? 0;
-  const value = measured > 0 ? (within / measured) * 100 : 0;
+  const incoming = rows[0]?.incoming ?? 0;
+  const answered = rows[0]?.answered ?? 0;
+  const value = incoming > 0 ? (answered / incoming) * 100 : 0;
   return {
     value,
     meta: {
       thresholdMinutes: input.thresholdMinutes,
-      measured,
-      withinThreshold: within,
+      incomingChats: incoming,
+      answeredChats: answered,
+      avgMinutes:
+        rows[0]?.avgSeconds !== null && rows[0]?.avgSeconds !== undefined
+          ? Math.round((rows[0].avgSeconds / 60) * 10) / 10
+          : null,
     },
   };
 }
