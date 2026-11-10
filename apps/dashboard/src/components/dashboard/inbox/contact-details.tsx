@@ -5,8 +5,7 @@
 // FR-AS-003); "Release" unassigns so the AI resumes. The FEA-6 assignment
 // picker extends this to any tenant member (or back to "Agent AI"). Tags
 // add/remove via the tags API. Status via PATCH on the conversation.
-import { useEffect, useState } from "react";
-import {
+import { useEffect, useState } from "react";import {
   Tag as TagIcon,
   EnvelopeSimple,
   Phone,
@@ -181,6 +180,10 @@ export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMob
   const [history, setHistory] = useState<HistoryEvent[] | null>(null);
   // FEA-6 (PRD 16): tenant users for the assignment picker.
   const [users, setUsers] = useState<User[] | null>(null);
+  // Notes list: collapsed to a preview by default; the full list is one
+  // click away (owner request 2026-11-10 - the panel must not grow unbounded
+  // with the note history).
+  const [notesExpanded, setNotesExpanded] = useState(false);
   // Contact classification (feature plan 2026-11-01): taxonomy lists + the
   // id sets being edited in the contact form.
   const [categories, setCategories] = useState<CategoryOption[] | null>(null);
@@ -361,6 +364,14 @@ export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMob
   const notesUrl = `/api/dashboard/inbox/conversations/${conversation.id}/notes`;
   const { data: notesData } = usePolledApi<{ items: Message[] }>(notesUrl, 8000);
   const notes = notesData?.items ?? [];
+  // Preview count: the newest 5 notes stay visible; older ones sit behind the
+  // expand toggle. Reset to collapsed when switching conversation.
+  const NOTES_PREVIEW_COUNT = 5;
+  const visibleNotes = notesExpanded ? notes : notes.slice(0, NOTES_PREVIEW_COUNT);
+  const hiddenNoteCount = notes.length - NOTES_PREVIEW_COUNT;
+  useEffect(() => {
+    setNotesExpanded(false);
+  }, [conversation.id]);
 
   const detailsContent = (
     <>
@@ -659,7 +670,7 @@ export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMob
             </p>
           ) : (
             <ol className="space-y-3">
-              {notes.map((n) => (
+              {visibleNotes.map((n) => (
                 <li key={n.id} className="rounded-lg border border-amber-100 bg-amber-50/60 p-2.5 text-xs">
                   <p className="flex items-baseline justify-between gap-2 font-medium text-amber-800">
                     <span className="truncate">{n.senderUserName ?? "Tim"}</span>
@@ -671,6 +682,14 @@ export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMob
                 </li>
               ))}
             </ol>
+          )}
+          {hiddenNoteCount > 0 && (
+            <button
+              onClick={() => setNotesExpanded((v) => !v)}
+              className="mt-2 flex w-full items-center justify-center gap-1 rounded-md border border-dashed border-slate-300 px-2 py-1 text-xs text-slate-500 hover:bg-slate-50"
+            >
+              {notesExpanded ? "Sembunyikan catatan lama" : `Tampilkan semua catatan (+${hiddenNoteCount})`}
+            </button>
           )}
         </div>
 
