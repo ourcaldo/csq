@@ -165,17 +165,20 @@ export default async function handler(
             "WhatsApp menolak koneksi (401). Di telepon: hapus perangkat lama CSQ dari WhatsApp > Setelan > Perangkat Tertaut, tunggu sekitar 1 jam tanpa mencoba lagi, lalu klik Tampilkan QR sekali lagi."
           );
         }
-        if (!result.done) {
+        if (!result.done && !result.failed) {
           return respondError(
             res,
             "INTERNAL_ERROR",
             "Worker tidak merespons - layanan pesan belum siap. Coba lagi sebentar."
           );
         }
+        // The command ran and failed (e.g. closeCode=405): surface the
+        // worker's actual reason instead of blaming the worker.
         return respondError(
           res,
           "VALIDATION_ERROR",
-          "QR tidak berhasil dibuat. Tunggu sebentar, lalu klik Tampilkan QR lagi."
+          result.error ??
+            "QR tidak berhasil dibuat. Tunggu sebentar, lalu klik Tampilkan QR lagi."
         );
       }
     }

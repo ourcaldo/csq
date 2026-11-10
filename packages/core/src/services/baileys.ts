@@ -1,9 +1,11 @@
 import makeWASocket, {
   DisconnectReason,
   downloadMediaMessage,
+  fetchLatestBaileysVersion,
   getContentType,
   normalizeMessageContent,
   proto,
+  type WAVersion,
   type WASocket,
 } from "@whiskeysockets/baileys";
 import { pino } from "pino";
@@ -43,6 +45,27 @@ import type {
 // standalone Node deploy target (long-lived process).
 
 const logger = pino({ level: "silent" });
+
+// WhatsApp 405-rejects handshakes that declare a stale WA Web version
+// (client_too_old; WhiskeySockets/Baileys #2370, #2376 - our rc.9 deploy died
+// exactly this way). The version shipped in the package rots between releases,
+// so resolve the maintainers' current one once per process; when that fails
+// (GitHub unreachable, layout changed) fall back to the package default.
+let cachedWaVersion: WAVersion | null = null;
+async function resolveWaVersion(): Promise<WAVersion | undefined> {
+  if (cachedWaVersion) return cachedWaVersion;
+  try {
+    const { version } = await fetchLatestBaileysVersion({
+      signal: AbortSignal.timeout(5_000),
+    });
+    cachedWaVersion = version;
+    console.log(`[baileys] WA version ${version.join(".")} (upstream)`);
+    return version;
+  } catch {
+    console.log("[baileys] WA version fetch failed - using package default");
+    return undefined;
+  }
+}
 
 // This process's identity as a WhatsApp-session lease owner. WhatsApp allows
 // ONE connection per session: when two service instances (a deploy overlap, a
@@ -264,6 +287,7 @@ async function connectBaileysChannelInner(
       logger,
       printQRInTerminal: false,
       connectTimeoutMs: 20_000,
+      version: await resolveWaVersion(),
       // Keep the WebSocket alive so host proxies (Render's load balancer)
       // don't terminate it as idle - this is what keeps the agent on 24/7
       // instead of dropping after a few minutes.
