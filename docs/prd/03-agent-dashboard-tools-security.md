@@ -210,6 +210,20 @@ handle customer conversations alongside the AI agent.
 -   **Human/AI handoff:** a conversation can flow AI → human → AI. When a
     human is assigned, the AI agent stands down for that conversation
     until reassigned back.
+    Amendment 2026-11-11 (owner decision, session auto-close): the agent's
+    session can close itself, per tenant configuration. When the tenant
+    enables auto-close (Settings, OWNER-only; default OFF) with an idle
+    window (15-1440 minutes, default 60): an OPEN, AI-owned conversation
+    whose LAST message is the agent's reply and whose customer has been
+    silent for the window gets the `session_end` goodbye message, the
+    session is marked closed, and the conversation status becomes RESOLVED.
+    An unanswered CUSTOMER message never triggers an auto-close (the
+    customer is waiting, not done - that is a gap for staff, not a
+    closure). The next customer inbound reopens the conversation (RESOLVED
+    back to OPEN) and starts a fresh history window. Human-owned
+    conversations are excluded; staff close their own chats. The 1-hour
+    bounded agent history window is unchanged - it is a context rule, not
+    the session-close timer.
 -   **Private notes (MVP):** staff can add internal notes to a
     conversation — visible to team members only, never sent to the
     customer (like Cekat.AI's Private Note feature).

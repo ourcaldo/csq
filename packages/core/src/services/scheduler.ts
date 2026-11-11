@@ -24,6 +24,7 @@ import { getTemplateBody } from "@csq/core/lib/message-templates";
 import { withSystemLock } from "@csq/core/lib/system-lock";
 import { processCampaigns } from "@csq/core/lib/campaign-engine";
 import { closeDueSnapshots } from "@csq/core/lib/kpi";
+import { parseAutoCloseConfig } from "@csq/core/lib/auto-close";
 
 // In-process periodic sync for Google Sheets sources (PRD §23A - no Redis/queue,
 // node-cron runs inside the Next.js server). Server-only: callers must invoke
@@ -117,28 +118,49 @@ async function runScenarioTick(): Promise<void> {
 }
 
 // Session-close: send the tenant's `session_end` template to conversations
-// whose last inbound is past the 1h agent-session TTL. Free-form WhatsApp is
-// allowed here (1h idle = still inside Meta's 24h customer-service window),
+// whose last message is the agent's reply and whose customer has been
+// silent for the tenant's configured auto-close window. Free-form WhatsApp
+// is allowed here (idle = still inside Meta's 24h customer-service window),
 // so no Meta template approval is needed. One message per conversation per
 // window (tracked in Conversation.settings), skipped for RESOLVED or
-// human-owned conversations.
+// human-owned conversations, and only for tenants that enabled the
+// auto-close setting (see the block below for the trigger semantics).
 const conversationSettingsSchema = z.record(z.unknown());
-const SESSION_TTL_MS = 60 * 60 * 1000; // matches agent-loop's window TTL
+
+// Auto session close (owner decision 2026-11-11, PRD 03 amendment): the
+// trigger is the REVERSED one - close when the agent's reply is the last
+// message and the customer has been silent for the tenant's configured
+// window. An unanswered CUSTOMER message never auto-closes. Per-tenant
+// setting in Tenant.settings.autoClose (default disabled); the status also
+// flips to RESOLVED and the next inbound reopens the conversation.
+const AUTO_CLOSE_MIN_IDLE_MINUTES = 15; // the schema's lower bound
+const AUTO_CLOSE_SLACK_MS = 5 * 60 * 1000; // missed-tick tolerance
 
 async function closeIdleSessions(): Promise<void> {
-  // 5-minute slack so a missed tick (e.g. mid-deploy) still closes the window.
-  const cutoff = new Date(Date.now() - (SESSION_TTL_MS + 5 * 60 * 1000));
+  // Coarse pre-filter at the MINIMUM configurable idle (+ slack); the exact
+  // per-tenant window is checked below. The JSON path filter means only
+  // tenants that enabled the feature are even scanned.
+  const minCutoff = new Date(
+    Date.now() - (AUTO_CLOSE_MIN_IDLE_MINUTES * 60 * 1000 + AUTO_CLOSE_SLACK_MS)
+  );
 
   const conversations = await withSystemContext(async () =>
     prisma.conversation.findMany({
       where: {
         status: "OPEN",
         assigneeUserId: null, // human-owned: do not auto-close
-        lastMessageAt: { lt: cutoff },
+        lastMessageAt: { lt: minCutoff },
+        tenant: {
+          status: "ACTIVE",
+          settings: { path: ["autoClose", "enabled"], equals: true },
+        },
       },
       orderBy: { lastMessageAt: "asc" },
       take: 20,
-      include: { channel: true },
+      include: {
+        channel: true,
+        tenant: { select: { settings: true } },
+      },
     })
   );
 
@@ -146,15 +168,21 @@ async function closeIdleSessions(): Promise<void> {
     try {
       // RLS context + suspension guard (PRD 16 SEC-1/SEC-4).
       await withTenantContext(conversation.tenantId, async () => {
-        if (!(await tenantActive(conversation.tenantId))) return;
+        const cfg = parseAutoCloseConfig(conversation.tenant.settings);
+        if (!cfg.enabled) return;
+        const cutoff = new Date(
+          Date.now() - (cfg.idleMinutes * 60 * 1000 + AUTO_CLOSE_SLACK_MS)
+        );
 
-        // Only close on the customer's last inbound (outbound activity alone
-        // must not trigger a close - session TTL counts from customer input).
+        // The agent must have the last word: close ONLY when the last
+        // message is the agent's reply and the customer never answered it.
+        // An unanswered customer message is a gap for staff, not a closure
+        // (owner decision 2026-11-11).
         const last = await prisma.message.findFirst({
           where: { conversationId: conversation.id },
           orderBy: { createdAt: "desc" },
         });
-        if (!last || last.direction !== "INBOUND") return;
+        if (!last || last.direction !== "OUTBOUND") return;
         if (last.createdAt > cutoff) return;
 
         // Already closed for this window?
@@ -162,7 +190,7 @@ async function closeIdleSessions(): Promise<void> {
           conversation.settings ?? {}
         );
         const settings = rawSettings.success ? rawSettings.data : {};
-        if (settings.lastInboundClosedAt === last.id) return;
+        if (settings.lastAutoClosedMessageId === last.id) return;
 
         if (conversation.channel.status !== "CONNECTED") return;
 
@@ -185,10 +213,14 @@ async function closeIdleSessions(): Promise<void> {
         await prisma.conversation.update({
           where: { id: conversation.id },
           data: {
+            // "Closed the chat" means the status too: leaves the inbox's
+            // active filter. The next inbound flips it back to OPEN
+            // (inbox.ts findOrCreateConversation).
+            status: "RESOLVED",
             settings: {
               ...settings,
               sessionClosedAt: new Date().toISOString(),
-              lastInboundClosedAt: last.id,
+              lastAutoClosedMessageId: last.id,
             },
           },
         });

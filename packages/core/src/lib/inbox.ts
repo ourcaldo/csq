@@ -52,6 +52,10 @@ export async function findOrCreateConversation(
         // the thread follows the channel of the LATEST message so replies go
         // out the channel they last used.
         channelId,
+        // Auto session close (PRD 03 amendment 2026-11-11) may have RESOLVED
+        // this chat; a new customer message reopens it. PENDING is a human
+        // judgment and stays untouched.
+        ...(existing.status === "RESOLVED" ? { status: "OPEN" } : {}),
       },
     });
     return { conversation, created: false };
