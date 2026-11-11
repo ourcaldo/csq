@@ -39,6 +39,10 @@ export async function buildSystemPrompt(args: {
   tenant: Tenant;
   agent: Agent;
   conversation?: ConversationPipelineContext;
+  /** Customer whose chat this prompt is for - HIGH-importance memories are
+   * scoped to this customer (owner decision 2026-11-11); without a
+   * customer no memory is ever injected. */
+  customerPhone?: string | null;
 }): Promise<string> {
   // Only BUSINESS_INFO is loaded into the prompt. FAQ and POLICY are retrieved
   // on demand via knowledge.search (bounded context, AGENTS.md rule 10).
@@ -50,8 +54,16 @@ export async function buildSystemPrompt(args: {
     }),
     // G4/G10: inject HIGH-importance agent memories as the continuity layer
     // beyond the chat-history window. Bounded so the prompt stays small.
+    // Customer scoping (owner decision 2026-11-11): only THIS customer's
+    // memories ride in the prompt - a HIGH memory learned from customer A
+    // must never appear while chatting with customer B.
     prisma.memory.findMany({
-      where: { tenantId: args.tenant.id, agentId: args.agent.id, importance: MemoryImportance.HIGH },
+      where: {
+        tenantId: args.tenant.id,
+        agentId: args.agent.id,
+        importance: MemoryImportance.HIGH,
+        ...(args.customerPhone ? { customerPhone: args.customerPhone } : {}),
+      },
       orderBy: { createdAt: "desc" },
       take: MAX_MEMORIES_IN_PROMPT,
     }),

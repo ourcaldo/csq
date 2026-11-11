@@ -133,6 +133,7 @@ export default function MemoryPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Pelanggan</TableHead>
                   <TableHead>Kunci</TableHead>
                   <TableHead>Nilai</TableHead>
                   <TableHead className="hidden sm:table-cell">Agen</TableHead>
@@ -146,13 +147,17 @@ export default function MemoryPage() {
               <TableBody>
                 {data && data.items.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7}>
+                    <TableCell colSpan={8}>
                       <StateNotice variant="empty" message="Belum ada memori." />
                     </TableCell>
                   </TableRow>
                 )}
                 {data?.items.map((m) => (
                   <TableRow key={m.id}>
+                    {/* Customer scoping (2026-11-11): whose memory this is. */}
+                    <TableCell className="whitespace-nowrap text-muted-foreground">
+                      {m.customerPhone ?? "-"}
+                    </TableCell>
                     <TableCell className="font-medium">{m.key}</TableCell>
                     <TableCell className="max-w-xs truncate text-muted-foreground">
                       {m.value}

@@ -305,6 +305,9 @@ export async function runAgentReply(args: {
     conversation: stage
       ? { deal: { stage: { name: stage.name, kind: stage.kind } } }
       : undefined,
+    // Customer scoping: HIGH-importance memories injected below belong to
+    // THIS customer only (owner decision 2026-11-11).
+    customerPhone,
   });
 
   const result = await runConversation({

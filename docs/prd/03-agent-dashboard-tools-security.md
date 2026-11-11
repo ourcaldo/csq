@@ -133,6 +133,17 @@ Owner can:
 -   Mark memories as important.
 -   Inspect memory source.
 
+Amendment 2026-11-11 (owner decision, after observing an unscoped memory): **a
+memory belongs to ONE customer.** `customerPhone` is stamped server-side from
+the conversation at create time (the model cannot choose or see it);
+`memory.search` returns only the current customer's memories; HIGH-importance
+prompt injection is filtered to the current customer; the Memori page shows
+the customer column. The agent can never read another customer's memories.
+Business-level facts (store hours, policies) do NOT belong in memory - that is
+what the knowledge base is for; `memory.create`'s description steers the
+model accordingly. Existing unscoped rows were test data and were wiped by
+the migration (20261111100000) rather than guessed into customers.
+
 ## 15.6 Capabilities
 
 Owner can configure:

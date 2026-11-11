@@ -815,6 +815,13 @@ model Memory {
   id         String           @id @default(uuid())
   tenantId   String
   agentId    String
+  // Customer scoping (owner decision 2026-11-11, PRD 03 amendment): a
+  // memory belongs to ONE customer - stamped server-side from the
+  // conversation at create time, filtered at search and prompt-injection
+  // time. The agent can never read another customer's memories.
+  // Nullable only for rows written before the column existed (wiped by the
+  // migration; kept nullable so the delete+recreate path stays simple).
+  customerPhone String?
   key        String
   value      String
   source     MemorySource     @default(CONVERSATION)
@@ -824,7 +831,7 @@ model Memory {
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   agent  Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
-  @@unique([tenantId, agentId, key])
+  @@unique([tenantId, agentId, customerPhone, key])
   @@index([tenantId, agentId])
 }
 

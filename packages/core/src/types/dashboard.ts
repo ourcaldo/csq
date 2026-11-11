@@ -181,6 +181,9 @@ export type Memory = {
   id: string;
   tenantId: string;
   agentId: string;
+  // The customer this memory belongs to (scoping owner decision 2026-11-11);
+  // stamped server-side from the conversation, never model-supplied.
+  customerPhone: string | null;
   key: string;
   value: string;
   source: MemorySource;

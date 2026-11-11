@@ -38,8 +38,11 @@ export default async function handler(
       return res.status(200).json(apiOk({ items, total, page, pageSize }));
     }
 
-    // G4: create a memory from the dashboard. Upsert by (tenant, agent, key) so
-    // re-saving a key updates it instead of duplicating.
+    // G4: create a memory from the dashboard. Upsert by (tenant, agent,
+    // customer, key) so re-saving a key for the same customer updates it.
+    // Every memory is customer-scoped (owner decision 2026-11-11) - the
+    // caller names whose memory it is; business facts belong to the
+    // knowledge base instead.
     if (req.method === "POST") {
       const parsed = memoryCreateSchema.safeParse(req.body);
       if (!parsed.success) {
@@ -47,15 +50,17 @@ export default async function handler(
       }
       const memory = await prisma.memory.upsert({
         where: {
-          tenantId_agentId_key: {
+          tenantId_agentId_customerPhone_key: {
             tenantId,
             agentId: parsed.data.agentId,
+            customerPhone: parsed.data.customerPhone,
             key: parsed.data.key,
           },
         },
         create: {
           tenantId,
           agentId: parsed.data.agentId,
+          customerPhone: parsed.data.customerPhone,
           key: parsed.data.key,
           value: parsed.data.value,
           importance: parsed.data.importance ?? "MEDIUM",
