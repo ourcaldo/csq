@@ -113,7 +113,7 @@ export function Dialog({
             {description}
           </p>
         )}
-        {title || description ? <div className="mt-4">{children}</div> : children}
+        {title || description ? <div className="mt-6">{children}</div> : children}
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { randomBytes } from "crypto";
 import { Prisma } from "@prisma/client";
 import prisma from "@csq/core/lib/db";
 import { apiError, apiOk, type ApiResponse } from "@csq/core/types/api";
@@ -26,11 +27,39 @@ export type TenantSummary = {
 
 const createSchema = z.object({
   name: z.string().min(2).max(100),
-  slug: z.string().min(2).max(50).regex(/^[a-z0-9-]+$/, "Slug: lowercase alphanumeric + dashes"),
+  // Optional since 2026-11-11 (owner request): the console no longer asks
+  // for a slug - the API generates a unique alphanumeric one (Midtrans
+  // merchant-ID style). Still accepted for scripts/tests that pass one.
+  slug: z
+    .string()
+    .min(2)
+    .max(50)
+    .regex(/^[a-z0-9-]+$/, "Slug: lowercase alphanumeric + dashes")
+    .optional(),
   ownerEmail: z.string().email(),
   ownerName: z.string().min(2).max(100),
   ownerPassword: z.string().min(8).max(200),
 });
+
+// Random alphanumeric tenant ID, no visually confusable characters
+// (0/o, 1/l/i). Server-generated so uniqueness is checkable at insert time.
+const SLUG_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
+
+function candidateSlug(): string {
+  const bytes = randomBytes(8);
+  return "csq" + Array.from(bytes, (b) => SLUG_ALPHABET[b % SLUG_ALPHABET.length]).join("");
+}
+
+async function generateUniqueSlug(): Promise<string> {
+  // Pre-check the first few candidates (cheap); on the last attempt return
+  // the candidate and let the @unique constraint be the final arbiter.
+  for (let attempt = 0; ; attempt++) {
+    const slug = candidateSlug();
+    if (attempt >= 4) return slug;
+    const taken = await prisma.tenant.findUnique({ where: { slug }, select: { id: true } });
+    if (!taken) return slug;
+  }
+}
 
 export default async function handler(
   req: NextApiRequest,
@@ -87,7 +116,8 @@ export default async function handler(
       if (!parsed.success) {
         return res.status(400).json(apiError("VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Payload tidak valid."));
       }
-      const { name, slug, ownerEmail, ownerName, ownerPassword } = parsed.data;
+      const { name, ownerEmail, ownerName, ownerPassword } = parsed.data;
+      const slug = parsed.data.slug ?? (await generateUniqueSlug());
 
       const existingTenant = await prisma.tenant.findUnique({ where: { slug } });
       if (existingTenant) {

@@ -23,7 +23,7 @@ type Tenant = {
 };
 type TenantList = { items: Tenant[] };
 
-const EMPTY_FORM = { name: "", slug: "", ownerEmail: "", ownerName: "", ownerPassword: "" };
+const EMPTY_FORM = { name: "", ownerEmail: "", ownerName: "", ownerPassword: "" };
 
 export const getServerSideProps = withAdminAuth(async () => ({ props: {} }));
 
@@ -53,17 +53,19 @@ export default function TenantsPage() {
     setActionError(null);
     setCreateNotice(null);
     try {
-      const r = await adminFetch<{ id: string; welcomeEmailSent: boolean }>(
-        "/api/admin/tenants",
-        "POST",
-        form
-      );
+      const r = await adminFetch<{
+        id: string;
+        name: string;
+        slug: string;
+        welcomeEmailSent: boolean;
+      }>("/api/admin/tenants", "POST", form);
       setShowCreate(false);
       setForm(EMPTY_FORM);
       setCreateNotice(
-        r.welcomeEmailSent
-          ? "Tenant dibuat. Email selamat datang (berisi kredensial login) terkirim ke pemiliknya."
-          : "Tenant dibuat, tetapi email selamat datang TIDAK terkirim (SMTP platform belum diatur atau gagal). Serahkan email + password secara manual."
+        `Tenant dibuat. ID tenant: ${r.slug}. ` +
+          (r.welcomeEmailSent
+            ? "Email selamat datang (berisi kredensial login) terkirim ke pemiliknya."
+            : "Email selamat datang TIDAK terkirim (SMTP platform belum diatur atau gagal) - serahkan email + password secara manual.")
       );
       refresh();
     } catch (err) {
@@ -250,28 +252,18 @@ export default function TenantsPage() {
             </div>
 
             <form onSubmit={createTenant} className="space-y-4 p-5">
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="t-name">Nama tenant</Label>
-                  <Input
-                    id="t-name"
-                    required
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    placeholder="Toko Kopi Nusantara"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="t-slug">Slug</Label>
-                  <Input
-                    id="t-slug"
-                    required
-                    value={form.slug}
-                    onChange={(e) => setForm({ ...form, slug: e.target.value.toLowerCase() })}
-                    placeholder="toko-kopi"
-                    className="font-mono text-[13px]"
-                  />
-                </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="t-name">Nama tenant</Label>
+                <Input
+                  id="t-name"
+                  required
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="Toko Kopi Nusantara"
+                />
+                <p className="text-[12px] text-muted-foreground">
+                  ID tenant dibuat otomatis (alfanumerik, unik).
+                </p>
               </div>
 
               <div className="border-t border-border pt-4">
