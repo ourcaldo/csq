@@ -1,11 +1,19 @@
 import Link from "next/link";
-import { ArrowLeft } from "@phosphor-icons/react";
+import { type FormEvent, useState } from "react";
+import { useRouter } from "next/router";
+import { ArrowLeft, Warning, Key } from "@phosphor-icons/react";
 import { AdminShell } from "@/components/admin-shell";
-import { Empty, PageHead, Section, Stat, Status, TableCard, btnClass } from "@/components/console";
+import { Btn, Empty, PageHead, Section, Stat, Status, TableCard, btnClass } from "@/components/console";
+import { Dialog } from "@csq/ui/components/ui/dialog";
+import { Input } from "@csq/ui/components/ui/input";
+import { Label } from "@csq/ui/components/ui/label";
 import { withAdminAuth } from "@/lib/admin-auth";
-import { useAdminApi } from "@/lib/admin-api";
+import { useAdminApi, adminFetch } from "@/lib/admin-api";
 
-// ADM-1 (PRD 16): read-only tenant drill-down over the existing detail GET.
+// ADM-1 (PRD 16): tenant drill-down + platform actions (owner request
+// 2026-11-11): per-user password reset (credentials emailed when a provider
+// exists) and tenant deletion (channels disconnected first, then the cascade
+// removes every tenant row - unrecoverable, typed-name confirmation).
 
 type Detail = {
   id: string;
@@ -70,14 +78,78 @@ function sourceTone(status: string): "ok" | "bad" | "off" {
 }
 
 export default function TenantDetailPage({ id }: { id: string }) {
-  const { data, loading, error } = useAdminApi<Detail>(`/api/admin/tenants/${id}`);
+  const router = useRouter();
+  const { data, loading, error, refresh } = useAdminApi<Detail>(`/api/admin/tenants/${id}`);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  // Reset password state.
+  const [resetUser, setResetUser] = useState<{ id: string; email: string } | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [resetting, setResetting] = useState(false);
+
+  // Delete state: the button only enables when the tenant name is typed.
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirmName, setDeleteConfirmName] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
+  async function submitReset(e: FormEvent) {
+    e.preventDefault();
+    if (!resetUser || resetting || newPassword.length < 8) return;
+    setResetting(true);
+    setActionError(null);
+    setNotice(null);
+    try {
+      const r = await adminFetch<{ reset: true; email: string; emailed: boolean }>(
+        `/api/admin/tenants/${id}`,
+        "POST",
+        { action: "reset_password", userId: resetUser.id, newPassword }
+      );
+      setResetUser(null);
+      setNewPassword("");
+      setNotice(
+        r.emailed
+          ? `Password ${r.email} direset. Kredensial baru dikirim ke emailnya.`
+          : `Password ${r.email} direset, tetapi email TIDAK terkirim (tidak ada SMTP aktif). Serahkan password baru secara manual.`
+      );
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Gagal mereset password.");
+    } finally {
+      setResetting(false);
+    }
+  }
+
+  async function submitDelete(e: FormEvent) {
+    e.preventDefault();
+    if (deleting || !data || deleteConfirmName !== data.name) return;
+    setDeleting(true);
+    setActionError(null);
+    setNotice(null);
+    try {
+      const r = await adminFetch<{ deleted: true; channelsDisconnected: number; channelsTotal: number }>(
+        `/api/admin/tenants/${id}`,
+        "POST",
+        { action: "delete" }
+      );
+      if (r.channelsTotal > 0 && r.channelsDisconnected < r.channelsTotal) {
+        console.warn(
+          `[tenant-delete] hanya ${r.channelsDisconnected}/${r.channelsTotal} saluran sempat diputus sebelum hapus`
+        );
+      }
+      router.push("/admin/tenants");
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Gagal menghapus tenant.");
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   return (
     <AdminShell title="Detail tenant">
       <PageHead
         eyebrow="Platform"
         title={data?.name ?? "Tenant"}
-        sub={data ? `${data.slug}, hanya baca` : "Detail tenant, hanya baca"}
+        sub={data?.slug ?? "Detail tenant"}
         action={
           <Link href="/admin/tenants" className={btnClass("ghost")}>
             <ArrowLeft size={14} />
@@ -89,6 +161,16 @@ export default function TenantDetailPage({ id }: { id: string }) {
       {error && (
         <div className="mb-4 rounded-xl border border-border border-l-2 border-l-bad bg-card px-5 py-3 text-[13px] text-bad">
           {error}
+        </div>
+      )}
+      {actionError && (
+        <div className="mb-4 rounded-xl border border-border border-l-2 border-l-bad bg-card px-5 py-3 text-[13px] text-bad">
+          {actionError}
+        </div>
+      )}
+      {notice && (
+        <div className="mb-4 rounded-xl border border-border border-l-2 border-l-ok bg-card px-5 py-3 text-[13px]">
+          {notice}
         </div>
       )}
       {loading && (
@@ -133,6 +215,7 @@ export default function TenantDetailPage({ id }: { id: string }) {
                       <th>Nama</th>
                       <th>Email</th>
                       <th>Peran</th>
+                      <th />
                     </tr>
                   </thead>
                   <tbody>
@@ -146,6 +229,20 @@ export default function TenantDetailPage({ id }: { id: string }) {
                           <Status tone={u.role === "OWNER" ? "ok" : "off"}>
                             {u.role === "OWNER" ? "Owner" : "Staf"}
                           </Status>
+                        </td>
+                        <td className="text-right">
+                          <button
+                            onClick={() => {
+                              setResetUser({ id: u.id, email: u.email });
+                              setNewPassword("");
+                              setActionError(null);
+                              setNotice(null);
+                            }}
+                            className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-[12px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                          >
+                            <Key size={12} />
+                            Reset Password
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -276,8 +373,100 @@ export default function TenantDetailPage({ id }: { id: string }) {
               </TableCard>
             )}
           </Section>
+
+          {/* Danger zone - unrecoverable. */}
+          <Section title="Zona Bahaya" meta="Tidak dapat dibatalkan">
+            <div className="flex items-center gap-4 rounded-xl border border-bad/30 bg-bad/5 px-5 py-4">
+              <Warning size={20} weight="fill" className="shrink-0 text-bad" />
+              <div className="flex-1">
+                <p className="text-[13px] font-medium">Hapus tenant "{data.name}"</p>
+                <p className="text-[13px] text-muted-foreground">
+                  Semua data tenant dihapus permanen: pengguna, percakapan, pesan, pesanan,
+                  kampanye, media, dan saluran (diputus lebih dulu). Tidak bisa dikembalikan.
+                </p>
+              </div>
+              <Btn onClick={() => { setDeleteOpen(true); setDeleteConfirmName(""); }}>
+                Hapus Tenant
+              </Btn>
+            </div>
+          </Section>
         </div>
       )}
+
+      {/* Reset password dialog */}
+      <Dialog
+        open={resetUser !== null}
+        onClose={() => setResetUser(null)}
+        title="Reset Password"
+        description={resetUser ? `Password baru untuk ${resetUser.email}` : undefined}
+      >
+        <form onSubmit={submitReset} className="space-y-3">
+          <div>
+            <Label htmlFor="new-password">Password baru (min. 8 karakter)</Label>
+            <Input
+              id="new-password"
+              type="text"
+              required
+              minLength={8}
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="password baru"
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Kredensial dikirim ke email pengguna bila SMTP aktif; jika tidak, serahkan secara manual.
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setResetUser(null)}
+              className={btnClass("line")}
+            >
+              Batal
+            </button>
+            <button type="submit" disabled={resetting || newPassword.length < 8} className={btnClass()}>
+              {resetting ? "Meriset..." : "Reset Password"}
+            </button>
+          </div>
+        </form>
+      </Dialog>
+
+      {/* Delete confirmation dialog - the tenant name must be typed */}
+      <Dialog
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        title="Hapus Tenant"
+        description={`Ketik nama tenant "${data?.name ?? ""}" untuk mengonfirmasi. Tindakan ini permanen.`}
+      >
+        <form onSubmit={submitDelete} className="space-y-3">
+          <div>
+            <Label htmlFor="delete-confirm">Nama tenant</Label>
+            <Input
+              id="delete-confirm"
+              required
+              value={deleteConfirmName}
+              onChange={(e) => setDeleteConfirmName(e.target.value)}
+              placeholder={data?.name ?? ""}
+            />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => setDeleteOpen(false)}
+              className={btnClass("line")}
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              disabled={deleting || deleteConfirmName !== data?.name}
+              className="inline-flex h-9 items-center gap-1.5 rounded-full bg-bad px-4 text-[13px] font-medium text-white transition-colors disabled:pointer-events-none disabled:opacity-50"
+            >
+              {deleting ? "Menghapus..." : "Hapus Permanen"}
+            </button>
+          </div>
+        </form>
+      </Dialog>
     </AdminShell>
   );
 }

@@ -25,7 +25,14 @@ reach an admin route and vice versa. The first admin is created by CLI
 2. **Tenant** - list (search, status filter, health indicators), read-only
    detail drill-down (users, agents, channels, campaigns, data sources,
    media usage), create tenant (provisions the tenant + its owner user),
-   suspend / activate with the semantics below.
+   suspend / activate with the semantics below. Amendment 2026-11-11
+   (owner request): the detail page also carries platform actions -
+   per-user password reset (new password emailed with the credentials
+   when a provider exists; audit-logged, password never logged) and
+   tenant deletion (channels first asked to disconnect via ChannelCommand
+   with a bounded wait, then the tenant row deletes and every table
+   cascades; typed-name confirmation in the UI; snapshot of counts in the
+   admin audit before the cascade).
 3. **Saluran (Channel fleet)** - every channel across tenants with
    session status and lease holder; operator actions reuse the existing
    machinery: force-reconnect and disconnect are ChannelCommand rows the
