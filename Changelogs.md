@@ -2,6 +2,14 @@
 
 Version format: `XX.YY.ZZ` - YY (minor) and ZZ (patch) stay within 0-10; XX (major) may grow beyond. Minor = new feature/behavior change, patch = fix, major = breaking change (schema, API contract, env vars).
 
+## 4.2.0 - 2026-11-12 (branch `monorepo`)
+
+LLM provider + agent vision on the testing stack. Minor: new agent capability, no schema change.
+
+- **Gemini API as the LLM provider (owner decision 2026-11-12):** the OpenAI-compatible runtime now points at Google's OpenAI-compat endpoint - env-only (LLM_BASE_URL/LLM_API_KEY/LLM_CHAT_MODEL on csq-worker + csq-dashboard + csq-api), zero code change, live-verified against our exact `/v1/chat/completions` URL shape including tool calling. Chat model `gemini-3.8-flash` (2.5-flash is retired for new accounts), embeddings `gemini-embedding-001` at 1024 dims; the 5 clone knowledge embeddings were re-embedded and search-verified (0.84 similarity on a test query). Billing: startup credits burn before the AI Studio prepay balance while it stays positive.
+- **Agent vision (PRD 03 amendment 2026-11-12):** an inbound customer photo (caption or not) now drives a real agent turn with the image attached (OpenAI `image_url` format) - the model sees and answers about the photo instead of the canned "belum bisa membuka foto" reply. Only the triggering photo rides along; replayed history stays text-only (bounded prompt). Non-image media (video/audio/document) keeps the debounced courtesy reply, whose text no longer claims photos can't be opened. Drain scan skips non-image media without burning a turn, so a burst of videos cannot starve an older unanswered text. `npm run check:vision` asserts the vision gate helpers.
+- **Identity guardrail (owner request 2026-11-12):** the system prompt forbids the agent from ever naming its model/AI/technology (Gemini, Google AI, GPT, ChatGPT, dsb.) to customers - including under pressure, persuasion, or role-play - it identifies only as the store's CS assistant.
+
 ## 4.1.0 - 2026-11-10 (branch `monorepo`)
 
 Post-4.0.0 work on the testing stack. Minor: new features and behavior changes, one schema addition (PRD 17 KPI tables).

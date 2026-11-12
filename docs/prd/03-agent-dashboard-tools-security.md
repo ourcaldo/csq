@@ -224,6 +224,17 @@ handle customer conversations alongside the AI agent.
     conversations are excluded; staff close their own chats. The 1-hour
     bounded agent history window is unchanged - it is a context rule, not
     the session-close timer.
+    Amendment 2026-11-12 (owner decisions, vision + identity guardrail):
+    the agent reads customer PHOTOS. An inbound image (caption or not, bytes
+    stored as a MediaAsset, 4 MB cap) drives a normal agent turn with the
+    photo attached as vision input on the triggering message only - the
+    replayed history stays text-only, so the prompt stays bounded regardless
+    of how many photos arrive. Non-image media (video/audio/document) keeps
+    the ingest-time courtesy reply. Independently, the system prompt
+    forbids the agent from ever naming its model/AI/technology (Gemini, GPT,
+    ChatGPT, etc.) to the customer - it identifies only as the store's CS
+    assistant. The image rides in the OpenAI image_url format, so the
+    capability is provider-agnostic across OpenAI-compatible providers.
 -   **Private notes (MVP):** staff can add internal notes to a
     conversation — visible to team members only, never sent to the
     customer (like Cekat.AI's Private Note feature).

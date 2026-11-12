@@ -16,6 +16,7 @@ import { withSystemContext } from "@csq/core/lib/tenant-context";
 import { ingestInboundMessage } from "@csq/core/lib/inbox";
 import { processInboundWithAgent } from "@csq/core/lib/agent-loop";
 import { replyToNonText } from "@csq/core/lib/agent-outbox";
+import { isVisionImage } from "@csq/core/lib/vision";
 import { loadDbAuthState, getPnForLid, storeLidPnMapping } from "@csq/core/lib/baileys-auth-db";
 import { acquireSystemLease, releaseSystemLease } from "@csq/core/lib/system-lock";
 import type { Channel } from "@prisma/client";
@@ -512,8 +513,14 @@ async function connectBaileysChannelInner(
           // Reload the channel so the agent loop sees fresh status/agentId.
           const fresh = await prisma.channel.findUnique({ where: { id: channel.id } });
           if (!fresh) return;
-          // D6: only real text drives the LLM; media gets one debounced reply.
-          if (kind === "text") {
+          // D6 + vision (PRD 03 amendment 2026-11-12): real text and stored
+          // images drive the LLM (the model reads the photo); all other
+          // media gets one debounced courtesy reply.
+          const visionImage =
+            kind === "media" && media
+              ? isVisionImage(media.mimeType, media.bytes.length)
+              : false;
+          if (kind === "text" || visionImage) {
             void processInboundWithAgent({
               channel: fresh,
               conversationId: recorded.conversationId,

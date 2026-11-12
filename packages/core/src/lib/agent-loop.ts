@@ -4,6 +4,7 @@ import { z } from "zod";
 import prisma from "@csq/core/lib/db";
 import { buildSystemPrompt } from "@csq/core/lib/prompt-builder";
 import { runConversation } from "@csq/core/services/llm-runtime";
+import { isVisionImage, resolveUserText } from "@csq/core/lib/vision";
 import { sendAgentMessage } from "@csq/core/lib/agent-outbox";
 import { acquireTurnLease, releaseTurnLease, renewTurnLease } from "@csq/core/lib/turn-lock";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
@@ -113,6 +114,8 @@ export async function runAgentReply(args: {
   // replayed history (it is appended once as the user message) so the model
   // never sees the same customer message twice.
   triggerMessageId?: string;
+  // Vision (PRD 03 amendment 2026-11-12): the triggering customer photo.
+  image?: { data: Uint8Array; mimeType: string };
 }): Promise<AgentTurnResult> {
   const { tenantId, conversationId, customerPhone, body, triggerMessageId } = args;
 
@@ -317,8 +320,11 @@ export async function runAgentReply(args: {
     channelId: channel.id, // G1: routing context for approval follow-ups
     systemPrompt,
     history, // bounded 1h-window transcript (see above)
-    userMessage: windowContext + body,
+    // Vision: an uncaptioned photo's "[image]" placeholder becomes a natural
+    // line when the actual image rides along.
+    userMessage: windowContext + resolveUserText(body, Boolean(args.image)),
     customerPhone,
+    ...(args.image ? { image: args.image } : {}),
   });
 
   // Charge the reply after the LLM cost is incurred. The ref is the inbound
@@ -513,24 +519,41 @@ async function drainUnansweredInbound(
   tenantId: string
 ): Promise<void> {
   const attempted = new Set<string>();
+  let turns = 0;
 
-  for (let i = 0; i < MAX_DRAIN_TURNS; i++) {
-    // Newest unanswered TEXT inbound (D6: media/other never drive a turn -
-    // media is answered by the debounced courtesy reply at ingest time). Only
-    // AGENT or HUMAN outbound counts as an answer - a SCENARIO message
-    // (opening greeting, promo) must never mark a customer's question as
-    // answered.
+  while (turns < MAX_DRAIN_TURNS) {
+    // Newest unanswered inbound that can drive a turn: real text, or a MEDIA
+    // message with a stored asset (vision, PRD 03 amendment 2026-11-12; the
+    // asset is image-gated below - non-image media was answered by the
+    // debounced courtesy reply at ingest). Only AGENT or HUMAN outbound
+    // counts as an answer - a SCENARIO message (opening greeting, promo)
+    // must never mark a customer's question as answered.
     const trigger = await prisma.message.findFirst({
       where: {
         conversationId,
         tenantId,
         direction: "INBOUND",
-        kind: "TEXT",
+        id: { notIn: [...attempted] },
+        OR: [{ kind: "TEXT" }, { kind: "MEDIA", mediaId: { not: null } }],
       },
       orderBy: { createdAt: "desc" },
     });
-    if (!trigger || attempted.has(trigger.id)) return;
+    if (!trigger) return;
     attempted.add(trigger.id);
+
+    // Vision gate: a MEDIA trigger must carry a stored image (the
+    // triggering photo rides along; history stays text-only). A skip does
+    // not count as a turn, so a burst of videos can never starve an older
+    // unanswered text - the notIn filter moves the scan past skipped
+    // candidates.
+    let image: { data: Uint8Array; mimeType: string } | undefined;
+    if (trigger.kind === "MEDIA" && trigger.mediaId) {
+      const asset = await prisma.mediaAsset.findUnique({
+        where: { id: trigger.mediaId },
+      });
+      if (!asset || !isVisionImage(asset.mimeType, asset.byteSize)) continue;
+      image = { data: asset.data, mimeType: asset.mimeType };
+    }
 
     const answered = await prisma.message.findFirst({
       where: {
@@ -556,6 +579,7 @@ async function drainUnansweredInbound(
       customerPhone: conversation.customerPhone,
       body: trigger.body,
       triggerMessageId: trigger.id,
+      ...(image ? { image } : {}),
     });
     if (turn.stoodDown) return;
 
@@ -569,7 +593,9 @@ async function drainUnansweredInbound(
       replyBody =
         "Mohon tunggu, saya sedang memproses permintaan Anda dan akan segera membalas.";
     }
-    if (!replyBody.trim()) continue;
+    // An empty non-truncated reply ends the drain (the old loop stopped the
+    // same way by re-picking the attempted trigger).
+    if (!replyBody.trim()) return;
 
     // Reload the channel - if the owner disconnected (Putuskan) while the turn
     // was running, don't send the reply.
@@ -597,5 +623,6 @@ async function drainUnansweredInbound(
         truncated: turn.truncated ?? false,
       },
     });
+    turns += 1;
   }
 }

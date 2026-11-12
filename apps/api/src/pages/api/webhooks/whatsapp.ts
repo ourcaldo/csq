@@ -8,6 +8,7 @@ import {
 import { ingestInboundMessage } from "@csq/core/lib/inbox";
 import { processInboundWithAgent } from "@csq/core/lib/agent-loop";
 import { replyToNonText } from "@csq/core/lib/agent-outbox";
+import { isVisionImage } from "@csq/core/lib/vision";
 import { cloudApiConfigSchema } from "@csq/core/types/whatsapp";
 import { parseCloudApiInbound, downloadCloudMedia } from "@csq/core/services/whatsapp";
 import {
@@ -238,9 +239,15 @@ export default async function handler(
           ...(media ? { media } : {}),
         });
         if (recorded.duplicate) return;
-        // D6: only real text drives the LLM. Media gets one debounced courtesy
-        // reply; reactions/system events are stored and ignored.
-        if (m.kind === "text") {
+        // D6 + vision (PRD 03 amendment 2026-11-12): real text and stored
+        // images drive the LLM (the model reads the photo); all other media
+        // gets one debounced courtesy reply. Reactions/system events are
+        // stored and ignored.
+        const visionImage =
+          m.kind === "media" && media
+            ? isVisionImage(media.mimeType, media.bytes.length)
+            : false;
+        if (m.kind === "text" || visionImage) {
           void processInboundWithAgent({
             channel,
             conversationId: recorded.conversationId,

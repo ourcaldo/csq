@@ -12,13 +12,27 @@ export const toolCallPartSchema = z.object({
 export type ToolCallPart = z.infer<typeof toolCallPartSchema>;
 
 // OpenAI chat message shape. `tool_call_id` is present only on role:"tool".
+// The schema validates PROVIDER RESPONSES (string content); the request-side
+// type below is wider because user messages may carry image parts (vision,
+// PRD 03 amendment 2026-11-12).
 export const chatMessageSchema = z.object({
   role: z.string(),
   content: z.string().nullable(),
   tool_calls: z.array(toolCallPartSchema).optional(),
   tool_call_id: z.string().optional(),
 });
-export type ChatMessage = z.infer<typeof chatMessageSchema>;
+
+// Multimodal content parts, OpenAI format (text + image_url).
+export type ChatMessagePart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
+
+export type ChatMessage = {
+  role: string;
+  content: string | ChatMessagePart[] | null;
+  tool_calls?: ToolCallPart[];
+  tool_call_id?: string;
+};
 
 export const chatCompletionResponseSchema = z.object({
   choices: z.array(

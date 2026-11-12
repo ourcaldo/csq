@@ -218,16 +218,18 @@ export async function resolveConnectedChannel(
   });
 }
 
-// D6: a MEDIA inbound (image/video/document/audio/sticker with no caption)
-// must never reach the LLM - the agent would be answering "[image]". Instead
-// the customer gets ONE short reply per debounce window, and the message is
-// stored for the human inbox. Debounce state lives on Conversation.settings
-// (same pattern as the scheduler's session-close tracking); the small
-// check-then-send race between two simultaneous photos is accepted - the worst
-// case is one extra courtesy message, never an LLM turn.
+// D6 + vision (PRD 03 amendment 2026-11-12): a NON-IMAGE media inbound
+// (video/document/audio) must never reach the LLM - the agent would be
+// answering "[image]". Images with stored bytes instead drive a vision turn
+// upstream, so this path is the fallback for everything else: the customer
+// gets ONE short reply per debounce window, and the message is stored for the
+// human inbox. Debounce state lives on Conversation.settings (same pattern as
+// the scheduler's session-close tracking); the small check-then-send race
+// between two simultaneous videos is accepted - the worst case is one extra
+// courtesy message, never an LLM turn.
 const NON_TEXT_REPLY_DEBOUNCE_MS = 10 * 60 * 1000;
 const NON_TEXT_REPLY_BODY =
-  "Maaf, saya belum bisa membuka foto, video, atau file. Tulis dalam teks ya, Kak, supaya saya bisa bantu.";
+  "Maaf, saya belum bisa membuka video, audio, atau file. Tulis dalam teks ya, Kak, supaya saya bisa bantu.";
 
 export async function replyToNonText(args: {
   channel: Channel;

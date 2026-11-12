@@ -1,6 +1,6 @@
 {
   "name": "csq",
-  "version": "4.1.0",
+  "version": "4.2.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -25,6 +25,7 @@
     "check:openapi": "tsx scripts/self-check-openapi.ts",
     "check:alerts": "tsx scripts/alert-check.ts",
     "check:kpi": "tsx scripts/self-check-kpi.ts",
+    "check:vision": "tsx scripts/self-check-vision.ts",
     "check:rls": "tsx scripts/self-check-rls.ts",
     "check:billing": "tsx scripts/self-check-billing.ts",
     "check:tools": "tsx scripts/self-check-refund-ticket.ts",

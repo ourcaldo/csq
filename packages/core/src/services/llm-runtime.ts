@@ -1,6 +1,7 @@
 import { executeTool } from "@csq/core/tools/execute";
 import { listTools } from "@csq/core/tools";
 import { zodToJsonSchema, type JsonSchema } from "@csq/core/lib/zod-to-json";
+import { buildUserContent } from "@csq/core/lib/vision";
 import type { ExecuteOutcome } from "@csq/core/types/tools";
 import {
   chatCompletionResponseSchema,
@@ -152,6 +153,9 @@ export type RunConversationArgs = {
   history: ChatMessage[];
   userMessage: string;
   customerPhone?: string;
+  // Vision (PRD 03 amendment 2026-11-12): the triggering customer photo rides
+  // along as an image_url part. History stays text-only - bounded prompt.
+  image?: { data: Uint8Array; mimeType: string };
 };
 
 // Run one customer turn against the CS agent: prepend the system prompt (if
@@ -163,15 +167,21 @@ export async function runConversation(args: RunConversationArgs): Promise<RunRes
   if (args.systemPrompt) {
     messages.push({ role: "system", content: args.systemPrompt });
   }
-  messages.push(...args.history, { role: "user", content: args.userMessage });
+  const userContent = args.image
+    ? buildUserContent(args.userMessage, args.image)
+    : args.userMessage;
+  messages.push(...args.history, { role: "user", content: userContent });
   const toolCallLog: ToolCallRecord[] = [];
   const deadline = Date.now() + TURN_BUDGET_MS;
 
   const lastAssistantText = (): string => {
     const last = [...messages]
       .reverse()
-      .find((m) => m.role === "assistant" && m.content !== null && m.content !== undefined);
-    return last?.content ?? "";
+      .find((m) => m.role === "assistant" && typeof m.content === "string");
+    // Assistant messages only ever carry text (image parts ride on the user
+    // message), but the widened ChatMessage type forces the typeof guard.
+    if (last && typeof last.content === "string") return last.content;
+    return "";
   };
 
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
