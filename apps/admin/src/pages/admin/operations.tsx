@@ -1,11 +1,32 @@
 import { useState } from "react";
-import { Tray, PaperPlaneTilt, CheckCircle, Warning, Lock, Plugs, Database } from "@phosphor-icons/react";
+import { Tray, PaperPlaneTilt, CheckCircle, Warning, Lock, Pulse, Timer } from "@phosphor-icons/react";
 import { AdminShell } from "@/components/admin-shell";
 import { Btn, Empty, PageHead, Section, Stat, Status, TableCard, pad } from "@/components/console";
 import { withAdminAuth } from "@/lib/admin-auth";
 import { useAdminApi, adminFetch } from "@/lib/admin-api";
 
+// Operasional (PRD 13 Phase 3; refocused 2026-11-13, owner request): system
+// health first - service reachability and latency, the worker runtime
+// heartbeat, database latency, and the AI reply-time SLA - with the
+// operational queues (outbox, failed messages, locks) below.
+
+type ServicePing = {
+  name: string;
+  ok: boolean;
+  ms: number;
+  status: number | null;
+};
+type ReplyStats = {
+  count: number;
+  avgSeconds: number | null;
+  p95Seconds: number | null;
+};
 type Ops = {
+  health: {
+    services: ServicePing[];
+    db: { ok: boolean; ms: number };
+  };
+  aiResponse: { hours24: ReplyStats; days7: ReplyStats };
   locks: { key: string; lockedUntil: string; isHeld: boolean; updatedAt: string }[];
   outbox: { status: string; count: number }[];
   failedMessages: {
@@ -14,21 +35,6 @@ type Ops = {
     toJid: string;
     error: string | null;
     updatedAt: string;
-  }[];
-  commands: {
-    id: string;
-    kind: string;
-    status: string;
-    channelId: string;
-    provider: string;
-    createdAt: string;
-  }[];
-  sources: {
-    id: string;
-    name: string;
-    status: string;
-    lastSyncAt: string | null;
-    tenantId: string;
   }[];
 };
 
@@ -53,6 +59,11 @@ function when(iso: string | null): string {
   });
 }
 
+function fmtSeconds(v: number | null): string {
+  if (v === null) return "-";
+  return `${v.toFixed(1).replace(".", ",")} dtk`;
+}
+
 export default function OperationsPage() {
   const { data, loading, error, refresh } = useAdminApi<Ops>("/api/admin/operations");
   const [busy, setBusy] = useState<string | null>(null);
@@ -71,13 +82,14 @@ export default function OperationsPage() {
     data?.outbox.find((o) => o.status === status)?.count ?? 0;
   const failed = data?.failedMessages ?? [];
   const locks = data?.locks ?? [];
-  const commands = data?.commands ?? [];
-  const sources = data?.sources ?? [];
+  const services = data?.health.services ?? [];
+  const heartbeat = locks.find((l) => l.key === "worker-heartbeat");
+  const ai = data?.aiResponse;
   const held = locks.filter((l) => l.isHeld).length;
 
   return (
     <AdminShell title="Operasional">
-      <PageHead eyebrow="Operasi" title="Operasional" sub="Queue, locks & sinkronisasi" />
+      <PageHead eyebrow="Operasi" title="Operasional" sub="Kesehatan sistem, waktu respons AI, antrian & lock" />
 
       {error && (
         <div className="mb-4 rounded-xl border border-border border-l-2 border-l-bad bg-card px-5 py-3 text-[13px] text-bad">
@@ -85,12 +97,74 @@ export default function OperationsPage() {
         </div>
       )}
 
-      <div className="mb-10 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Stat icon={<Tray size={14} />} label="Queued" value={pad(count("QUEUED"))} />
-        <Stat icon={<PaperPlaneTilt size={14} />} label="Sending" value={pad(count("SENDING"))} />
-        <Stat icon={<CheckCircle size={14} />} label="Sent" value={pad(count("SENT"))} />
-        <Stat icon={<Warning size={14} />} label="Failed" value={pad(count("FAILED"))} />
-      </div>
+      <Section title="Kesehatan sistem" meta="dicek saat halaman dibuka">
+        <TableCard>
+          <table className="ledger">
+            <thead>
+              <tr>
+                <th>Layanan</th>
+                <th>Status</th>
+                <th>Latensi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {services.map((s) => (
+                <tr key={s.name}>
+                  <td className="text-[13px] font-medium">{s.name}</td>
+                  <td>
+                    <Status tone={s.ok ? "ok" : "bad"}>
+                      {s.ok ? "Sehat" : "Tidak merespons"}
+                    </Status>
+                  </td>
+                  <td className="whitespace-nowrap font-mono text-[12px] text-muted-foreground">
+                    {s.ok ? `${s.ms} ms (HTTP ${s.status})` : `${s.ms} ms (timeout)`}
+                  </td>
+                </tr>
+              ))}
+              <tr>
+                <td className="text-[13px] font-medium">Runtime worker</td>
+                <td>
+                  <Status tone={heartbeat?.isHeld ? "ok" : "bad"}>
+                    {heartbeat?.isHeld ? "Hidup" : "Tidak jalan"}
+                  </Status>
+                </td>
+                <td className="whitespace-nowrap font-mono text-[12px] text-muted-foreground">
+                  {heartbeat ? `jantung ${ago(heartbeat.updatedAt)}` : "belum ada jantung"}
+                </td>
+              </tr>
+              <tr>
+                <td className="text-[13px] font-medium">Database</td>
+                <td>
+                  <Status tone={data?.health.db.ok ? "ok" : "bad"}>
+                    {data?.health.db.ok ? "Sehat" : "Gagal"}
+                  </Status>
+                </td>
+                <td className="whitespace-nowrap font-mono text-[12px] text-muted-foreground">
+                  {data ? `${data.health.db.ms} ms (SELECT 1)` : "-"}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </TableCard>
+      </Section>
+
+      <Section title="Waktu respons AI" meta="dari pesan masuk ke balasan agen">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <Stat icon={<Timer size={14} />} label="Rata-rata 24 jam" value={fmtSeconds(ai?.hours24.avgSeconds ?? null)} />
+          <Stat icon={<Timer size={14} />} label="p95 24 jam" value={fmtSeconds(ai?.hours24.p95Seconds ?? null)} />
+          <Stat icon={<Pulse size={14} />} label="Balasan 24 jam" value={pad(ai?.hours24.count ?? 0)} />
+          <Stat icon={<Timer size={14} />} label="Rata-rata 7 hari" value={fmtSeconds(ai?.days7.avgSeconds ?? null)} />
+        </div>
+      </Section>
+
+      <Section title="Pesan keluar" meta="outbox worker">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <Stat icon={<Tray size={14} />} label="Queued" value={pad(count("QUEUED"))} />
+          <Stat icon={<PaperPlaneTilt size={14} />} label="Sending" value={pad(count("SENDING"))} />
+          <Stat icon={<CheckCircle size={14} />} label="Sent" value={pad(count("SENT"))} />
+          <Stat icon={<Warning size={14} />} label="Failed" value={pad(count("FAILED"))} />
+        </div>
+      </Section>
 
       <Section title="Pesan gagal" meta={`${failed.length} pesan`}>
         {failed.length === 0 ? (
@@ -164,86 +238,6 @@ export default function OperationsPage() {
                     </td>
                     <td className="whitespace-nowrap font-mono text-[12px] text-muted-foreground">
                       {when(l.updatedAt)} ({ago(l.updatedAt)})
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </TableCard>
-        )}
-      </Section>
-
-      <Section title="Perintah saluran terbaru" meta={`${commands.length} terakhir`}>
-        {commands.length === 0 ? (
-          <Empty
-            title="Tidak ada perintah"
-            hint="Perintah connect / disconnect akan muncul di sini."
-            icon={<Plugs size={16} className="text-muted-foreground" />}
-          />
-        ) : (
-          <TableCard>
-            <table className="ledger">
-              <thead>
-                <tr>
-                  <th>Jenis</th>
-                  <th>Provider</th>
-                  <th>Status</th>
-                  <th>Dibuat</th>
-                </tr>
-              </thead>
-              <tbody>
-                {commands.map((c) => (
-                  <tr key={c.id}>
-                    <td className="font-mono text-[12px] font-medium">{c.kind}</td>
-                    <td className="text-[13px] text-muted-foreground">{c.provider}</td>
-                    <td>
-                      <Status
-                        tone={
-                          c.status === "DONE" ? "ok" : c.status === "FAILED" ? "bad" : "warn"
-                        }
-                      >
-                        {c.status}
-                      </Status>
-                    </td>
-                    <td className="whitespace-nowrap font-mono text-[12px] text-muted-foreground">
-                      {when(c.createdAt)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </TableCard>
-        )}
-      </Section>
-
-      <Section title="Sinkronisasi Sheets">
-        {sources.length === 0 ? (
-          <Empty
-            title="Tidak ada sumber Google Sheets aktif"
-            hint="Sumber yang tersinkron akan muncul di sini."
-            icon={<Database size={16} className="text-muted-foreground" />}
-          />
-        ) : (
-          <TableCard>
-            <table className="ledger">
-              <thead>
-                <tr>
-                  <th>Sumber</th>
-                  <th>Status</th>
-                  <th>Terakhir sinkron</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sources.map((s) => (
-                  <tr key={s.id}>
-                    <td className="font-medium">{s.name}</td>
-                    <td>
-                      <Status tone={s.status === "ERROR" ? "bad" : "ok"}>
-                        {s.status === "ERROR" ? "Gagal" : "Aktif"}
-                      </Status>
-                    </td>
-                    <td className="font-mono text-[12px] text-muted-foreground">
-                      {when(s.lastSyncAt)}
                     </td>
                   </tr>
                 ))}

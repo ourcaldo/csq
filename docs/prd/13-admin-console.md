@@ -40,6 +40,16 @@ reach an admin route and vice versa. The first admin is created by CLI
 4. **Operasional (Operations)** - SystemLock view (all leases with age),
    the OutboundMessage queue with a requeue action for FAILED sends,
    the ChannelCommand queue, per-source Sheets-sync freshness.
+   Amendment 2026-11-13 (owner request): the page is refocused on system
+   health. New sections: live reachability and latency of every service
+   (dashboard, API, worker; targets overridable via SYSTEM_HEALTH_TARGETS)
+   plus the database (timed SELECT 1) and the worker runtime heartbeat
+   lock; and the AI reply-time SLA - seconds from the customer's last
+   inbound message to the agent reply, avg and p95 over the newest 500
+   replies per window (24h and 7d). The operational queues stay (outbox
+   stats, FAILED messages with retry, locks). The ChannelCommand list and
+   the Sheets-sync freshness sections were removed from this page per the
+   same request - the underlying machinery and tables are unchanged.
 5. **Audit** - the global (cross-tenant) AuditLog with filters, plus the
    AdminActionLog of operator actions. Amendment 2026-11-13 (owner
    request): the console also has a Guardrail page - a purpose-built view
