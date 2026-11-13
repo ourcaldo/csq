@@ -100,6 +100,10 @@ async function agentReplyStats(hours: number): Promise<{
         ORDER BY "createdAt" DESC
         LIMIT 1
       ) i ON true
+      -- Only pairs inside the agent's 1h session window count: a reply days
+      -- after the last inbound is a reopened chat, not answer latency, and
+      -- one such pair skews the average by hours.
+      WHERE r."createdAt" - i."createdAt" <= interval '1 hour'
     )
     SELECT count(*)::int AS n,
            avg(EXTRACT(EPOCH FROM dur))::float8 AS avg_s,
