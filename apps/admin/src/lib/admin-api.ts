@@ -1,8 +1,41 @@
 import { useCallback, useEffect, useState } from "react";
+import { z } from "zod";
 
 // Minimal data-fetch hook for the admin BFF. Same contract as the
 // dashboard's useApi: url + loading + error + refresh. Cookie-based auth
 // (the admin session rides the NextAuth cookie automatically).
+
+// A crashed route returns a plain-text error page, not the JSON envelope -
+// parse defensively so the UI shows a readable message instead of a JSON
+// tokenizer error.
+const envelopeSchema = z.object({
+  success: z.boolean().optional(),
+  error: z.object({ message: z.string().optional() }).optional(),
+  data: z.unknown().optional(),
+});
+
+function readEnvelope(res: Response): Promise<
+  { ok: true; data: unknown } | { ok: false; message: string }
+> {
+  return res.text().then((text) => {
+    let parsed: unknown = null;
+    try {
+      parsed = text ? JSON.parse(text) : null;
+    } catch {
+      parsed = null; // plain-text error page, e.g. a 500
+    }
+    const body = envelopeSchema.safeParse(parsed);
+    if (!res.ok || !body.success || !body.data?.success) {
+      return {
+        ok: false,
+        message:
+          body.data?.error?.message ?? `Gagal memuat data (HTTP ${res.status}).`,
+      };
+    }
+    return { ok: true, data: body.data.data };
+  });
+}
+
 export function useAdminApi<T>(url: string): {
   data: T | null;
   loading: boolean;
@@ -19,23 +52,18 @@ export function useAdminApi<T>(url: string): {
   useEffect(() => {
     let active = true;
     fetch(url, { credentials: "same-origin" })
-      .then(async (res) => {
-        const body = await res.json();
-        if (!res.ok || !body.success) {
-          throw new Error(body?.error?.message ?? `HTTP ${res.status}`);
-        }
-        return body.data as T;
-      })
-      .then((d) => {
-        if (active) {
-          setData(d);
+      .then((res) => readEnvelope(res))
+      .then((result) => {
+        if (!active) return;
+        if (result.ok) {
+          setData(result.data as T);
           setError(null);
+        } else {
+          setError(result.message);
         }
       })
-      .catch((err: unknown) => {
-        if (active) {
-          setError(err instanceof Error ? err.message : "Gagal memuat data.");
-        }
+      .catch(() => {
+        if (active) setError("Gagal memuat data.");
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -60,9 +88,10 @@ export async function adminFetch<T>(
     headers: body ? { "content-type": "application/json" } : undefined,
     body: body ? JSON.stringify(body) : undefined,
   });
-  const json = await res.json();
-  if (!res.ok || !json.success) {
-    throw new Error(json?.error?.message ?? `HTTP ${res.status}`);
+  const result = await readEnvelope(res);
+  if (!result.ok) {
+    throw new Error(result.message);
   }
-  return json.data as T;
+  return result.data as T;
 }
+

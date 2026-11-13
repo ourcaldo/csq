@@ -68,11 +68,17 @@ async function agentReplyStats(hours: number): Promise<{
   avgSeconds: number | null;
   p95Seconds: number | null;
 }> {
+  // Cutoff computed in JS: Prisma binds a JS number parameter as bigint, and
+  // make_interval(hours => bigint) does not exist (the 42883 the first
+  // version shipped with). A Date binds as timestamp - no interval math.
+  const since = new Date(Date.now() - hours * 60 * 60 * 1000);
+  // EXTRACT/avg/percentile return numeric, which Prisma maps to Decimal;
+  // ::float8 makes them plain JS numbers for the Zod boundary.
   const rows = await prisma.$queryRaw`
     WITH recent AS (
       SELECT "conversationId", "createdAt"
       FROM "Message"
-      WHERE "createdAt" >= now() - make_interval(hours => ${hours})
+      WHERE "createdAt" >= ${since}
         AND "direction" = 'OUTBOUND'
         AND "senderType" = 'AGENT'
         AND "isInternal" = false
@@ -93,8 +99,8 @@ async function agentReplyStats(hours: number): Promise<{
       ) i ON true
     )
     SELECT count(*)::int AS n,
-           avg(EXTRACT(EPOCH FROM dur)) AS avg_s,
-           percentile_cont(0.95) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM dur)) AS p95_s
+           avg(EXTRACT(EPOCH FROM dur))::float8 AS avg_s,
+           percentile_cont(0.95) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM dur))::float8 AS p95_s
     FROM replies
   `;
   const parsed = z.array(replyStatsSchema).safeParse(rows);
