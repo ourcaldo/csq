@@ -29,7 +29,7 @@ function readEnvelope(res: Response): Promise<
       return {
         ok: false,
         message:
-          body.data?.error?.message ?? `Gagal memuat data (HTTP ${res.status}).`,
+          body.data?.error?.message ?? `Failed to load data (HTTP ${res.status}).`,
       };
     }
     return { ok: true, data: body.data.data };
@@ -63,7 +63,7 @@ export function useAdminApi<T>(url: string): {
         }
       })
       .catch(() => {
-        if (active) setError("Gagal memuat data.");
+        if (active) setError("Failed to load data.");
       })
       .finally(() => {
         if (active) setLoading(false);

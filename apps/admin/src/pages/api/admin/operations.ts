@@ -178,14 +178,14 @@ export default async function handler(
     if (req.method === "POST") {
       const parsed = retrySchema.safeParse(req.body);
       if (!parsed.success) {
-        return res.status(400).json(apiError("VALIDATION_ERROR", "messageId diperlukan."));
+        return res.status(400).json(apiError("VALIDATION_ERROR", "messageId is required."));
       }
       const result = await prisma.outboundMessage.updateMany({
         where: { id: parsed.data.messageId, status: "FAILED" },
         data: { status: "QUEUED", error: null },
       });
       if (result.count === 0) {
-        return res.status(404).json(apiError("NOT_FOUND", "Pesan tidak ditemukan atau bukan FAILED."));
+        return res.status(404).json(apiError("NOT_FOUND", "Message not found or not FAILED."));
       }
       await auditAdminAction({
         adminId: admin.adminId, action: "outbox.retry",

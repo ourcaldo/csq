@@ -52,7 +52,7 @@ export default async function handler(
       if (!parsed.success) {
         return res
           .status(400)
-          .json(apiError("VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Payload tidak valid."));
+          .json(apiError("VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Invalid payload."));
       }
       const existing = await getPlatformEmailProvider();
       const password =
@@ -94,6 +94,6 @@ export default async function handler(
       return res.status(200).json(apiOk({ configured: false }));
     }
 
-    return res.status(405).json(apiError("VALIDATION_ERROR", "Metode tidak didukung."));
+    return res.status(405).json(apiError("METHOD_NOT_ALLOWED", "Method not allowed."));
   });
 }

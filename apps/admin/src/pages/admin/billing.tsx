@@ -72,9 +72,9 @@ type Settings = {
 type Tab = "invoices" | "requests" | "settings";
 
 const TABS: { key: Tab; label: string }[] = [
-  { key: "invoices", label: "Invoice" },
-  { key: "requests", label: "Permintaan paket" },
-  { key: "settings", label: "Pengaturan" },
+  { key: "invoices", label: "Invoices" },
+  { key: "requests", label: "Plan requests" },
+  { key: "settings", label: "Settings" },
 ];
 
 export const getServerSideProps = withAdminAuth(async () => ({ props: {} }));
@@ -88,7 +88,7 @@ function idr(n: number): string {
 }
 
 function date(iso: string): string {
-  return new Date(iso).toLocaleDateString("id-ID", {
+  return new Date(iso).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -98,7 +98,7 @@ function date(iso: string): string {
 // Invoice periods are calendar dates stored at UTC boundaries; format in UTC
 // so the end date does not shift a day in WIB.
 function periodDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("id-ID", {
+  return new Date(iso).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -223,7 +223,7 @@ export default function BillingPage() {
       setShowCreate(false);
       refresh();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Gagal membuat invoice.");
+      setActionError(err instanceof Error ? err.message : "Failed to create the invoice.");
     } finally {
       setBusy(null);
     }
@@ -243,14 +243,14 @@ export default function BillingPage() {
       setPayInvoice(null);
       refresh();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Gagal menandai lunas.");
+      setActionError(err instanceof Error ? err.message : "Failed to mark as paid.");
     } finally {
       setBusy(null);
     }
   }
 
   async function voidInvoice(invoice: Invoice) {
-    if (!window.confirm(`Batalkan invoice ${invoice.number}?`)) return;
+    if (!window.confirm(`Void invoice ${invoice.number}?`)) return;
     setBusy(invoice.id);
     setActionError(null);
     try {
@@ -260,7 +260,7 @@ export default function BillingPage() {
       });
       refresh();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Gagal membatalkan invoice.");
+      setActionError(err instanceof Error ? err.message : "Failed to void the invoice.");
     } finally {
       setBusy(null);
     }
@@ -273,7 +273,7 @@ export default function BillingPage() {
       await adminFetch("/api/admin/plan-requests", "PATCH", { id, status });
       refreshRequests();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Gagal memperbarui permintaan.");
+      setActionError(err instanceof Error ? err.message : "Failed to update the request.");
     } finally {
       setBusy(null);
     }
@@ -293,26 +293,26 @@ export default function BillingPage() {
       });
       refreshSettings();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Gagal menyimpan pengaturan.");
+      setActionError(err instanceof Error ? err.message : "Failed to save the settings.");
     } finally {
       setBusy(null);
     }
   }
 
   return (
-    <AdminShell title="Tagihan">
+    <AdminShell title="Billing">
       <PageHead
-        eyebrow="Konfigurasi"
-        title="Tagihan"
-        sub="Invoice, permintaan paket, dan pengaturan pembayaran"
+        eyebrow="Configuration"
+        title="Billing"
+        sub="Invoices, plan requests, and payment settings"
         action={
           <>
             <Link href="/admin/plans" className={btnClass("line")}>
-              Kelola Paket
+              Manage plans
             </Link>
             <Btn onClick={() => openCreate()}>
               <Plus size={14} weight="bold" />
-              Invoice baru
+              New invoice
             </Btn>
           </>
         }
@@ -326,12 +326,12 @@ export default function BillingPage() {
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Stat
-          label="Belum dibayar"
+          label="Outstanding"
           value={idr(outstanding)}
-          note={`${invoices.filter((i) => i.status === "ISSUED").length} invoice`}
+          note={`${invoices.filter((i) => i.status === "ISSUED").length} invoices`}
         />
-        <Stat label="Jatuh tempo" value={overdue} note="Perlu ditindaklanjuti" />
-        <Stat label="Dibayar bulan ini" value={idr(paidThisMonth)} note="Total invoice lunas" />
+        <Stat label="Overdue" value={overdue} note="Needs follow-up" />
+        <Stat label="Paid this month" value={idr(paidThisMonth)} note="Total paid invoices" />
       </div>
 
       <div className="mb-5 flex gap-5 border-b border-border">
@@ -356,8 +356,8 @@ export default function BillingPage() {
           {needs.length > 0 && (
             <div className="panel overflow-hidden">
               <div className="panel-h">
-                <h2 className="panel-t">Perlu ditagih</h2>
-                <span className="text-[11px] text-slate-400">Belum ada invoice bulan ini</span>
+                <h2 className="panel-t">Needs invoicing</h2>
+                <span className="text-[11px] text-slate-400">No invoice for this month yet</span>
               </div>
               <div className="divide-y divide-slate-100">
                 {needs.map((n) => (
@@ -365,7 +365,7 @@ export default function BillingPage() {
                     <div className="min-w-0 flex-1">
                       <p className="text-[13px] font-medium text-slate-900">{n.tenantName}</p>
                       <p className="text-[11.5px] text-slate-400">
-                        {n.planName ?? "Tanpa paket"}, {idr(n.priceIdr)}
+                        {n.planName ?? "No plan"}, {idr(n.priceIdr)}
                       </p>
                     </div>
                     <Btn
@@ -374,7 +374,7 @@ export default function BillingPage() {
                         openCreate({ tenantId: n.tenantId, planId: n.planId, priceIdr: n.priceIdr })
                       }
                     >
-                      Buat
+                      Create
                     </Btn>
                   </div>
                 ))}
@@ -384,20 +384,20 @@ export default function BillingPage() {
 
           {!loading && invoices.length === 0 ? (
             <Empty
-              title="Belum ada invoice"
-              hint="Buat invoice pertama dari daftar perlu ditagih atau tombol di atas."
+              title="No invoices yet"
+              hint="Create the first invoice from the needs-invoicing list or the button above."
             />
           ) : (
             <TableCard>
               <table className="ledger">
                 <thead>
                   <tr>
-                    <th>Nomor</th>
+                    <th>Number</th>
                     <th>Tenant</th>
-                    <th>Periode</th>
-                    <th className="text-right">Jumlah</th>
+                    <th>Period</th>
+                    <th className="text-right">Amount</th>
                     <th>Status</th>
-                    <th>Jatuh tempo</th>
+                    <th>Due</th>
                     <th />
                   </tr>
                 </thead>
@@ -428,12 +428,12 @@ export default function BillingPage() {
                             }
                           >
                             {i.status === "PAID"
-                              ? "Lunas"
+                              ? "Paid"
                               : i.status === "VOID"
-                                ? "Dibatalkan"
+                                ? "Void"
                                 : isOverdue
-                                  ? "Jatuh tempo"
-                                  : "Belum dibayar"}
+                                  ? "Overdue"
+                                  : "Unpaid"}
                           </Status>
                         </td>
                         <td className="whitespace-nowrap font-mono text-[12px] text-muted-foreground">
@@ -452,7 +452,7 @@ export default function BillingPage() {
                                 }}
                                 className="hover:text-primary"
                               >
-                                Lunas
+                                Mark paid
                               </Btn>
                               <Btn
                                 variant="ghost"
@@ -460,7 +460,7 @@ export default function BillingPage() {
                                 onClick={() => void voidInvoice(i)}
                                 className="hover:text-bad"
                               >
-                                Batalkan
+                                Void
                               </Btn>
                             </>
                           )}
@@ -471,7 +471,7 @@ export default function BillingPage() {
                   {loading && (
                     <tr>
                       <td colSpan={7} className="py-12 text-center text-[13px] text-muted-foreground">
-                        Memuat...
+                        Loading...
                       </td>
                     </tr>
                   )}
@@ -486,8 +486,8 @@ export default function BillingPage() {
         <div>
           {requests.length === 0 ? (
             <Empty
-              title="Belum ada permintaan paket"
-              hint="Permintaan dari halaman Paket & Kuota tenant muncul di sini."
+              title="No plan requests yet"
+              hint="Requests from the tenant's Plans page appear here."
             />
           ) : (
             <TableCard>
@@ -495,10 +495,10 @@ export default function BillingPage() {
                 <thead>
                   <tr>
                     <th>Tenant</th>
-                    <th>Paket diminta</th>
-                    <th>Catatan</th>
+                    <th>Requested plan</th>
+                    <th>Note</th>
                     <th>Status</th>
-                    <th>Dibuat</th>
+                    <th>Created</th>
                     <th />
                   </tr>
                 </thead>
@@ -529,12 +529,12 @@ export default function BillingPage() {
                           }
                         >
                           {r.status === "NEW"
-                            ? "Baru"
+                            ? "New"
                             : r.status === "CONTACTED"
-                              ? "Dihubungi"
+                              ? "Contacted"
                               : r.status === "DONE"
-                                ? "Selesai"
-                                : "Ditolak"}
+                                ? "Done"
+                                : "Rejected"}
                         </Status>
                       </td>
                       <td className="whitespace-nowrap font-mono text-[12px] text-muted-foreground">
@@ -547,7 +547,7 @@ export default function BillingPage() {
                             disabled={busy === r.id}
                             onClick={() => void setRequestStatus(r.id, "CONTACTED")}
                           >
-                            Hubungi
+                            Contact
                           </Btn>
                         )}
                         {(r.status === "NEW" || r.status === "CONTACTED") && (
@@ -558,7 +558,7 @@ export default function BillingPage() {
                               onClick={() => void setRequestStatus(r.id, "DONE")}
                               className="hover:text-primary"
                             >
-                              Selesai
+                              Done
                             </Btn>
                             <Btn
                               variant="ghost"
@@ -566,7 +566,7 @@ export default function BillingPage() {
                               onClick={() => void setRequestStatus(r.id, "REJECTED")}
                               className="hover:text-bad"
                             >
-                              Tolak
+                              Reject
                             </Btn>
                           </>
                         )}
@@ -593,7 +593,7 @@ export default function BillingPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="bank-number">Nomor rekening</Label>
+              <Label htmlFor="bank-number">Account number</Label>
               <Input
                 id="bank-number"
                 value={settingsForm.bankAccountNumber}
@@ -605,7 +605,7 @@ export default function BillingPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="bank-holder">Atas nama</Label>
+              <Label htmlFor="bank-holder">Account holder</Label>
               <Input
                 id="bank-holder"
                 value={settingsForm.bankAccountHolder}
@@ -616,7 +616,7 @@ export default function BillingPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="due-days">Jatuh tempo (hari)</Label>
+              <Label htmlFor="due-days">Due days</Label>
               <Input
                 id="due-days"
                 type="number"
@@ -627,7 +627,7 @@ export default function BillingPage() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="grace-days">Tenggang (hari)</Label>
+              <Label htmlFor="grace-days">Grace days</Label>
               <Input
                 id="grace-days"
                 type="number"
@@ -640,10 +640,10 @@ export default function BillingPage() {
           </div>
           <div className="mt-4 flex items-center justify-between">
             <p className="text-[11.5px] text-muted-foreground">
-              Kosongkan bank untuk menampilkan "Hubungi admin" di tenant.
+              Leave the bank blank to show "Contact admin" in the tenant app.
             </p>
             <Btn type="submit" disabled={busy === "settings"}>
-              {busy === "settings" ? "Menyimpan..." : "Simpan"}
+              {busy === "settings" ? "Saving..." : "Save"}
             </Btn>
           </div>
         </form>
@@ -652,18 +652,18 @@ export default function BillingPage() {
       <Dialog
         open={showCreate}
         onClose={() => setShowCreate(false)}
-        ariaLabel="Invoice baru"
+        ariaLabel="New invoice"
         className="max-w-lg rounded-2xl border-border bg-card p-0 shadow-[0_24px_64px_rgba(0,0,0,0.18)]"
       >
             <div className="flex items-start justify-between border-b border-border px-5 py-4">
               <div>
-                <div className="eyebrow mb-1">Tagihan</div>
-                <h2 className="text-[18px] font-semibold tracking-tight">Invoice baru</h2>
+                <div className="eyebrow mb-1">Billing</div>
+                <h2 className="text-[18px] font-semibold tracking-tight">New invoice</h2>
               </div>
               <button
                 onClick={() => setShowCreate(false)}
                 className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                aria-label="Tutup"
+                aria-label="Close"
               >
                 <X size={16} />
               </button>
@@ -678,7 +678,7 @@ export default function BillingPage() {
                   value={form.tenantId}
                   onChange={(e) => onTenantChange(e.target.value)}
                 >
-                  <option value="">- pilih tenant -</option>
+                  <option value="">- select a tenant -</option>
                   {tenants.map((t) => (
                     <option key={t.tenantId} value={t.tenantId}>
                       {t.tenantName}
@@ -688,7 +688,7 @@ export default function BillingPage() {
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label htmlFor="inv-plan">Paket</Label>
+                  <Label htmlFor="inv-plan">Plan</Label>
                   <Select
                     id="inv-plan"
                     className="h-10 w-full rounded-md border border-input bg-card px-3 text-sm"
@@ -704,7 +704,7 @@ export default function BillingPage() {
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="inv-period">Periode</Label>
+                  <Label htmlFor="inv-period">Period</Label>
                   <Input
                     id="inv-period"
                     type="month"
@@ -716,7 +716,7 @@ export default function BillingPage() {
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label htmlFor="inv-amount">Jumlah (IDR)</Label>
+                  <Label htmlFor="inv-amount">Amount (IDR)</Label>
                   <Input
                     id="inv-amount"
                     type="number"
@@ -726,7 +726,7 @@ export default function BillingPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="inv-due">Jatuh tempo</Label>
+                  <Label htmlFor="inv-due">Due date</Label>
                   <Input
                     id="inv-due"
                     type="date"
@@ -738,10 +738,10 @@ export default function BillingPage() {
               {actionError && <p className="text-[13px] text-bad">{actionError}</p>}
               <div className="flex justify-end gap-2 pt-1">
                 <Btn type="button" variant="line" onClick={() => setShowCreate(false)}>
-                  Batal
+                  Cancel
                 </Btn>
                 <Btn type="submit" disabled={busy === "create"}>
-                  {busy === "create" ? "Membuat..." : "Buat invoice"}
+                  {busy === "create" ? "Creating..." : "Create invoice"}
                 </Btn>
               </div>
             </form>
@@ -751,13 +751,13 @@ export default function BillingPage() {
         <Dialog
           open
           onClose={() => setPayInvoice(null)}
-          ariaLabel="Tandai lunas"
+          ariaLabel="Mark as paid"
           className="max-w-sm rounded-2xl border-border bg-card p-0 shadow-[0_24px_64px_rgba(0,0,0,0.18)]"
         >
             <div className="flex items-start justify-between border-b border-border px-5 py-4">
               <div>
                 <div className="eyebrow mb-1">{payInvoice.number}</div>
-                <h2 className="text-[18px] font-semibold tracking-tight">Tandai lunas</h2>
+                <h2 className="text-[18px] font-semibold tracking-tight">Mark as paid</h2>
                 <p className="mt-0.5 text-[12.5px] text-muted-foreground">
                   {payInvoice.tenantName}, {idr(payInvoice.amountIdr)}
                 </p>
@@ -765,14 +765,14 @@ export default function BillingPage() {
               <button
                 onClick={() => setPayInvoice(null)}
                 className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                aria-label="Tutup"
+                aria-label="Close"
               >
                 <X size={16} />
               </button>
             </div>
             <div className="space-y-4 p-5">
               <div className="space-y-1.5">
-                <Label htmlFor="pay-method">Metode</Label>
+                <Label htmlFor="pay-method">Method</Label>
                 <Select
                   id="pay-method"
                   className="h-10 w-full rounded-md border border-input bg-card px-3 text-sm"
@@ -780,26 +780,26 @@ export default function BillingPage() {
                   onChange={(e) => setPayForm({ ...payForm, method: e.target.value })}
                 >
                   <option value="TRANSFER">Transfer</option>
-                  <option value="CASH">Tunai</option>
-                  <option value="OTHER">Lainnya</option>
+                  <option value="CASH">Cash</option>
+                  <option value="OTHER">Other</option>
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="pay-ref">Referensi (opsional)</Label>
+                <Label htmlFor="pay-ref">Reference (optional)</Label>
                 <Input
                   id="pay-ref"
                   value={payForm.reference}
                   onChange={(e) => setPayForm({ ...payForm, reference: e.target.value })}
-                  placeholder="Nomor transaksi"
+                  placeholder="Transaction reference"
                 />
               </div>
               {actionError && <p className="text-[13px] text-bad">{actionError}</p>}
               <div className="flex justify-end gap-2 pt-1">
                 <Btn type="button" variant="line" onClick={() => setPayInvoice(null)}>
-                  Batal
+                  Cancel
                 </Btn>
                 <Btn onClick={() => void markPaid()} disabled={busy === payInvoice.id}>
-                  {busy === payInvoice.id ? "Menyimpan..." : "Tandai lunas"}
+                  {busy === payInvoice.id ? "Saving..." : "Mark as paid"}
                 </Btn>
               </div>
             </div>

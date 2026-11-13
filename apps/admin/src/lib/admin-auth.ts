@@ -158,7 +158,7 @@ export async function requireAdmin(
   const session = await getAdminSession(req, res);
   if (!session || !session.user?.id) {
     res.setHeader("WWW-Authenticate", "Bearer");
-    res.status(401).json(apiError("UNAUTHORIZED", "Login admin diperlukan."));
+    res.status(401).json(apiError("UNAUTHORIZED", "Admin login required."));
     return null;
   }
   return { adminId: session.user.id, email: session.user.email ?? "" };

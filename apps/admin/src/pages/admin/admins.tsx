@@ -9,6 +9,9 @@ import { useAdminApi, adminFetch } from "@/lib/admin-api";
 import { Input } from "@csq/ui/components/ui/input";
 import { Label } from "@csq/ui/components/ui/label";
 
+// Operators (PRD 13 Phase 4). Console copy is English (owner direction
+// 2026-11-13).
+
 type Admin = { id: string; email: string; name: string; createdAt: string };
 type AdminList = { items: Admin[] };
 
@@ -36,7 +39,7 @@ export default function AdminsPage() {
       setForm(EMPTY_FORM);
       refresh();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Gagal menambah admin.");
+      setFormError(err instanceof Error ? err.message : "Failed to add the admin.");
     } finally {
       setBusy(null);
     }
@@ -49,22 +52,22 @@ export default function AdminsPage() {
       await adminFetch(`/api/admin/admins?id=${id}`, "DELETE");
       refresh();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Gagal menghapus admin.");
+      setFormError(err instanceof Error ? err.message : "Failed to remove the admin.");
     } finally {
       setBusy(null);
     }
   }
 
   return (
-    <AdminShell title="Admin">
+    <AdminShell title="Admins">
       <PageHead
-        eyebrow="Konfigurasi"
-        title="Admin"
-        sub={`${items.length} operator platform`}
+        eyebrow="Configuration"
+        title="Admins"
+        sub={`${items.length} platform operators`}
         action={
           <Btn onClick={() => setShowCreate(true)}>
             <Plus size={14} weight="bold" />
-            Admin baru
+            New admin
           </Btn>
         }
       />
@@ -81,7 +84,7 @@ export default function AdminsPage() {
             <tr>
               <th>Operator</th>
               <th>Email</th>
-              <th>Sejak</th>
+              <th>Since</th>
               <th />
             </tr>
           </thead>
@@ -92,13 +95,13 @@ export default function AdminsPage() {
                   {a.name}
                   {a.id === myId && (
                     <span className="ml-2 rounded-full bg-signal-soft px-2 py-0.5 text-[11px] font-semibold text-primary">
-                      Anda
+                      You
                     </span>
                   )}
                 </td>
                 <td className="text-[13px]">{a.email}</td>
                 <td className="font-mono text-[12.5px] text-muted-foreground">
-                  {new Date(a.createdAt).toLocaleDateString("id-ID", {
+                  {new Date(a.createdAt).toLocaleDateString("en-GB", {
                     day: "numeric",
                     month: "short",
                     year: "numeric",
@@ -112,7 +115,7 @@ export default function AdminsPage() {
                       onClick={() => void removeAdmin(a.id)}
                       className="hover:text-bad"
                     >
-                      Hapus
+                      Remove
                     </Btn>
                   )}
                 </td>
@@ -121,14 +124,14 @@ export default function AdminsPage() {
             {!loading && items.length === 0 && (
               <tr>
                 <td colSpan={4} className="py-12 text-center text-[13px] text-muted-foreground">
-                  Tidak ada admin.
+                  No admins.
                 </td>
               </tr>
             )}
             {loading && (
               <tr>
                 <td colSpan={4} className="py-12 text-center text-[13px] text-muted-foreground">
-                  Memuat...
+                  Loading...
                 </td>
               </tr>
             )}
@@ -139,18 +142,18 @@ export default function AdminsPage() {
       <Dialog
         open={showCreate}
         onClose={() => setShowCreate(false)}
-        ariaLabel="Admin baru"
+        ariaLabel="New admin"
         className="max-w-sm rounded-2xl border-border bg-card p-0 shadow-[0_24px_64px_rgba(0,0,0,0.18)]"
       >
             <div className="flex items-start justify-between border-b border-border px-5 py-4">
               <div>
-                <div className="eyebrow mb-1">Konfigurasi</div>
-                <h2 className="text-[18px] font-semibold tracking-tight">Admin baru</h2>
+                <div className="eyebrow mb-1">Configuration</div>
+                <h2 className="text-[18px] font-semibold tracking-tight">New admin</h2>
               </div>
               <button
                 onClick={() => setShowCreate(false)}
                 className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                aria-label="Tutup"
+                aria-label="Close"
               >
                 <X size={16} />
               </button>
@@ -168,13 +171,13 @@ export default function AdminsPage() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="a-name">Nama</Label>
+                <Label htmlFor="a-name">Name</Label>
                 <Input
                   id="a-name"
                   required
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="Nama operator"
+                  placeholder="Operator name"
                 />
               </div>
               <div className="space-y-1.5">
@@ -186,16 +189,16 @@ export default function AdminsPage() {
                   minLength={8}
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  placeholder="Minimal 8 karakter"
+                  placeholder="Minimum 8 characters"
                 />
               </div>
               {formError && <p className="text-[13px] text-bad">{formError}</p>}
               <div className="flex justify-end gap-2 pt-1">
                 <Btn type="button" variant="line" onClick={() => setShowCreate(false)}>
-                  Batal
+                  Cancel
                 </Btn>
                 <Btn type="submit" disabled={busy === "create"}>
-                  {busy === "create" ? "Menambah..." : "Tambah admin"}
+                  {busy === "create" ? "Adding..." : "Add admin"}
                 </Btn>
               </div>
             </form>

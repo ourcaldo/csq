@@ -13,7 +13,7 @@ import { withSystemContext } from "@csq/core/lib/tenant-context";
 const createSchema = z.object({
   tenantId: z.string().uuid(),
   planId: z.string().uuid().nullable(),
-  period: z.string().regex(/^\d{4}-\d{2}$/, "Periode harus YYYY-MM."),
+  period: z.string().regex(/^\d{4}-\d{2}$/, "Period must be YYYY-MM."),
   amountIdr: z.number().int().min(0),
   dueAt: z.coerce.date().optional(),
 });
@@ -95,7 +95,7 @@ export default async function handler(
       if (!parsed.success) {
         return res
           .status(400)
-          .json(apiError("VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Payload tidak valid."));
+          .json(apiError("VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Invalid payload."));
       }
       const { tenantId, planId, period, amountIdr } = parsed.data;
 
@@ -104,7 +104,7 @@ export default async function handler(
         select: { id: true, name: true },
       });
       if (!tenant) {
-        return res.status(404).json(apiError("NOT_FOUND", "Tenant tidak ditemukan."));
+        return res.status(404).json(apiError("NOT_FOUND", "Tenant not found."));
       }
       const plan = planId
         ? await prisma.plan.findUnique({ where: { id: planId }, select: { name: true } })
@@ -151,10 +151,10 @@ export default async function handler(
         if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
           return res
             .status(400)
-            .json(apiError("VALIDATION_ERROR", "Invoice untuk tenant dan periode ini sudah ada."));
+            .json(apiError("VALIDATION_ERROR", "An invoice for this tenant and period already exists."));
         }
         console.error("[admin/invoices] create failed:", err);
-        return res.status(500).json(apiError("INTERNAL_ERROR", "Gagal membuat invoice."));
+        return res.status(500).json(apiError("INTERNAL_ERROR", "Failed to create the invoice."));
       }
     }
 
@@ -163,16 +163,16 @@ export default async function handler(
       if (!parsed.success) {
         return res
           .status(400)
-          .json(apiError("VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Payload tidak valid."));
+          .json(apiError("VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Invalid payload."));
       }
       const existing = await prisma.invoice.findUnique({ where: { id: parsed.data.id } });
       if (!existing) {
-        return res.status(404).json(apiError("NOT_FOUND", "Invoice tidak ditemukan."));
+        return res.status(404).json(apiError("NOT_FOUND", "Invoice not found."));
       }
       if (existing.status !== "ISSUED") {
         return res
           .status(400)
-          .json(apiError("VALIDATION_ERROR", "Invoice ini sudah lunas atau dibatalkan."));
+          .json(apiError("VALIDATION_ERROR", "This invoice is already paid or void."));
       }
 
       const updated = await prisma.invoice.update({

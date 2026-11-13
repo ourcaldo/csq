@@ -84,7 +84,7 @@ function bytes(n: number): string {
 }
 
 function limit(v: number | null): string {
-  return v === null ? "Tanpa batas" : v.toLocaleString("id-ID");
+  return v === null ? "Unlimited" : v.toLocaleString("en-GB");
 }
 
 function intOrNull(v: string): number | null {
@@ -109,8 +109,8 @@ function UsageCell({
 }) {
   return (
     <span className={`font-mono tabular-nums ${over ? "font-medium text-bad" : ""}`}>
-      {used.toLocaleString("id-ID")}
-      {max !== null && ` / ${max.toLocaleString("id-ID")}`}
+      {used.toLocaleString("en-GB")}
+      {max !== null && ` / ${max.toLocaleString("en-GB")}`}
     </span>
   );
 }
@@ -190,7 +190,7 @@ export default function PlansPage() {
       setEditing(null);
       refreshPlans();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Gagal menyimpan paket.");
+      setFormError(err instanceof Error ? err.message : "Failed to save the plan.");
     } finally {
       setBusy(null);
     }
@@ -217,37 +217,37 @@ export default function PlansPage() {
   }
 
   return (
-    <AdminShell title="Paket & Penggunaan">
+    <AdminShell title="Plans & Usage">
       <PageHead
-        eyebrow="Konfigurasi"
-        title="Paket & Penggunaan"
-        sub="Kredit AI, MAU, seat, saluran, dan fitur per paket"
+        eyebrow="Configuration"
+        title="Plans & Usage"
+        sub="AI credits, MAU, seats, channels, and features per plan"
         action={
           <Btn onClick={openCreate}>
             <Plus size={14} weight="bold" />
-            Paket baru
+            New plan
           </Btn>
         }
       />
 
-      <Section title="Paket tersedia" meta={`${plans.length} paket`}>
+      <Section title="Available plans" meta={`${plans.length} plans`}>
         {!pLoading && plans.length === 0 ? (
           <Empty
-            title="Belum ada paket"
-            hint="Buat paket pertama untuk mulai menagih tenant."
+            title="No plans yet"
+            hint="Create the first plan to start billing tenants."
           />
         ) : (
           <TableCard>
             <table className="ledger">
               <thead>
                 <tr>
-                  <th>Nama</th>
-                  <th className="text-right">Harga / bulan</th>
-                  <th className="text-right">Kredit AI</th>
+                  <th>Name</th>
+                  <th className="text-right">Price / month</th>
+                  <th className="text-right">AI credits</th>
                   <th className="text-right">MAU</th>
-                  <th className="text-right">Staf</th>
-                  <th className="text-right">Saluran</th>
-                  <th>Fitur</th>
+                  <th className="text-right">Staff</th>
+                  <th className="text-right">Channels</th>
+                  <th>Features</th>
                   <th />
                 </tr>
               </thead>
@@ -269,7 +269,7 @@ export default function PlansPage() {
                     </td>
                     <td className="text-right">
                       <Btn variant="ghost" onClick={() => openEdit(p)}>
-                        Ubah
+                        Edit
                       </Btn>
                     </td>
                   </tr>
@@ -277,7 +277,7 @@ export default function PlansPage() {
                 {pLoading && (
                   <tr>
                     <td colSpan={8} className="py-12 text-center text-[13px] text-muted-foreground">
-                      Memuat...
+                      Loading...
                     </td>
                   </tr>
                 )}
@@ -288,10 +288,10 @@ export default function PlansPage() {
       </Section>
 
       <Section
-        title="Penggunaan bulan ini"
+        title="Usage this month"
         meta={
           usageData
-            ? `sejak ${new Date(usageData.monthStart).toLocaleDateString("id-ID", {
+            ? `since ${new Date(usageData.monthStart).toLocaleDateString("en-GB", {
                 day: "numeric",
                 month: "short",
               })}`
@@ -299,19 +299,19 @@ export default function PlansPage() {
         }
       >
         {!uLoading && usage.length === 0 ? (
-          <Empty title="Belum ada tenant" hint="Penggunaan muncul setelah tenant aktif." />
+          <Empty title="No tenants yet" hint="Usage appears once tenants are active." />
         ) : (
           <TableCard>
             <table className="ledger">
               <thead>
                 <tr>
                   <th>Tenant</th>
-                  <th>Paket</th>
+                  <th>Plan</th>
                   <th className="text-right">MAU</th>
-                  <th className="text-right">Kredit AI</th>
-                  <th className="text-right">Staf</th>
-                  <th className="text-right">Saluran</th>
-                  <th className="text-right">Persen</th>
+                  <th className="text-right">AI credits</th>
+                  <th className="text-right">Staff</th>
+                  <th className="text-right">Channels</th>
+                  <th className="text-right">Peak</th>
                   <th className="text-right">Media</th>
                 </tr>
               </thead>
@@ -327,9 +327,9 @@ export default function PlansPage() {
                         value={u.planId ?? ""}
                         disabled={busy === u.tenantId}
                         onChange={(e) => void assignPlan(u.tenantId, e.target.value || null)}
-                        aria-label={`Paket untuk ${u.tenantName}`}
+                        aria-label={`Plan for ${u.tenantName}`}
                       >
-                        <option value="">- tanpa paket -</option>
+                        <option value="">- no plan -</option>
                         {plans.map((p) => (
                           <option key={p.id} value={p.id}>
                             {p.name}
@@ -369,7 +369,7 @@ export default function PlansPage() {
                           >
                             {pct}%
                           </span>
-                          {pct > 100 && <Status tone="bad">Lebih</Status>}
+                          {pct > 100 && <Status tone="bad">Over</Status>}
                         </span>
                       )}
                     </td>
@@ -382,7 +382,7 @@ export default function PlansPage() {
                 {uLoading && (
                   <tr>
                     <td colSpan={8} className="py-12 text-center text-[13px] text-muted-foreground">
-                      Memuat...
+                      Loading...
                     </td>
                   </tr>
                 )}
@@ -395,20 +395,20 @@ export default function PlansPage() {
       <Dialog
         open={showForm}
         onClose={() => setShowForm(false)}
-        ariaLabel={editing ? "Ubah paket" : "Paket baru"}
+        ariaLabel={editing ? "Edit plan" : "New plan"}
         className="max-w-xl rounded-2xl border-border bg-card p-0 shadow-[0_24px_64px_rgba(0,0,0,0.18)]"
       >
             <div className="flex items-start justify-between border-b border-border px-5 py-4">
               <div>
-                <div className="eyebrow mb-1">Konfigurasi</div>
+                <div className="eyebrow mb-1">Configuration</div>
                 <h2 className="text-[18px] font-semibold tracking-tight">
-                  {editing ? `Ubah ${editing.name}` : "Paket baru"}
+                  {editing ? `Edit ${editing.name}` : "New plan"}
                 </h2>
               </div>
               <button
                 onClick={() => setShowForm(false)}
                 className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                aria-label="Tutup"
+                aria-label="Close"
               >
                 <X size={16} />
               </button>
@@ -417,7 +417,7 @@ export default function PlansPage() {
             <form onSubmit={submitPlan} className="space-y-4 p-5">
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <Label htmlFor="p-name">Nama paket</Label>
+                  <Label htmlFor="p-name">Plan name</Label>
                   <Input
                     id="p-name"
                     required
@@ -427,7 +427,7 @@ export default function PlansPage() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="p-price">Harga per bulan (IDR)</Label>
+                  <Label htmlFor="p-price">Price per month (IDR)</Label>
                   <Input
                     id="p-price"
                     type="number"
@@ -440,11 +440,11 @@ export default function PlansPage() {
               </div>
 
               <div className="border-t border-border pt-4">
-                <div className="eyebrow mb-3">Limit per bulan</div>
+                <div className="eyebrow mb-3">Monthly limits</div>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                   <div className="space-y-1.5">
                     <Label htmlFor="p-credits" className="text-[11px]">
-                      Kredit AI
+                      AI credits
                     </Label>
                     <Input
                       id="p-credits"
@@ -468,7 +468,7 @@ export default function PlansPage() {
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="p-staff" className="text-[11px]">
-                      Staf
+                      Staff
                     </Label>
                     <Input
                       id="p-staff"
@@ -480,7 +480,7 @@ export default function PlansPage() {
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="p-channels" className="text-[11px]">
-                      Saluran
+                      Channels
                     </Label>
                     <Input
                       id="p-channels"
@@ -492,13 +492,13 @@ export default function PlansPage() {
                   </div>
                 </div>
                 <p className="mt-2 text-[11.5px] text-muted-foreground">
-                  Kosongkan limit untuk tanpa batas. Staf tidak termasuk owner. Saluran
-                  dihitung hanya yang terhubung.
+                  Leave a limit empty for unlimited. Staff excludes the owner. Only connected
+                  channels count.
                 </p>
               </div>
 
               <div className="border-t border-border pt-4">
-                <div className="eyebrow mb-3">Fitur</div>
+                <div className="eyebrow mb-3">Features</div>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                   {PLAN_FEATURE_KEYS.map((key) => (
                     <label
@@ -516,7 +516,7 @@ export default function PlansPage() {
                   ))}
                 </div>
                 <p className="mt-2 text-[11.5px] text-muted-foreground">
-                  Fitur yang tidak dicentang dinonaktifkan untuk tenant di paket ini.
+                  Unchecked features are disabled for tenants on this plan.
                 </p>
               </div>
 
@@ -524,10 +524,10 @@ export default function PlansPage() {
 
               <div className="flex justify-end gap-2 pt-1">
                 <Btn type="button" variant="line" onClick={() => setShowForm(false)}>
-                  Batal
+                  Cancel
                 </Btn>
                 <Btn type="submit" disabled={busy === "form"}>
-                  {busy === "form" ? "Menyimpan..." : editing ? "Simpan" : "Buat paket"}
+                  {busy === "form" ? "Saving..." : editing ? "Save" : "Create plan"}
                 </Btn>
               </div>
             </form>

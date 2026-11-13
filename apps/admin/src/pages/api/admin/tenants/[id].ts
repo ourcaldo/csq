@@ -42,11 +42,11 @@ export default async function handler(
 
     const { id } = req.query;
     if (typeof id !== "string") {
-      return res.status(400).json(apiError("VALIDATION_ERROR", "ID tenant tidak valid."));
+      return res.status(400).json(apiError("VALIDATION_ERROR", "Invalid tenant ID."));
     }
     const tenant = await prisma.tenant.findUnique({ where: { id } });
     if (!tenant) {
-      return res.status(404).json(apiError("NOT_FOUND", "Tenant tidak ditemukan."));
+      return res.status(404).json(apiError("NOT_FOUND", "Tenant not found."));
     }
 
     if (req.method === "GET") {
@@ -78,7 +78,7 @@ export default async function handler(
       if (!parsed.success) {
         return res
           .status(400)
-          .json(apiError("VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Aksi tidak valid."));
+          .json(apiError("VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Invalid action."));
       }
 
       if (parsed.data.action === "reset_password") {
@@ -88,7 +88,7 @@ export default async function handler(
           select: { id: true, email: true, name: true },
         });
         if (!user) {
-          return res.status(404).json(apiError("NOT_FOUND", "Pengguna tidak ditemukan dalam tenant ini."));
+          return res.status(404).json(apiError("NOT_FOUND", "User not found in this tenant."));
         }
         const passwordHash = await hashPassword(newPassword);
         await prisma.user.update({

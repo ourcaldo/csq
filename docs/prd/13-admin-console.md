@@ -15,6 +15,13 @@ table, its own login, its own session. A tenant credential can never
 reach an admin route and vice versa. The first admin is created by CLI
 (`admin:create` script); further admins are invited from the console.
 
+Amendment 2026-11-13 (owner direction): the console UI is in ENGLISH -
+all operator-facing copy (pages, dialogs, buttons, empty states, API
+error messages surfaced in the console). Indonesian is reserved for
+tenant-facing surfaces (the tenant app and emails sent to tenant
+users). The Operations health panel is a tile grid, not a table
+(same request).
+
 ## v1 menus
 
 1. **Ringkasan (Overview)** - platform KPIs: tenants (total / active /

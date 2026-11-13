@@ -11,7 +11,7 @@ import { Input } from "@csq/ui/components/ui/input";
 // This page is the shadow-mode tuning view: verdict, guard mode, and the raw
 // probabilities, newest first. Only flagged turns are logged, so every row
 // here is a candidate false positive to review before flipping
-// GUARD_MODE=enforce.
+// GUARD_MODE=enforce. Console copy is English (owner direction 2026-11-13).
 
 type GuardAfter = {
   mode?: string;
@@ -49,20 +49,20 @@ function pct(v: number | undefined): string {
 
 function Verdict({ item }: { item: GuardItem }) {
   const v = item.afterValue;
-  if (!v) return <Status tone="off">Tanpa data</Status>;
+  if (!v) return <Status tone="off">No data</Status>;
   if (item.action === "guard.pre_block") {
     return v.blocked ? (
-      <Status tone="bad">Ditolak</Status>
+      <Status tone="bad">Rejected</Status>
     ) : (
-      <Status tone="warn">Akan ditolak</Status>
+      <Status tone="warn">Would reject</Status>
     );
   }
   // A retried row carries the RETRY's numbers (the loop logs the final
-  // verdict), so the Nilai column shows where the retry landed.
+  // verdict), so the Values column shows where the retry landed.
   return v.retried ? (
-    <Status tone="warn">Direset ulang</Status>
+    <Status tone="warn">Retried</Status>
   ) : (
-    <Status tone="warn">Ditandai</Status>
+    <Status tone="warn">Flagged</Status>
   );
 }
 
@@ -96,18 +96,18 @@ export default function GuardrailsPage() {
   const cols = 7;
 
   return (
-    <AdminShell title="Guardrail">
+    <AdminShell title="Guardrails">
       <PageHead
-        eyebrow="Operasi"
-        title="Guardrail"
-        sub="Penanda guard model keputusan, terbaru di atas"
+        eyebrow="Operations"
+        title="Guardrails"
+        sub="Decision-model guard flags, newest first"
         action={
           <div className="flex rounded-full bg-card p-1 ring-1 ring-border">
             {(
               [
-                ["all", "Semua"],
-                ["pre", "Pra-balasan"],
-                ["post", "Pasca-balasan"],
+                ["all", "All"],
+                ["pre", "Pre-turn"],
+                ["post", "Post-turn"],
               ] as const
             ).map(([key, label]) => (
               <button
@@ -143,38 +143,38 @@ export default function GuardrailsPage() {
           type="date"
           value={from}
           onChange={(e) => setFrom(e.target.value)}
-          aria-label="Dari tanggal"
+          aria-label="From date"
           className="h-9 w-40"
         />
         <Input
           type="date"
           value={to}
           onChange={(e) => setTo(e.target.value)}
-          aria-label="Sampai tanggal"
+          aria-label="To date"
           className="h-9 w-40"
         />
         <Btn type="submit" variant="line">
-          Terapkan
+          Apply
         </Btn>
       </form>
 
       {!loading && items.length === 0 ? (
         <Empty
-          title="Belum ada penanda guard"
-          hint="Baru muncul saat guard menandai pesan atau balasan - uji dengan chat off-topic di clone."
+          title="No guard flags yet"
+          hint="Flags appear when the guard marks a message or reply - test with an off-topic chat on the clone."
         />
       ) : (
         <TableCard>
           <table className="ledger">
             <thead>
               <tr>
-                <th className="w-44">Waktu</th>
-                <th>Tipe</th>
+                <th className="w-44">Time</th>
+                <th>Type</th>
                 <th>Tenant</th>
-                <th>Nomor</th>
-                <th>Nilai</th>
+                <th>Phone</th>
+                <th>Values</th>
                 <th>Mode</th>
-                <th>Hasil</th>
+                <th>Verdict</th>
               </tr>
             </thead>
             <tbody>
@@ -185,14 +185,14 @@ export default function GuardrailsPage() {
                   <Fragment key={g.id}>
                     <tr>
                       <td className="whitespace-nowrap font-mono text-[12.5px] text-muted-foreground">
-                        {new Date(g.createdAt).toLocaleString("id-ID", {
+                        {new Date(g.createdAt).toLocaleString("en-GB", {
                           day: "2-digit",
                           month: "short",
                           hour: "2-digit",
                           minute: "2-digit",
                         })}
                       </td>
-                      <td className="text-[12.5px]">{isPre ? "Pra" : "Pasca"}</td>
+                      <td className="text-[12.5px]">{isPre ? "Pre" : "Post"}</td>
                       <td className="text-[12.5px]">{g.tenantName}</td>
                       <td className="font-mono text-[12px] text-muted-foreground">
                         {g.customerPhone ?? "-"}
@@ -201,7 +201,7 @@ export default function GuardrailsPage() {
                         {v
                           ? isPre
                             ? `intent ${pct(v.storeIntent)} / inj ${pct(v.injection)}`
-                            : `ground ${pct(v.grounded)} / topik ${pct(v.onTopic)} / internal ${pct(v.revealsInternals)}`
+                            : `ground ${pct(v.grounded)} / topic ${pct(v.onTopic)} / internal ${pct(v.revealsInternals)}`
                           : "-"}
                       </td>
                       <td className="text-[12.5px] text-muted-foreground">
@@ -216,10 +216,10 @@ export default function GuardrailsPage() {
                         <td colSpan={cols} className="border-t-0 pt-0 pb-3">
                           <details>
                             <summary className="cursor-pointer select-none text-[11.5px] text-muted-foreground transition-colors hover:text-foreground">
-                              Data lengkap (chat #{g.entityId.slice(0, 8)})
+                              Full verdict (chat #{g.entityId.slice(0, 8)})
                             </summary>
                             <div className="mt-2 max-w-xl">
-                              <JsonBlock label="Verdict guard" value={v} />
+                              <JsonBlock label="Guard verdict" value={v} />
                             </div>
                           </details>
                         </td>
@@ -234,7 +234,7 @@ export default function GuardrailsPage() {
                     colSpan={cols}
                     className="py-12 text-center text-[13px] text-muted-foreground"
                   >
-                    Memuat...
+                    Loading...
                   </td>
                 </tr>
               )}
@@ -245,7 +245,7 @@ export default function GuardrailsPage() {
 
       {data && data.total > data.pageSize && (
         <p className="mt-3 font-mono text-[11.5px] text-muted-foreground">
-          Menampilkan {items.length} dari {data.total} entri
+          Showing {items.length} of {data.total} entries
         </p>
       )}
     </AdminShell>

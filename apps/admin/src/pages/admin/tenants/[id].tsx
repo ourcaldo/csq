@@ -14,6 +14,7 @@ import { useAdminApi, adminFetch } from "@/lib/admin-api";
 // 2026-11-11): per-user password reset (credentials emailed when a provider
 // exists) and tenant deletion (channels disconnected first, then the cascade
 // removes every tenant row - unrecoverable, typed-name confirmation).
+// Console copy is English (owner direction 2026-11-13).
 
 type Detail = {
   id: string;
@@ -51,7 +52,7 @@ function bytes(n: number): string {
 
 function when(iso: string | null): string {
   if (!iso) return "-";
-  return new Date(iso).toLocaleString("id-ID", {
+  return new Date(iso).toLocaleString("en-GB", {
     day: "numeric",
     month: "short",
     hour: "2-digit",
@@ -109,11 +110,11 @@ export default function TenantDetailPage({ id }: { id: string }) {
       setNewPassword("");
       setNotice(
         r.emailed
-          ? `Password ${r.email} direset. Kredensial baru dikirim ke emailnya.`
-          : `Password ${r.email} direset, tetapi email TIDAK terkirim (tidak ada SMTP aktif). Serahkan password baru secara manual.`
+          ? `Password for ${r.email} was reset. The new credentials were emailed.`
+          : `Password for ${r.email} was reset, but the email was NOT sent (no active SMTP). Hand over the new password manually.`
       );
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Gagal mereset password.");
+      setActionError(err instanceof Error ? err.message : "Failed to reset the password.");
     } finally {
       setResetting(false);
     }
@@ -133,27 +134,27 @@ export default function TenantDetailPage({ id }: { id: string }) {
       );
       if (r.channelsTotal > 0 && r.channelsDisconnected < r.channelsTotal) {
         console.warn(
-          `[tenant-delete] hanya ${r.channelsDisconnected}/${r.channelsTotal} saluran sempat diputus sebelum hapus`
+          `[tenant-delete] only ${r.channelsDisconnected}/${r.channelsTotal} channels were disconnected before the delete`
         );
       }
       router.push("/admin/tenants");
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Gagal menghapus tenant.");
+      setActionError(err instanceof Error ? err.message : "Failed to delete the tenant.");
     } finally {
       setDeleting(false);
     }
   }
 
   return (
-    <AdminShell title="Detail tenant">
+    <AdminShell title="Tenant detail">
       <PageHead
         eyebrow="Platform"
         title={data?.name ?? "Tenant"}
-        sub={data?.slug ?? "Detail tenant"}
+        sub={data?.slug ?? "Tenant detail"}
         action={
           <Link href="/admin/tenants" className={btnClass("ghost")}>
             <ArrowLeft size={14} />
-            Semua tenant
+            All tenants
           </Link>
         }
       />
@@ -174,47 +175,47 @@ export default function TenantDetailPage({ id }: { id: string }) {
         </div>
       )}
       {loading && (
-        <p className="text-[13px] text-muted-foreground">Memuat detail tenant...</p>
+        <p className="text-[13px] text-muted-foreground">Loading tenant detail...</p>
       )}
 
       {data && (
         <div className="space-y-8">
           <Section
-            title="Ringkasan"
+            title="Summary"
             meta={
               <Status tone={data.status === "ACTIVE" ? "ok" : "bad"}>
-                {data.status === "ACTIVE" ? "Aktif" : "Ditangguhkan"}
+                {data.status === "ACTIVE" ? "Active" : "Suspended"}
               </Status>
             }
           >
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
               <Stat
-                label="Dibuat"
-                value={new Date(data.createdAt).toLocaleDateString("id-ID", {
+                label="Created"
+                value={new Date(data.createdAt).toLocaleDateString("en-GB", {
                   day: "numeric",
                   month: "short",
                   year: "numeric",
                 })}
               />
-              <Stat label="Pengguna" value={data.userCount} />
-              <Stat label="Saluran" value={data.channelCount} />
-              <Stat label="Percakapan" value={data.conversationCount} />
-              <Stat label="Pesan 30 hari" value={data.messageCount30d} />
+              <Stat label="Users" value={data.userCount} />
+              <Stat label="Channels" value={data.channelCount} />
+              <Stat label="Conversations" value={data.conversationCount} />
+              <Stat label="Msgs (30d)" value={data.messageCount30d} />
               <Stat label="Media" value={bytes(data.mediaBytes)} />
             </div>
           </Section>
 
-          <Section title="Pengguna" meta={`${data.users.length} akun`}>
+          <Section title="Users" meta={`${data.users.length} accounts`}>
             {data.users.length === 0 ? (
-              <Empty title="Belum ada pengguna" hint="Tenant belum memiliki akun." />
+              <Empty title="No users yet" hint="This tenant has no accounts yet." />
             ) : (
               <TableCard>
                 <table className="ledger">
                   <thead>
                     <tr>
-                      <th>Nama</th>
+                      <th>Name</th>
                       <th>Email</th>
-                      <th>Peran</th>
+                      <th>Role</th>
                       <th />
                     </tr>
                   </thead>
@@ -227,7 +228,7 @@ export default function TenantDetailPage({ id }: { id: string }) {
                         </td>
                         <td>
                           <Status tone={u.role === "OWNER" ? "ok" : "off"}>
-                            {u.role === "OWNER" ? "Owner" : "Staf"}
+                            {u.role === "OWNER" ? "Owner" : "Staff"}
                           </Status>
                         </td>
                         <td className="text-right">
@@ -252,15 +253,15 @@ export default function TenantDetailPage({ id }: { id: string }) {
             )}
           </Section>
 
-          <Section title="Agent" meta={`${data.agents.length} agent`}>
+          <Section title="Agents" meta={`${data.agents.length} agents`}>
             {data.agents.length === 0 ? (
-              <Empty title="Belum ada agent" hint="Agent tenant akan muncul di sini." />
+              <Empty title="No agents yet" hint="The tenant's agents will appear here." />
             ) : (
               <TableCard>
                 <table className="ledger">
                   <thead>
                     <tr>
-                      <th>Nama</th>
+                      <th>Name</th>
                       <th>Status</th>
                     </tr>
                   </thead>
@@ -279,16 +280,16 @@ export default function TenantDetailPage({ id }: { id: string }) {
             )}
           </Section>
 
-          <Section title="Saluran" meta={`${data.channels.length} saluran`}>
+          <Section title="Channels" meta={`${data.channels.length} channels`}>
             {data.channels.length === 0 ? (
-              <Empty title="Belum ada saluran" hint="Saluran tenant akan muncul di sini." />
+              <Empty title="No channels yet" hint="The tenant's channels will appear here." />
             ) : (
               <TableCard>
                 <table className="ledger">
                   <thead>
                     <tr>
                       <th>Provider</th>
-                      <th>Tipe</th>
+                      <th>Type</th>
                       <th>Status</th>
                     </tr>
                   </thead>
@@ -299,7 +300,7 @@ export default function TenantDetailPage({ id }: { id: string }) {
                         <td className="text-[13px] text-muted-foreground">{c.type}</td>
                         <td>
                           <Status tone={c.status === "CONNECTED" ? "ok" : "bad"}>
-                            {c.status === "CONNECTED" ? "Terhubung" : "Terputus"}
+                            {c.status === "CONNECTED" ? "Connected" : "Disconnected"}
                           </Status>
                         </td>
                       </tr>
@@ -310,17 +311,17 @@ export default function TenantDetailPage({ id }: { id: string }) {
             )}
           </Section>
 
-          <Section title="Kampanye" meta={`${data.campaigns.length} kampanye`}>
+          <Section title="Campaigns" meta={`${data.campaigns.length} campaigns`}>
             {data.campaigns.length === 0 ? (
-              <Empty title="Belum ada kampanye" hint="Kampanye tenant akan muncul di sini." />
+              <Empty title="No campaigns yet" hint="The tenant's campaigns will appear here." />
             ) : (
               <TableCard>
                 <table className="ledger">
                   <thead>
                     <tr>
-                      <th>Nama</th>
+                      <th>Name</th>
                       <th>Status</th>
-                      <th>Jadwal</th>
+                      <th>Schedule</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -341,18 +342,18 @@ export default function TenantDetailPage({ id }: { id: string }) {
             )}
           </Section>
 
-          <Section title="Sumber Data" meta={`${data.dataSources.length} sumber`}>
+          <Section title="Data sources" meta={`${data.dataSources.length} sources`}>
             {data.dataSources.length === 0 ? (
-              <Empty title="Belum ada sumber data" hint="Sumber data tenant akan muncul di sini." />
+              <Empty title="No data sources yet" hint="The tenant's data sources will appear here." />
             ) : (
               <TableCard>
                 <table className="ledger">
                   <thead>
                     <tr>
-                      <th>Nama</th>
-                      <th>Tipe</th>
+                      <th>Name</th>
+                      <th>Type</th>
                       <th>Status</th>
-                      <th>Sinkron terakhir</th>
+                      <th>Last sync</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -375,18 +376,18 @@ export default function TenantDetailPage({ id }: { id: string }) {
           </Section>
 
           {/* Danger zone - unrecoverable. */}
-          <Section title="Zona Bahaya" meta="Tidak dapat dibatalkan">
+          <Section title="Danger zone" meta="Irreversible">
             <div className="flex items-center gap-4 rounded-xl border border-bad/30 bg-bad/5 px-5 py-4">
               <Warning size={20} weight="fill" className="shrink-0 text-bad" />
               <div className="flex-1">
-                <p className="text-[13px] font-medium">Hapus tenant "{data.name}"</p>
+                <p className="text-[13px] font-medium">Delete tenant "{data.name}"</p>
                 <p className="text-[13px] text-muted-foreground">
-                  Semua data tenant dihapus permanen: pengguna, percakapan, pesan, pesanan,
-                  kampanye, media, dan saluran (diputus lebih dulu). Tidak bisa dikembalikan.
+                  All tenant data is deleted permanently: users, conversations, messages, orders,
+                  campaigns, media, and channels (disconnected first). This cannot be undone.
                 </p>
               </div>
               <Btn onClick={() => { setDeleteOpen(true); setDeleteConfirmName(""); }}>
-                Hapus Tenant
+                Delete tenant
               </Btn>
             </div>
           </Section>
@@ -398,11 +399,11 @@ export default function TenantDetailPage({ id }: { id: string }) {
         open={resetUser !== null}
         onClose={() => setResetUser(null)}
         title="Reset Password"
-        description={resetUser ? `Password baru untuk ${resetUser.email}` : undefined}
+        description={resetUser ? `New password for ${resetUser.email}` : undefined}
       >
         <form onSubmit={submitReset} className="space-y-3">
           <div>
-            <Label htmlFor="new-password">Password baru (min. 8 karakter)</Label>
+            <Label htmlFor="new-password">New password (min. 8 characters)</Label>
             <Input
               id="new-password"
               type="text"
@@ -410,11 +411,12 @@ export default function TenantDetailPage({ id }: { id: string }) {
               minLength={8}
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              placeholder="password baru"
+              placeholder="new password"
             />
           </div>
           <p className="text-xs text-muted-foreground">
-            Kredensial dikirim ke email pengguna bila SMTP aktif; jika tidak, serahkan secara manual.
+            Credentials are emailed to the user when SMTP is active; otherwise hand them over
+            manually.
           </p>
           <div className="flex justify-end gap-2 pt-2">
             <button
@@ -422,10 +424,10 @@ export default function TenantDetailPage({ id }: { id: string }) {
               onClick={() => setResetUser(null)}
               className={btnClass("line")}
             >
-              Batal
+              Cancel
             </button>
             <button type="submit" disabled={resetting || newPassword.length < 8} className={btnClass()}>
-              {resetting ? "Meriset..." : "Reset Password"}
+              {resetting ? "Resetting..." : "Reset Password"}
             </button>
           </div>
         </form>
@@ -435,12 +437,12 @@ export default function TenantDetailPage({ id }: { id: string }) {
       <Dialog
         open={deleteOpen}
         onClose={() => setDeleteOpen(false)}
-        title="Hapus Tenant"
-        description={`Ketik nama tenant "${data?.name ?? ""}" untuk mengonfirmasi. Tindakan ini permanen.`}
+        title="Delete tenant"
+        description={`Type the tenant name "${data?.name ?? ""}" to confirm. This action is permanent.`}
       >
         <form onSubmit={submitDelete} className="space-y-3">
           <div>
-            <Label htmlFor="delete-confirm">Nama tenant</Label>
+            <Label htmlFor="delete-confirm">Tenant name</Label>
             <Input
               id="delete-confirm"
               required
@@ -455,14 +457,14 @@ export default function TenantDetailPage({ id }: { id: string }) {
               onClick={() => setDeleteOpen(false)}
               className={btnClass("line")}
             >
-              Batal
+              Cancel
             </button>
             <button
               type="submit"
               disabled={deleting || deleteConfirmName !== data?.name}
               className="inline-flex h-9 items-center gap-1.5 rounded-full bg-bad px-4 text-[13px] font-medium text-white transition-colors disabled:pointer-events-none disabled:opacity-50"
             >
-              {deleting ? "Menghapus..." : "Hapus Permanen"}
+              {deleting ? "Deleting..." : "Delete permanently"}
             </button>
           </div>
         </form>

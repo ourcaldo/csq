@@ -114,18 +114,18 @@ export default async function handler(
     if (req.method === "POST") {
       const parsed = createSchema.safeParse(req.body);
       if (!parsed.success) {
-        return res.status(400).json(apiError("VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Payload tidak valid."));
+        return res.status(400).json(apiError("VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Invalid payload."));
       }
       const { name, ownerEmail, ownerName, ownerPassword } = parsed.data;
       const slug = parsed.data.slug ?? (await generateUniqueSlug());
 
       const existingTenant = await prisma.tenant.findUnique({ where: { slug } });
       if (existingTenant) {
-        return res.status(409).json(apiError("VALIDATION_ERROR", `Slug "${slug}" sudah dipakai.`));
+        return res.status(409).json(apiError("VALIDATION_ERROR", `Slug "${slug}" is already taken.`));
       }
       const existingUser = await prisma.user.findUnique({ where: { email: ownerEmail } });
       if (existingUser) {
-        return res.status(409).json(apiError("VALIDATION_ERROR", `Email "${ownerEmail}" sudah terdaftar.`));
+        return res.status(409).json(apiError("VALIDATION_ERROR", `Email "${ownerEmail}" is already registered.`));
       }
 
       const { tenantId } = await createTenantWithOwner({

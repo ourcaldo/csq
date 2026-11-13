@@ -5,6 +5,9 @@ import { withAdminAuth } from "@/lib/admin-auth";
 import { useAdminApi } from "@/lib/admin-api";
 import { Input } from "@csq/ui/components/ui/input";
 
+// Audit (PRD 13 Phase 4). Console copy is English (owner direction
+// 2026-11-13).
+
 type AuditItem = {
   id: string;
   action: string;
@@ -69,15 +72,15 @@ export default function AuditPage() {
   return (
     <AdminShell title="Audit">
       <PageHead
-        eyebrow="Operasi"
+        eyebrow="Operations"
         title="Audit"
-        sub="Log aktivitas, terbaru di atas"
+        sub="Activity log, newest first"
         action={
           <div className="flex rounded-full bg-card p-1 ring-1 ring-border">
             {(
               [
-                ["tenant", "Aktivitas tenant"],
-                ["admin", "Aksi admin"],
+                ["tenant", "Tenant activity"],
+                ["admin", "Admin actions"],
               ] as const
             ).map(([key, label]) => (
               <button
@@ -112,36 +115,36 @@ export default function AuditPage() {
         <Input
           value={actionInput}
           onChange={(e) => setActionInput(e.target.value)}
-          placeholder="Filter aksi (mis. tenant)"
-          aria-label="Filter aksi"
+          placeholder="Filter action (e.g. tenant)"
+          aria-label="Filter action"
           className="h-9 w-56"
         />
         <Input
           type="date"
           value={from}
           onChange={(e) => setFrom(e.target.value)}
-          aria-label="Dari tanggal"
+          aria-label="From date"
           className="h-9 w-40"
         />
         <Input
           type="date"
           value={to}
           onChange={(e) => setTo(e.target.value)}
-          aria-label="Sampai tanggal"
+          aria-label="To date"
           className="h-9 w-40"
         />
         <Btn type="submit" variant="line">
-          Terapkan
+          Apply
         </Btn>
       </form>
 
       {!loading && items.length === 0 ? (
         <Empty
-          title={tab === "admin" ? "Belum ada aksi admin" : "Belum ada aktivitas tenant"}
+          title={tab === "admin" ? "No admin actions yet" : "No tenant activity yet"}
           hint={
             tab === "admin"
-              ? "Setiap perubahan oleh operator tercatat di sini."
-              : "Aktivitas agent dan staf akan muncul di sini."
+              ? "Every change by an operator is recorded here."
+              : "Agent and staff activity will appear here."
           }
         />
       ) : (
@@ -149,13 +152,13 @@ export default function AuditPage() {
           <table className="ledger">
             <thead>
               <tr>
-                <th className="w-44">Waktu</th>
-                <th>Aksi</th>
+                <th className="w-44">Time</th>
+                <th>Action</th>
                 {tab === "tenant" ? (
                   <>
-                    <th>Entitas</th>
+                    <th>Entity</th>
                     <th>Tenant</th>
-                    <th>Nomor</th>
+                    <th>Phone</th>
                   </>
                 ) : (
                   <>
@@ -170,7 +173,7 @@ export default function AuditPage() {
                 <Fragment key={a.id}>
                   <tr>
                     <td className="whitespace-nowrap font-mono text-[12.5px] text-muted-foreground">
-                      {new Date(a.createdAt).toLocaleString("id-ID", {
+                      {new Date(a.createdAt).toLocaleString("en-GB", {
                         day: "2-digit",
                         month: "short",
                         hour: "2-digit",
@@ -214,11 +217,11 @@ export default function AuditPage() {
                       <td colSpan={cols} className="border-t-0 pt-0 pb-3">
                         <details>
                           <summary className="cursor-pointer select-none text-[11.5px] text-muted-foreground transition-colors hover:text-foreground">
-                            Nilai sebelum / sesudah
+                            Before / after values
                           </summary>
                           <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                            <JsonBlock label="Sebelum" value={a.beforeValue} />
-                            <JsonBlock label="Sesudah" value={a.afterValue} />
+                            <JsonBlock label="Before" value={a.beforeValue} />
+                            <JsonBlock label="After" value={a.afterValue} />
                           </div>
                         </details>
                       </td>
@@ -232,7 +235,7 @@ export default function AuditPage() {
                     colSpan={cols}
                     className="py-12 text-center text-[13px] text-muted-foreground"
                   >
-                    Memuat...
+                    Loading...
                   </td>
                 </tr>
               )}
@@ -243,7 +246,7 @@ export default function AuditPage() {
 
       {data && data.total > data.pageSize && (
         <p className="mt-3 font-mono text-[11.5px] text-muted-foreground">
-          Menampilkan {items.length} dari {data.total} entri
+          Showing {items.length} of {data.total} entries
         </p>
       )}
     </AdminShell>

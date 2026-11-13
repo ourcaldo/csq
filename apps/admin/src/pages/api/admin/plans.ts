@@ -59,7 +59,7 @@ export default async function handler(
     if (req.method === "POST") {
       const parsed = planInputSchema.safeParse(req.body);
       if (!parsed.success) {
-        return res.status(400).json(apiError("VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Payload tidak valid."));
+        return res.status(400).json(apiError("VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Invalid payload."));
       }
       const plan = await prisma.plan.create({ data: parsed.data });
       await auditAdminAction({
@@ -72,12 +72,12 @@ export default async function handler(
     if (req.method === "PUT") {
       const parsed = updateSchema.safeParse(req.body);
       if (!parsed.success) {
-        return res.status(400).json(apiError("VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Payload tidak valid."));
+        return res.status(400).json(apiError("VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Invalid payload."));
       }
       const { id, ...data } = parsed.data;
       const existing = await prisma.plan.findUnique({ where: { id } });
       if (!existing) {
-        return res.status(404).json(apiError("NOT_FOUND", "Paket tidak ditemukan."));
+        return res.status(404).json(apiError("NOT_FOUND", "Plan not found."));
       }
       const updated = await prisma.plan.update({ where: { id }, data });
       await auditAdminAction({
@@ -91,16 +91,16 @@ export default async function handler(
     if (req.method === "DELETE") {
       const { id } = req.query;
       if (typeof id !== "string") {
-        return res.status(400).json(apiError("VALIDATION_ERROR", "ID paket tidak valid."));
+        return res.status(400).json(apiError("VALIDATION_ERROR", "Invalid plan ID."));
       }
       const plan = await prisma.plan.findUnique({
         where: { id }, include: { _count: { select: { tenants: true } } },
       });
       if (!plan) {
-        return res.status(404).json(apiError("NOT_FOUND", "Paket tidak ditemukan."));
+        return res.status(404).json(apiError("NOT_FOUND", "Plan not found."));
       }
       if (plan._count.tenants > 0) {
-        return res.status(400).json(apiError("VALIDATION_ERROR", "Paket masih dipakai tenant - reassign dulu."));
+        return res.status(400).json(apiError("VALIDATION_ERROR", "The plan is still assigned to tenants - reassign them first."));
       }
       await prisma.plan.delete({ where: { id } });
       await auditAdminAction({
@@ -113,19 +113,19 @@ export default async function handler(
     if (req.method === "PATCH") {
       const parsed = assignSchema.safeParse(req.body);
       if (!parsed.success) {
-        return res.status(400).json(apiError("VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Payload tidak valid."));
+        return res.status(400).json(apiError("VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Invalid payload."));
       }
       const tenant = await prisma.tenant.findUnique({
         where: { id: parsed.data.tenantId },
         select: { id: true, name: true, planId: true },
       });
       if (!tenant) {
-        return res.status(404).json(apiError("NOT_FOUND", "Tenant tidak ditemukan."));
+        return res.status(404).json(apiError("NOT_FOUND", "Tenant not found."));
       }
       if (parsed.data.planId) {
         const plan = await prisma.plan.findUnique({ where: { id: parsed.data.planId } });
         if (!plan) {
-          return res.status(404).json(apiError("NOT_FOUND", "Paket tidak ditemukan."));
+          return res.status(404).json(apiError("NOT_FOUND", "Plan not found."));
         }
       }
       const updated = await prisma.tenant.update({

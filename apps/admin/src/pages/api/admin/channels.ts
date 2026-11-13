@@ -52,7 +52,7 @@ export default async function handler(
     if (req.method === "POST") {
       const parsed = actionSchema.safeParse(req.body);
       if (!parsed.success) {
-        return res.status(400).json(apiError("VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Payload tidak valid."));
+        return res.status(400).json(apiError("VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Invalid payload."));
       }
       const { channelId, action } = parsed.data;
       const channel = await prisma.channel.findUnique({
@@ -60,7 +60,7 @@ export default async function handler(
         include: { tenant: { select: { id: true, name: true } } },
       });
       if (!channel) {
-        return res.status(404).json(apiError("NOT_FOUND", "Channel tidak ditemukan."));
+        return res.status(404).json(apiError("NOT_FOUND", "Channel not found."));
       }
       const cmdId = await createChannelCommand({
         tenantId: channel.tenantId,

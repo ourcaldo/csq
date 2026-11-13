@@ -35,11 +35,11 @@ export default async function handler(
     if (req.method === "POST") {
       const parsed = createSchema.safeParse(req.body);
       if (!parsed.success) {
-        return res.status(400).json(apiError("VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Payload tidak valid."));
+        return res.status(400).json(apiError("VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Invalid payload."));
       }
       const existing = await prisma.adminUser.findUnique({ where: { email: parsed.data.email } });
       if (existing) {
-        return res.status(409).json(apiError("VALIDATION_ERROR", `Email "${parsed.data.email}" sudah ada.`));
+        return res.status(409).json(apiError("VALIDATION_ERROR", `Email "${parsed.data.email}" already exists.`));
       }
       const created = await prisma.adminUser.create({
         data: {
@@ -60,18 +60,18 @@ export default async function handler(
     if (req.method === "DELETE") {
       const { id } = req.query;
       if (typeof id !== "string") {
-        return res.status(400).json(apiError("VALIDATION_ERROR", "ID admin tidak valid."));
+        return res.status(400).json(apiError("VALIDATION_ERROR", "Invalid admin ID."));
       }
       if (id === admin.adminId) {
-        return res.status(400).json(apiError("VALIDATION_ERROR", "Tidak bisa menghapus akun sendiri."));
+        return res.status(400).json(apiError("VALIDATION_ERROR", "You cannot delete your own account."));
       }
       const target = await prisma.adminUser.findUnique({ where: { id } });
       if (!target) {
-        return res.status(404).json(apiError("NOT_FOUND", "Admin tidak ditemukan."));
+        return res.status(404).json(apiError("NOT_FOUND", "Admin not found."));
       }
       const count = await prisma.adminUser.count();
       if (count <= 1) {
-        return res.status(400).json(apiError("VALIDATION_ERROR", "Minimal satu admin harus tersisa."));
+        return res.status(400).json(apiError("VALIDATION_ERROR", "At least one admin must remain."));
       }
       await prisma.adminUser.delete({ where: { id } });
       await auditAdminAction({

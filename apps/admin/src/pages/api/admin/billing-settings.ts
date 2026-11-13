@@ -43,7 +43,7 @@ export default async function handler(
       if (!parsed.success) {
         return res
           .status(400)
-          .json(apiError("VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Payload tidak valid."));
+          .json(apiError("VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Invalid payload."));
       }
       const existing = await prisma.billingSetting.findUnique({ where: { id: "singleton" } });
       const data = {

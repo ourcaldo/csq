@@ -10,6 +10,9 @@ import { Input } from "@csq/ui/components/ui/input";
 import { Label } from "@csq/ui/components/ui/label";
 import { Select } from "@csq/ui/components/ui/select";
 
+// Tenants (PRD 13 Phase 2). Console copy is English (owner direction
+// 2026-11-13).
+
 type Tenant = {
   id: string;
   name: string;
@@ -62,14 +65,14 @@ export default function TenantsPage() {
       setShowCreate(false);
       setForm(EMPTY_FORM);
       setCreateNotice(
-        `Tenant dibuat. ID tenant: ${r.slug}. ` +
+        `Tenant created. Tenant ID: ${r.slug}. ` +
           (r.welcomeEmailSent
-            ? "Email selamat datang (berisi kredensial login) terkirim ke pemiliknya."
-            : "Email selamat datang TIDAK terkirim (SMTP platform belum diatur atau gagal) - serahkan email + password secara manual.")
+            ? "A welcome email with the login credentials was sent to the owner."
+            : "The welcome email was NOT sent (platform SMTP not configured or failed) - hand over the email and password manually.")
       );
       refresh();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Gagal membuat tenant.");
+      setActionError(err instanceof Error ? err.message : "Failed to create the tenant.");
     } finally {
       setBusy(null);
     }
@@ -84,7 +87,7 @@ export default function TenantsPage() {
       });
       refresh();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Gagal mengubah status.");
+      setActionError(err instanceof Error ? err.message : "Failed to change the status.");
     } finally {
       setBusy(null);
     }
@@ -93,15 +96,15 @@ export default function TenantsPage() {
   const items = data?.items ?? [];
 
   return (
-    <AdminShell title="Tenant">
+    <AdminShell title="Tenants">
       <PageHead
         eyebrow="Platform"
-        title="Tenant"
-        sub={`${items.length} tenant terdaftar`}
+        title="Tenants"
+        sub={`${items.length} tenants registered`}
         action={
           <Btn onClick={() => setShowCreate(true)}>
             <Plus size={14} weight="bold" />
-            Tenant baru
+            New tenant
           </Btn>
         }
       />
@@ -128,22 +131,22 @@ export default function TenantsPage() {
         <Input
           value={qInput}
           onChange={(e) => setQInput(e.target.value)}
-          placeholder="Cari nama atau slug"
-          aria-label="Cari tenant"
+          placeholder="Search name or slug"
+          aria-label="Search tenants"
           className="h-9 w-56"
         />
         <Select
           value={status}
           onChange={(e) => setStatus(e.target.value)}
-          aria-label="Filter status"
+          aria-label="Filter by status"
           className="h-9 w-40"
         >
-          <option value="">Semua status</option>
-          <option value="ACTIVE">Aktif</option>
-          <option value="SUSPENDED">Ditangguhkan</option>
+          <option value="">All statuses</option>
+          <option value="ACTIVE">Active</option>
+          <option value="SUSPENDED">Suspended</option>
         </Select>
         <Btn type="submit" variant="line">
-          Cari
+          Search
         </Btn>
       </form>
 
@@ -151,14 +154,14 @@ export default function TenantsPage() {
         <table className="ledger">
           <thead>
             <tr>
-              <th>Nama</th>
+              <th>Name</th>
               <th>Status</th>
-              <th>Kesehatan</th>
-              <th className="text-right">Pengguna</th>
-              <th className="text-right">Saluran</th>
-              <th className="text-right">Percakapan</th>
-              <th className="text-right">Pesan 30h</th>
-              <th>Dibuat</th>
+              <th>Health</th>
+              <th className="text-right">Users</th>
+              <th className="text-right">Channels</th>
+              <th className="text-right">Conversations</th>
+              <th className="text-right">Msgs (30d)</th>
+              <th>Created</th>
               <th />
             </tr>
           </thead>
@@ -171,12 +174,12 @@ export default function TenantsPage() {
                 </td>
                 <td>
                   <Status tone={t.status === "ACTIVE" ? "ok" : "bad"}>
-                    {t.status === "ACTIVE" ? "Aktif" : "Ditangguhkan"}
+                    {t.status === "ACTIVE" ? "Active" : "Suspended"}
                   </Status>
                 </td>
                 <td>
                   <Status tone={t.channelCount > 0 && t.messageCount30d > 0 ? "ok" : "off"}>
-                    {t.channelCount > 0 && t.messageCount30d > 0 ? "Sehat" : "Diam"}
+                    {t.channelCount > 0 && t.messageCount30d > 0 ? "Healthy" : "Quiet"}
                   </Status>
                 </td>
                 <td className="text-right font-mono tabular-nums">{t.userCount}</td>
@@ -184,7 +187,7 @@ export default function TenantsPage() {
                 <td className="text-right font-mono tabular-nums">{t.conversationCount}</td>
                 <td className="text-right font-mono tabular-nums">{t.messageCount30d}</td>
                 <td className="whitespace-nowrap font-mono text-[12.5px] text-muted-foreground">
-                  {new Date(t.createdAt).toLocaleDateString("id-ID", {
+                  {new Date(t.createdAt).toLocaleDateString("en-GB", {
                     day: "numeric",
                     month: "short",
                     year: "numeric",
@@ -195,7 +198,7 @@ export default function TenantsPage() {
                     href={`/admin/tenants/${t.id}`}
                     className={`${btnClass("ghost")} mr-1`}
                   >
-                    Detail
+                    View
                   </Link>
                   <Btn
                     variant="ghost"
@@ -205,7 +208,7 @@ export default function TenantsPage() {
                       t.status === "ACTIVE" ? "hover:text-bad" : "hover:text-primary"
                     }
                   >
-                    {t.status === "ACTIVE" ? "Tangguhkan" : "Aktifkan"}
+                    {t.status === "ACTIVE" ? "Suspend" : "Activate"}
                   </Btn>
                 </td>
               </tr>
@@ -213,14 +216,14 @@ export default function TenantsPage() {
             {!loading && items.length === 0 && (
               <tr>
                 <td colSpan={9} className="py-12 text-center text-[13px] text-muted-foreground">
-                  Tidak ada tenant yang cocok.
+                  No matching tenants.
                 </td>
               </tr>
             )}
             {loading && (
               <tr>
                 <td colSpan={9} className="py-12 text-center text-[13px] text-muted-foreground">
-                  Memuat...
+                  Loading...
                 </td>
               </tr>
             )}
@@ -231,21 +234,21 @@ export default function TenantsPage() {
       <Dialog
         open={showCreate}
         onClose={() => setShowCreate(false)}
-        ariaLabel="Tenant baru"
+        ariaLabel="New tenant"
         className="max-w-lg rounded-2xl border-border bg-card p-0 shadow-[0_24px_64px_rgba(0,0,0,0.18)]"
       >
             <div className="flex items-start justify-between border-b border-border px-5 py-4">
               <div>
                 <div className="eyebrow mb-1">Platform</div>
-                <h2 className="text-[18px] font-semibold tracking-tight">Tenant baru</h2>
+                <h2 className="text-[18px] font-semibold tracking-tight">New tenant</h2>
                 <p className="mt-0.5 text-[12.5px] text-muted-foreground">
-                  Membuat tenant dan akun owner.
+                  Creates the tenant and its owner account.
                 </p>
               </div>
               <button
                 onClick={() => setShowCreate(false)}
                 className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                aria-label="Tutup"
+                aria-label="Close"
               >
                 <X size={16} />
               </button>
@@ -253,7 +256,7 @@ export default function TenantsPage() {
 
             <form onSubmit={createTenant} className="space-y-4 p-5">
               <div className="space-y-1.5">
-                <Label htmlFor="t-name">Nama tenant</Label>
+                <Label htmlFor="t-name">Tenant name</Label>
                 <Input
                   id="t-name"
                   required
@@ -262,12 +265,12 @@ export default function TenantsPage() {
                   placeholder="Toko Kopi Nusantara"
                 />
                 <p className="text-[12px] text-muted-foreground">
-                  ID tenant dibuat otomatis (alfanumerik, unik).
+                  The tenant ID is generated automatically (unique, alphanumeric).
                 </p>
               </div>
 
               <div className="border-t border-border pt-4">
-                <div className="eyebrow mb-3">Akun owner</div>
+                <div className="eyebrow mb-3">Owner account</div>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label htmlFor="t-email">Email</Label>
@@ -281,7 +284,7 @@ export default function TenantsPage() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="t-oname">Nama</Label>
+                    <Label htmlFor="t-oname">Name</Label>
                     <Input
                       id="t-oname"
                       required
@@ -300,7 +303,7 @@ export default function TenantsPage() {
                     minLength={8}
                     value={form.ownerPassword}
                     onChange={(e) => setForm({ ...form, ownerPassword: e.target.value })}
-                    placeholder="Minimal 8 karakter"
+                    placeholder="Minimum 8 characters"
                   />
                 </div>
               </div>
@@ -309,10 +312,10 @@ export default function TenantsPage() {
 
               <div className="flex justify-end gap-2 pt-1">
                 <Btn type="button" variant="line" onClick={() => setShowCreate(false)}>
-                  Batal
+                  Cancel
                 </Btn>
                 <Btn type="submit" disabled={busy === "create"}>
-                  {busy === "create" ? "Membuat..." : "Buat tenant"}
+                  {busy === "create" ? "Creating..." : "Create tenant"}
                 </Btn>
               </div>
             </form>

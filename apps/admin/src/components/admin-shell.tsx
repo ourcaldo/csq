@@ -25,33 +25,33 @@ import {
 // Admin console shell (PRD 13), "Ledger" direction: the app sits on warm
 // paper, the content is one hairline-bounded panel, the sidebar is plain
 // type. Collapsible to an icon rail on desktop; a scrolling pill strip on
-// small screens.
+// small screens. Console copy is English (owner direction 2026-11-13).
 
 const NAV = [
   {
     group: "Platform",
     items: [
-      { href: "/admin", label: "Ringkasan", icon: <SquaresFour size={16} /> },
-      { href: "/admin/tenants", label: "Tenant", icon: <Storefront size={16} /> },
-      { href: "/admin/channels", label: "Saluran", icon: <ChatCircleDots size={16} /> },
+      { href: "/admin", label: "Overview", icon: <SquaresFour size={16} /> },
+      { href: "/admin/tenants", label: "Tenants", icon: <Storefront size={16} /> },
+      { href: "/admin/channels", label: "Channels", icon: <ChatCircleDots size={16} /> },
     ],
   },
   {
-    group: "Operasi",
+    group: "Operations",
     items: [
-      { href: "/admin/operations", label: "Operasional", icon: <Pulse size={16} /> },
-      { href: "/admin/guardrails", label: "Guardrail", icon: <ShieldCheck size={16} /> },
+      { href: "/admin/operations", label: "Operations", icon: <Pulse size={16} /> },
+      { href: "/admin/guardrails", label: "Guardrails", icon: <ShieldCheck size={16} /> },
       { href: "/admin/audit", label: "Audit", icon: <Scroll size={16} /> },
     ],
   },
   {
-    group: "Konfigurasi",
+    group: "Configuration",
     items: [
-      { href: "/admin/api-keys", label: "Kunci API", icon: <Key size={16} /> },
-      { href: "/admin/plans", label: "Paket & Penggunaan", icon: <Tag size={16} /> },
-      { href: "/admin/billing", label: "Tagihan", icon: <Receipt size={16} /> },
-  { href: "/admin/email", label: "Email", icon: <EnvelopeSimple size={16} /> },
-      { href: "/admin/admins", label: "Admin", icon: <UsersThree size={16} /> },
+      { href: "/admin/api-keys", label: "API Keys", icon: <Key size={16} /> },
+      { href: "/admin/plans", label: "Plans & Usage", icon: <Tag size={16} /> },
+      { href: "/admin/billing", label: "Billing", icon: <Receipt size={16} /> },
+      { href: "/admin/email", label: "Email", icon: <EnvelopeSimple size={16} /> },
+      { href: "/admin/admins", label: "Admins", icon: <UsersThree size={16} /> },
     ],
   },
 ];
@@ -136,7 +136,7 @@ export function AdminShell({ title, children }: { title: string; children: React
               </span>
               <button
                 onClick={() => void signOut({ callbackUrl: "/login" })}
-                aria-label="Keluar"
+                aria-label="Sign out"
                 className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
               >
                 <SignOut size={15} />
@@ -150,7 +150,7 @@ export function AdminShell({ title, children }: { title: string; children: React
         <header className="flex h-12 items-center gap-3 px-2">
           <button
             onClick={() => setCollapsed((c) => !c)}
-            aria-label={collapsed ? "Lebarkan sidebar" : "Sempitkan sidebar"}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             className="hidden rounded-md p-1.5 text-muted-foreground hover:bg-card hover:text-foreground md:block"
           >
             <SidebarSimple size={16} />
@@ -171,7 +171,7 @@ export function AdminShell({ title, children }: { title: string; children: React
             )}
             <button
               onClick={() => void signOut({ callbackUrl: "/login" })}
-              aria-label="Keluar"
+              aria-label="Sign out"
               className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-card hover:text-foreground md:hidden"
             >
               <SignOut size={16} />

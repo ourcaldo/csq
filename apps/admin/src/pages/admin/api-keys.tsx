@@ -4,6 +4,9 @@ import { Btn, Empty, PageHead, Status, TableCard } from "@/components/console";
 import { withAdminAuth } from "@/lib/admin-auth";
 import { useAdminApi, adminFetch } from "@/lib/admin-api";
 
+// API keys (PRD 13 Phase 4). Console copy is English (owner direction
+// 2026-11-13).
+
 type ApiKey = {
   id: string;
   name: string;
@@ -35,15 +38,15 @@ export default function ApiKeysPage() {
   }
 
   return (
-    <AdminShell title="Kunci API">
+    <AdminShell title="API Keys">
       <PageHead
-        eyebrow="Konfigurasi"
-        title="Kunci API"
-        sub="Token & integrasi milik tenant"
+        eyebrow="Configuration"
+        title="API Keys"
+        sub="Tenant tokens & integrations"
         action={
           <div className="flex gap-5 font-mono text-[12px]">
-            <span>{active} aktif</span>
-            <span className="text-muted-foreground">{items.length - active} dicabut</span>
+            <span>{active} active</span>
+            <span className="text-muted-foreground">{items.length - active} revoked</span>
           </div>
         }
       />
@@ -56,18 +59,18 @@ export default function ApiKeysPage() {
 
       {!loading && items.length === 0 ? (
         <Empty
-          title="Belum ada kunci API"
-          hint="Tenant membuat kunci dari dashboard mereka sendiri."
+          title="No API keys yet"
+          hint="Tenants mint keys from their own dashboard."
         />
       ) : (
         <TableCard>
           <table className="ledger">
             <thead>
               <tr>
-                <th>Nama</th>
+                <th>Name</th>
                 <th>Prefix</th>
                 <th>Tenant</th>
-                <th>Terakhir dipakai</th>
+                <th>Last used</th>
                 <th>Status</th>
                 <th />
               </tr>
@@ -83,16 +86,16 @@ export default function ApiKeysPage() {
                   </td>
                   <td className="whitespace-nowrap font-mono text-[12px] text-muted-foreground">
                     {k.lastUsedAt
-                      ? new Date(k.lastUsedAt).toLocaleDateString("id-ID", {
+                      ? new Date(k.lastUsedAt).toLocaleDateString("en-GB", {
                           day: "numeric",
                           month: "short",
                           year: "numeric",
                         })
-                      : "Belum pernah"}
+                      : "Never"}
                   </td>
                   <td>
                     <Status tone={k.revokedAt ? "off" : "ok"}>
-                      {k.revokedAt ? "Dicabut" : "Aktif"}
+                      {k.revokedAt ? "Revoked" : "Active"}
                     </Status>
                   </td>
                   <td className="text-right">
@@ -103,7 +106,7 @@ export default function ApiKeysPage() {
                         onClick={() => void revoke(k.id)}
                         className="hover:text-bad"
                       >
-                        Cabut
+                        Revoke
                       </Btn>
                     )}
                   </td>
@@ -112,7 +115,7 @@ export default function ApiKeysPage() {
               {loading && (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-[13px] text-muted-foreground">
-                    Memuat...
+                    Loading...
                   </td>
                 </tr>
               )}

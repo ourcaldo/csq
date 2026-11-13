@@ -5,6 +5,9 @@ import { Btn, PageHead, Status, TableCard, Tag } from "@/components/console";
 import { withAdminAuth } from "@/lib/admin-auth";
 import { useAdminApi, adminFetch } from "@/lib/admin-api";
 
+// Channel fleet (PRD 13 Phase 3). Console copy is English (owner direction
+// 2026-11-13).
+
 type Channel = {
   id: string;
   tenantName: string;
@@ -26,15 +29,15 @@ export const getServerSideProps = withAdminAuth(async () => ({ props: {} }));
 
 function ago(iso: string): string {
   const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (mins < 1) return "baru saja";
-  if (mins < 60) return `${mins} mnt lalu`;
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} jam lalu`;
-  return `${Math.floor(hours / 24)} hari lalu`;
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
 }
 
 function when(iso: string): string {
-  return new Date(iso).toLocaleString("id-ID", {
+  return new Date(iso).toLocaleString("en-GB", {
     day: "numeric",
     month: "short",
     hour: "2-digit",
@@ -52,10 +55,10 @@ export default function ChannelsPage() {
     setMsg(null);
     try {
       await adminFetch("/api/admin/channels", "POST", { channelId, action });
-      setMsg(`Perintah ${action} dikirim. Worker memproses dalam 2 detik.`);
+      setMsg(`${action} command sent. The worker picks it up within 2 seconds.`);
       setTimeout(refresh, 4000);
     } catch (err) {
-      setMsg(err instanceof Error ? err.message : "Gagal mengirim perintah.");
+      setMsg(err instanceof Error ? err.message : "Failed to send the command.");
     } finally {
       setBusy(null);
     }
@@ -65,11 +68,11 @@ export default function ChannelsPage() {
   const connected = items.filter((c) => c.status === "CONNECTED").length;
 
   return (
-    <AdminShell title="Saluran">
+    <AdminShell title="Channels">
       <PageHead
         eyebrow="Platform"
-        title="Saluran"
-        sub={`Channel fleet - ${connected} dari ${items.length} terhubung`}
+        title="Channels"
+        sub={`Channel fleet - ${connected} of ${items.length} connected`}
       />
 
       {msg && (
@@ -89,12 +92,12 @@ export default function ChannelsPage() {
             <tr>
               <th>Tenant</th>
               <th>Provider</th>
-              <th>Tipe</th>
+              <th>Type</th>
               <th>Status</th>
               <th>Lease</th>
-              <th>Berakhir</th>
-              <th>Aktivitas terakhir</th>
-              <th className="text-right">Aksi</th>
+              <th>Until</th>
+              <th>Last activity</th>
+              <th className="text-right">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -104,7 +107,7 @@ export default function ChannelsPage() {
                   <div className="font-medium">{c.tenantName}</div>
                   <div className="text-[12px] text-muted-foreground">
                     {c.tenantSlug}
-                    {c.tenantStatus === "SUSPENDED" && " / ditangguhkan"}
+                    {c.tenantStatus === "SUSPENDED" && " / suspended"}
                   </div>
                 </td>
                 <td>
@@ -135,13 +138,13 @@ export default function ChannelsPage() {
                   </span>
                   {c.leaseToken && c.leaseUpdatedAt && (
                     <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">
-                      #{c.leaseToken.slice(0, 8)}, diperbarui {ago(c.leaseUpdatedAt)}
+                      #{c.leaseToken.slice(0, 8)}, updated {ago(c.leaseUpdatedAt)}
                     </div>
                   )}
                 </td>
                 <td className="whitespace-nowrap font-mono text-[12px] text-muted-foreground">
                   {c.leaseUntil
-                    ? new Date(c.leaseUntil).toLocaleTimeString("id-ID", {
+                    ? new Date(c.leaseUntil).toLocaleTimeString("en-GB", {
                         hour: "2-digit",
                         minute: "2-digit",
                       })
@@ -155,7 +158,7 @@ export default function ChannelsPage() {
                     variant="ghost"
                     disabled={busy === c.id}
                     onClick={() => void act(c.id, "reconnect")}
-                    aria-label={`Sambung ulang ${c.tenantName}`}
+                    aria-label={`Reconnect ${c.tenantName}`}
                     className="px-2.5"
                   >
                     <ArrowsClockwise size={14} />
@@ -164,7 +167,7 @@ export default function ChannelsPage() {
                     variant="ghost"
                     disabled={busy === c.id}
                     onClick={() => void act(c.id, "disconnect")}
-                    aria-label={`Putuskan ${c.tenantName}`}
+                    aria-label={`Disconnect ${c.tenantName}`}
                     className="px-2.5 hover:text-bad"
                   >
                     <Power size={14} />
@@ -175,14 +178,14 @@ export default function ChannelsPage() {
             {!loading && items.length === 0 && (
               <tr>
                 <td colSpan={8} className="py-12 text-center text-[13px] text-muted-foreground">
-                  Tidak ada saluran di seluruh tenant.
+                  No channels across any tenant.
                 </td>
               </tr>
             )}
             {loading && (
               <tr>
                 <td colSpan={8} className="py-12 text-center text-[13px] text-muted-foreground">
-                  Memuat...
+                  Loading...
                 </td>
               </tr>
             )}

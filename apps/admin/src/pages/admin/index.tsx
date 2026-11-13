@@ -18,6 +18,8 @@ import { Card, Group, PageHead, Stat, Status, btnClass, pad } from "@/components
 import { withAdminAuth } from "@/lib/admin-auth";
 import { useAdminApi } from "@/lib/admin-api";
 
+// Overview (PRD 13). Console copy is English (owner direction 2026-11-13).
+
 type Tenant = {
   id: string;
   name: string;
@@ -77,11 +79,11 @@ function bytes(n: number): string {
 
 function ago(iso: string): string {
   const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (mins < 1) return "baru saja";
-  if (mins < 60) return `${mins} mnt lalu`;
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} jam lalu`;
-  return `${Math.floor(hours / 24)} hari lalu`;
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
 }
 
 function Chart({ daily }: { daily: { date: string; count: number }[] }) {
@@ -171,16 +173,16 @@ export default function AdminOverview() {
     .map((u) => {
       const checks: { label: string; used: number; limit: number }[] = [];
       if (u.creditsLimit !== null) {
-        checks.push({ label: "Kredit AI", used: u.creditsUsed, limit: u.creditsLimit });
+        checks.push({ label: "AI credits", used: u.creditsUsed, limit: u.creditsLimit });
       }
       if (u.mauLimit !== null) {
         checks.push({ label: "MAU", used: u.mau, limit: u.mauLimit });
       }
       if (u.staffLimit !== null) {
-        checks.push({ label: "Staf", used: u.staff, limit: u.staffLimit });
+        checks.push({ label: "Staff", used: u.staff, limit: u.staffLimit });
       }
       if (u.channelLimit !== null) {
-        checks.push({ label: "Saluran", used: u.channelCount, limit: u.channelLimit });
+        checks.push({ label: "Channels", used: u.channelCount, limit: u.channelLimit });
       }
       const worst = checks
         .map((c) => ({ ...c, pct: Math.round((c.used / c.limit) * 100) }))
@@ -192,14 +194,14 @@ export default function AdminOverview() {
     );
 
   return (
-    <AdminShell title="Ringkasan">
+    <AdminShell title="Overview">
       <PageHead
         eyebrow="Platform"
-        title={session?.user?.name ? `${session.user.name}, ini kondisi CSQ` : "Ini kondisi CSQ"}
-        sub="Sekilas hari ini, dan bagaimana 30 hari terakhir berjalan."
+        title={session?.user?.name ? `${session.user.name}, here is CSQ today` : "CSQ today"}
+        sub="A snapshot of today, and how the last 30 days are going."
         action={
           <Link href="/admin/tenants" className={btnClass()}>
-            Tenant baru
+            New tenant
           </Link>
         }
       />
@@ -207,99 +209,99 @@ export default function AdminOverview() {
       <div className="mb-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat
           icon={<Storefront size={14} />}
-          label="Tenant aktif"
+          label="Active tenants"
           value={pad(tenants.length - suspended)}
-          note={`${suspended} ditangguhkan`}
+          note={`${suspended} suspended`}
         />
         <Stat
           icon={<ChatCircleDots size={14} />}
-          label="Saluran"
+          label="Channels"
           value={pad(channels.length)}
-          note={`${connected} terhubung, ${channels.length - connected} terputus`}
+          note={`${connected} connected, ${channels.length - connected} disconnected`}
         />
         <Stat
           icon={<Tray size={14} />}
-          label="Antrean"
+          label="Queue"
           value={pad(outbox("QUEUED"))}
-          note={`${outbox("SENDING")} sedang dikirim`}
+          note={`${outbox("SENDING")} sending`}
         />
         <Stat
           icon={<Warning size={14} />}
-          label="Gagal kirim"
+          label="Send failures"
           value={pad(failed)}
-          note={failed > 0 ? "Perlu retry di Operasional" : "Outbox worker sehat"}
+          note={failed > 0 ? "Retry from Operations" : "Outbox worker healthy"}
         />
       </div>
 
       {kpis && (
-        <Group label="Kondisi terkini">
+        <Group label="Current state">
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
             <Stat
               icon={<User size={14} />}
-              label="Pengguna"
+              label="Users"
               value={pad(kpis.users)}
-              note="Akun di seluruh tenant"
+              note="Accounts across tenants"
             />
             <Stat
               icon={<PaperPlaneTilt size={14} />}
-              label="Pesan 24 jam"
+              label="Messages (24h)"
               value={pad(kpis.messages24h)}
               note={
                 <>
-                  <span className="text-foreground">{kpis.conversations24h}</span> percakapan baru
+                  <span className="text-foreground">{kpis.conversations24h}</span> new conversations
                 </>
               }
             />
             <Stat
               icon={<ChatCircleDots size={14} />}
-              label="Pesan 7 hari"
+              label="Messages (7d)"
               value={pad(kpis.messages7d)}
               note={
                 <>
-                  <span className="text-foreground">{kpis.conversations7d}</span> percakapan baru
+                  <span className="text-foreground">{kpis.conversations7d}</span> new conversations
                 </>
               }
             />
             <Stat
               icon={<Tray size={14} />}
-              label="Antrean perintah"
+              label="Command queue"
               value={pad(kpis.commandQueue)}
-              note="Perintah saluran menunggu worker"
+              note="Channel commands waiting for the worker"
             />
             <Stat
               icon={<Clock size={14} />}
-              label="Lease scheduler"
+              label="Scheduler leases"
               value={pad(kpis.tickFreshness.heldLeases)}
               note={
                 kpis.tickFreshness.lastTickAt
-                  ? `Tick terakhir ${ago(kpis.tickFreshness.lastTickAt)}, ${kpis.tickFreshness.staleLeases} kedaluwarsa`
-                  : "Tidak ada tick tertahan"
+                  ? `Last tick ${ago(kpis.tickFreshness.lastTickAt)}, ${kpis.tickFreshness.staleLeases} stale`
+                  : "No held ticks"
               }
             />
           </div>
         </Group>
       )}
 
-      <Group label="30 hari terakhir">
+      <Group label="Last 30 days">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Stat
             icon={<PaperPlaneTilt size={14} />}
-            label="Pesan"
+            label="Messages"
             value={totalMessages}
             note={
               <>
-                <span className="text-foreground">{conversations}</span> percakapan dilayani
+                <span className="text-foreground">{conversations}</span> conversations served
               </>
             }
           />
           <Stat
             icon={<Robot size={14} />}
-            label="Kredit AI"
+            label="AI credits"
             value={credits}
             note={
               <>
-                <span className="text-foreground">{aiReplies}</span> balasan AI,{" "}
-                <span className="text-foreground">{scenarioCredits}</span> modul skenario
+                <span className="text-foreground">{aiReplies}</span> AI replies,{" "}
+                <span className="text-foreground">{scenarioCredits}</span> scenario modules
               </>
             }
           />
@@ -307,16 +309,16 @@ export default function AdminOverview() {
             icon={<FolderOpen size={14} />}
             label="Media"
             value={bytes(media)}
-            note="Total penyimpanan media tenant"
+            note="Total tenant media storage"
           />
         </div>
       </Group>
 
       <Card className="mb-4 p-5">
         <div className="mb-5 flex items-center justify-between">
-          <span className="eyebrow text-foreground">Pesan per hari</span>
+          <span className="eyebrow text-foreground">Messages per day</span>
           <span className="font-mono text-[11.5px] text-muted-foreground">
-            {totalMessages} pesan dalam periode
+            {totalMessages} messages in period
           </span>
         </div>
         <Chart daily={daily} />
@@ -325,20 +327,20 @@ export default function AdminOverview() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <Card>
           <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
-            <span className="eyebrow text-foreground">Perlu perhatian</span>
+            <span className="eyebrow text-foreground">Needs attention</span>
             <Link
               href="/admin/channels"
               className="flex items-center gap-1 text-[12.5px] text-muted-foreground hover:text-foreground"
             >
-              Semua saluran <ArrowUpRight size={13} />
+              All channels <ArrowUpRight size={13} />
             </Link>
           </div>
           {down.length === 0 ? (
             <div className="flex flex-col items-center px-5 py-10 text-center">
               <CheckCircle size={20} className="mb-2 text-ok" />
-              <p className="text-[13px] font-medium">Semua saluran terhubung</p>
+              <p className="text-[13px] font-medium">All channels connected</p>
               <p className="mt-0.5 text-[12px] text-muted-foreground">
-                Tidak ada yang butuh tindakan.
+                Nothing needs action.
               </p>
             </div>
           ) : (
@@ -364,20 +366,20 @@ export default function AdminOverview() {
 
         <Card>
           <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
-            <span className="eyebrow text-foreground">Kuota</span>
+            <span className="eyebrow text-foreground">Quotas</span>
             <Link
               href="/admin/plans"
               className="flex items-center gap-1 text-[12.5px] text-muted-foreground hover:text-foreground"
             >
-              Paket <ArrowUpRight size={13} />
+              Plans <ArrowUpRight size={13} />
             </Link>
           </div>
           {quotas.length === 0 ? (
             <div className="flex flex-col items-center px-5 py-10 text-center">
               <CheckCircle size={20} className="mb-2 text-ok" />
-              <p className="text-[13px] font-medium">Semua tenant dalam kuota</p>
+              <p className="text-[13px] font-medium">All tenants within quota</p>
               <p className="mt-0.5 text-[12px] text-muted-foreground">
-                Tidak ada pemakaian di atas 80 persen.
+                No usage above 80 percent.
               </p>
             </div>
           ) : (
@@ -401,19 +403,19 @@ export default function AdminOverview() {
 
         <Card>
           <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
-            <span className="eyebrow text-foreground">Aktivitas terbaru</span>
+            <span className="eyebrow text-foreground">Recent activity</span>
             <Link
               href="/admin/audit"
               className="flex items-center gap-1 text-[12.5px] text-muted-foreground hover:text-foreground"
             >
-              Log audit <ArrowUpRight size={13} />
+              Audit log <ArrowUpRight size={13} />
             </Link>
           </div>
           {audit.length === 0 ? (
             <div className="flex flex-col items-center px-5 py-10 text-center">
-              <p className="text-[13px] font-medium">Belum ada aktivitas</p>
+              <p className="text-[13px] font-medium">No activity yet</p>
               <p className="mt-0.5 text-[12px] text-muted-foreground">
-                Aksi tenant dan admin akan muncul di sini.
+                Tenant and admin actions will appear here.
               </p>
             </div>
           ) : (
@@ -431,7 +433,7 @@ export default function AdminOverview() {
                   {e.action}
                 </span>
                 <span className="font-mono text-[11.5px] text-muted-foreground">
-                  {new Date(e.createdAt).toLocaleTimeString("id-ID", {
+                  {new Date(e.createdAt).toLocaleTimeString("en-GB", {
                     hour: "2-digit",
                     minute: "2-digit",
                   })}
@@ -445,8 +447,8 @@ export default function AdminOverview() {
       {failed > 0 && (
         <div className="mt-4 flex items-center justify-between gap-4 rounded-xl border border-border border-l-2 border-l-bad bg-card px-5 py-3">
           <p className="text-[13px]">
-            <span className="font-medium text-bad">{failed} pesan gagal</span> dikirim ke
-            pelanggan.
+            <span className="font-medium text-bad">{failed} messages failed</span> to send to
+            customers.
           </p>
           <Link href="/admin/operations" className={btnClass("line")}>
             Retry

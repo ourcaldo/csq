@@ -54,11 +54,11 @@ export default async function handler(
       if (!parsed.success) {
         return res
           .status(400)
-          .json(apiError("VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Payload tidak valid."));
+          .json(apiError("VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Invalid payload."));
       }
       const existing = await prisma.planRequest.findUnique({ where: { id: parsed.data.id } });
       if (!existing) {
-        return res.status(404).json(apiError("NOT_FOUND", "Permintaan tidak ditemukan."));
+        return res.status(404).json(apiError("NOT_FOUND", "Request not found."));
       }
       const updated = await prisma.planRequest.update({
         where: { id: existing.id },

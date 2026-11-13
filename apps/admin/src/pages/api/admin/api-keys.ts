@@ -33,11 +33,11 @@ export default async function handler(
     if (req.method === "DELETE") {
       const { id } = req.query;
       if (typeof id !== "string") {
-        return res.status(400).json(apiError("VALIDATION_ERROR", "ID kunci tidak valid."));
+        return res.status(400).json(apiError("VALIDATION_ERROR", "Invalid key ID."));
       }
       const key = await prisma.apiKey.findUnique({ where: { id } });
       if (!key) {
-        return res.status(404).json(apiError("NOT_FOUND", "Kunci API tidak ditemukan."));
+        return res.status(404).json(apiError("NOT_FOUND", "API key not found."));
       }
       if (key.revokedAt) {
         return res.status(200).json(apiOk({ id: key.id, revokedAt: key.revokedAt.toISOString() }));

@@ -22,7 +22,7 @@ export default async function handler(
   res: NextApiResponse<ApiResponse<TestResponse>>
 ) {
   if (req.method !== "POST") {
-    return res.status(405).json(apiError("VALIDATION_ERROR", "Metode tidak didukung."));
+    return res.status(405).json(apiError("METHOD_NOT_ALLOWED", "Method not allowed."));
   }
   const admin = await requireAdmin(req, res);
   if (!admin) return;
@@ -31,7 +31,7 @@ export default async function handler(
   if (!parsed.success) {
     return res
       .status(400)
-      .json(apiError("VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Alamat email tidak valid."));
+      .json(apiError("VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Invalid email address."));
   }
 
   return withSystemContext(async () => {
@@ -39,15 +39,15 @@ export default async function handler(
     if (!provider) {
       return res
         .status(400)
-        .json(apiError("VALIDATION_ERROR", "SMTP platform belum disimpan - simpan konfigurasi dulu."));
+        .json(apiError("VALIDATION_ERROR", "The platform SMTP is not saved yet - save the configuration first."));
     }
     try {
       const info = await sendEmailWithProvider(provider, {
         to: parsed.data.to,
-        subject: "CSQ - tes SMTP platform",
+        subject: "CSQ - platform SMTP test",
         text:
-          "Ini adalah email percobaan dari CSQ lewat SMTP platform. Jika Anda menerima ini, " +
-          "konfigurasi SMTP platform sudah benar dan siap dipakai sebagai fallback semua tenant.",
+          "This is a test email from CSQ via the platform SMTP. If you received this, " +
+          "the platform SMTP configuration is correct and ready as the fallback for all tenants.",
       });
       await auditAdminAction({
         adminId: admin.adminId,
@@ -58,8 +58,8 @@ export default async function handler(
       });
       return res.status(200).json(apiOk({ sent: true, to: parsed.data.to, messageId: info.messageId }));
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Gagal mengirim email tes.";
-      return res.status(400).json(apiError("VALIDATION_ERROR", `Email tes gagal terkirim: ${message}`));
+      const message = err instanceof Error ? err.message : "Failed to send the test email.";
+      return res.status(400).json(apiError("VALIDATION_ERROR", `Test email failed: ${message}`));
     }
   });
 }

@@ -28,14 +28,14 @@ export default function AdminLogin() {
     if (result?.ok) {
       window.location.href = "/admin";
     } else {
-      setError("Email atau password salah.");
+      setError("Invalid email or password.");
     }
   }
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-4">
       <Head>
-        <title>Masuk - CSQ Console</title>
+        <title>Sign in - CSQ Console</title>
         <meta name="robots" content="noindex,nofollow" />
       </Head>
 
@@ -50,9 +50,9 @@ export default function AdminLogin() {
         </div>
 
         <div className="eyebrow mb-1.5">Operator</div>
-        <h1 className="text-[28px] font-bold leading-tight tracking-tight">Masuk</h1>
+        <h1 className="text-[28px] font-bold leading-tight tracking-tight">Sign in</h1>
         <p className="mt-1 text-[13.5px] text-muted-foreground">
-          Konsol operator platform. Akun tenant tidak berlaku di sini.
+          Platform operator console. Tenant accounts are not valid here.
         </p>
 
         <form onSubmit={submit} className="mt-6 space-y-4">
@@ -85,7 +85,7 @@ export default function AdminLogin() {
             disabled={busy}
             className="inline-flex h-9 w-full items-center justify-center rounded-full bg-foreground px-4 text-[13px] font-medium text-background transition-colors hover:bg-foreground/85 disabled:pointer-events-none disabled:opacity-50"
           >
-            {busy ? "Memeriksa..." : "Masuk"}
+            {busy ? "Checking..." : "Sign in"}
           </button>
         </form>
       </div>

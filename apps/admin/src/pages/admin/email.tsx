@@ -11,6 +11,7 @@ import { Label } from "@csq/ui/components/ui/label";
 // Platform email provider (owner request 2026-11-10): the platform SMTP.
 // Tenants with their own provider keep using it; every tenant without one
 // falls back to this. Staff invites and scenario Email nodes send through it.
+// Console copy is English (owner direction 2026-11-13).
 
 type EmailStatus = {
   configured: boolean;
@@ -83,7 +84,7 @@ export default function PlatformEmailPage() {
       setSaved(true);
       refresh();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Gagal menyimpan SMTP platform.");
+      setFormError(err instanceof Error ? err.message : "Failed to save the platform SMTP.");
     } finally {
       setBusy(false);
     }
@@ -99,7 +100,7 @@ export default function PlatformEmailPage() {
       setForm(EMPTY_FORM);
       refresh();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Gagal memutus SMTP platform.");
+      setFormError(err instanceof Error ? err.message : "Failed to disconnect the platform SMTP.");
     } finally {
       setBusy(false);
     }
@@ -117,9 +118,9 @@ export default function PlatformEmailPage() {
         "POST",
         { to: testTo.trim() }
       );
-      setTestInfo(`Email tes terkirim ke ${r.to} (ID: ${r.messageId}).`);
+      setTestInfo(`Test email sent to ${r.to} (ID: ${r.messageId}).`);
     } catch (err) {
-      setTestError(err instanceof Error ? err.message : "Gagal mengirim email tes.");
+      setTestError(err instanceof Error ? err.message : "Failed to send the test email.");
     } finally {
       setTesting(false);
     }
@@ -128,9 +129,9 @@ export default function PlatformEmailPage() {
   return (
     <AdminShell title="Email">
       <PageHead
-        eyebrow="Konfigurasi"
-        title="Email Platform"
-        sub="SMTP default untuk semua tenant. SMTP milik tenant sendiri tetap dipakai lebih dulu jika ada."
+        eyebrow="Configuration"
+        title="Platform Email"
+        sub="The default SMTP for all tenants. A tenant's own SMTP still takes precedence when configured."
       />
 
       {(formError || error) && (
@@ -140,7 +141,7 @@ export default function PlatformEmailPage() {
       )}
       {saved && (
         <div className="mb-4 rounded-xl border border-border border-l-2 border-l-ok bg-card px-5 py-3 text-[13px] text-ok">
-          SMTP platform tersimpan. Email tenant tanpa SMTP sendiri kini terkirim lewat sini.
+          Platform SMTP saved. Tenants without their own SMTP now send through it.
         </div>
       )}
 
@@ -152,27 +153,27 @@ export default function PlatformEmailPage() {
           <div>
             <p className="text-sm font-medium">
               {loading
-                ? "Memuat..."
+                ? "Loading..."
                 : data?.configured
-                  ? `Terhubung - ${data.type} ${data.host ? `(${data.host}:${data.port})` : ""}`
-                  : "Belum diatur"}
+                  ? `Connected - ${data.type} ${data.host ? `(${data.host}:${data.port})` : ""}`
+                  : "Not configured"}
             </p>
             <p className="text-[13px] text-muted-foreground">
               {data?.configured
-                ? `Pengirim: ${data.from}`
-                : "Undangan staf dan modul Email skenario tidak terkirim otomatis sampai ini diatur (atau tenant mengatur SMTP sendiri)."}
+                ? `Sender: ${data.from}`
+                : "Staff invites and scenario Email modules do not send until this is configured (or the tenant sets its own SMTP)."}
             </p>
           </div>
           {data?.configured && (
             <Btn variant="ghost" disabled={busy} onClick={() => void disconnect()} className="ml-auto hover:text-bad">
-              Putuskan
+              Disconnect
             </Btn>
           )}
         </div>
 
         <form onSubmit={save} className="max-w-xl space-y-4">
           <div>
-            <Label htmlFor="smtp-host">Host SMTP</Label>
+            <Label htmlFor="smtp-host">SMTP host</Label>
             <Input
               id="smtp-host"
               required
@@ -194,7 +195,7 @@ export default function PlatformEmailPage() {
               />
             </div>
             <div>
-              <Label htmlFor="smtp-secure">Keamanan</Label>
+              <Label htmlFor="smtp-secure">Security</Label>
               <select
                 id="smtp-secure"
                 value={form.secure ? "ssl" : "starttls"}
@@ -218,7 +219,7 @@ export default function PlatformEmailPage() {
           </div>
           <div>
             <Label htmlFor="smtp-password">
-              Password {data?.configured && <span className="text-muted-foreground">(kosongkan untuk mempertahankan)</span>}
+              Password {data?.configured && <span className="text-muted-foreground">(leave blank to keep)</span>}
             </Label>
             <Input
               id="smtp-password"
@@ -230,7 +231,7 @@ export default function PlatformEmailPage() {
             />
           </div>
           <div>
-            <Label htmlFor="smtp-from">Alamat pengirim (from)</Label>
+            <Label htmlFor="smtp-from">From address</Label>
             <Input
               id="smtp-from"
               required
@@ -242,7 +243,7 @@ export default function PlatformEmailPage() {
           </div>
           <div className="pt-2">
             <Btn type="submit" disabled={busy}>
-              {busy ? "Menyimpan..." : "Simpan SMTP Platform"}
+              {busy ? "Saving..." : "Save platform SMTP"}
             </Btn>
           </div>
         </form>
@@ -251,9 +252,9 @@ export default function PlatformEmailPage() {
       {/* Test-send through the saved platform SMTP - the exact provider every
           tenant fallback send uses. */}
       <div className="mt-6 rounded-xl border border-border bg-card p-6">
-        <p className="mb-1 text-sm font-medium">Tes Kirim Email</p>
+        <p className="mb-1 text-sm font-medium">Send a test email</p>
         <p className="mb-4 text-[13px] text-muted-foreground">
-          Kirim satu email percobaan melalui SMTP platform yang tersimpan, ke alamat mana pun.
+          Sends one test message through the saved platform SMTP, to any address.
         </p>
         {testInfo && (
           <div className="mb-4 rounded-md border border-ok/40 bg-ok/10 px-4 py-2 text-[13px] text-ok">
@@ -267,18 +268,18 @@ export default function PlatformEmailPage() {
         )}
         <form onSubmit={sendTest} className="flex max-w-xl items-end gap-3">
           <div className="flex-1">
-            <Label htmlFor="test-to">Alamat tujuan</Label>
+            <Label htmlFor="test-to">Recipient</Label>
             <Input
               id="test-to"
               type="email"
               required
               value={testTo}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setTestTo(e.target.value)}
-              placeholder="nama@contoh.com"
+              placeholder="name@example.com"
             />
           </div>
           <Btn type="submit" variant="line" disabled={testing || !data?.configured}>
-            {testing ? "Mengirim..." : "Kirim Email Tes"}
+            {testing ? "Sending..." : "Send test email"}
           </Btn>
         </form>
       </div>
