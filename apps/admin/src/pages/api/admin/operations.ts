@@ -105,7 +105,8 @@ async function agentReplyStats(hours: number): Promise<{
            avg(EXTRACT(EPOCH FROM dur))::float8 AS avg_s,
            percentile_cont(0.95) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM dur))::float8 AS p95_s
     FROM replies
-  `;
+  `
+  );
   const parsed = z.array(replyStatsSchema).safeParse(rows);
   if (!parsed.success || parsed.data.length === 0) {
     return { count: 0, avgSeconds: null, p95Seconds: null };
