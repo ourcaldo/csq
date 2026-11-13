@@ -11,6 +11,7 @@ import {
   ChatCircleDots,
   Pulse,
   Scroll,
+  ShieldCheck,
   Key,
   Receipt,
   Tag,
@@ -39,6 +40,7 @@ const NAV = [
     group: "Operasi",
     items: [
       { href: "/admin/operations", label: "Operasional", icon: <Pulse size={16} /> },
+      { href: "/admin/guardrails", label: "Guardrail", icon: <ShieldCheck size={16} /> },
       { href: "/admin/audit", label: "Audit", icon: <Scroll size={16} /> },
     ],
   },

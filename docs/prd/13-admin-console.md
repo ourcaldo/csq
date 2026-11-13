@@ -41,7 +41,13 @@ reach an admin route and vice versa. The first admin is created by CLI
    the OutboundMessage queue with a requeue action for FAILED sends,
    the ChannelCommand queue, per-source Sheets-sync freshness.
 5. **Audit** - the global (cross-tenant) AuditLog with filters, plus the
-   AdminActionLog of operator actions.
+   AdminActionLog of operator actions. Amendment 2026-11-13 (owner
+   request): the console also has a Guardrail page - a purpose-built view
+   of the guard.pre_block / guard.post_flag rows the decision-model guard
+   layer writes (PRD 03 amendment 2026-11-13): verdict badge (rejected /
+   would-reject / flagged / retried), guard mode, and the raw
+   probabilities per flag, filterable by type (pre/post) and date - the
+   shadow-mode tuning view before GUARD_MODE flips to enforce.
 6. **Kunci API (API keys)** - cross-tenant key list + revoke. Deferred
    item 3 lands here (the tenant-side mint routes already exist).
 7. **Admin** - invite and remove operator accounts.
