@@ -3,7 +3,7 @@ import prisma from "@csq/core/lib/db";
 import { apiError, apiOk, type ApiResponse } from "@csq/core/types/api";
 import { requireAdmin, auditAdminAction } from "@/lib/admin-auth";
 import { z } from "zod";
-import { withSystemContext } from "@csq/core/lib/tenant-context";
+import { withSystemContext, systemRaw } from "@csq/core/lib/tenant-context";
 
 // Operations (PRD 13 Phase 3; refocused 2026-11-13, owner request): system
 // health first - live reachability and latency of every service and the
@@ -72,9 +72,12 @@ async function agentReplyStats(hours: number): Promise<{
   // make_interval(hours => bigint) does not exist (the 42883 the first
   // version shipped with). A Date binds as timestamp - no interval math.
   const since = new Date(Date.now() - hours * 60 * 60 * 1000);
+  // systemRaw: raw SQL bypasses the db extension's RLS hook, so a bare
+  // $queryRaw fails closed on Message (zero rows, silently) - the statement
+  // must set app.bypass_rls on its own connection (same pattern as usage.ts).
   // EXTRACT/avg/percentile return numeric, which Prisma maps to Decimal;
   // ::float8 makes them plain JS numbers for the Zod boundary.
-  const rows = await prisma.$queryRaw`
+  const rows = await systemRaw(prisma.$queryRaw`
     WITH recent AS (
       SELECT "conversationId", "createdAt"
       FROM "Message"
