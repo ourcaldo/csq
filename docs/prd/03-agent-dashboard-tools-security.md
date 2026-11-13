@@ -235,6 +235,22 @@ handle customer conversations alongside the AI agent.
     ChatGPT, etc.) to the customer - it identifies only as the store's CS
     assistant. The image rides in the OpenAI image_url format, so the
     capability is provider-agnostic across OpenAI-compatible providers.
+    Amendment 2026-11-13 (owner decision, guardrail layer): every agent
+    turn is judged by Google's Decisions API (gemini-decision-1; same
+    Gemini API key and bill as the chat runtime - no new vendor) on both
+    sides. Pre-turn: the customer message is checked for store-related
+    intent and injection attempts, with a bounded tenant descriptor (store
+    name + up to 20 product names) in the state; an off-topic or injection
+    message gets a canned decline instead of an LLM turn. Post-turn: the
+    agent reply is checked for grounding in that turn's tool results,
+    store-scope drift, and internal/model-name leakage; a flagged reply
+    gets one corrective retry, then a confirm-with-owner fallback. The
+    layer is fail-open (a guard outage never blocks or mutes the agent),
+    runs in GUARD_MODE = off | shadow (default, log-only) | enforce, and
+    writes guard.* audit actions for threshold tuning. Hard security stays
+    in the Tool Gateway; this layer is judgment, never data-access
+    enforcement. Thresholds were tuned on the 2026-11-13 Indonesian pilot
+    and are asserted by `npm run check:guardrail`.
 -   **Private notes (MVP):** staff can add internal notes to a
     conversation — visible to team members only, never sent to the
     customer (like Cekat.AI's Private Note feature).

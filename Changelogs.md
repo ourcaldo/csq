@@ -2,6 +2,12 @@
 
 Version format: `XX.YY.ZZ` - YY (minor) and ZZ (patch) stay within 0-10; XX (major) may grow beyond. Minor = new feature/behavior change, patch = fix, major = breaking change (schema, API contract, env vars).
 
+## 4.3.0 - 2026-11-13 (branch `monorepo`)
+
+Guardrail layer on the testing stack. Minor: new agent-turn behavior, no schema change.
+
+- **Guardrail layer (PRD 03 amendment 2026-11-13):** every agent turn is now judged by Google's Decisions API (`gemini-decision-1`) on both sides, authenticated with the same `LLM_API_KEY` (no new secret, no new vendor, same Google bill; ~$0.0001 per message for both checks). Pre-turn: the customer message is triaged for store-related intent and injection attempts, with a bounded tenant descriptor (store name + 20 product names) in the state; in enforce mode an off-topic or injection message gets a canned decline with no LLM turn and no credit charge. Post-turn: the reply is checked for grounding in the turn's own tool results, store-scope drift, and internal/model-name leakage; a flagged reply gets one corrective retry, then a confirm-with-owner fallback. The layer is fail-open (a guard outage never blocks or mutes the agent) and runs in `GUARD_MODE` = off / shadow (default, log-only with `guard.pre_block` and `guard.post_flag` audit actions) / enforce. Thresholds were tuned on a 25-case live Indonesian pilot (on-topic 0.96-0.99 vs off-topic 0.01-0.02, injection 0.99, fabricated prices 0.013, model-name leak 0.95) and are asserted by `npm run check:guardrail`. Hard security stays in the Tool Gateway; this layer is judgment only.
+
 ## 4.2.1 - 2026-11-13 (branch `monorepo`)
 
 - **Vision fix, captioned photos:** both providers classify a captioned photo as kind TEXT (the caption is the body; the bytes still land in MediaAsset), so the drain's vision gate keyed on kind MEDIA never attached the image - the agent answered the caption without ever seeing the photo. The gate now keys on the stored asset (mediaId), attaching the image for text- and media-kind triggers alike; captioned videos/documents keep their text-only turn on the caption, and plain non-image media keeps the courtesy skip.

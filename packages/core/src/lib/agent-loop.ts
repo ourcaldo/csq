@@ -5,6 +5,14 @@ import prisma from "@csq/core/lib/db";
 import { buildSystemPrompt } from "@csq/core/lib/prompt-builder";
 import { runConversation } from "@csq/core/services/llm-runtime";
 import { isVisionImage, resolveUserText } from "@csq/core/lib/vision";
+import {
+  checkInboundMessage,
+  checkAgentReply,
+  guardMode,
+  GUARD_DECLINE_REPLY,
+  GUARD_FALLBACK_REPLY,
+  GUARD_CORRECTIVE_NOTE,
+} from "@csq/core/lib/guardrail";
 import { sendAgentMessage } from "@csq/core/lib/agent-outbox";
 import { acquireTurnLease, releaseTurnLease, renewTurnLease } from "@csq/core/lib/turn-lock";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
@@ -228,6 +236,45 @@ export async function runAgentReply(args: {
     return { reply: "", toolCalls: [], stoodDown: true };
   }
 
+  // Guardrail pre-turn (PRD 03 amendment 2026-11-13): decision-model triage of
+  // the customer message. Shadow mode logs a would-block; enforce declines
+  // with a canned reply and skips the LLM turn (and its credit charge). A null
+  // verdict (guard off / no key / API error) proceeds - fail-open.
+  const guardPre = await checkInboundMessage({
+    tenantName: tenant.name,
+    productNames: (
+      await prisma.product.findMany({
+        where: { tenantId },
+        select: { name: true },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      })
+    ).map((p) => p.name),
+    message: body.trim() ? body : "(customer sent a photo)",
+  });
+  if (guardPre?.blocked) {
+    const enforcing = guardMode() === "enforce";
+    await logAction({
+      tenantId,
+      agentId: agent.id,
+      action: "guard.pre_block",
+      entityType: "Conversation",
+      entityId: conversationId,
+      approvalStatus: "NONE",
+      customerPhone,
+      afterValue: {
+        mode: guardMode(),
+        blocked: enforcing,
+        storeIntent: guardPre.storeIntent,
+        injection: guardPre.injection,
+        at: new Date().toISOString(),
+      },
+    }).catch(() => undefined);
+    if (enforcing) {
+      return { reply: GUARD_DECLINE_REPLY, toolCalls: [], stoodDown: false };
+    }
+  }
+
   // BOUNDED HISTORY WINDOW (no external session state). The recent transcript
   // is replayed from our own Message rows - the NEWEST AGENT_HISTORY_LIMIT
   // messages within the 1h window, in chronological order (fetch desc, take,
@@ -313,19 +360,75 @@ export async function runAgentReply(args: {
     customerPhone,
   });
 
-  const result = await runConversation({
-    tenantId,
-    agentId: agent.id, // CSQ UUID - keys executeTool/capability lookup
-    conversationId,
-    channelId: channel.id, // G1: routing context for approval follow-ups
-    systemPrompt,
-    history, // bounded 1h-window transcript (see above)
-    // Vision: an uncaptioned photo's "[image]" placeholder becomes a natural
-    // line when the actual image rides along.
-    userMessage: windowContext + resolveUserText(body, Boolean(args.image)),
-    customerPhone,
-    ...(args.image ? { image: args.image } : {}),
-  });
+  // Vision: an uncaptioned photo's "[image]" placeholder becomes a natural
+  // line when the actual image rides along.
+  const baseUserMessage =
+    windowContext + resolveUserText(body, Boolean(args.image));
+  const runTurn = (userMessage: string) =>
+    runConversation({
+      tenantId,
+      agentId: agent.id, // CSQ UUID - keys executeTool/capability lookup
+      conversationId,
+      channelId: channel.id, // G1: routing context for approval follow-ups
+      systemPrompt,
+      history, // bounded 1h-window transcript (see above)
+      userMessage,
+      customerPhone,
+      ...(args.image ? { image: args.image } : {}),
+    });
+
+  let result = await runTurn(baseUserMessage);
+
+  // Guardrail post-turn (PRD 03 amendment 2026-11-13): grounding / scope /
+  // internals check on the reply. Truncated turns are replaced by the G6
+  // fallback downstream and never sent as-is, so they skip the check.
+  // Fail-open on a null verdict.
+  if (!result.truncated) {
+    const toolLog = (r: typeof result) =>
+      JSON.stringify(
+        r.toolCalls
+          .slice(0, 10)
+          .map((tc) => ({ tool: tc.tool, outcome: tc.outcome.slice(0, 400) }))
+      );
+    let post = await checkAgentReply({
+      reply: result.reply,
+      toolResultsJson: toolLog(result),
+    });
+    if (post?.flagged) {
+      let retried = false;
+      if (guardMode() === "enforce") {
+        retried = true;
+        result = await runTurn(baseUserMessage + GUARD_CORRECTIVE_NOTE);
+        const retryPost = await checkAgentReply({
+          reply: result.reply,
+          toolResultsJson: toolLog(result),
+        });
+        // Still flagged (or unverifiable): never send the raw reply. A
+        // truncated retry is handled by the G6 fallback downstream.
+        if (!result.truncated && (retryPost?.flagged ?? true)) {
+          result = { ...result, reply: GUARD_FALLBACK_REPLY };
+        }
+        if (retryPost) post = retryPost;
+      }
+      await logAction({
+        tenantId,
+        agentId: agent.id,
+        action: "guard.post_flag",
+        entityType: "Conversation",
+        entityId: conversationId,
+        approvalStatus: "NONE",
+        customerPhone,
+        afterValue: {
+          mode: guardMode(),
+          retried,
+          grounded: post.grounded,
+          onTopic: post.onTopic,
+          revealsInternals: post.revealsInternals,
+          at: new Date().toISOString(),
+        },
+      }).catch(() => undefined);
+    }
+  }
 
   // Charge the reply after the LLM cost is incurred. The ref is the inbound
   // message that started the turn, so a retry cannot double charge. A failed
