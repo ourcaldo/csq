@@ -2,6 +2,10 @@
 
 Version format: `XX.YY.ZZ` - YY (minor) and ZZ (patch) stay within 0-10; XX (major) may grow beyond. Minor = new feature/behavior change, patch = fix, major = breaking change (schema, API contract, env vars).
 
+## 4.2.1 - 2026-11-13 (branch `monorepo`)
+
+- **Vision fix, captioned photos:** both providers classify a captioned photo as kind TEXT (the caption is the body; the bytes still land in MediaAsset), so the drain's vision gate keyed on kind MEDIA never attached the image - the agent answered the caption without ever seeing the photo. The gate now keys on the stored asset (mediaId), attaching the image for text- and media-kind triggers alike; captioned videos/documents keep their text-only turn on the caption, and plain non-image media keeps the courtesy skip.
+
 ## 4.2.0 - 2026-11-12 (branch `monorepo`)
 
 LLM provider + agent vision on the testing stack. Minor: new agent capability, no schema change.

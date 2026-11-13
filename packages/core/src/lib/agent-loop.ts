@@ -541,18 +541,26 @@ async function drainUnansweredInbound(
     if (!trigger) return;
     attempted.add(trigger.id);
 
-    // Vision gate: a MEDIA trigger must carry a stored image (the
-    // triggering photo rides along; history stays text-only). A skip does
-    // not count as a turn, so a burst of videos can never starve an older
-    // unanswered text - the notIn filter moves the scan past skipped
-    // candidates.
+    // Vision gate: attach the stored image on ANY trigger that carries one -
+    // both providers classify a CAPTIONED photo as kind TEXT (the caption is
+    // the body; the bytes still land in MediaAsset), so keying on mediaId,
+    // not kind, is what makes captioned photos work (bug fix 4.2.1). A
+    // MEDIA-kind trigger whose asset is not an image was answered by the
+    // ingest-time courtesy reply - skip it; the skip does not count as a
+    // turn, so a burst of videos can never starve an older unanswered text
+    // (the notIn filter moves the scan past skipped candidates).
     let image: { data: Uint8Array; mimeType: string } | undefined;
-    if (trigger.kind === "MEDIA" && trigger.mediaId) {
+    if (trigger.mediaId) {
       const asset = await prisma.mediaAsset.findUnique({
         where: { id: trigger.mediaId },
       });
-      if (!asset || !isVisionImage(asset.mimeType, asset.byteSize)) continue;
-      image = { data: asset.data, mimeType: asset.mimeType };
+      if (asset && isVisionImage(asset.mimeType, asset.byteSize)) {
+        image = { data: asset.data, mimeType: asset.mimeType };
+      } else if (trigger.kind === "MEDIA") {
+        continue;
+      }
+      // A captioned video/document (kind TEXT with a stored asset) keeps its
+      // text-only turn on the caption - same as before vision.
     }
 
     const answered = await prisma.message.findFirst({
