@@ -1,0 +1,285 @@
+import { API_BASE_URL, DASHBOARD_URL } from "@/lib/docs-data";
+
+// Hand-written guides (server-side content; rendered with react-markdown).
+// English, developer-facing. Code samples use the deployment's API base URL.
+
+export type Guide = {
+  eyebrow: string;
+  title: string;
+  description: string;
+  markdown: string;
+};
+
+const API = API_BASE_URL;
+
+const INTRODUCTION = `The CSQ API lets you drive the platform programmatically: exchange credentials for tokens, list the tools your AI agent can use, and execute those tools against your store's data through the same permission-checked Tool Gateway the agent uses.
+
+Everything lives under one base URL:
+
+\`\`\`text
+${API}
+\`\`\`
+
+## What you can build
+
+- **Order and product automation** - create orders, update stock, or read catalog data from your own systems.
+- **Custom integrations** - connect your POS, ERP, or internal tooling to the same business data the WhatsApp agent reads and writes.
+- **Agent operations** - inspect the tool registry and execute any tool the agent is allowed to use.
+
+## Response envelope
+
+Every JSON endpoint returns the same envelope. Successful responses carry \`data\`; failures carry an \`error\` with a machine-readable \`code\` and a human message:
+
+\`\`\`json
+{
+  "success": true,
+  "data": { "items": [] }
+}
+\`\`\`
+
+\`\`\`json
+{
+  "success": false,
+  "error": { "code": "UNAUTHORIZED", "message": "Bearer token required" }
+}
+\`\`\`
+
+## Versioning
+
+The product API is versioned in the path (\`/api/v1/...\`). Breaking changes ship under a new version prefix; additive changes can appear within a version.
+
+## Where to go next
+
+- [Quickstart](/quickstart) - mint a key and make your first call.
+- [API keys](/authentication) - the credential types and how to manage them.
+- [API reference](/reference) - every endpoint, generated from the route contract.`;
+
+const QUICKSTART = `This walks you from zero to a working API call in a couple of minutes.
+
+## 1. Create an API key
+
+Sign in to the CSQ dashboard, open **Settings -> Kunci API**, give the key a name, and click **Buat Kunci**.
+
+The full token is shown **exactly once** - copy it immediately. Only its hash is stored on our side, so a lost token cannot be recovered; you would revoke it and create a new one.
+
+Store the token server-side (environment variable or secret manager). Never ship it in a browser app or mobile binary.
+
+## 2. Make your first request
+
+List the tools registered for your agent:
+
+\`\`\`bash
+curl -H "Authorization: Bearer $CSQ_API_KEY" \\
+  ${API}/api/v1/tools
+\`\`\`
+
+You get an array of tool summaries - name, description, category, and default permission:
+
+\`\`\`json
+{
+  "success": true,
+  "data": [
+    {
+      "name": "get_product",
+      "description": "Look up a product by SKU or name",
+      "category": "product",
+      "defaultPermission": { "allowed": true, "requiresApproval": false }
+    }
+  ]
+}
+\`\`\`
+
+## 3. Execute a tool
+
+Call a tool with your agent's ID and the tool parameters. Parameters are validated server-side by the same schema the agent uses:
+
+\`\`\`bash
+curl -X POST "${API}/api/v1/tools/get_product" \\
+  -H "Authorization: Bearer $CSQ_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"agentId": "YOUR_AGENT_ID", "params": {"sku": "KOPI-001"}}'
+\`\`\`
+
+Find your agent ID in the dashboard (Agent settings). The response is the tool's result, wrapped in the standard envelope.
+
+## 4. Handle errors
+
+Failed calls return HTTP status codes plus the error envelope. Read [Errors & limits](/errors) for the full code table, and [User sessions](/sessions) if you need per-user tokens instead of a tenant key.`;
+
+const AUTHENTICATION = `The API accepts three credential types, all sent as a Bearer token in the \`Authorization\` header.
+
+## Credential types
+
+| Credential | Created in | Use it for |
+| --- | --- | --- |
+| Tenant API key | Dashboard -> Settings -> Kunci API | Server-to-server integrations for your whole tenant |
+| User access JWT | \`POST /api/v1/auth/token\` | Acting as a specific user (short-lived) |
+| Service token | Platform environment | Internal platform services only; cannot execute tools |
+
+## Tenant API keys
+
+A tenant API key represents your business, not a person. Rules worth knowing:
+
+- The full token is displayed **once**, at creation. Only a sha256 hash is stored.
+- The visible \`prefix\` identifies the key later (in the dashboard and in this API's docs).
+- **Revoking is immediate**: any request with a revoked key fails with \`401\`.
+- A key belongs to exactly one tenant and can never reach another tenant's data.
+
+\`\`\`bash
+curl -H "Authorization: Bearer $CSQ_API_KEY" \\
+  ${API}/api/v1/tools
+\`\`\`
+
+### Key hygiene
+
+- Keep keys in server-side environment variables or a secret manager.
+- Use one key per integration so you can revoke one without breaking others.
+- Rotate on a schedule: create the new key, deploy it, revoke the old one.
+
+## Checking what a token can do
+
+Permissions are enforced per tool by the Tool Gateway, not by the token type alone. List the registry (\`GET /api/v1/tools\`) and check each tool's \`defaultPermission\`. A tool that \`requiresApproval\` returns a permission outcome the agent (or your integration) must resolve through the approval flow.
+
+## Next
+
+- [User sessions](/sessions) - the JWT exchange and refresh flow.
+- [API reference](/reference) - per-endpoint schemas.`;
+
+const SESSIONS = `User sessions let an integration act as a specific CSQ user. The flow is a standard access/refresh pair.
+
+## Exchange credentials for tokens
+
+\`\`\`bash
+curl -X POST "${API}/api/v1/auth/token" \\
+  -H "Content-Type: application/json" \\
+  -d '{"email": "owner@tokokopi.id", "password": "..."}'
+\`\`\`
+
+Response:
+
+\`\`\`json
+{
+  "success": true,
+  "data": {
+    "accessToken": "eyJ...",
+    "refreshToken": "c1b2...",
+    "tokenType": "Bearer",
+    "expiresIn": 900
+  }
+}
+\`\`\`
+
+- \`accessToken\` - a signed JWT, valid for **15 minutes**. Send it as \`Authorization: Bearer <accessToken>\`.
+- \`refreshToken\` - an opaque token, valid for **30 days**. Store it server-side.
+
+Login is rate limited to 5 requests per minute per IP and timing-equalized to reduce credential probing.
+
+## Refresh rotation
+
+Exchange the refresh token for a new pair:
+
+\`\`\`bash
+curl -X POST "${API}/api/v1/auth/refresh" \\
+  -H "Content-Type: application/json" \\
+  -d '{"refreshToken": "$REFRESH_TOKEN"}'
+\`\`\`
+
+**Every refresh revokes the presented token.** Replaying a used refresh token returns \`401\` - that is the replay-protection design, not an error to retry. Always persist the new refresh token from the response.
+
+Refresh is rate limited to 20 requests per minute per IP.
+
+## Logout
+
+\`\`\`bash
+curl -X POST "${API}/api/v1/auth/logout" \\
+  -H "Content-Type: application/json" \\
+  -d '{"refreshToken": "$REFRESH_TOKEN"}'
+\`\`\`
+
+Logout revokes the refresh token (idempotent - calling it twice is fine). Access tokens are stateless JWTs and expire on their own within 15 minutes.
+
+## When to use which credential
+
+Use a **tenant API key** for server-to-server automation where no specific user context is needed. Use **user sessions** when the integration must act on behalf of a person, or when you are building a client that signs users in.`;
+
+const ERRORS = `## Error envelope
+
+Every failure returns the standard envelope with an HTTP status and a machine-readable code:
+
+\`\`\`json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "params.sku is required"
+  }
+}
+\`\`\`
+
+Branch on \`error.code\`, not on the message text - messages are human-facing and may change.
+
+## Codes
+
+| Code | Typical HTTP | Meaning |
+| --- | --- | --- |
+| \`UNAUTHORIZED\` | 401 | Missing, invalid, or revoked Bearer token |
+| \`PERMISSION_DENIED\` | 403 | Token valid, action not allowed (tool permission, wrong tenant, or service token used for a tenant action) |
+| \`VALIDATION_ERROR\` | 400 | Request body or parameters failed schema validation |
+| \`NOT_FOUND\` | 404 | Tool or entity does not exist |
+| \`METHOD_NOT_ALLOWED\` | 405 | Wrong HTTP method for the endpoint |
+| \`INTERNAL_ERROR\` | 500 | Server-side failure; safe to retry with backoff |
+
+## Rate limits
+
+| Endpoint group | Limit |
+| --- | --- |
+| \`POST /api/v1/auth/token\` | 5 requests / minute / IP |
+| \`POST /api/v1/auth/refresh\` | 20 requests / minute / IP |
+| Tool execution | 60 requests / minute / API key |
+| Meta webhook | Per-IP burst limit |
+
+Exceeding a limit returns \`429\`. Back off exponentially; do not retry in a tight loop.
+
+## Request IDs
+
+Responses carry an \`X-Request-Id\` header. Include it when reporting an issue - it ties the request to server-side logs.
+
+## Retries
+
+Retry on \`429\`, \`500\`, and network timeouts with exponential backoff and jitter. Do **not** retry \`400\`, \`401\`, \`403\`, or \`404\` - the request or credential must change first. A rotated refresh token (\`401\` on refresh) must never be retried; persist the new token instead.`;
+
+export const GUIDES: Record<string, Guide> = {
+  introduction: {
+    eyebrow: "Get started",
+    title: "Introduction",
+    description:
+      "The CSQ API for programmatic access to your WhatsApp AI agent and your store's business data.",
+    markdown: INTRODUCTION,
+  },
+  quickstart: {
+    eyebrow: "Get started",
+    title: "Quickstart",
+    description: "Mint an API key and make your first call in a couple of minutes.",
+    markdown: QUICKSTART,
+  },
+  authentication: {
+    eyebrow: "Authentication",
+    title: "API keys",
+    description: "The credential types the API accepts, and how to manage tenant API keys.",
+    markdown: AUTHENTICATION,
+  },
+  sessions: {
+    eyebrow: "Authentication",
+    title: "User sessions",
+    description: "Exchange user credentials for short-lived access tokens and rotate refresh tokens.",
+    markdown: SESSIONS,
+  },
+  errors: {
+    eyebrow: "Guides",
+    title: "Errors & limits",
+    description: "The error envelope, code table, rate limits, and retry guidance.",
+    markdown: ERRORS,
+  },
+};
+
+export { DASHBOARD_URL };

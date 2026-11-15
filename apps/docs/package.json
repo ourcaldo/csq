@@ -1,0 +1,26 @@
+{
+  "name": "@csq/docs",
+  "version": "4.5.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 3003",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@csq/core": "*",
+    "@phosphor-icons/react": "^2.1.10",
+    "next": "14.2",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-markdown": "^9.0.1",
+    "remark-gfm": "^4.0.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.16.11",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.1",
+    "typescript": "^5.6.3"
+  }
+}

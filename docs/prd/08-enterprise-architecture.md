@@ -27,7 +27,16 @@ are tick-drained tables). What changes is the service topology.
     (developer-facing), with a getting-started auth section (where to mint
     a tenant key, Bearer usage, a first curl). The tenant Settings page
     gained the matching Kunci API section (see PRD 03 amendment
-    2026-11-15) and links to it.
+    2026-11-15) and links to it. Addendum 2026-11-15 (owner direction):
+    the documentation is its OWN app - `apps/docs` (`@csq/docs`), a
+    Mintlify-style site (top bar with search, left sidebar, content
+    column, right "On this page" TOC) meant to move to docs.domain.com as
+    a separate deployment. The api service no longer serves the page.
+    The API contract + OpenAPI builder moved to `packages/core`
+    (`lib/api-contract.ts`, `lib/openapi-doc.ts`) so the docs app builds
+    the spec locally with no network dependency; operation slugs are part
+    of the contract (stable docs URLs). The tenant Settings link now uses
+    `DOCS_URL` (defaults to the csq-docs service).
 -   `apps/worker` - the customer-serving runtime: the ONLY WhatsApp socket
     owner (Baileys channels), scheduler, campaign engine ticks, and the
     outbound-send outbox drain. Long-lived state lives here; web deploys

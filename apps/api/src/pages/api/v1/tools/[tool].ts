@@ -7,7 +7,7 @@ import { assignRequestId } from "@csq/core/lib/request-id";
 import { checkRateLimit } from "@csq/core/lib/rate-limit";
 import { apiError, apiOk, type ApiResponse } from "@csq/core/types/api";
 import type { ApprovalPayload } from "@csq/core/types/tools";
-import { toolCallRequestSchema } from "@/lib/api-contract";
+import { toolCallRequestSchema } from "@csq/core/lib/api-contract";
 
 // POST /api/v1/tools/[tool] - the agent-facing tool endpoint over the token
 // realm (PRD 23C Phase 7). Body: { agentId, params }. Auth: a tenant API key

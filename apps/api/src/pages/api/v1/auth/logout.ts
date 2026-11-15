@@ -4,7 +4,7 @@ import { withSystemContext } from "@csq/core/lib/tenant-context";
 import { assignRequestId } from "@csq/core/lib/request-id";
 import { hashRefreshToken } from "@csq/core/lib/refresh-tokens";
 import { apiError, apiOk, type ApiResponse } from "@csq/core/types/api";
-import { refreshTokenRequestSchema, type LogoutResult } from "@/lib/api-contract";
+import { refreshTokenRequestSchema, type LogoutResult } from "@csq/core/lib/api-contract";
 
 // POST /api/v1/auth/logout - revoke a refresh token (PRD 23C Phase 8).
 // Idempotent and always 200: the response must not reveal whether the token

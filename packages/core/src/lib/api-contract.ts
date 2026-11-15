@@ -56,6 +56,8 @@ export type ApiSecurity = "none" | "bearer" | "service";
 export type ApiOperation = {
   method: "get" | "post";
   path: string;
+  /** Stable docs URL slug (docs pages must not change when paths change). */
+  slug: string;
   summary: string;
   description?: string;
   tags: string[];
@@ -85,6 +87,7 @@ export const API_OPERATIONS: ApiOperation[] = [
   {
     method: "post",
     path: "/api/v1/auth/token",
+    slug: "auth-token",
     summary: "Exchange email and password for an access JWT and refresh token",
     tags: ["Auth"],
     security: "none",
@@ -100,6 +103,7 @@ export const API_OPERATIONS: ApiOperation[] = [
   {
     method: "post",
     path: "/api/v1/auth/refresh",
+    slug: "auth-refresh",
     summary: "Rotate a refresh token for a fresh pair",
     description: "The presented refresh token is always revoked. Replaying a used token returns 401.",
     tags: ["Auth"],
@@ -115,6 +119,7 @@ export const API_OPERATIONS: ApiOperation[] = [
   {
     method: "post",
     path: "/api/v1/auth/logout",
+    slug: "auth-logout",
     summary: "Revoke a refresh token (idempotent)",
     tags: ["Auth"],
     security: "none",
@@ -127,6 +132,7 @@ export const API_OPERATIONS: ApiOperation[] = [
   {
     method: "get",
     path: "/api/v1/tools",
+    slug: "tools-list",
     summary: "List registered tools",
     tags: ["Tools"],
     security: "bearer",
@@ -138,6 +144,7 @@ export const API_OPERATIONS: ApiOperation[] = [
   {
     method: "post",
     path: "/api/v1/tools/{tool}",
+    slug: "tools-execute",
     summary: "Execute a tool",
     description:
       "Tenant API keys and user access JWTs may execute tools. Service tokens cannot. The agent must belong to the token's tenant.",
@@ -169,6 +176,7 @@ export const API_OPERATIONS: ApiOperation[] = [
   {
     method: "get",
     path: "/api/v1/webhook-diag",
+    slug: "webhook-diag",
     summary: "Recent webhook rejection diagnostics",
     description: "Service-token only. Memory-only entries, capped and reset on deploy.",
     tags: ["Operations"],
@@ -185,6 +193,7 @@ export const API_OPERATIONS: ApiOperation[] = [
   {
     method: "get",
     path: "/api/media/{id}",
+    slug: "media-get",
     summary: "Fetch a stored media asset",
     description:
       "Unauthenticated by design: Meta's Cloud API fetcher must reach the image. The unguessable UUID is the access control; responses are immutable and cached for one year.",
@@ -217,6 +226,7 @@ export const API_OPERATIONS: ApiOperation[] = [
     // spec itself, and the Meta webhook live on this service.
     method: "get",
     path: "/api/health",
+    slug: "health",
     summary: "Liveness and database connectivity probe",
     description:
       "Used by the platform health checks and the alert cron. Also the boot hook for this process's scenario-engine event subscription.",
@@ -233,6 +243,7 @@ export const API_OPERATIONS: ApiOperation[] = [
   {
     method: "get",
     path: "/api/v1/openapi",
+    slug: "openapi",
     summary: "This OpenAPI document",
     tags: ["Operations"],
     security: "none",
@@ -247,6 +258,7 @@ export const API_OPERATIONS: ApiOperation[] = [
   {
     method: "get",
     path: "/api/webhooks/whatsapp",
+    slug: "webhooks-verify",
     summary: "Meta webhook verification handshake",
     description:
       "Meta calls this once when the callback URL is configured. The hub.verify_token must match a CLOUD_API channel's stored verify token.",
@@ -268,6 +280,7 @@ export const API_OPERATIONS: ApiOperation[] = [
   {
     method: "post",
     path: "/api/webhooks/whatsapp",
+    slug: "webhooks-events",
     summary: "Meta webhook inbound events",
     description:
       "Inbound Cloud API messages and status updates. Signature-verified (X-Hub-Signature-256, fail-closed); always acknowledged 200 quickly per Meta's 5 second requirement. Inbound messages are ingested and the agent turn runs fire-and-forget.",

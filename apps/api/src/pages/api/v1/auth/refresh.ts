@@ -10,7 +10,7 @@ import {
   REFRESH_TOKEN_TTL_MS,
 } from "@csq/core/lib/refresh-tokens";
 import { apiError, apiOk, type ApiResponse } from "@csq/core/types/api";
-import { refreshTokenRequestSchema, type TokenPair } from "@/lib/api-contract";
+import { refreshTokenRequestSchema, type TokenPair } from "@csq/core/lib/api-contract";
 
 // POST /api/v1/auth/refresh - rotate a refresh token for a fresh pair
 // (PRD 23C Phase 8). The presented token is ALWAYS revoked - replaying a

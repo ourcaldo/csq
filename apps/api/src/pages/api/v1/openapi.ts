@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { buildOpenApiDocument } from "@/lib/openapi";
+import { buildOpenApiDocument } from "@csq/core/lib/openapi-doc";
 
-// GET /api/v1/openapi - generated from apps/api/src/lib/api-contract.ts.
+// GET /api/v1/openapi - generated from packages/core/src/lib/api-contract.ts.
 // The route handlers import the same request schemas, so adding or changing a
 // schema updates the spec with it. No hand-written path objects.
 

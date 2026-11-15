@@ -2,6 +2,13 @@
 
 Version format: `XX.YY.ZZ` - YY (minor) and ZZ (patch) stay within 0-10; XX (major) may grow beyond. Minor = new feature/behavior change, patch = fix, major = breaking change (schema, API contract, env vars).
 
+## 4.5.0 - 2026-11-15 (branch `monorepo`)
+
+Standalone API documentation site. Minor: new app; the API contract moved to core (no API change).
+
+- **apps/docs (`@csq/docs`) - Mintlify-style documentation (PRD 08 addendum 2026-11-15):** a separate Next app built to become docs.domain.com - top bar with Cmd/Ctrl+K search, left sidebar with section groups and method chips, content column with eyebrow/title/copy-page, right "On this page" TOC with scroll-spy, mobile drawer. Hand-written guides (Introduction, Quickstart, API keys, User sessions, Errors & limits) plus a per-endpoint API reference generated from the SAME contract the api service serves at `/api/v1/openapi` - page, JSON, and routes cannot drift. Deployed as the `csq-docs` Render service.
+- **API contract moved to `packages/core`:** `lib/api-contract.ts` + `lib/openapi-doc.ts`, with stable per-operation slugs (docs URLs never change when paths change). Both apps/api and apps/docs build the spec locally - no network dependency; apps/api no longer needs zod-to-json-schema directly. The old `/documentation` page on the api service was removed; the tenant Settings link now uses `DOCS_URL` (defaults to the csq-docs service).
+
 ## 4.4.0 - 2026-11-15 (branch `monorepo`)
 
 The product API becomes usable by tenants. Minor: new UI + public docs, no schema change (all backend pieces shipped in 4.0.0).

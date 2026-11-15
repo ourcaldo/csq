@@ -315,7 +315,10 @@ export default function SettingsPage({ apiDocsUrl }: { apiDocsUrl: string }) {
 
 export const getServerSideProps: GetServerSideProps = withAuth<{ apiDocsUrl: string }>(
   async () => ({
-    props: { apiDocsUrl: `${process.env.API_URL ?? ""}/documentation` },
+    props: {
+      // The docs live in their own app now (apps/docs, later docs.domain.com).
+      apiDocsUrl: process.env.DOCS_URL ?? "https://csq-docs.onrender.com",
+    },
   }),
   // SEC-3 (PRD 16): configuration pages are OWNER-only (PRD 15.9).
   { requiredRole: "OWNER" }

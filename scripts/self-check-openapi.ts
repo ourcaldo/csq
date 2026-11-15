@@ -1,4 +1,4 @@
-import { buildOpenApiDocument } from "../apps/api/src/lib/openapi";
+import { buildOpenApiDocument } from "@csq/core/lib/openapi-doc";
 
 // Self-check for the generated OpenAPI contract (PRD 09). Run with:
 //   npm run check:openapi

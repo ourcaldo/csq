@@ -7,6 +7,7 @@ import { API_OPERATIONS, type ApiOperation } from "./api-contract";
 // spec and the code cannot drift.
 
 export type OpenApiOperation = {
+  operationId: string;
   summary: string;
   description?: string;
   tags: string[];
@@ -81,6 +82,7 @@ function operationDocument(op: ApiOperation): OpenApiOperation {
   }
 
   const document: OpenApiOperation = {
+    operationId: op.slug,
     summary: op.summary,
     tags: op.tags,
     security: op.security === "none" ? [] : [{ bearerAuth: [] }],
@@ -125,8 +127,9 @@ export function buildOpenApiDocument(): OpenApiDocument {
     tags: [
       { name: "Auth", description: "Credential exchange and refresh-token rotation" },
       { name: "Tools", description: "Tool Gateway execution" },
-      { name: "Operations", description: "Service-only diagnostics" },
       { name: "Media", description: "Stored media assets" },
+      { name: "Operations", description: "Service diagnostics and infrastructure probes" },
+      { name: "Webhooks", description: "Meta Cloud API webhook endpoints" },
     ],
     components: {
       securitySchemes: {

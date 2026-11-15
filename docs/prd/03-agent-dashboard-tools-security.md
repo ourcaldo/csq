@@ -257,8 +257,8 @@ handle customer conversations alongside the AI agent.
     a named key (the plaintext token displays exactly once, with a copy
     button; afterwards only the sha256 hash exists), the key list
     (prefix, created, last used, status), and soft revoke. The section
-    links to the public API documentation at
-    `{API_URL}/documentation` (PRD 08 amendment 2026-11-15).
+    links to the public API documentation (PRD 08 amendment 2026-11-15) -
+    now the separate docs app (`apps/docs`), URL from `DOCS_URL`.
 -   **Private notes (MVP):** staff can add internal notes to a
     conversation — visible to team members only, never sent to the
     customer (like Cekat.AI's Private Note feature).
