@@ -251,6 +251,14 @@ handle customer conversations alongside the AI agent.
     in the Tool Gateway; this layer is judgment, never data-access
     enforcement. Thresholds were tuned on the 2026-11-13 Indonesian pilot
     and are asserted by `npm run check:guardrail`.
+    Amendment 2026-11-15 (owner request, API keys UI): the tenant Settings
+    page gained a Kunci API section (OWNER-only) - the tenant-side UI for
+    the /api/v1 key mint routes that shipped in PRD 23C Phase 7: create
+    a named key (the plaintext token displays exactly once, with a copy
+    button; afterwards only the sha256 hash exists), the key list
+    (prefix, created, last used, status), and soft revoke. The section
+    links to the public API documentation at
+    `{API_URL}/documentation` (PRD 08 amendment 2026-11-15).
 -   **Private notes (MVP):** staff can add internal notes to a
     conversation — visible to team members only, never sent to the
     customer (like Cekat.AI's Private Note feature).

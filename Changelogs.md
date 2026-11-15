@@ -2,6 +2,13 @@
 
 Version format: `XX.YY.ZZ` - YY (minor) and ZZ (patch) stay within 0-10; XX (major) may grow beyond. Minor = new feature/behavior change, patch = fix, major = breaking change (schema, API contract, env vars).
 
+## 4.4.0 - 2026-11-15 (branch `monorepo`)
+
+The product API becomes usable by tenants. Minor: new UI + public docs, no schema change (all backend pieces shipped in 4.0.0).
+
+- **Tenant API-keys UI (PRD 03 amendment 2026-11-15):** the Settings page gained a Kunci API section (OWNER-only) - the tenant-side UI for the Phase-7 mint routes: create a named key (plaintext displayed exactly once with a copy button and a hide action; only the sha256 hash is stored), list keys (prefix, created, last used, active/revoked), and soft revoke with confirmation. Links to the API documentation.
+- **Public API documentation (PRD 08 amendment 2026-11-15):** `/documentation` on the API service - a server-rendered, self-styled, human-readable page built from the same generated OpenAPI document as `/api/v1/openapi`, so the page and the spec cannot drift. Includes a getting-started auth section (where to mint a key, Bearer usage, first curl), endpoints grouped by tag with method badges, parameters, and request/response schemas. Public, English, no external assets.
+
 ## 4.3.0 - 2026-11-13 (branch `monorepo`)
 
 Guardrail layer on the testing stack. Minor: new agent-turn behavior, no schema change.

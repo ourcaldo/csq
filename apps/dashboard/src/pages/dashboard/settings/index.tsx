@@ -20,6 +20,7 @@ import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
 import { EmailSection } from "@/components/dashboard/settings/email-section";
 import { AutoCloseSection } from "@/components/dashboard/settings/auto-close-section";
+import { ApiKeysSection } from "@/components/dashboard/settings/api-keys-section";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { StateNotice } from "@/components/dashboard/state-notice";
 import { Button } from "@csq/ui/components/ui/button";
@@ -55,7 +56,7 @@ function isSourceType(value: string): value is SourceType {
   return value === "MANUAL" || value === "EXCEL" || value === "GOOGLE_SHEETS";
 }
 
-export default function SettingsPage() {
+export default function SettingsPage({ apiDocsUrl }: { apiDocsUrl: string }) {
   const { data: session } = useSession();
   const isOwner = session?.user?.role === "OWNER";
 
@@ -264,6 +265,10 @@ export default function SettingsPage() {
             2026-11-11; OWNER-only, same boundary as Email). */}
         {isOwner && <AutoCloseSection />}
 
+        {/* API keys - tenant-side mint/list/revoke UI for the /api/v1 realm
+            (PRD 03 amendment 2026-11-15; OWNER-only, same boundary). */}
+        {isOwner && <ApiKeysSection apiDocsUrl={apiDocsUrl} />}
+
         {/* Profil Usaha - placeholder, read-only */}
         <section className="rounded-lg border border-slate-200 bg-white p-4 md:p-6">
           <div className="flex items-start gap-3">
@@ -308,8 +313,10 @@ export default function SettingsPage() {
   );
 }
 
-export const getServerSideProps: GetServerSideProps = withAuth<Record<string, unknown>>(
-  async () => ({ props: {} }),
+export const getServerSideProps: GetServerSideProps = withAuth<{ apiDocsUrl: string }>(
+  async () => ({
+    props: { apiDocsUrl: `${process.env.API_URL ?? ""}/documentation` },
+  }),
   // SEC-3 (PRD 16): configuration pages are OWNER-only (PRD 15.9).
   { requiredRole: "OWNER" }
 );

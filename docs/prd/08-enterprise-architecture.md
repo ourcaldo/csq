@@ -19,6 +19,15 @@ are tick-drained tables). What changes is the service topology.
     mobile clients, internal service tokens for the dashboard BFF), the
     Tool Gateway HTTP surface, WhatsApp webhooks, media serving, rate
     limiting, request IDs, OpenAPI documentation. Stateless.
+    Amendment 2026-11-15 (owner request): public human-readable API
+    documentation at `/documentation` on the api service - a
+    server-rendered page built from the same generated OpenAPI document
+    served at `/api/v1/openapi`, so the page, the raw JSON, and the route
+    contracts cannot drift. Public (no secrets in the spec), English
+    (developer-facing), with a getting-started auth section (where to mint
+    a tenant key, Bearer usage, a first curl). The tenant Settings page
+    gained the matching Kunci API section (see PRD 03 amendment
+    2026-11-15) and links to it.
 -   `apps/worker` - the customer-serving runtime: the ONLY WhatsApp socket
     owner (Baileys channels), scheduler, campaign engine ticks, and the
     outbound-send outbox drain. Long-lived state lives here; web deploys
