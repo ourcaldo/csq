@@ -96,8 +96,18 @@ async function chatCompletionOnce(
       res.status === 429 || res.status >= 500
     );
   }
-  // External boundary → Zod parse, never `as`.
-  return chatCompletionResponseSchema.parse(await res.json());
+  // External boundary → Zod parse, never `as`. A shape mismatch logs a bounded
+  // raw sample: provider compat layers change silently, and without it the
+  // only trace is a zod path (bug fix 4.6.2).
+  const body: unknown = await res.json();
+  const parsed = chatCompletionResponseSchema.safeParse(body);
+  if (!parsed.success) {
+    console.error(
+      `[llm-runtime] unexpected chat completion shape: ${JSON.stringify(body).slice(0, 2000)}`
+    );
+    throw parsed.error;
+  }
+  return parsed.data;
 }
 
 async function chatCompletion(
@@ -198,7 +208,9 @@ export async function runConversation(args: RunConversationArgs): Promise<RunRes
     const msg = choice.message;
     messages.push({
       role: "assistant",
-      content: msg.content,
+      // null, not undefined: the message is echoed back verbatim and Gemini
+      // omits content on tool-call turns.
+      content: msg.content ?? null,
       tool_calls: msg.tool_calls,
     });
 

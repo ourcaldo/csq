@@ -2,6 +2,15 @@
 
 Version format: `XX.YY.ZZ` - YY (minor) and ZZ (patch) stay within 0-10; XX (major) may grow beyond. Minor = new feature/behavior change, patch = fix, major = breaking change (schema, API contract, env vars).
 
+## 4.6.2 - 2026-11-16 (branch `monorepo`)
+
+AI stopped answering customer messages that needed a tool (owner report 2026-11-16: two messages left unanswered, then auto-escalated after 11 retries).
+
+- **Root cause:** Gemini 3's OpenAI-compatible endpoint omits `content` on a tool-call message (the key is absent, not null) and attaches the required thought signature to the first tool call in `extra_content`. The response schema required `content`, so every tool-using turn failed the parse, retried 11 times, and handed the conversation to staff.
+- **Fix:** `content` is nullish in the response schema and the runtime echoes the assistant message back with `content: null`; `extra_content` (the thought signature) is preserved on tool calls and echoed unchanged - without it the follow-up request is rejected with `400 INVALID_ARGUMENT`.
+- A shape mismatch now logs a bounded raw response sample (`[llm-runtime] unexpected chat completion shape`) so a future provider change is diagnosable from the worker log.
+- New `npm run check:llm` self-check pins both response shapes.
+
 ## 4.6.1 - 2026-11-15 (branch `monorepo`)
 
 Inbox sender labels (owner request 2026-11-15).

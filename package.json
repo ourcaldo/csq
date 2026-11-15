@@ -1,6 +1,6 @@
 {
   "name": "csq",
-  "version": "4.6.1",
+  "version": "4.6.2",
   "private": true,
   "type": "module",
   "engines": {
@@ -26,6 +26,7 @@
     "check:alerts": "tsx scripts/alert-check.ts",
     "check:kpi": "tsx scripts/self-check-kpi.ts",
     "check:vision": "tsx scripts/self-check-vision.ts",
+    "check:llm": "tsx scripts/self-check-llm-shape.ts",
     "check:guardrail": "tsx scripts/self-check-guardrail.ts",
     "check:rls": "tsx scripts/self-check-rls.ts",
     "check:billing": "tsx scripts/self-check-billing.ts",
