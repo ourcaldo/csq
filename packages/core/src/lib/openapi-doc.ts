@@ -127,6 +127,7 @@ export function buildOpenApiDocument(): OpenApiDocument {
     tags: [
       { name: "Auth", description: "Credential exchange and refresh-token rotation" },
       { name: "Tools", description: "Tool Gateway execution" },
+      { name: "Messages", description: "Outbound WhatsApp messaging" },
       { name: "Media", description: "Stored media assets" },
       { name: "Operations", description: "Service diagnostics and infrastructure probes" },
       { name: "Webhooks", description: "Meta Cloud API webhook endpoints" },

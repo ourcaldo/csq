@@ -13,7 +13,7 @@ type OverviewItem = { title: string; href: string; method: string; path: string 
 type OverviewGroup = { tag: string; items: OverviewItem[] };
 type Props = { nav: DocsNav; overview: OverviewGroup[] };
 
-const TAG_ORDER = ["Auth", "Tools", "Media", "Operations", "Webhooks"];
+const TAG_ORDER = ["Auth", "Tools", "Messages", "Media", "Operations", "Webhooks"];
 
 export const getStaticProps: GetStaticProps<Props> = async () => {
   const overview: OverviewGroup[] = [];

@@ -557,6 +557,9 @@ model OutboundMessage {
   body         String?
   templateName String?
   language     String?
+  // Image sends (PRD 24): the MediaAsset to send; `body` becomes the caption.
+  // The worker loads the bytes and sends through the channel's provider.
+  mediaId      String?
   source       OutboundSource
   status       OutboundStatus @default(QUEUED)
   waMessageId  String?

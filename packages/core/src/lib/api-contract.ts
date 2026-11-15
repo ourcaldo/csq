@@ -83,6 +83,38 @@ export type ApiOperation = {
   >;
 };
 
+// Outbound messaging API (PRD 24): send a text, an image, or an image with a
+// caption through the tenant's connected channel. `text` becomes the caption
+// when `media` is present.
+export const sendMessageRequestSchema = z
+  .object({
+    to: z
+      .string()
+      .min(8)
+      .max(20)
+      .regex(/^\+?[0-9]+$/, "to must be digits with an optional leading +"),
+    text: z.string().min(1).max(4096).optional(),
+    media: z
+      .object({
+        url: z.string().url().max(2048),
+      })
+      .optional(),
+    channelId: z.string().uuid().optional(),
+  })
+  .refine((value) => Boolean(value.text) || Boolean(value.media), {
+    message: "text or media is required",
+    path: ["text"],
+  });
+
+export const sendMessageResultSchema = z.object({
+  messageId: z.string(),
+  conversationId: z.string(),
+  waMessageId: z.string().optional(),
+});
+
+export type SendMessageRequest = z.infer<typeof sendMessageRequestSchema>;
+export type SendMessageResult = z.infer<typeof sendMessageResultSchema>;
+
 export const API_OPERATIONS: ApiOperation[] = [
   {
     method: "post",
@@ -171,6 +203,27 @@ export const API_OPERATIONS: ApiOperation[] = [
       "404": { description: "Tool or entity not found" },
       "429": { description: "Rate limited (60 requests per minute per key)" },
       "500": { description: "Tool execution failed" },
+    },
+  },
+  {
+    method: "post",
+    path: "/api/v1/messages",
+    slug: "messages-send",
+    summary: "Send a WhatsApp message",
+    description:
+      "Sends a text message, an image, or an image with a caption (text) through the tenant's connected channel. Recorded in the inbox conversation and audited; the agent keeps owning the conversation (no takeover). On the Cloud API, free-form sends are only allowed within 24 hours of the customer's last inbound message.",
+    tags: ["Messages"],
+    security: "bearer",
+    request: sendMessageRequestSchema,
+    responses: {
+      "200": { description: "Message sent and recorded", data: sendMessageResultSchema },
+      "400": { description: "Invalid payload, or the media URL is not a fetchable image" },
+      "401": { description: "Bearer token required" },
+      "403": { description: "Service token used, or channel outside your tenant" },
+      "409": { description: "No connected WhatsApp channel" },
+      "422": { description: "Cloud API 24h window closed - an approved template is required" },
+      "429": { description: "Rate limited (60 requests per minute per credential)" },
+      "502": { description: "Provider send failed" },
     },
   },
   {

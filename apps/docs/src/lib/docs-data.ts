@@ -15,7 +15,7 @@ export type NavLink = { title: string; href: string; method?: string };
 export type NavGroup = { label: string; items: NavLink[] };
 export type DocsNav = { guides: NavGroup[]; reference: NavGroup[]; all: NavLink[] };
 
-const TAG_ORDER = ["Auth", "Tools", "Media", "Operations", "Webhooks"];
+const TAG_ORDER = ["Auth", "Tools", "Messages", "Media", "Operations", "Webhooks"];
 
 export function tagSlug(tag: string): string {
   return tag.toLowerCase();
@@ -44,7 +44,10 @@ export function getDocsNav(): DocsNav {
     },
     {
       label: "Guides",
-      items: [{ title: "Errors & limits", href: "/errors" }],
+      items: [
+        { title: "Sending messages", href: "/messages" },
+        { title: "Errors & limits", href: "/errors" },
+      ],
     },
   ];
   const reference: NavGroup[] = [];

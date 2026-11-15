@@ -2,6 +2,7 @@ import prisma from "@csq/core/lib/db";
 import type { Channel, OutboundMessage, OutboundSource } from "@prisma/client";
 import { getProvider } from "@csq/core/lib/whatsapp-provider";
 import { withSystemLock } from "@csq/core/lib/system-lock";
+import { publicMediaUrl } from "@csq/core/lib/media-url";
 import {
   withSystemContext,
   withTenantContext,
@@ -28,6 +29,7 @@ export async function enqueueOutbound(input: {
   body?: string;
   templateName?: string;
   language?: string;
+  mediaId?: string;
   source: OutboundSource;
 }): Promise<string> {
   const row = await prisma.outboundMessage.create({
@@ -38,6 +40,7 @@ export async function enqueueOutbound(input: {
       body: input.body ?? null,
       templateName: input.templateName ?? null,
       language: input.language ?? null,
+      mediaId: input.mediaId ?? null,
       source: input.source,
     },
     select: { id: true },
@@ -100,13 +103,30 @@ export async function drainOutbox(): Promise<void> {
             throw new Error("Channel tidak terhubung.");
           }
           const provider = getProvider(channel);
-          const result = row.templateName
-            ? await provider.sendTemplate({
-                to: row.toJid,
-                templateName: row.templateName,
-                languageCode: row.language ?? "id",
-              })
-            : await provider.sendText({ to: row.toJid, body: row.body ?? "" });
+          let result: { waMessageId?: string };
+          if (row.mediaId) {
+            // Image send (PRD 24): `body` is the caption when present.
+            const asset = await prisma.mediaAsset.findUnique({
+              where: { id: row.mediaId },
+              select: { data: true, mimeType: true },
+            });
+            if (!asset) throw new Error("Media asset not found.");
+            result = await provider.sendImage({
+              to: row.toJid,
+              link: publicMediaUrl(row.mediaId),
+              bytes: Buffer.from(asset.data),
+              mimeType: asset.mimeType,
+              ...(row.body && row.body.length > 0 ? { caption: row.body } : {}),
+            });
+          } else if (row.templateName) {
+            result = await provider.sendTemplate({
+              to: row.toJid,
+              templateName: row.templateName,
+              languageCode: row.language ?? "id",
+            });
+          } else {
+            result = await provider.sendText({ to: row.toJid, body: row.body ?? "" });
+          }
           await prisma.outboundMessage.update({
             where: { id: row.id },
             data: {

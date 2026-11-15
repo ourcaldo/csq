@@ -7,6 +7,7 @@ import {
 import { tenantActive } from "@csq/core/lib/tenant-status";
 import { findOrCreateConversation, CLOUD_API_WINDOW_MS } from "@csq/core/lib/inbox";
 import { getProvider } from "@csq/core/lib/whatsapp-provider";
+import { publicMediaUrl } from "@csq/core/lib/media-url";
 import { logAction } from "@csq/core/lib/audit";
 import { getTenantEntitlements } from "@csq/core/lib/entitlements";
 import {
@@ -37,15 +38,8 @@ const CLOSE_RUNS_PER_TICK = 20;
 // a truncated run plus an audit row. UMKM contact lists sit far below it.
 const MAX_RECIPIENTS_PER_FIRE = 5000;
 
-// The public base URL for media links - the API service (PRD 23C Phase 7:
-// media serving moved to apps/api, so links must point at its domain, not
-// the dashboard's). The Cloud API needs an HTTPS link Meta can fetch (plan
-// section 3.2.1).
-function publicMediaUrl(assetId: string): string {
-  const base = (process.env.API_URL ?? "").replace(/\/$/, "");
-  if (!base) throw new Error("API_URL is not set - cannot build the public media link");
-  return `${base}/api/media/${assetId}`;
-}
+// The public base URL for media links moved to lib/media-url.ts (shared with
+// the outbox image sends, PRD 24).
 
 export async function processCampaigns(): Promise<void> {
   // COR-1 (PRD 16): a SENDING row at tick start is from a crashed tick (the

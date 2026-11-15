@@ -2,6 +2,14 @@
 
 Version format: `XX.YY.ZZ` - YY (minor) and ZZ (patch) stay within 0-10; XX (major) may grow beyond. Minor = new feature/behavior change, patch = fix, major = breaking change (schema, API contract, env vars).
 
+## 4.6.0 - 2026-11-15 (branch `monorepo`)
+
+Outbound messaging API (PRD 24, owner decision 2026-11-15). Minor: new endpoint + schema column; no breaking change.
+
+- **`POST /api/v1/messages`:** tenants can now send WhatsApp messages from their own systems - text, image, or image with caption - through their connected channel (Cloud API or Baileys). Auth: tenant API key or user access JWT (service tokens rejected); 60/min per credential. Behavior mirrors a CRM dashboard reply: media is fetched (HTTPS image, max 10 MB) and stored before sending, the conversation is ensured (RESOLVED reopens), the Cloud API 24h window is enforced (422 WINDOW_CLOSED outside it), the send rides the worker outbox, the message is recorded OUTBOUND in the inbox thread (senderType HUMAN; senderUserId only for user JWTs; kind MEDIA + mediaId for images) and audited as `api.message_send`. Decision: API sends do NOT take the conversation over - the AI keeps owning it (dashboard replies still take over).
+- **Outbox media support:** `OutboundMessage.mediaId` (migration `20261115120000`); the worker drains image sends via `provider.sendImage` (caption = body). `publicMediaUrl` extracted to `lib/media-url.ts` (shared by campaigns and the outbox).
+- **Docs:** generated reference page for the endpoint + a "Sending messages" guide with the three request shapes, the 24h rule, and the takeover semantics.
+
 ## 4.5.0 - 2026-11-15 (branch `monorepo`)
 
 Standalone API documentation site. Minor: new app; the API contract moved to core (no API change).

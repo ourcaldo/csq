@@ -248,6 +248,81 @@ Responses carry an \`X-Request-Id\` header. Include it when reporting an issue -
 
 Retry on \`429\`, \`500\`, and network timeouts with exponential backoff and jitter. Do **not** retry \`400\`, \`401\`, \`403\`, or \`404\` - the request or credential must change first. A rotated refresh token (\`401\` on refresh) must never be retried; persist the new token instead.`;
 
+const MESSAGES = `Send a WhatsApp message from your own systems through your tenant's connected channel: a text, an image, or an image with a caption. The message appears in the CSQ inbox thread exactly like a reply typed there.
+
+## Text message
+
+\`\`\`bash
+curl -X POST "${API}/api/v1/messages" \\
+  -H "Authorization: Bearer $CSQ_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "to": "628123456789",
+    "text": "Halo Kak, pesanan Anda sudah dikirim hari ini."
+  }'
+\`\`\`
+
+## Image
+
+\`\`\`bash
+curl -X POST "${API}/api/v1/messages" \\
+  -H "Authorization: Bearer $CSQ_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "to": "628123456789",
+    "media": { "url": "https://cdn.example.com/resi.jpg" }
+  }'
+\`\`\`
+
+## Image with caption
+
+When \`media\` is present, \`text\` becomes the caption - one WhatsApp message, one chat bubble, like sending a photo with a caption by hand.
+
+\`\`\`bash
+curl -X POST "${API}/api/v1/messages" \\
+  -H "Authorization: Bearer $CSQ_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "to": "628123456789",
+    "text": "Resi pengiriman Anda, Kak.",
+    "media": { "url": "https://cdn.example.com/resi.jpg" }
+  }'
+\`\`\`
+
+Response:
+
+\`\`\`json
+{
+  "success": true,
+  "data": {
+    "messageId": "...",
+    "conversationId": "...",
+    "waMessageId": "..."
+  }
+}
+\`\`\`
+
+## Rules that matter
+
+- **At least one of \`text\` / \`media\` is required.** \`text\` max 4096 characters.
+- **Media** must be an HTTPS URL pointing at an image (png, jpeg, webp, gif), max 10 MB. It is downloaded and stored on our side before sending.
+- **24-hour window (Cloud API):** free-form messages are only allowed within 24 hours of the customer's last message. Outside it the API returns \`422 WINDOW_CLOSED\` - an approved template is required for proactive sends. Baileys channels have no such restriction.
+- **Channel:** the send uses your first connected WhatsApp channel, or the one named in \`channelId\`.
+- **Takeover:** API sends do NOT reassign the conversation or mute the AI - they count as an answer to the customer message they respond to, and the agent keeps owning the chat. (A dashboard reply takes over; the API is automation.)
+- **Rate limit:** 60 requests per minute per credential.
+- **Audit:** every send is recorded as \`api.message_send\` in the activity log.
+
+## Errors
+
+| Status | Code | Meaning |
+| --- | --- | --- |
+| 400 | \`VALIDATION_ERROR\` | Invalid body, or the media URL is not a fetchable image |
+| 403 | \`PERMISSION_DENIED\` | Service token used, or channel outside your tenant |
+| 409 | \`NO_CONNECTED_CHANNEL\` | No connected WhatsApp channel |
+| 422 | \`WINDOW_CLOSED\` | 24h window closed (Cloud API) |
+| 429 | \`RATE_LIMITED\` | 60/min per credential exceeded |
+| 502 | \`SEND_FAILED\` | The provider rejected the send |`;
+
 export const GUIDES: Record<string, Guide> = {
   introduction: {
     eyebrow: "Get started",
@@ -279,6 +354,13 @@ export const GUIDES: Record<string, Guide> = {
     title: "Errors & limits",
     description: "The error envelope, code table, rate limits, and retry guidance.",
     markdown: ERRORS,
+  },
+  messages: {
+    eyebrow: "Guides",
+    title: "Sending messages",
+    description:
+      "Send a text, an image, or an image with a caption through your tenant's connected WhatsApp channel.",
+    markdown: MESSAGES,
   },
 };
 

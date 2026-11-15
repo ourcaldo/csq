@@ -233,10 +233,14 @@ export async function recordInboundMessage(input: {
 export async function recordOutboundMessage(input: {
   tenantId: string;
   conversationId: string;
-  senderUserId: string;
+  // The JWT user behind a human send; null for automation sends (API keys,
+  // PRD 24) that carry no user identity.
+  senderUserId?: string;
   body: string;
   waMessageId?: string;
   isInternal?: boolean;
+  kind?: "TEXT" | "MEDIA";
+  mediaId?: string;
 }): Promise<Message> {
   return prisma.message.create({
     data: {
@@ -244,10 +248,12 @@ export async function recordOutboundMessage(input: {
       conversationId: input.conversationId,
       direction: "OUTBOUND",
       senderType: "HUMAN",
-      senderUserId: input.senderUserId,
+      senderUserId: input.senderUserId ?? null,
       body: input.body,
       waMessageId: input.waMessageId,
       isInternal: input.isInternal ?? false,
+      ...(input.kind ? { kind: input.kind } : {}),
+      ...(input.mediaId ? { mediaId: input.mediaId } : {}),
     },
   });
 }
