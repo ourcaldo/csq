@@ -173,10 +173,12 @@ export default async function handler(
         .json(apiError("SEND_FAILED", sendResult.error ?? "Send failed"));
     }
 
-    // Record exactly like a dashboard reply, minus the takeover (PRD 24).
+    // Record exactly like a dashboard reply, minus the takeover (PRD 24) -
+    // and labelled as an API send so the inbox shows its origin.
     const message = await recordOutboundMessage({
       tenantId: auth.tenantId,
       conversationId: conversation.id,
+      senderType: "API",
       ...(auth.kind === "JWT_USER" ? { senderUserId: auth.userId } : {}),
       body: text ?? "",
       waMessageId: sendResult.waMessageId ?? undefined,

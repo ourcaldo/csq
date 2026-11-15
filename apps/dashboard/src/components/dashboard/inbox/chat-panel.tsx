@@ -12,6 +12,7 @@ import {
   Lightning,
   FileText,
   Robot,
+  Code,
   DotsThreeVertical,
   Phone,
   ArrowLeft,
@@ -56,11 +57,15 @@ function MessageBubble({
   readByAgent,
   mediaBase,
   customerInitial,
+  myUserId,
 }: {
   m: Message;
   readByAgent: boolean;
   mediaBase: string;
   customerInitial: string;
+  // Current session user - a staff reply shows its author's name only to
+  // OTHER staff (owner request 2026-11-15).
+  myUserId: string | null;
 }) {
   // Whitespace-pre-line: agent replies carry markdown/newlines (lists, line
   // breaks) that must render as-written like WhatsApp does, not collapse.
@@ -111,12 +116,24 @@ function MessageBubble({
   const isAi = m.senderType === "AGENT";
   const isCampaign = m.senderType === "CAMPAIGN";
   const isScenario = m.senderType === "SCENARIO";
+  const isApi = m.senderType === "API";
+  // Staff replies show the author's name only when someone else is looking -
+  // your own messages need no name label (owner request 2026-11-15).
+  const showStaffName =
+    m.senderType === "HUMAN" &&
+    !!m.senderUserName &&
+    m.senderUserId !== myUserId;
   return (
     <div className="my-1 flex max-w-[80%] items-end justify-end gap-2 self-end">
       <div>
         {isAi && (
           <span className="mb-1 ml-1 inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700">
             <Robot size={12} weight="fill" /> AI
+          </span>
+        )}
+        {isApi && (
+          <span className="mb-1 ml-1 inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700">
+            <Code size={12} weight="bold" /> API
           </span>
         )}
         {isCampaign && (
@@ -127,6 +144,11 @@ function MessageBubble({
         {isScenario && (
           <span className="mb-1 ml-1 inline-flex items-center rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700">
             Skenario
+          </span>
+        )}
+        {showStaffName && (
+          <span className="mb-1 ml-1 inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">
+            {m.senderUserName}
           </span>
         )}
         <div
@@ -312,7 +334,9 @@ export function ChatPanel({ conversationId, customerName, customerPhone, aiActiv
       direction: "OUTBOUND",
       senderType: "HUMAN",
       senderAgentId: null,
-      senderUserId: null,
+      // Own optimistic reply: carry the session user id so the staff-name
+      // label logic (name only for OTHER staff) works before reconciliation.
+      senderUserId: session?.user?.id ?? null,
       // The author's name for the optimistic note bubble; replaced by the
       // server row (same field) once the POST resolves.
       senderUserName:
@@ -442,13 +466,15 @@ export function ChatPanel({ conversationId, customerName, customerPhone, aiActiv
               m={m}
               mediaBase={mediaBase}
               customerInitial={customerInitial}
+              myUserId={session?.user?.id ?? null}
               readByAgent={
                 m.direction === "INBOUND" &&
                 !!messages.some(
                   (later) =>
                     later.createdAt > m.createdAt &&
                     (later.senderType === "AGENT" ||
-                      later.senderType === "HUMAN")
+                      later.senderType === "HUMAN" ||
+                      later.senderType === "API")
                 )
               }
             />

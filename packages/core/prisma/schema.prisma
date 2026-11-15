@@ -286,6 +286,7 @@ enum MessageSenderType {
   CUSTOMER
   AGENT
   HUMAN
+  API
   SCENARIO
   CAMPAIGN
 }

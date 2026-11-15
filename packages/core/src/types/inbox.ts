@@ -3,7 +3,7 @@
 
 export type ConversationStatus = "OPEN" | "PENDING" | "RESOLVED";
 export type MessageDirection = "INBOUND" | "OUTBOUND";
-export type MessageSenderType = "CUSTOMER" | "AGENT" | "HUMAN" | "SCENARIO" | "CAMPAIGN";
+export type MessageSenderType = "CUSTOMER" | "AGENT" | "HUMAN" | "API" | "SCENARIO" | "CAMPAIGN";
 
 export type Tag = {
   id: string;

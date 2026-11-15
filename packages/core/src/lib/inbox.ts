@@ -236,6 +236,9 @@ export async function recordOutboundMessage(input: {
   // The JWT user behind a human send; null for automation sends (API keys,
   // PRD 24) that carry no user identity.
   senderUserId?: string;
+  // Who sent it: HUMAN for dashboard replies, API for outbound messaging API
+  // sends (PRD 24 amendment 2026-11-15 - the inbox labels them differently).
+  senderType?: "HUMAN" | "API";
   body: string;
   waMessageId?: string;
   isInternal?: boolean;
@@ -247,7 +250,7 @@ export async function recordOutboundMessage(input: {
       tenantId: input.tenantId,
       conversationId: input.conversationId,
       direction: "OUTBOUND",
-      senderType: "HUMAN",
+      senderType: input.senderType ?? "HUMAN",
       senderUserId: input.senderUserId ?? null,
       body: input.body,
       waMessageId: input.waMessageId,

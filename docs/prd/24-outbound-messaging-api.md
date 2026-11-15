@@ -64,11 +64,13 @@ Response `200`:
    uses). `OutboundMessage` gains `mediaId`; the worker sends an image
    (with `body` as caption) or a text.
 6. **Recording**: the send is recorded as an OUTBOUND message in the
-   conversation - `senderType HUMAN`, `senderUserId` = the JWT user when
-   the caller authenticated with a user token (null for API keys),
-   `kind MEDIA` + `mediaId` for image sends. `lastMessageAt` updates and
-   the send is audited as `api.message_send`. It appears in the inbox
-   thread like any other reply.
+   conversation - `senderType API` (amendment 2026-11-15: the inbox labels
+   it "API"; it is not an unnamed human reply), `senderUserId` = the JWT
+   user when the caller authenticated with a user token (null for API
+   keys), `kind MEDIA` + `mediaId` for image sends. `lastMessageAt`
+   updates and the send is audited as `api.message_send`. It appears in
+   the inbox thread like any other reply and counts as an answer to the
+   customer message it responds to.
 7. **Decision - no AI stand-down, no reassignment.** A dashboard human
    reply takes the conversation over (reply-as-takeover, PRD 03 amendment
    2026-11-10). API sends are automation, not a person typing: they count

@@ -671,7 +671,7 @@ async function drainUnansweredInbound(
         conversationId,
         tenantId,
         direction: "OUTBOUND",
-        senderType: { in: ["AGENT", "HUMAN"] },
+        senderType: { in: ["AGENT", "HUMAN", "API"] },
         createdAt: { gte: trigger.createdAt },
       },
       orderBy: { createdAt: "desc" },

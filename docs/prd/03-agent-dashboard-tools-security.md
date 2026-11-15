@@ -259,6 +259,13 @@ handle customer conversations alongside the AI agent.
     (prefix, created, last used, status), and soft revoke. The section
     links to the public API documentation (PRD 08 amendment 2026-11-15) -
     now the separate docs app (`apps/docs`), URL from `DOCS_URL`.
+    Amendment 2026-11-15 (owner request, inbox sender labels): outbound
+    bubbles carry their origin - AI (AGENT), API (new senderType API,
+    PRD 24 sends), Skenario (SCENARIO), Kampanye (CAMPAIGN). Human replies
+    show the author's NAME as a label only to OTHER staff: a message whose
+    senderUserId equals the viewer's id renders with no name label. The
+    conversation-list preview shows "API: " alongside the existing
+    AI:/Skenario:/Kampanye: prefixes.
 -   **Private notes (MVP):** staff can add internal notes to a
     conversation — visible to team members only, never sent to the
     customer (like Cekat.AI's Private Note feature).

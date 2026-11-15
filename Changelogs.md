@@ -2,6 +2,14 @@
 
 Version format: `XX.YY.ZZ` - YY (minor) and ZZ (patch) stay within 0-10; XX (major) may grow beyond. Minor = new feature/behavior change, patch = fix, major = breaking change (schema, API contract, env vars).
 
+## 4.6.1 - 2026-11-15 (branch `monorepo`)
+
+Inbox sender labels (owner request 2026-11-15).
+
+- **Origin labels on outbound bubbles:** AI (AGENT), **API** (new `MessageSenderType.API`, migration `20261115150000` - PRD 24 sends no longer look like unnamed human replies), Skenario (SCENARIO), Kampanye (CAMPAIGN). The conversation-list preview gained the matching "API: " prefix.
+- **Staff name labels:** a human reply shows its author's name as a bubble label only to OTHER staff - the viewer's own messages carry no name label (compare `senderUserId` with the session user; the optimistic reply bubble carries the session user id for the same rule).
+- API sends now also mark the customer message as answered (drain answered-check includes API), and the read-receipt logic counts an API send as an answer.
+
 ## 4.6.0 - 2026-11-15 (branch `monorepo`)
 
 Outbound messaging API (PRD 24, owner decision 2026-11-15). Minor: new endpoint + schema column; no breaking change.

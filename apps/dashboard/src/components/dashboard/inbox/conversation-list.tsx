@@ -116,13 +116,15 @@ const ConversationRow = memo(function ConversationRow({
           )}>
             {c.lastMessage.senderType === "AGENT"
               ? "AI: "
-              : c.lastMessage.senderType === "HUMAN"
-                ? "Anda: "
-                : c.lastMessage.senderType === "SCENARIO"
-                  ? "Skenario: "
-                  : c.lastMessage.senderType === "CAMPAIGN"
-                    ? "Kampanye: "
-                    : ""}
+              : c.lastMessage.senderType === "API"
+                ? "API: "
+                : c.lastMessage.senderType === "HUMAN"
+                  ? "Anda: "
+                  : c.lastMessage.senderType === "SCENARIO"
+                    ? "Skenario: "
+                    : c.lastMessage.senderType === "CAMPAIGN"
+                      ? "Kampanye: "
+                      : ""}
             {c.lastMessage.body ||
               (c.lastMessage.kind === "MEDIA" ? "[Gambar]" : "")}
           </p>
