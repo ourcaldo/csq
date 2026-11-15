@@ -214,7 +214,15 @@ export async function runConversation(args: RunConversationArgs): Promise<RunRes
       tool_calls: msg.tool_calls,
     });
 
-    if (choice.finish_reason !== "tool_calls" || !msg.tool_calls?.length) {
+    // Tool calls present means execute them, whatever finish_reason says:
+    // Gemini's compat layer is not consistent about the string, and trusting
+    // it here silently dropped the tool result and answered nothing.
+    if (!msg.tool_calls?.length) {
+      if (!msg.content?.trim()) {
+        console.error(
+          `[llm-runtime] empty assistant reply (finish_reason=${choice.finish_reason})`
+        );
+      }
       return { reply: msg.content ?? "", toolCalls: toolCallLog };
     }
 
