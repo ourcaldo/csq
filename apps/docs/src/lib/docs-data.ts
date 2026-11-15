@@ -247,10 +247,12 @@ export function getReferencePage(
 export function exampleFromSchema(schema: unknown): unknown {
   const node = resolveNode(schema);
   if (node.enum && node.enum.length > 0) return node.enum[0];
-  if (node.type === "object" && node.properties) {
+  if (node.type === "object") {
     const out: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(node.properties)) {
-      out[key] = exampleFromSchema(value);
+    if (node.properties) {
+      for (const [key, value] of Object.entries(node.properties)) {
+        out[key] = exampleFromSchema(value);
+      }
     }
     return out;
   }
