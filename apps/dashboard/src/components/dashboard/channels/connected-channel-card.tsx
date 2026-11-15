@@ -71,6 +71,16 @@ export function ConnectedChannelCard(props: {
         Ingin berganti metode? Putuskan saluran ini, lalu pilih metode lain (mis.
         WhatsApp Resmi) dari langkah pertama.
       </p>
+      <div className="space-y-3 px-5 pb-5">
+        <Separator />
+        <div className="pt-4">
+          <ReadOnlyField
+            label="Channel ID (untuk API)"
+            value={channel.id}
+            hint="Dipakai sebagai channelId saat mengirim pesan lewat API (POST /api/v1/messages)."
+          />
+        </div>
+      </div>
       {channel.provider === "CLOUD_API" && (
         <div className="space-y-3 px-5 pb-5">
           <Separator />

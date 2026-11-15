@@ -84,36 +84,19 @@ export default async function handler(
   const to = parsed.data.to.replace(/[^0-9]/g, "");
 
   return withTenantContext(auth.tenantId, async () => {
-    // Channel: explicit id (must belong to the tenant) or the tenant's first
-    // connected channel.
-    let channel = null;
-    if (channelId) {
-      channel = await prisma.channel.findUnique({ where: { id: channelId } });
-      if (!channel || channel.tenantId !== auth.tenantId) {
-        return res
-          .status(403)
-          .json(apiError("PERMISSION_DENIED", "Channel does not belong to your tenant"));
-      }
-      if (channel.status !== "CONNECTED") {
-        return res
-          .status(409)
-          .json(apiError("NO_CONNECTED_CHANNEL", "The channel is not connected"));
-      }
-    } else {
-      channel = await prisma.channel.findFirst({
-        where: { tenantId: auth.tenantId, status: "CONNECTED" },
-        orderBy: { createdAt: "asc" },
-      });
-      if (!channel) {
-        return res
-          .status(409)
-          .json(
-            apiError(
-              "NO_CONNECTED_CHANNEL",
-              "No connected WhatsApp channel. Connect one in the dashboard first."
-            )
-          );
-      }
+    // The channel is REQUIRED (owner decision 2026-11-15): tenants will run
+    // multiple channels, so the sender must name the one to send from. It
+    // must belong to the token's tenant and be connected.
+    const channel = await prisma.channel.findUnique({ where: { id: channelId } });
+    if (!channel || channel.tenantId !== auth.tenantId) {
+      return res
+        .status(403)
+        .json(apiError("PERMISSION_DENIED", "Channel does not belong to your tenant"));
+    }
+    if (channel.status !== "CONNECTED") {
+      return res
+        .status(409)
+        .json(apiError("NO_CONNECTED_CHANNEL", "The channel is not connected"));
     }
 
     // Media is fetched and stored BEFORE any send - a bad URL never leaves a

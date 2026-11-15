@@ -99,7 +99,10 @@ export const sendMessageRequestSchema = z
         url: z.string().url().max(2048),
       })
       .optional(),
-    channelId: z.string().uuid().optional(),
+    // Required by design (owner decision 2026-11-15): tenants will run
+    // multiple channels, so the sender must be explicit about which one.
+    // The dashboard's Saluran page shows the channel ID with a copy button.
+    channelId: z.string().uuid(),
   })
   .refine((value) => Boolean(value.text) || Boolean(value.media), {
     message: "text or media is required",
@@ -212,7 +215,7 @@ export const API_OPERATIONS: ApiOperation[] = [
     slug: "messages-send",
     summary: "Send a WhatsApp message",
     description:
-      "Sends a text message, an image, or an image with a caption (text) through the tenant's connected channel. Recorded in the inbox conversation and audited; the agent keeps owning the conversation (no takeover). On the Cloud API, free-form sends are only allowed within 24 hours of the customer's last inbound message.",
+      "Sends a text message, an image, or an image with a caption (text) through the channel named by channelId (required - tenants can run multiple channels). Recorded in the inbox conversation and audited; the agent keeps owning the conversation (no takeover). On the Cloud API, free-form sends are only allowed within 24 hours of the customer's last inbound message.",
     tags: ["Messages"],
     security: "bearer",
     request: sendMessageRequestSchema,

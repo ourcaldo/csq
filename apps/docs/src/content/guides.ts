@@ -258,6 +258,7 @@ curl -X POST "${API}/api/v1/messages" \\
   -H "Content-Type: application/json" \\
   -d '{
     "to": "628123456789",
+    "channelId": "YOUR_CHANNEL_ID",
     "text": "Halo Kak, pesanan Anda sudah dikirim hari ini."
   }'
 \`\`\`
@@ -270,6 +271,7 @@ curl -X POST "${API}/api/v1/messages" \\
   -H "Content-Type: application/json" \\
   -d '{
     "to": "628123456789",
+    "channelId": "YOUR_CHANNEL_ID",
     "media": { "url": "https://cdn.example.com/resi.jpg" }
   }'
 \`\`\`
@@ -284,6 +286,7 @@ curl -X POST "${API}/api/v1/messages" \\
   -H "Content-Type: application/json" \\
   -d '{
     "to": "628123456789",
+    "channelId": "YOUR_CHANNEL_ID",
     "text": "Resi pengiriman Anda, Kak.",
     "media": { "url": "https://cdn.example.com/resi.jpg" }
   }'
@@ -308,9 +311,9 @@ Response:
 ## Rules that matter
 
 - **At least one of \`text\` / \`media\` is required.** \`text\` max 4096 characters.
+- **\`channelId\` is REQUIRED** - the UUID of the connected channel to send from (tenants can run multiple channels). Copy it from the dashboard's **Saluran** page: the connected-channel card shows a **Channel ID (untuk API)** field with a copy button. A channel outside your tenant gets \`403\`; a disconnected one gets \`409\`.
 - **Media** must be an HTTPS URL pointing at an image (png, jpeg, webp, gif), max 10 MB. It is downloaded and stored on our side before sending.
 - **24-hour window (Cloud API):** free-form messages are only allowed within 24 hours of the customer's last message. Outside it the API returns \`422 WINDOW_CLOSED\` - an approved template is required for proactive sends. Baileys channels have no such restriction.
-- **Channel:** the send uses your first connected WhatsApp channel, or the one named in \`channelId\`.
 - **Takeover:** API sends do NOT reassign the conversation or mute the AI - they count as an answer to the customer message they respond to, and the agent keeps owning the chat. (A dashboard reply takes over; the API is automation.)
 - **Rate limit:** 60 requests per minute per credential.
 - **Audit:** every send is recorded as \`api.message_send\` in the activity log.

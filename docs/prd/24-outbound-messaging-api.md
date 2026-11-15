@@ -19,7 +19,7 @@ Request:
   "to": "628123456789",
   "text": "Halo Kak, pesanan Anda sudah dikirim.",
   "media": { "url": "https://cdn.example.com/resi.jpg" },
-  "channelId": "uuid (optional)"
+  "channelId": "uuid (required)"
 }
 ```
 
@@ -31,8 +31,11 @@ Request:
 - `media.url` (optional) - HTTPS image URL (png/jpeg/webp/gif, max 10 MB).
   Downloaded server-side and stored as a MediaAsset, served from the API
   service for the Cloud API media fetch.
-- `channelId` (optional) - target a specific connected channel; default is
-  the tenant's first CONNECTED channel.
+- `channelId` (REQUIRED - amendment 2026-11-15, owner decision): the
+  connected channel to send from. No implicit "first connected channel"
+  fallback: tenants will run multiple channels (PRD 15), so the sender is
+  always explicit. The dashboard's Saluran page shows the channel ID on
+  the connected-channel card with a copy button.
 - At least one of `text` / `media` is required.
 
 Response `200`:
@@ -43,7 +46,9 @@ Response `200`:
 
 ## Behavior (mirrors the CRM dashboard reply)
 
-1. **Channel** must be CONNECTED, otherwise `409 NO_CONNECTED_CHANNEL`.
+1. **Channel** - `channelId` is required and must belong to the token's
+   tenant (`403` otherwise) and be CONNECTED (`409 NO_CONNECTED_CHANNEL`
+   otherwise). No default-channel fallback (amendment 2026-11-15).
 2. **Media** is fetched and stored before any send; invalid or oversized
    media fails with `400` and nothing is sent.
 3. **Conversation** is ensured for (tenant, customer phone) through the
