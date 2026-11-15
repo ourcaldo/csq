@@ -54,7 +54,9 @@ export function getDocsNav(): DocsNav {
     reference.push({
       label: tag,
       items: ops.map((op) => ({
-        title: op.summary,
+        // The path is the readable label for endpoint nav entries (long
+        // summaries truncate); the method chip disambiguates shared paths.
+        title: op.path,
         href: referenceHref(op),
         method: op.method,
       })),
@@ -70,11 +72,26 @@ export function getDocsNav(): DocsNav {
   };
 }
 
-// JSON-serializable slice of the generated OpenAPI document for one endpoint.
+// JSON-serializable slice of the generated OpenAPI document for one endpoint,
+// pre-humanized in getStaticProps: examples + field tables instead of raw
+// JSON Schema dumps (a schema wall is not documentation).
+export type FieldRow = {
+  name: string;
+  type: string;
+  required: boolean;
+  description?: string;
+  depth: number;
+};
+export type HumanSchema = {
+  fields: FieldRow[];
+  example: unknown;
+  raw: unknown;
+};
 export type ReferenceResponse = {
   status: string;
   description: string;
-  schema?: unknown;
+  contentType?: string;
+  human?: HumanSchema;
 };
 export type ReferenceParam = {
   name: string;
@@ -91,9 +108,88 @@ export type ReferencePageData = {
   tag: string;
   auth: "none" | "bearer" | "service";
   params: ReferenceParam[];
-  requestSchema?: unknown;
+  request?: HumanSchema;
   responses: ReferenceResponse[];
 };
+
+// JSON Schema shape we care about when humanizing (zodToJsonSchema output).
+const schemaShape = z.object({
+  type: z.string().optional(),
+  format: z.string().optional(),
+  description: z.string().optional(),
+  properties: z.record(z.string(), z.unknown()).optional(),
+  required: z.array(z.string()).optional(),
+  items: z.unknown().optional(),
+  enum: z.array(z.unknown()).optional(),
+  anyOf: z.array(z.unknown()).optional(),
+  oneOf: z.array(z.unknown()).optional(),
+  additionalProperties: z.unknown().optional(),
+});
+type SchemaNode = z.infer<typeof schemaShape>;
+
+function resolveNode(schema: unknown): SchemaNode {
+  const parsed = schemaShape.safeParse(schema);
+  if (!parsed.success) return {};
+  const node = parsed.data;
+  // The response envelope is a union (success | error): show the success
+  // branch - errors follow the documented error envelope.
+  const branch = node.anyOf?.[0] ?? node.oneOf?.[0];
+  if (branch !== undefined) return resolveNode(branch);
+  return node;
+}
+
+function typeLabel(schema: unknown): string {
+  const node = resolveNode(schema);
+  if (node.enum && node.enum.length > 0) {
+    return node.enum.map((v) => JSON.stringify(v)).join(" | ");
+  }
+  if (node.type === "array") return `array<${typeLabel(node.items)}>`;
+  if (node.type === "string") {
+    return node.format ? `string (${node.format})` : "string";
+  }
+  if (node.type === "object") return "object";
+  if (node.type === "number" || node.type === "integer" || node.type === "boolean") {
+    return node.type;
+  }
+  return "any";
+}
+
+function walkFields(
+  node: SchemaNode,
+  prefix: string,
+  parentRequired: string[] | undefined,
+  depth: number,
+  out: FieldRow[]
+): void {
+  if (node.type === "object" && node.properties) {
+    for (const [key, value] of Object.entries(node.properties)) {
+      const child = resolveNode(value);
+      const name = prefix ? `${prefix}.${key}` : key;
+      out.push({
+        name,
+        type: typeLabel(child),
+        required: parentRequired?.includes(key) ?? false,
+        ...(child.description ? { description: child.description } : {}),
+        depth,
+      });
+      if (depth < 3) walkFields(child, name, child.required, depth + 1, out);
+    }
+    return;
+  }
+  if (node.type === "array") {
+    const items = resolveNode(node.items);
+    if (items.type === "object") {
+      walkFields(items, `${prefix}[]`, items.required, depth, out);
+    }
+  }
+}
+
+export function humanizeSchema(schema: unknown): HumanSchema {
+  const node = resolveNode(schema);
+  const fields: FieldRow[] = [];
+  walkFields(node, "", node.required, 0, fields);
+  return { fields, example: exampleFromSchema(node), raw: schema };
+}
 
 export function getAllReferencePaths(): Array<{ tag: string; slug: string }> {
   return API_OPERATIONS.map((op) => ({
@@ -129,43 +225,39 @@ export function getReferencePage(
       schema: p.schema,
     })),
     responses: Object.entries(doc.responses).map(([status, resp]) => {
-      const schema = resp.content?.["application/json"]?.schema;
+      const jsonContent = resp.content?.["application/json"];
+      const textContent = Object.entries(resp.content ?? {}).find(
+        ([type]) => type !== "application/json"
+      );
       return {
         status,
         description: resp.description,
-        ...(schema !== undefined ? { schema } : {}),
+        ...(jsonContent ? { human: humanizeSchema(jsonContent.schema) } : {}),
+        ...(textContent && !jsonContent ? { contentType: textContent[0] } : {}),
       };
     }),
   };
   if (op.description) page.description = op.description;
-  if (requestSchema !== undefined) page.requestSchema = requestSchema;
+  if (requestSchema !== undefined) page.request = humanizeSchema(requestSchema);
   return page;
 }
 
-// Minimal example body from a JSON schema, for the curl snippet.
-const schemaShape = z.object({
-  type: z.string().optional(),
-  properties: z.record(z.string(), z.unknown()).optional(),
-  items: z.unknown().optional(),
-  enum: z.array(z.unknown()).optional(),
-});
-
+// Minimal example body from a JSON schema, for the curl snippet and the
+// "Example request" block.
 export function exampleFromSchema(schema: unknown): unknown {
-  const parsed = schemaShape.safeParse(schema);
-  if (!parsed.success) return {};
-  const s = parsed.data;
-  if (s.enum && s.enum.length > 0) return s.enum[0];
-  if (s.type === "object" && s.properties) {
+  const node = resolveNode(schema);
+  if (node.enum && node.enum.length > 0) return node.enum[0];
+  if (node.type === "object" && node.properties) {
     const out: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(s.properties)) {
+    for (const [key, value] of Object.entries(node.properties)) {
       out[key] = exampleFromSchema(value);
     }
     return out;
   }
-  if (s.type === "array") return [exampleFromSchema(s.items)];
-  if (s.type === "string") return "...";
-  if (s.type === "number" || s.type === "integer") return 0;
-  if (s.type === "boolean") return true;
+  if (node.type === "array") return [exampleFromSchema(node.items)];
+  if (node.type === "string") return "...";
+  if (node.type === "number" || node.type === "integer") return 0;
+  if (node.type === "boolean") return true;
   return null;
 }
 
@@ -177,9 +269,9 @@ export function buildCurl(page: ReferencePageData): string {
   if (page.auth !== "none") {
     lines.push(`  -H "Authorization: Bearer $CSQ_API_KEY"`);
   }
-  if (page.requestSchema) {
+  if (page.request) {
     lines.push(`  -H "Content-Type: application/json"`);
-    const body = JSON.stringify(exampleFromSchema(page.requestSchema), null, 2);
+    const body = JSON.stringify(page.request.example, null, 2);
     lines.push(`  -d '${body.replace(/\n/g, "\n  ")}'`);
   }
   return lines.join(" \\\n");

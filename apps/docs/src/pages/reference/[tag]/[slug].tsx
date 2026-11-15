@@ -7,12 +7,13 @@ import {
   getDocsNav,
   getReferencePage,
 } from "@/lib/docs-data";
-import type { DocsNav, ReferencePageData } from "@/lib/docs-data";
+import type { DocsNav, FieldRow, HumanSchema, ReferencePageData } from "@/lib/docs-data";
 import type { TocItem } from "@/lib/toc";
 
-// One page per API operation, generated from the contract. The sidebar and
-// the page data both come from the same source the api service serves as
-// /api/v1/openapi.
+// One page per API operation, generated from the contract. Schemas render
+// HUMAN-first: a generated example plus a field table (type / required /
+// description); the raw JSON Schema stays available behind a toggle for
+// tooling users. A schema dump is not documentation.
 
 type PageLink = { href: string; title: string };
 type Props = {
@@ -60,10 +61,59 @@ const AUTH_TEXT: Record<ReferencePageData["auth"], string> = {
     "Requires a platform service token. Tenant API keys and user access JWTs are rejected.",
 };
 
+function FieldTable({ fields }: { fields: FieldRow[] }) {
+  return (
+    <table className="ref-table">
+      <thead>
+        <tr>
+          <th>Field</th>
+          <th>Type</th>
+          <th>Required</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody>
+        {fields.map((f) => (
+          <tr key={f.name}>
+            <td>
+              <code style={{ paddingLeft: f.depth * 14 }}>{f.name}</code>
+            </td>
+            <td className="type-cell">{f.type}</td>
+            <td>{f.required ? "yes" : "no"}</td>
+            <td>{f.description ?? "-"}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function JsonBlock({ label, value }: { label: string; value: unknown }) {
+  return (
+    <div>
+      <div className="schema-label">{label}</div>
+      <div className="ref-code">
+        <code>{JSON.stringify(value, null, 2)}</code>
+      </div>
+    </div>
+  );
+}
+
+function RawSchema({ human }: { human: HumanSchema }) {
+  return (
+    <details className="raw-schema">
+      <summary>Raw JSON Schema</summary>
+      <div className="ref-code">
+        <code>{JSON.stringify(human.raw, null, 2)}</code>
+      </div>
+    </details>
+  );
+}
+
 export default function ReferenceEndpointPage({ nav, page, curl, prev, next }: Props) {
   const toc: TocItem[] = [{ level: 2, text: "Authentication", id: "authentication" }];
   if (page.params.length > 0) toc.push({ level: 2, text: "Parameters", id: "parameters" });
-  if (page.requestSchema) toc.push({ level: 2, text: "Request body", id: "request-body" });
+  if (page.request) toc.push({ level: 2, text: "Request body", id: "request-body" });
   toc.push({ level: 2, text: "Responses", id: "responses" });
   toc.push({ level: 2, text: "Example", id: "example" });
 
@@ -84,7 +134,9 @@ export default function ReferenceEndpointPage({ nav, page, curl, prev, next }: P
       <section className="ref-section">
         <h2 id="authentication">Authentication</h2>
         <p className="prose" style={{ margin: 0 }}>
-          <span className="badge">{page.auth === "none" ? "No auth" : page.auth === "service" ? "Service token" : "Bearer token"}</span>{" "}
+          <span className="badge">
+            {page.auth === "none" ? "No auth" : page.auth === "service" ? "Service token" : "Bearer token"}
+          </span>{" "}
           {AUTH_TEXT[page.auth]}
         </p>
       </section>
@@ -115,12 +167,12 @@ export default function ReferenceEndpointPage({ nav, page, curl, prev, next }: P
         </section>
       )}
 
-      {page.requestSchema ? (
+      {page.request ? (
         <section className="ref-section">
           <h2 id="request-body">Request body</h2>
-          <div className="ref-code">
-            <code>{JSON.stringify(page.requestSchema, null, 2)}</code>
-          </div>
+          {page.request.fields.length > 0 && <FieldTable fields={page.request.fields} />}
+          <JsonBlock label="Example request" value={page.request.example} />
+          <RawSchema human={page.request} />
         </section>
       ) : null}
 
@@ -134,10 +186,17 @@ export default function ReferenceEndpointPage({ nav, page, curl, prev, next }: P
               </span>
               <span className="status-desc">{resp.description}</span>
             </div>
-            {resp.schema ? (
-              <div className="ref-code">
-                <code>{JSON.stringify(resp.schema, null, 2)}</code>
-              </div>
+            {resp.human ? (
+              <>
+                <JsonBlock label="Example response" value={resp.human.example} />
+                {resp.human.fields.length > 0 && <FieldTable fields={resp.human.fields} />}
+                <RawSchema human={resp.human} />
+              </>
+            ) : null}
+            {resp.contentType ? (
+              <p className="muted-note">
+                Plain text response ({resp.contentType}).
+              </p>
             ) : null}
           </div>
         ))}
