@@ -297,10 +297,13 @@ Response:
   "data": {
     "messageId": "...",
     "conversationId": "...",
+    "channelId": "...",
     "waMessageId": "..."
   }
 }
 \`\`\`
+
+\`channelId\` in the response tells you which connected channel sent the message.
 
 ## Rules that matter
 

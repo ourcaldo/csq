@@ -109,6 +109,7 @@ export const sendMessageRequestSchema = z
 export const sendMessageResultSchema = z.object({
   messageId: z.string(),
   conversationId: z.string(),
+  channelId: z.string(),
   waMessageId: z.string().optional(),
 });
 

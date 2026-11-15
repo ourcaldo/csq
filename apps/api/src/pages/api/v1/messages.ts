@@ -224,6 +224,7 @@ export default async function handler(
       apiOk({
         messageId: message.id,
         conversationId: conversation.id,
+        channelId: channel.id,
         ...(sendResult.waMessageId ? { waMessageId: sendResult.waMessageId } : {}),
       })
     );
