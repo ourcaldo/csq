@@ -1,39 +1,43 @@
 import { useEffect, useRef, useState } from "react";
 import type { GetServerSideProps } from "next";
 import { useRouter } from "next/router";
+import { CheckCircle, Plus } from "@phosphor-icons/react";
 import { withFeature } from "@csq/core/lib/auth";
 import { apiFetch, apiSend, ApiError } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
-import type { ListResult } from "@csq/core/types/dashboard";
-import type { Stage, Tag } from "@csq/core/types/inbox";
-import { DealWithRelations } from "@csq/core/lib/pipeline";
+import type { Stage, StageKind, Tag } from "@csq/core/types/inbox";
+import type { PipelineBoardResult, PipelineDeal } from "@csq/core/types/pipeline";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { Button } from "@csq/ui/components/ui/button";
-import { Badge } from "@csq/ui/components/ui/badge";
 import { Select } from "@csq/ui/components/ui/select";
 import { Input } from "@csq/ui/components/ui/input";
 import { Label } from "@csq/ui/components/ui/label";
+import { Dialog } from "@csq/ui/components/ui/dialog";
 import { StateNotice } from "@/components/dashboard/state-notice";
 import { StageManager } from "@/components/dashboard/pipeline/stage-manager";
-import { Dialog } from "@csq/ui/components/ui/dialog";
+import { LeadDrawer } from "@/components/dashboard/pipeline/lead-drawer";
+import {
+  formatRupiah,
+  initialOf,
+  timeAgo,
+} from "@/components/dashboard/pipeline/format";
 
-// Manajemen Pipeline - kanban + funnel views of every conversation's deal stage.
-// Kanban: columns = stages, cards = deals, drag a card to move stage. Funnel:
-// per-stage counts + conversion rates. Filters by assignee + tag + date range.
-// "Atur Tahap" opens the stage customization dialog.
+// Manajemen Pipeline (revamp 2026-11-16, reference
+// docs/assets/csq_pipeline_management_revamp.html). Kanban columns per stage
+// with rich lead cards (last message, unread, tag, value, PIC), a slide-over
+// detail drawer with quick reply, manual lead entry, and the funnel view.
 //
-// A KanbanDeal is the Prisma Deal shape (id = DEAL id, conversationId = the chat,
-// contact/assignee nested under `conversation`). The move PATCH uses
-// `conversationId` (the chat id), not `id` (the deal id) - see bug #3.
-
-type KanbanDeal = DealWithRelations;
+// Cards are Draggable (HTML5 DnD): dropping on a column moves the deal. A click
+// opens the drawer - the mousedown position is compared with the click so a
+// drag that ends on the card does not open it.
 
 type ColumnState = {
   stageId: string;
-  items: KanbanDeal[];
+  items: PipelineDeal[];
   page: number;
   pageSize: number;
   total: number;
+  valueTotal: number;
   loading: boolean;
 };
 
@@ -41,11 +45,25 @@ type FunnelStage = {
   stageId: string;
   name: string;
   order: number;
-  kind: "OPENING" | "WON" | "LOST" | "NORMAL";
+  kind: StageKind;
   count: number;
 };
 
 const COLUMN_PAGE_SIZE = 30;
+
+const STAGE_DOT: Record<StageKind, string> = {
+  OPENING: "bg-blue-500",
+  NORMAL: "bg-amber-500",
+  WON: "bg-emerald-500",
+  LOST: "bg-rose-500",
+};
+
+function previewText(deal: PipelineDeal): string | null {
+  const last = deal.conversation.lastMessage;
+  if (!last) return null;
+  if (last.body.trim()) return last.body;
+  return last.kind === "MEDIA" ? "[Gambar]" : null;
+}
 
 export default function PipelinePage() {
   const router = useRouter();
@@ -53,14 +71,13 @@ export default function PipelinePage() {
   const [stages, setStages] = useState<Stage[] | null>(null);
   const [columns, setColumns] = useState<ColumnState[]>([]);
   const [funnel, setFunnel] = useState<FunnelStage[] | null>(null);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [manageOpen, setManageOpen] = useState(false);
-  // Card the user clicked (vs dragged) - shown in the info popup.
-  const [popupDeal, setPopupDeal] = useState<KanbanDeal | null>(null);
-  // Records the pointer position at mousedown so a click after a drag (which
-  // moved beyond a small threshold) is ignored and doesn't open the popup.
+  const [addOpen, setAddOpen] = useState(false);
+  const [activeDeal, setActiveDeal] = useState<PipelineDeal | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const dragStart = useRef<{ x: number; y: number } | null>(null);
+  const [dragConversationId, setDragConversationId] = useState<string | null>(null);
 
   // Filters.
   const [assignee, setAssignee] = useState("");
@@ -70,8 +87,13 @@ export default function PipelinePage() {
   const [team, setTeam] = useState<{ id: string; name: string }[] | null>(null);
   const [tags, setTags] = useState<Tag[] | null>(null);
 
-  // The dragged deal (HTML5 DnD) - the conversation id being moved.
-  const [dragConversationId, setDragConversationId] = useState<string | null>(null);
+  // Tambah Lead dialog.
+  const [leadPhone, setLeadPhone] = useState("");
+  const [leadName, setLeadName] = useState("");
+  const [leadStage, setLeadStage] = useState("");
+  const [leadValue, setLeadValue] = useState("0");
+  const [leadBusy, setLeadBusy] = useState(false);
+  const [leadError, setLeadError] = useState<string | null>(null);
 
   const pipelineApi = useApi<{ stages: Stage[] }>("/api/dashboard/pipeline");
 
@@ -79,19 +101,28 @@ export default function PipelinePage() {
     if (pipelineApi.data) setStages(pipelineApi.data.stages);
   }, [pipelineApi.data]);
 
-  // Load team + tags for the filter selects once.
+  // Toast auto-hide.
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 2500);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  // Team + tags for the filters (once).
   useEffect(() => {
     void (async () => {
       try {
-        const teamRes = await apiFetch<
-          ListResult<{ id: string; name: string | null; email: string }>
-        >("/api/dashboard/team?pageSize=100");
+        const teamRes = await apiFetch<{
+          items: { id: string; name: string | null; email: string }[];
+        }>("/api/dashboard/team?pageSize=100");
         setTeam(teamRes.items.map((u) => ({ id: u.id, name: u.name ?? u.email })));
       } catch {
         setTeam([]);
       }
       try {
-        const tagRes = await apiFetch<{ items: Tag[] }>("/api/dashboard/tags?pageSize=200");
+        const tagRes = await apiFetch<{ items: Tag[] }>(
+          "/api/dashboard/tags?pageSize=200"
+        );
         setTags(tagRes.items);
       } catch {
         setTags([]);
@@ -108,14 +139,13 @@ export default function PipelinePage() {
     return params.toString();
   };
 
-  // Load deals per stage (kanban) whenever stages or filters change.
   async function loadColumn(stageId: string, page: number, replace: boolean) {
     setColumns((prev) =>
       prev.map((c) => (c.stageId === stageId ? { ...c, loading: true } : c))
     );
     const fq = filterQuery();
     try {
-      const res = await apiFetch<ListResult<KanbanDeal>>(
+      const res = await apiFetch<PipelineBoardResult>(
         `/api/dashboard/pipeline/deals?stage=${stageId}${fq ? `&${fq}` : ""}&page=${page}&pageSize=${COLUMN_PAGE_SIZE}`
       );
       setColumns((prev) =>
@@ -127,6 +157,7 @@ export default function PipelinePage() {
                 page: res.page,
                 pageSize: res.pageSize,
                 total: res.total,
+                valueTotal: res.valueTotal,
                 loading: false,
               }
             : c
@@ -149,14 +180,33 @@ export default function PipelinePage() {
         page: 1,
         pageSize: COLUMN_PAGE_SIZE,
         total: 0,
+        valueTotal: 0,
         loading: true,
       }))
     );
     for (const s of stages) void loadColumn(s.id, 1, true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stages, assignee, tag]);
+  }, [stages, assignee, tag, from, to]);
 
-  // Load funnel counts whenever filters change.
+  function refreshBoard() {
+    if (!stages) return;
+    for (const s of stages) void loadColumn(s.id, 1, true);
+  }
+
+  async function moveStage(conversationId: string, stageName: string) {
+    setError(null);
+    try {
+      await apiSend(`/api/dashboard/pipeline/deals/${conversationId}`, "PATCH", {
+        stage: stageName,
+      });
+      setToast(`Dipindahkan ke tahap "${stageName}"`);
+      refreshBoard();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Gagal memindahkan deal.");
+    }
+  }
+
+  // Funnel counts.
   async function loadFunnel() {
     try {
       const res = await apiFetch<FunnelStage[]>("/api/dashboard/pipeline/funnel");
@@ -170,288 +220,492 @@ export default function PipelinePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, assignee, tag]);
 
-  async function moveStage(conversationId: string, stageName: string) {
-    setBusy(true);
-    setError(null);
+  function openChat(conversationId: string) {
+    void router.push({
+      pathname: "/dashboard/inbox",
+      query: { c: conversationId },
+    });
+    setActiveDeal(null);
+  }
+  function openContact(phone: string) {
+    void router.push({
+      pathname: "/dashboard/contacts",
+      query: phone ? { search: phone } : {},
+    });
+    setActiveDeal(null);
+  }
+
+  function openAddLead() {
+    const first = (stages ?? []).find(
+      (s) => s.kind !== "WON" && s.kind !== "LOST"
+    );
+    setLeadPhone("");
+    setLeadName("");
+    setLeadStage(first?.name ?? "");
+    setLeadValue("0");
+    setLeadError(null);
+    setAddOpen(true);
+  }
+
+  async function submitLead() {
+    if (!leadPhone.trim()) {
+      setLeadError("Nomor WhatsApp wajib diisi.");
+      return;
+    }
+    if (!leadStage) {
+      setLeadError("Pilih tahap awal.");
+      return;
+    }
+    setLeadBusy(true);
+    setLeadError(null);
     try {
-      await apiSend(`/api/dashboard/pipeline/deals/${conversationId}`, "PATCH", { stage: stageName });
-      // Reload the affected columns (source + destination).
-      const fromCol = columns.find((c) =>
-        c.items.some((d) => d.conversationId === conversationId)
+      const res = await apiSend<{ created: boolean }>(
+        "/api/dashboard/pipeline/deals",
+        "POST",
+        {
+          phone: leadPhone.trim(),
+          ...(leadName.trim() ? { name: leadName.trim() } : {}),
+          stage: leadStage,
+          value: Number(leadValue) || 0,
+        }
       );
-      const toCol = columns.find((c) => c.stageId === (stages?.find((s) => s.name === stageName)?.id ?? ""));
-      if (fromCol) void loadColumn(fromCol.stageId, 1, true);
-      if (toCol) void loadColumn(toCol.stageId, 1, true);
-      pipelineApi.refresh();
+      setAddOpen(false);
+      setToast(
+        res.created
+          ? "Lead ditambahkan ke pipeline"
+          : "Lead sudah ada, pipeline diperbarui"
+      );
+      refreshBoard();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Gagal memindahkan deal.");
+      setLeadError(err instanceof ApiError ? err.message : "Gagal menambah lead.");
     } finally {
-      setBusy(false);
+      setLeadBusy(false);
     }
   }
 
-  // From the card info popup: jump to this conversation's chat, or to the
-  // contacts list pre-filtered by the customer's phone.
-  function openChat(deal: KanbanDeal) {
-    void router.push({ pathname: "/dashboard/inbox", query: { c: deal.conversationId } });
-    setPopupDeal(null);
-  }
-  function openContact(deal: KanbanDeal) {
-    const phone = deal.conversation?.customerPhone ?? "";
-    void router.push({ pathname: "/dashboard/contacts", query: phone ? { search: phone } : {} });
-    setPopupDeal(null);
-  }
-
+  const totalActive = columns.reduce((sum, c) => sum + c.total, 0);
+  const totalValue = columns.reduce((sum, c) => sum + c.valueTotal, 0);
   const maxFunnelCount = Math.max(1, ...(funnel ?? []).map((s) => s.count));
 
   return (
     <DashboardShell
       title="Manajemen Pipeline"
-      description="Pantau setiap pelanggan di tahap mana dan pindahkan sesuai alur."
+      description="Klik kartu untuk detail pelanggan dan balas cepat, atau geser kartu antar tahap."
       flush
-      actions={
-        <div className="flex items-center gap-2">
-          <div className="inline-flex rounded-md border border-slate-200 p-0.5">
-            <button
-              onClick={() => setView("kanban")}
-              className={
-                "rounded px-2.5 py-1 text-xs font-medium " +
-                (view === "kanban" ? "bg-slate-900 text-white" : "text-slate-600")
-              }
-            >
-              Kanban
-            </button>
-            <button
-              onClick={() => setView("funnel")}
-              className={
-                "rounded px-2.5 py-1 text-xs font-medium " +
-                (view === "funnel" ? "bg-slate-900 text-white" : "text-slate-600")
-              }
-            >
-              Funnel
-            </button>
-          </div>
-          <Button variant="outline" onClick={() => setManageOpen(true)}>
-            Atur Tahap
-          </Button>
-        </div>
-      }
     >
-      <div className="flex min-h-0 flex-1 flex-col p-4 md:p-6 gap-4">
-      {/* Filters */}
-      <div className="shrink-0 flex flex-wrap items-end gap-3">
-        <div>
-          <Label htmlFor="filter-assignee">Penanggung Jawab</Label>
-          <Select
-            id="filter-assignee"
-            value={assignee}
-            onChange={(e) => setAssignee(e.target.value)}
-            disabled={busy}
-            className="w-48"
-          >
-            <option value="">Semua</option>
-            {(team ?? []).map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.name}
-              </option>
-            ))}
-          </Select>
+      <div className="flex min-h-0 flex-1 flex-col gap-3 p-4 md:p-6">
+        {/* Page header (flush mode has no shell header, so the actions live
+            here, same pattern as the inbox). */}
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="flex items-center gap-2 text-lg font-bold text-slate-900">
+              Manajemen Pipeline
+              <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+                {totalActive} Pelanggan Aktif
+              </span>
+            </h1>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Klik kartu untuk detail pelanggan dan balas cepat, atau geser
+              kartu antar tahap.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="inline-flex rounded-md border border-slate-200 p-0.5">
+              <button
+                onClick={() => setView("kanban")}
+                className={
+                  "rounded px-2.5 py-1 text-xs font-medium " +
+                  (view === "kanban" ? "bg-slate-900 text-white" : "text-slate-600")
+                }
+              >
+                Kanban
+              </button>
+              <button
+                onClick={() => setView("funnel")}
+                className={
+                  "rounded px-2.5 py-1 text-xs font-medium " +
+                  (view === "funnel" ? "bg-slate-900 text-white" : "text-slate-600")
+                }
+              >
+                Funnel
+              </button>
+            </div>
+            <Button variant="outline" onClick={() => setManageOpen(true)}>
+              Atur Tahap
+            </Button>
+            <Button
+              onClick={openAddLead}
+              className="gap-1.5 bg-green-600 hover:bg-green-700"
+            >
+              <Plus size={16} weight="bold" />
+              Tambah Lead
+            </Button>
+          </div>
         </div>
-        <div>
-          <Label htmlFor="filter-tag">Tag</Label>
-          <Select
-            id="filter-tag"
-            value={tag}
-            onChange={(e) => setTag(e.target.value)}
-            disabled={busy}
-            className="w-48"
-          >
-            <option value="">Semua</option>
-            {(tags ?? []).map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div>
-          <Label htmlFor="filter-from">Dari</Label>
-          <Input
-            id="filter-from"
-            type="date"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-            disabled={busy}
-            className="w-40"
-          />
-        </div>
-        <div>
-          <Label htmlFor="filter-to">Sampai</Label>
-          <Input
-            id="filter-to"
-            type="date"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-            disabled={busy}
-            className="w-40"
-          />
-        </div>
-      </div>
 
-      {error && <p className="mb-4 text-sm text-destructive">{error}</p>}
-
-      {view === "kanban" && (
-        <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto">
-          {pipelineApi.loading && !stages && <StateNotice variant="loading" message="Memuat pipeline…" />}
-          {(stages ?? []).map((s, idx) => {
-            const col = columns.find((c) => c.stageId === s.id);
-            const items = col?.items ?? [];
-            const hasMore = col ? col.items.length < col.total : false;
-            return (
-              <div
-                key={s.id}
-                className="flex w-72 shrink-0 flex-col rounded-lg border bg-slate-50/60"
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={() => {
-                  if (dragConversationId) {
-                    void moveStage(dragConversationId, s.name);
-                    setDragConversationId(null);
-                  }
+        {/* Summary + filters */}
+        <div className="shrink-0 space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-1.5">
+                <span className="block text-[11px] font-medium text-green-700">
+                  Potensi Nilai Pipeline
+                </span>
+                <span className="text-sm font-bold text-green-900">
+                  {formatRupiah(totalValue)}
+                </span>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-end gap-3">
+              <div>
+                <Label htmlFor="filter-assignee">Penanggung Jawab</Label>
+                <Select
+                  id="filter-assignee"
+                  value={assignee}
+                  onChange={(e) => setAssignee(e.target.value)}
+                  className="w-44"
+                >
+                  <option value="">Semua</option>
+                  {(team ?? []).map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="filter-tag">Tag</Label>
+                <Select
+                  id="filter-tag"
+                  value={tag}
+                  onChange={(e) => setTag(e.target.value)}
+                  className="w-44"
+                >
+                  <option value="">Semua</option>
+                  {(tags ?? []).map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="filter-from">Dari</Label>
+                <Input
+                  id="filter-from"
+                  type="date"
+                  value={from}
+                  onChange={(e) => setFrom(e.target.value)}
+                  className="w-36"
+                />
+              </div>
+              <div>
+                <Label htmlFor="filter-to">Sampai</Label>
+                <Input
+                  id="filter-to"
+                  type="date"
+                  value={to}
+                  onChange={(e) => setTo(e.target.value)}
+                  className="w-36"
+                />
+              </div>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setAssignee("");
+                  setTag("");
+                  setFrom("");
+                  setTo("");
                 }}
               >
-                <div className="flex shrink-0 items-center justify-between border-b px-3 py-2">
-                  <span className="text-sm font-semibold">{s.name}</span>
-                  <Badge variant="outline">{col?.total ?? 0}</Badge>
-                </div>
-                <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">
-                  {col?.loading && items.length === 0 && (
-                    <p className="px-1 py-2 text-xs text-slate-400">Memuat…</p>
-                  )}
-                  {!col?.loading && items.length === 0 && (
-                    <p className="px-1 py-2 text-xs text-slate-400">Tidak ada deal.</p>
-                  )}
-                  {items.map((d) => (
-                    <div
-                      key={d.id}
-                      draggable
-                      onDragStart={() => setDragConversationId(d.conversationId)}
-                      onDragEnd={() => setDragConversationId(null)}
-                      className="cursor-grab rounded-md border bg-white p-2.5 shadow-sm transition-colors hover:border-slate-300 active:cursor-grabbing"
-                    >
-                      <button
-                        type="button"
-                        onMouseDown={(e) => (dragStart.current = { x: e.clientX, y: e.clientY })}
-                        onClick={(e) => {
-                          const s = dragStart.current;
-                          // Ignore "clicks" that followed a drag (pointer moved
-                          // beyond a small threshold) so dragging still works.
-                          if (s && (Math.abs(e.clientX - s.x) > 5 || Math.abs(e.clientY - s.y) > 5)) return;
-                          setPopupDeal(d);
-                        }}
-                        className="-mx-1 -my-0.5 block w-full cursor-pointer rounded px-1 py-0.5 text-left text-sm font-medium text-slate-900 hover:bg-slate-50 hover:text-green-600"
-                        title="Klik untuk detail pelanggan"
-                      >
-                        {d.conversation?.contact?.name ?? d.conversation?.customerPhone ?? ""}
-                      </button>
-                      {d.conversation?.assignee && (
-                        <p className="mt-1 text-[10px] text-slate-400">
-                          {d.conversation.assignee.name ?? d.conversation.assignee.email}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                  {hasMore && (
-                    <button
-                      onClick={() => col && void loadColumn(s.id, (col.page ?? 1) + 1, false)}
-                      disabled={col?.loading}
-                      className="w-full rounded-md py-1.5 text-xs text-slate-600 hover:bg-slate-100"
-                    >
-                      Muat lainya
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {view === "funnel" && (
-        <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border bg-white p-6">
-          {!funnel && <StateNotice variant="loading" message="Memuat funnel…" />}
-          {funnel && funnel.length === 0 && (
-            <StateNotice variant="empty" message="Belum ada deal di pipeline." />
-          )}
-          {funnel && funnel.length > 0 && (
-            <div className="space-y-3">
-              {funnel.map((s) => {
-                const prev = funnel[s.order - 2];
-                const rate =
-                  prev && prev.count > 0
-                    ? Math.round((s.count / prev.count) * 100)
-                    : null;
-                return (
-                  <div key={s.stageId} className="flex items-center gap-3">
-                    <span className="w-28 shrink-0 text-sm font-medium">{s.name}</span>
-                    <div className="h-7 flex-1 overflow-hidden rounded-md bg-slate-100">
-                      <div
-                        className="h-full rounded-md bg-slate-900"
-                        style={{ width: `${(s.count / maxFunnelCount) * 100}%` }}
-                      />
-                    </div>
-                    <span className="w-10 shrink-0 text-right text-xs text-slate-600">
-                      {s.count}
-                      {rate != null && <span className="text-slate-400"> - {rate}%</span>}
-                    </span>
-                  </div>
-                );
-              })}
+                Reset
+              </Button>
             </div>
-          )}
+          </div>
+          {error && <p className="text-sm text-red-600">{error}</p>}
         </div>
+
+        {view === "kanban" && (
+          <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto pb-2">
+            {pipelineApi.loading && !stages && (
+              <StateNotice variant="loading" message="Memuat pipeline…" />
+            )}
+            {(stages ?? []).map((s) => {
+              const col = columns.find((c) => c.stageId === s.id);
+              const items = col?.items ?? [];
+              const hasMore = col ? col.items.length < col.total : false;
+              return (
+                <div
+                  key={s.id}
+                  className="flex w-72 shrink-0 flex-col rounded-xl border border-slate-200 bg-slate-100/70 sm:w-80"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => {
+                    if (dragConversationId) {
+                      void moveStage(dragConversationId, s.name);
+                      setDragConversationId(null);
+                    }
+                  }}
+                >
+                  <div className="shrink-0 rounded-t-xl border-b border-slate-200/70 bg-white/60 px-3 py-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={
+                            "h-2.5 w-2.5 rounded-full " + STAGE_DOT[s.kind]
+                          }
+                        />
+                        <span className="text-sm font-bold text-slate-800">
+                          {s.name}
+                        </span>
+                      </div>
+                      <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-bold text-slate-700">
+                        {col?.total ?? 0}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-[11px] font-medium text-slate-500">
+                      Total:{" "}
+                      <span className="font-semibold text-slate-700">
+                        {formatRupiah(col?.valueTotal ?? 0)}
+                      </span>
+                    </p>
+                  </div>
+                  <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto p-2.5">
+                    {col?.loading && items.length === 0 && (
+                      <p className="px-1 py-2 text-xs text-slate-400">Memuat…</p>
+                    )}
+                    {!col?.loading && items.length === 0 && (
+                      <div className="flex h-28 flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-200 text-center">
+                        <p className="text-xs font-medium text-slate-400">
+                          Tidak ada deal.
+                        </p>
+                        <p className="text-[11px] text-slate-400">
+                          Geser kartu ke sini
+                        </p>
+                      </div>
+                    )}
+                    {items.map((d) => {
+                      const preview = previewText(d);
+                      const contactName = d.conversation.contact?.name;
+                      const assigneeName =
+                        d.conversation.assignee?.name ??
+                        d.conversation.assignee?.email ??
+                        null;
+                      return (
+                        <div
+                          key={d.id}
+                          draggable
+                          onDragStart={() => setDragConversationId(d.conversationId)}
+                          onDragEnd={() => setDragConversationId(null)}
+                          onMouseDown={(e) =>
+                            (dragStart.current = { x: e.clientX, y: e.clientY })
+                          }
+                          onClick={(e) => {
+                            const start = dragStart.current;
+                            if (
+                              start &&
+                              (Math.abs(e.clientX - start.x) > 5 ||
+                                Math.abs(e.clientY - start.y) > 5)
+                            ) {
+                              return;
+                            }
+                            setActiveDeal(d);
+                          }}
+                          className="group cursor-pointer rounded-xl border border-slate-200 bg-white p-3 shadow-sm transition-all hover:border-green-400 hover:shadow-md"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="truncate text-sm font-bold text-slate-900 group-hover:text-green-700">
+                                  {d.conversation.customerPhoneDisplay}
+                                </span>
+                                {d.unreadCount > 0 && (
+                                  <span className="rounded-full bg-green-600 px-1.5 text-[10px] font-bold text-white">
+                                    {d.unreadCount}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="truncate text-xs text-slate-500">
+                                {contactName ?? "Pelanggan baru"}
+                              </p>
+                            </div>
+                            <span className="whitespace-nowrap text-[11px] text-slate-400">
+                              {timeAgo(d.conversation.lastMessageAt)}
+                            </span>
+                          </div>
+
+                          {preview && (
+                            <div className="my-2.5 rounded-lg border border-slate-100 bg-slate-50 p-2">
+                              <p className="line-clamp-2 text-xs leading-relaxed text-slate-600">
+                                {preview}
+                              </p>
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-2">
+                            <span className="truncate rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                              {d.conversation.tags[0]?.tag.name ?? "Tanpa tag"}
+                            </span>
+                            <span className="shrink-0 text-xs font-bold text-green-700">
+                              {formatRupiah(d.value)}
+                            </span>
+                          </div>
+
+                          <div className="mt-2 flex items-center justify-between border-t border-slate-50 pt-2 text-[11px] text-slate-500">
+                            <span className="flex min-w-0 items-center gap-1.5">
+                              <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-green-100 text-[9px] font-bold text-green-700">
+                                {assigneeName ? initialOf(assigneeName) : "?"}
+                              </span>
+                              <span className="truncate">
+                                {assigneeName ?? "Belum ditugaskan"}
+                              </span>
+                            </span>
+                            <span className="shrink-0 font-semibold text-green-600 opacity-0 transition group-hover:opacity-100">
+                              Detail
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {hasMore && (
+                      <button
+                        onClick={() =>
+                          col && void loadColumn(s.id, (col.page ?? 1) + 1, false)
+                        }
+                        disabled={col?.loading}
+                        className="w-full rounded-md py-1.5 text-xs text-slate-600 hover:bg-slate-100"
+                      >
+                        Muat lainnya
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {view === "funnel" && (
+          <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border bg-white p-6">
+            {!funnel && <StateNotice variant="loading" message="Memuat funnel…" />}
+            {funnel && funnel.length === 0 && (
+              <StateNotice variant="empty" message="Belum ada deal di pipeline." />
+            )}
+            {funnel && funnel.length > 0 && (
+              <div className="space-y-3">
+                {funnel.map((s) => {
+                  const prev = funnel[s.order - 2];
+                  const rate =
+                    prev && prev.count > 0
+                      ? Math.round((s.count / prev.count) * 100)
+                      : null;
+                  return (
+                    <div key={s.stageId} className="flex items-center gap-3">
+                      <span className="w-28 shrink-0 text-sm font-medium">
+                        {s.name}
+                      </span>
+                      <div className="h-7 flex-1 overflow-hidden rounded-md bg-slate-100">
+                        <div
+                          className="h-full rounded-md bg-slate-900"
+                          style={{ width: `${(s.count / maxFunnelCount) * 100}%` }}
+                        />
+                      </div>
+                      <span className="w-16 shrink-0 text-right text-xs text-slate-600">
+                        {s.count}
+                        {rate != null && (
+                          <span className="text-slate-400"> - {rate}%</span>
+                        )}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {activeDeal && (
+        <LeadDrawer
+          key={activeDeal.id}
+          deal={activeDeal}
+          stages={stages ?? []}
+          onClose={() => setActiveDeal(null)}
+          onChanged={refreshBoard}
+          onOpenChat={openChat}
+          onOpenContact={openContact}
+          onToast={setToast}
+        />
       )}
 
       <Dialog
-        open={popupDeal !== null}
-        onClose={() => setPopupDeal(null)}
-        title="Detail Pelanggan"
-        description="Informasi percakapan dan kontak pelanggan."
+        open={addOpen}
+        onClose={() => setAddOpen(false)}
+        title="Tambah Pelanggan ke Pipeline"
+        description="Masukkan nomor WhatsApp. Pelanggan yang sudah ada akan diperbarui, bukan diduplikasi."
       >
-        {popupDeal && (
-          <div className="space-y-4">
-            <div className="space-y-1.5 text-sm">
-              <p className="text-base font-semibold text-slate-900">
-                {popupDeal.conversation?.contact?.name ?? popupDeal.conversation?.customerPhone ?? "Pelanggan"}
-              </p>
-              <p className="text-slate-600">
-                <span className="text-slate-400">Telepon: </span>
-                {popupDeal.conversation?.customerPhone ?? "-"}
-              </p>
-              {popupDeal.conversation?.contact?.email && (
-                <p className="text-slate-600">
-                  <span className="text-slate-400">Email: </span>
-                  {popupDeal.conversation.contact.email}
-                </p>
-              )}
-              {popupDeal.conversation?.assignee && (
-                <p className="text-slate-600">
-                  <span className="text-slate-400">Penanggung Jawab: </span>
-                  {popupDeal.conversation.assignee.name ?? popupDeal.conversation.assignee.email}
-                </p>
-              )}
-              <p className="text-slate-600">
-                <span className="text-slate-400">Tahap: </span>
-                {popupDeal.stage?.name ?? "-"}
-              </p>
+        <div className="space-y-3.5">
+          <div>
+            <Label htmlFor="lead-phone">Nomor WhatsApp</Label>
+            <Input
+              id="lead-phone"
+              value={leadPhone}
+              onChange={(e) => setLeadPhone(e.target.value)}
+              placeholder="Contoh: 081234567890"
+              autoFocus
+            />
+          </div>
+          <div>
+            <Label htmlFor="lead-name">Nama Pelanggan (opsional)</Label>
+            <Input
+              id="lead-name"
+              value={leadName}
+              onChange={(e) => setLeadName(e.target.value)}
+              placeholder="Contoh: Budi Santoso"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label htmlFor="lead-stage">Tahap Awal</Label>
+              <Select
+                id="lead-stage"
+                value={leadStage}
+                onChange={(e) => setLeadStage(e.target.value)}
+              >
+                {(stages ?? [])
+                  .filter((s) => s.kind !== "WON" && s.kind !== "LOST")
+                  .map((s) => (
+                    <option key={s.id} value={s.name}>
+                      {s.name}
+                    </option>
+                  ))}
+              </Select>
             </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => openContact(popupDeal)}>
-                Buka Kontak
-              </Button>
-              <Button onClick={() => openChat(popupDeal)}>Buka Chat</Button>
+            <div>
+              <Label htmlFor="lead-value">Estimasi Nilai (Rp)</Label>
+              <Input
+                id="lead-value"
+                type="number"
+                min={0}
+                step={1000}
+                value={leadValue}
+                onChange={(e) => setLeadValue(e.target.value)}
+              />
             </div>
           </div>
-        )}
+          {leadError && <p className="text-sm text-red-600">{leadError}</p>}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setAddOpen(false)}>
+              Batal
+            </Button>
+            <Button
+              onClick={() => void submitLead()}
+              disabled={leadBusy}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {leadBusy ? "Menyimpan…" : "Simpan Lead"}
+            </Button>
+          </div>
+        </div>
       </Dialog>
 
       <StageManager
@@ -467,12 +721,19 @@ export default function PipelinePage() {
               page: 1,
               pageSize: COLUMN_PAGE_SIZE,
               total: 0,
+              valueTotal: 0,
               loading: true,
             }))
           );
         }}
       />
-      </div>
+
+      {toast && (
+        <div className="fixed bottom-5 left-1/2 z-[60] flex -translate-x-1/2 animate-in items-center gap-2 rounded-full bg-slate-900 px-4 py-2.5 text-xs font-medium text-white shadow-lg fade-in">
+          <CheckCircle size={14} weight="fill" className="text-green-400" />
+          {toast}
+        </div>
+      )}
     </DashboardShell>
   );
 }

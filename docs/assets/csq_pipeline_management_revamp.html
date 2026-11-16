@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manajemen Pipeline - CSQ Revamped</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        /* Custom sleek scrollbars for Kanban board */
+        .kanban-scroll::-webkit-scrollbar {
+            height: 8px;
+            width: 6px;
+        }
+        .kanban-scroll::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+        .kanban-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .kanban-scroll::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        /* Smooth slide-over drawer animation */
+        .drawer-transition {
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .dragging {
+            opacity: 0.5;
+            transform: rotate(2deg);
+        }
+        .drag-over {
+            background-color: #f0fdf4 !important;
+            border-color: #22c55e !important;
+        }
+    </style>
+</head>
+<body class="text-slate-800 antialiased h-screen flex overflow-hidden">
+
+    <!-- LEFT SIDEBAR (Matches CSQ Brand & Layout) -->
+    <aside class="w-64 bg-white border-r border-slate-200 flex-shrink-0 hidden lg:flex flex-col justify-between">
+        <div>
+            <!-- Logo Header -->
+            <div class="h-16 flex items-center px-6 border-b border-slate-100">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-[#16a34a] flex items-center justify-center text-white shadow-sm">
+                        <i data-lucide="message-square-more" class="w-5 h-5"></i>
+                    </div>
+                    <span class="font-bold text-xl tracking-tight text-slate-900">CSQ</span>
+                </div>
+            </div>
+
+            <!-- Navigation Links -->
+            <div class="p-4 space-y-6 overflow-y-auto max-h-[calc(100vh-8rem)]">
+                <div>
+                    <p class="px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2">Utama</p>
+                    <nav class="space-y-1">
+                        <a href="#" class="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition">
+                            <i data-lucide="bar-chart-2" class="w-4 h-4 text-slate-400"></i> Ringkasan
+                        </a>
+                        <a href="#" class="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition">
+                            <i data-lucide="message-circle" class="w-4 h-4 text-slate-400"></i> Percakapan
+                            <span class="ml-auto bg-emerald-100 text-emerald-700 text-xs font-semibold px-2 py-0.5 rounded-full">12</span>
+                        </a>
+                        <a href="#" class="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition">
+                            <i data-lucide="life-buoy" class="w-4 h-4 text-slate-400"></i> Tiket
+                        </a>
+                        <a href="#" class="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition">
+                            <i data-lucide="megaphone" class="w-4 h-4 text-slate-400"></i> Kampanye
+                        </a>
+                        <a href="#" class="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition">
+                            <i data-lucide="file-text" class="w-4 h-4 text-slate-400"></i> Template Pesan
+                        </a>
+                        <a href="#" class="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition">
+                            <i data-lucide="share-2" class="w-4 h-4 text-slate-400"></i> Saluran
+                        </a>
+                        <!-- Active Pipeline Tab -->
+                        <a href="#" class="flex items-center gap-3 px-3 py-2.5 text-sm font-semibold text-emerald-700 bg-emerald-50/80 border border-emerald-200/60 rounded-lg shadow-xs">
+                            <i data-lucide="kanban" class="w-4 h-4 text-emerald-600"></i> Manajemen Pipeline
+                        </a>
+                        <a href="#" class="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition">
+                            <i data-lucide="target" class="w-4 h-4 text-slate-400"></i> KPI
+                        </a>
+                    </nav>
+                </div>
+
+                <div>
+                    <p class="px-3 text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2">Data Bisnis</p>
+                    <nav class="space-y-1">
+                        <a href="#" class="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition">
+                            <i data-lucide="package" class="w-4 h-4 text-slate-400"></i> Produk
+                        </a>
+                        <a href="#" class="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition">
+                            <i data-lucide="boxes" class="w-4 h-4 text-slate-400"></i> Inventaris
+                        </a>
+                        <a href="#" class="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition">
+                            <i data-lucide="shopping-cart" class="w-4 h-4 text-slate-400"></i> Pesanan
+                        </a>
+                    </nav>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Settings -->
+        <div class="p-4 border-t border-slate-100 space-y-1">
+            <a href="#" class="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition">
+                <i data-lucide="settings" class="w-4 h-4 text-slate-400"></i> Pengaturan
+            </a>
+            <a href="#" class="flex items-center gap-3 px-3 py-2 text-sm font-medium text-slate-600 rounded-lg hover:bg-slate-50 transition">
+                <i data-lucide="users" class="w-4 h-4 text-slate-400"></i> Tim
+            </a>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT AREA -->
+    <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+        
+        <!-- TOP NAVBAR -->
+        <header class="h-16 bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center justify-between gap-4 flex-shrink-0">
+            <!-- Global Search -->
+            <div class="relative flex-1 max-w-md">
+                <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+                <input type="text" id="globalSearch" placeholder="Cari nomor, nama pelanggan, atau tag..." 
+                    class="w-full pl-10 pr-4 py-2 bg-slate-100/80 border border-transparent focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 rounded-lg text-sm transition outline-none">
+            </div>
+
+            <!-- Right Controls -->
+            <div class="flex items-center gap-3">
+                <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full border border-red-200 bg-red-50/60 text-xs font-medium text-slate-700">
+                    <span class="w-2.5 h-2.5 rounded-full border-2 border-red-500"></span>
+                    Kuota <span class="text-red-600 font-bold">100%</span>
+                </div>
+                <button class="p-2 text-slate-500 hover:bg-slate-100 rounded-lg relative transition">
+                    <i data-lucide="bell" class="w-5 h-5"></i>
+                    <span class="w-2 h-2 bg-red-500 rounded-full absolute top-2 right-2"></span>
+                </button>
+                <div class="flex items-center gap-2 pl-2 border-l border-slate-200 cursor-pointer">
+                    <div class="w-8 h-8 rounded-full bg-emerald-600 text-white font-semibold text-sm flex items-center justify-center">T</div>
+                    <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400"></i>
+                </div>
+            </div>
+        </header>
+
+        <!-- PIPELINE HEADER & FILTER BAR -->
+        <div class="bg-white border-b border-slate-200 px-4 sm:px-6 py-4 flex-shrink-0">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                <div>
+                    <h1 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+                        Manajemen Pipeline
+                        <span class="text-xs font-medium bg-slate-100 text-slate-600 px-2.5 py-0.5 rounded-full" id="totalDealsBadge">4 Pelanggan Aktif</span>
+                    </h1>
+                    <p class="text-xs text-slate-500 mt-0.5">Klik kartu untuk melihat pratinjau percakapan & detail pelanggan, atau geser kartu antar tahap.</p>
+                </div>
+
+                <!-- Summary KPI Pill & Action -->
+                <div class="flex items-center gap-3">
+                    <div class="bg-emerald-50 border border-emerald-200/70 px-3.5 py-1.5 rounded-lg text-right">
+                        <span class="text-[11px] text-emerald-700 font-medium block">Potensi Nilai Pipeline</span>
+                        <span class="text-sm font-bold text-emerald-900" id="totalPipelineValue">Rp 14.850.000</span>
+                    </div>
+                    <button onclick="openNewDealModal()" class="inline-flex items-center gap-2 bg-[#16a34a] hover:bg-[#15803d] text-white text-sm font-medium px-4 py-2.5 rounded-lg shadow-sm transition cursor-pointer">
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                        <span>Tambah Lead</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filter Controls -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 lg:flex items-end gap-3">
+                <div class="flex-1 max-w-[200px]">
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Penanggung Jawab</label>
+                    <select id="filterAgent" class="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:border-emerald-500 outline-none">
+                        <option value="all">Semua Agent</option>
+                        <option value="Tania">Tania (CS)</option>
+                        <option value="Rizky">Rizky (Sales)</option>
+                        <option value="Ayu">Ayu (Admin)</option>
+                    </select>
+                </div>
+                <div class="flex-1 max-w-[200px]">
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Tag</label>
+                    <select id="filterTag" class="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:border-emerald-500 outline-none">
+                        <option value="all">Semua Tag</option>
+                        <option value="Hot Lead">Hot Lead</option>
+                        <option value="Instagram Ads">Instagram Ads</option>
+                        <option value="Repeat Order">Repeat Order</option>
+                        <option value="B2B">B2B</option>
+                    </select>
+                </div>
+                <div class="flex-1 max-w-[170px]">
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Dari Tanggal</label>
+                    <input type="date" class="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm text-slate-700 focus:border-emerald-500 outline-none">
+                </div>
+                <div class="flex-1 max-w-[170px]">
+                    <label class="block text-xs font-medium text-slate-600 mb-1">Sampai Tanggal</label>
+                    <input type="date" class="w-full bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm text-slate-700 focus:border-emerald-500 outline-none">
+                </div>
+                <button onclick="resetFilters()" class="text-xs font-medium text-slate-500 hover:text-slate-800 px-3 py-2.5 rounded-lg hover:bg-slate-100 transition">
+                    Reset
+                </button>
+            </div>
+        </div>
+
+        <!-- KANBAN BOARD AREA -->
+        <main class="flex-1 overflow-x-auto overflow-y-hidden p-4 sm:p-6 kanban-scroll bg-slate-50/70">
+            <div id="kanbanBoard" class="flex gap-4 h-full min-w-max">
+                <!-- Columns are injected dynamically via JS -->
+            </div>
+        </main>
+    </div>
+
+    <!-- SLIDE-OVER DRAWER (REPLACES THE CRAMPED MODAL POP-UP) -->
+    <div id="drawerBackdrop" onclick="closeDrawer()" class="fixed inset-0 bg-slate-900/25 backdrop-blur-[1px] z-40 hidden transition-opacity"></div>
+    
+    <aside id="customerDrawer" class="fixed top-0 right-0 h-full w-full sm:w-[460px] bg-white shadow-2xl border-l border-slate-200 z-50 transform translate-x-full drawer-transition flex flex-col">
+        <!-- Drawer Header -->
+        <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/70">
+            <div class="flex items-center gap-3">
+                <div id="drawerAvatar" class="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 font-bold flex items-center justify-center text-base">
+                    62
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h2 id="drawerName" class="font-bold text-slate-900 text-base">6285186856127</h2>
+                        <button onclick="copyPhoneNumber()" title="Salin Nomor" class="text-slate-400 hover:text-emerald-600 p-1 rounded transition">
+                            <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+                    <p id="drawerPhoneSub" class="text-xs text-slate-500 flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500"></span> WhatsApp Business • Aktif 5m lalu
+                    </p>
+                </div>
+            </div>
+            <button onclick="closeDrawer()" class="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-lg transition">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+        </div>
+
+        <!-- Drawer Body (Scrollable) -->
+        <div class="flex-1 overflow-y-auto p-6 space-y-6 kanban-scroll">
+            
+            <!-- Stage Selector & Deal Value -->
+            <div class="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
+                <div>
+                    <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Tahap Pipeline</label>
+                    <select id="drawerStageSelect" onchange="updateLeadStageFromDrawer(this.value)" class="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm font-semibold text-slate-800 focus:border-emerald-500 outline-none">
+                        <option value="baru">Baru</option>
+                        <option value="tertarik">Tertarik</option>
+                        <option value="penawaran">Penawaran</option>
+                        <option value="pesanan">Pesanan</option>
+                        <option value="selesai">Menang / Selesai</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Estimasi Nilai Deal</label>
+                    <div id="drawerValue" class="bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-sm font-bold text-emerald-700">
+                        Rp 2.500.000
+                    </div>
+                </div>
+            </div>
+
+            <!-- LIVE CHAT PREVIEW BOX (Solves the biggest pain point!) -->
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                        <i data-lucide="message-square" class="w-3.5 h-3.5 text-emerald-600"></i> Pratinjau Percakapan Terakhir
+                    </h3>
+                    <span class="text-[11px] text-slate-400">Hari ini</span>
+                </div>
+                <div id="drawerChatHistory" class="bg-[#efeae2] rounded-xl p-3.5 space-y-2.5 max-h-56 overflow-y-auto border border-slate-200/80 shadow-inner">
+                    <!-- Chat bubbles injected dynamically -->
+                </div>
+                <!-- Quick Reply Box inside Drawer -->
+                <div class="mt-2 flex gap-2">
+                    <input type="text" id="quickReplyInput" placeholder="Balas cepat ke WhatsApp pelanggan..." 
+                        onkeypress="if(event.key === 'Enter') sendQuickReply()"
+                        class="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none">
+                    <button onclick="sendQuickReply()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5 transition cursor-pointer">
+                        <i data-lucide="send" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Customer Details Grid -->
+            <div>
+                <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Informasi Kontak & Lead</h3>
+                <div class="bg-white border border-slate-200 rounded-xl divide-y divide-slate-100 text-sm">
+                    <div class="flex justify-between py-2.5 px-3.5">
+                        <span class="text-slate-500">Nomor Telepon</span>
+                        <span id="drawerDetailPhone" class="font-medium text-slate-900">6285186856127</span>
+                    </div>
+                    <div class="flex justify-between py-2.5 px-3.5">
+                        <span class="text-slate-500">Penanggung Jawab</span>
+                        <span id="drawerDetailAgent" class="font-medium text-slate-900 flex items-center gap-1.5">
+                            <span class="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold flex items-center justify-center">T</span> Tania
+                        </span>
+                    </div>
+                    <div class="flex justify-between py-2.5 px-3.5">
+                        <span class="text-slate-500">Sumber Saluran</span>
+                        <span id="drawerDetailSource" class="font-medium text-slate-900">WhatsApp Official</span>
+                    </div>
+                    <div class="flex justify-between items-center py-2.5 px-3.5">
+                        <span class="text-slate-500">Tag Pelanggan</span>
+                        <div id="drawerDetailTags" class="flex flex-wrap gap-1 justify-end">
+                            <!-- Tags injected -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Internal Agent Notes -->
+            <div>
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500">Catatan Internal Tim</h3>
+                    <span id="noteSavedIndicator" class="text-[11px] text-emerald-600 font-medium opacity-0 transition-opacity">Tersimpan!</span>
+                </div>
+                <textarea id="drawerNotes" rows="3" onchange="saveCustomerNote()" placeholder="Tambahkan catatan kebutuhan pelanggan, jadwal follow-up, dll..." 
+                    class="w-full bg-amber-50/40 border border-amber-200/80 rounded-xl p-3 text-sm text-slate-700 focus:bg-white focus:border-emerald-500 outline-none transition"></textarea>
+            </div>
+        </div>
+
+        <!-- Drawer Sticky Footer Actions (Matches original "Buka Kontak" & "Buka Chat") -->
+        <div class="p-4 border-t border-slate-200 bg-white flex items-center gap-3">
+            <button onclick="showToast('Membuka halaman profil kontak lengkap...')" class="flex-1 inline-flex items-center justify-center gap-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 font-medium text-sm py-2.5 px-4 rounded-lg transition cursor-pointer">
+                <i data-lucide="user" class="w-4 h-4 text-slate-500"></i>
+                <span>Buka Kontak</span>
+            </button>
+            <button onclick="showToast('Mengarahkan ke ruang percakapan penuh...')" class="flex-1 inline-flex items-center justify-center gap-2 bg-[#16a34a] hover:bg-[#15803d] text-white font-semibold text-sm py-2.5 px-4 rounded-lg shadow-sm transition cursor-pointer">
+                <i data-lucide="message-circle" class="w-4 h-4"></i>
+                <span>Buka Chat</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- ADD NEW LEAD MODAL -->
+    <div id="newDealModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-[1px] z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="font-bold text-lg text-slate-900">Tambah Pelanggan ke Pipeline</h3>
+                <button onclick="closeNewDealModal()" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="space-y-3.5 text-sm">
+                <div>
+                    <label class="block font-medium text-slate-700 mb-1">Nomor WhatsApp</label>
+                    <input type="text" id="newPhone" placeholder="Contoh: 6281234567890" class="w-full border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-emerald-500">
+                </div>
+                <div>
+                    <label class="block font-medium text-slate-700 mb-1">Nama Pelanggan (Opsional)</label>
+                    <input type="text" id="newName" placeholder="Contoh: Budi Santoso" class="w-full border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-emerald-500">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-medium text-slate-700 mb-1">Tahap Awal</label>
+                        <select id="newStage" class="w-full border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-emerald-500">
+                            <option value="baru">Baru</option>
+                            <option value="tertarik">Tertarik</option>
+                            <option value="penawaran">Penawaran</option>
+                            <option value="pesanan">Pesanan</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-medium text-slate-700 mb-1">Estimasi Nilai (Rp)</label>
+                        <input type="number" id="newValue" value="1500000" class="w-full border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-emerald-500">
+                    </div>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end gap-2">
+                <button onclick="closeNewDealModal()" class="px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-lg">Batal</button>
+                <button onclick="createNewDeal()" class="px-4 py-2 text-sm font-semibold bg-[#16a34a] hover:bg-[#15803d] text-white rounded-lg">Simpan Lead</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-xs font-medium px-4 py-2.5 rounded-full shadow-lg flex items-center gap-2 z-50 opacity-0 pointer-events-none transition-opacity duration-300">
+        <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
+        <span id="toastMessage">Berhasil diperbarui</span>
+    </div>
+
+    <script>
+        // Pipeline Stages Configuration (Matching Indonesian CSQ labels)
+        const STAGES = [
+            { id: 'baru', title: 'Baru', color: 'bg-blue-500', badgeBg: 'bg-blue-50 text-blue-700 border-blue-200' },
+            { id: 'tertarik', title: 'Tertarik', color: 'bg-amber-500', badgeBg: 'bg-amber-50 text-amber-700 border-amber-200' },
+            { id: 'penawaran', title: 'Penawaran', color: 'bg-purple-500', badgeBg: 'bg-purple-50 text-purple-700 border-purple-200' },
+            { id: 'pesanan', title: 'Pesanan', color: 'bg-emerald-500', badgeBg: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+            { id: 'selesai', title: 'Menang', color: 'bg-teal-600', badgeBg: 'bg-teal-50 text-teal-700 border-teal-200' }
+        ];
+
+        // Rich Customer Data (Incorporating the exact phone numbers from the user's screenshot!)
+        let leads = [
+            {
+                id: 'lead-1',
+                phone: '6285186856127',
+                name: '6285186856127',
+                displayName: 'Bapak Hendra (PT Maju)',
+                stage: 'baru',
+                value: 3500000,
+                agent: 'Tania',
+                tag: 'Hot Lead',
+                source: 'WhatsApp Official',
+                lastActive: '5m lalu',
+                unread: 2,
+                lastMessage: 'Halo admin, boleh minta katalog harga paket grosir untuk bulan ini?',
+                notes: 'Menanyakan paket grosir 50 unit. Perlu segera dikirimkan brosur PDF.',
+                messages: [
+                    { sender: 'customer', text: 'Selamat pagi kak', time: '11:25' },
+                    { sender: 'customer', text: 'Halo admin, boleh minta katalog harga paket grosir untuk bulan ini?', time: '11:28' }
+                ]
+            },
+            {
+                id: 'lead-2',
+                phone: '6282346086586',
+                name: '6282346086586',
+                displayName: 'Siti Aminah',
+                stage: 'baru',
+                value: 1250000,
+                agent: 'Ayu',
+                tag: 'Instagram Ads',
+                source: 'Click-to-WhatsApp Ads',
+                lastActive: '24m lalu',
+                unread: 1,
+                lastMessage: 'Info promo bundling yang di IG dong min, masih berlaku?',
+                notes: 'Masuk dari iklan Instagram Reels.',
+                messages: [
+                    { sender: 'customer', text: 'Info promo bundling yang di IG dong min, masih berlaku?', time: '11:09' }
+                ]
+            },
+            {
+                id: 'lead-3',
+                phone: '6281299384710',
+                name: '6281299384710',
+                displayName: 'CV Berkah Abadi',
+                stage: 'penawaran',
+                value: 8600000,
+                agent: 'Rizky',
+                tag: 'B2B',
+                source: 'WhatsApp Official',
+                lastActive: '1j lalu',
+                unread: 0,
+                lastMessage: 'Baik pak Rizky, invoice penawaran sudah kami terima. Sedang dicek finance.',
+                notes: 'Penawaran #INV-2026-88 sudah dikirim. Follow up besok jam 10 pagi.',
+                messages: [
+                    { sender: 'agent', text: 'Berikut kami lampirkan dokumen penawaran resminya ya Pak.', time: '10:05' },
+                    { sender: 'customer', text: 'Baik pak Rizky, invoice penawaran sudah kami terima. Sedang dicek finance.', time: '10:22' }
+                ]
+            },
+            {
+                id: 'lead-4',
+                phone: '6287811223344',
+                name: '6287811223344',
+                displayName: 'Dr. Rina Kusuma',
+                stage: 'selesai',
+                value: 1500000,
+                agent: 'Tania',
+                tag: 'Repeat Order',
+                source: 'WhatsApp Official',
+                lastActive: 'Kemarin',
+                unread: 0,
+                lastMessage: 'Terima kasih, paket sudah sampai dengan aman.',
+                notes: 'Pelanggan loyal, repeat order ke-4.',
+                messages: [
+                    { sender: 'customer', text: 'Terima kasih, paket sudah sampai dengan aman.', time: 'Kemarin' }
+                ]
+            }
+        ];
+
+        let activeLeadId = null;
+        let draggedLeadId = null;
+
+        // Format IDR Currency
+        function formatRupiah(num) {
+            return 'Rp ' + Number(num).toLocaleString('id-ID');
+        }
+
+        // Render Kanban Board
+        function renderBoard() {
+            const board = document.getElementById('kanbanBoard');
+            const searchQuery = document.getElementById('globalSearch').value.toLowerCase();
+            const agentFilter = document.getElementById('filterAgent').value;
+            const tagFilter = document.getElementById('filterTag').value;
+
+            // Filter leads
+            const filteredLeads = leads.filter(lead => {
+                const matchesSearch = lead.phone.includes(searchQuery) || 
+                                      lead.displayName.toLowerCase().includes(searchQuery) ||
+                                      lead.lastMessage.toLowerCase().includes(searchQuery);
+                const matchesAgent = agentFilter === 'all' || lead.agent === agentFilter;
+                const matchesTag = tagFilter === 'all' || lead.tag === tagFilter;
+                return matchesSearch && matchesAgent && matchesTag;
+            });
+
+            // Update KPI Header
+            document.getElementById('totalDealsBadge').textContent = `${filteredLeads.length} Pelanggan Aktif`;
+            const totalValue = filteredLeads.reduce((sum, l) => sum + l.value, 0);
+            document.getElementById('totalPipelineValue').textContent = formatRupiah(totalValue);
+
+            board.innerHTML = '';
+
+            STAGES.forEach(stage => {
+                const stageLeads = filteredLeads.filter(l => l.stage === stage.id);
+                const stageTotal = stageLeads.reduce((sum, l) => sum + l.value, 0);
+
+                const col = document.createElement('div');
+                col.className = 'w-[300px] sm:w-[320px] bg-slate-100/80 border border-slate-200/90 rounded-xl flex flex-col max-h-full transition-colors';
+                col.dataset.stageId = stage.id;
+
+                // Drag & Drop Column Events
+                col.addEventListener('dragover', e => {
+                    e.preventDefault();
+                    col.classList.add('drag-over');
+                });
+                col.addEventListener('dragleave', () => {
+                    col.classList.remove('drag-over');
+                });
+                col.addEventListener('drop', e => {
+                    e.preventDefault();
+                    col.classList.remove('drag-over');
+                    if (draggedLeadId) {
+                        moveLeadToStage(draggedLeadId, stage.id);
+                    }
+                });
+
+                col.innerHTML = `
+                    <!-- Column Header -->
+                    <div class="p-3.5 border-b border-slate-200/70 bg-white/60 rounded-t-xl">
+                        <div class="flex items-center justify-between mb-1">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2.5 h-2.5 rounded-full ${stage.color}"></span>
+                                <h2 class="font-bold text-sm text-slate-800">${stage.title}</h2>
+                            </div>
+                            <span class="text-xs font-bold px-2 py-0.5 rounded-full border ${stage.badgeBg}">
+                                ${stageLeads.length}
+                            </span>
+                        </div>
+                        <div class="text-[11px] font-medium text-slate-500">
+                            Total: <span class="text-slate-700 font-semibold">${formatRupiah(stageTotal)}</span>
+                        </div>
+                    </div>
+
+                    <!-- Cards Container -->
+                    <div class="p-3 space-y-3 overflow-y-auto flex-1 kanban-scroll">
+                        ${stageLeads.length === 0 ? `
+                            <div class="h-32 border-2 border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center text-center p-4">
+                                <p class="text-xs font-medium text-slate-400">Tidak ada deal.</p>
+                                <p class="text-[11px] text-slate-400 mt-0.5">Geser kartu ke sini</p>
+                            </div>
+                        ` : stageLeads.map(lead => createCardHTML(lead)).join('')}
+                    </div>
+                `;
+
+                board.appendChild(col);
+            });
+
+            lucide.createIcons();
+        }
+
+        // Rich Lead Card HTML (Replaces the plain number-only card!)
+        function createCardHTML(lead) {
+            const isSelected = activeLeadId === lead.id;
+            return `
+                <div draggable="true" 
+                     ondragstart="handleDragStart(event, '${lead.id}')" 
+                     ondragend="handleDragEnd(event)"
+                     onclick="openDrawer('${lead.id}')"
+                     class="group bg-white p-3.5 rounded-xl border ${isSelected ? 'border-emerald-500 ring-2 ring-emerald-500/20' : 'border-slate-200/90 hover:border-emerald-400'} shadow-xs hover:shadow-md transition-all cursor-pointer relative">
+                    
+                    <!-- Top Row: Customer Name/Phone & Unread Badge -->
+                    <div class="flex items-start justify-between gap-2 mb-1.5">
+                        <div class="min-w-0">
+                            <div class="flex items-center gap-1.5">
+                                <span class="font-bold text-sm text-slate-900 truncate group-hover:text-emerald-700 transition">${lead.phone}</span>
+                                ${lead.unread > 0 ? `<span class="bg-emerald-500 text-white text-[10px] font-bold px-1.5 py-0.2 rounded-full">${lead.unread}</span>` : ''}
+                            </div>
+                            <p class="text-xs font-medium text-slate-500 truncate">${lead.displayName}</p>
+                        </div>
+                        <span class="text-[11px] text-slate-400 whitespace-nowrap">${lead.lastActive}</span>
+                    </div>
+
+                    <!-- Chat Snippet Preview (Instant context without clicking!) -->
+                    <div class="bg-slate-50 rounded-lg p-2.5 my-2.5 border border-slate-100">
+                        <p class="text-xs text-slate-600 line-clamp-2 leading-relaxed">
+                            "${lead.lastMessage}"
+                        </p>
+                    </div>
+
+                    <!-- Tags & Value -->
+                    <div class="flex items-center justify-between gap-2 pt-1 border-t border-slate-100">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-100 text-slate-700">
+                            ${lead.tag}
+                        </span>
+                        <span class="text-xs font-bold text-emerald-700">
+                            ${formatRupiah(lead.value)}
+                        </span>
+                    </div>
+
+                    <!-- Footer: Assigned Agent & Quick Hover Action -->
+                    <div class="flex items-center justify-between mt-2.5 pt-2 border-t border-slate-50 text-[11px] text-slate-500">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-4 h-4 rounded-full bg-emerald-100 text-emerald-700 font-bold text-[9px] flex items-center justify-center">
+                                ${lead.agent.charAt(0)}
+                            </span>
+                            <span>${lead.agent}</span>
+                        </div>
+                        <span class="text-emerald-600 font-semibold opacity-0 group-hover:opacity-100 transition flex items-center gap-0.5">
+                            Detail <i data-lucide="chevron-right" class="w-3 h-3"></i>
+                        </span>
+                    </div>
+                </div>
+            `;
+        }
+
+        // Drag and Drop Handlers
+        function handleDragStart(e, id) {
+            draggedLeadId = id;
+            e.target.classList.add('dragging');
+        }
+        function handleDragEnd(e) {
+            e.target.classList.remove('dragging');
+            draggedLeadId = null;
+        }
+        function moveLeadToStage(leadId, newStage) {
+            const lead = leads.find(l => l.id === leadId);
+            if (lead && lead.stage !== newStage) {
+                lead.stage = newStage;
+                const stageObj = STAGES.find(s => s.id === newStage);
+                showToast(`Dipindahkan ke tahap "${stageObj.title}"`);
+                renderBoard();
+                if (activeLeadId === leadId) {
+                    document.getElementById('drawerStageSelect').value = newStage;
+                }
+            }
+        }
+
+        // Slide-over Drawer Controls
+        function openDrawer(leadId) {
+            activeLeadId = leadId;
+            const lead = leads.find(l => l.id === leadId);
+            if (!lead) return;
+
+            // Mark unread as read
+            lead.unread = 0;
+
+            // Populate Drawer Fields
+            document.getElementById('drawerAvatar').textContent = lead.displayName.charAt(0).toUpperCase();
+            document.getElementById('drawerName').textContent = lead.phone;
+            document.getElementById('drawerPhoneSub').innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-500"></span> ${lead.displayName} • Aktif ${lead.lastActive}`;
+            document.getElementById('drawerStageSelect').value = lead.stage;
+            document.getElementById('drawerValue').textContent = formatRupiah(lead.value);
+            document.getElementById('drawerDetailPhone').textContent = lead.phone;
+            document.getElementById('drawerDetailSource').textContent = lead.source;
+            document.getElementById('drawerDetailAgent').innerHTML = `
+                <span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold flex items-center justify-center">${lead.agent.charAt(0)}</span> ${lead.agent}
+            `;
+            document.getElementById('drawerDetailTags').innerHTML = `
+                <span class="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-md text-xs font-medium">${lead.tag}</span>
+            `;
+            document.getElementById('drawerNotes').value = lead.notes || '';
+
+            renderDrawerChat(lead);
+
+            // Show Backdrop & Slide Drawer In
+            document.getElementById('drawerBackdrop').classList.remove('hidden');
+            const drawer = document.getElementById('customerDrawer');
+            drawer.classList.remove('translate-x-full');
+            
+            renderBoard();
+            lucide.createIcons();
+        }
+
+        function closeDrawer() {
+            activeLeadId = null;
+            document.getElementById('customerDrawer').classList.add('translate-x-full');
+            document.getElementById('drawerBackdrop').classList.add('hidden');
+            renderBoard();
+        }
+
+        function renderDrawerChat(lead) {
+            const chatBox = document.getElementById('drawerChatHistory');
+            chatBox.innerHTML = lead.messages.map(msg => {
+                const isAgent = msg.sender === 'agent';
+                return `
+                    <div class="flex flex-col ${isAgent ? 'items-end' : 'items-start'}">
+                        <div class="max-w-[85%] px-3 py-2 rounded-xl text-xs shadow-2xs ${
+                            isAgent 
+                            ? 'bg-[#d9fdd3] text-slate-800 rounded-tr-none' 
+                            : 'bg-white text-slate-800 rounded-tl-none'
+                        }">
+                            <p class="leading-relaxed">${msg.text}</p>
+                            <span class="block text-[10px] text-slate-400 text-right mt-1">${msg.time}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function sendQuickReply() {
+            const input = document.getElementById('quickReplyInput');
+            const text = input.value.trim();
+            if (!text || !activeLeadId) return;
+
+            const lead = leads.find(l => l.id === activeLeadId);
+            const now = new Date();
+            const timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+
+            lead.messages.push({ sender: 'agent', text, time: timeStr });
+            lead.lastMessage = 'Anda: ' + text;
+            lead.lastActive = 'Baru saja';
+
+            input.value = '';
+            renderDrawerChat(lead);
+            renderBoard();
+            showToast('Pesan balasan terkirim ke WhatsApp');
+        }
+
+        function updateLeadStageFromDrawer(newStage) {
+            if (!activeLeadId) return;
+            moveLeadToStage(activeLeadId, newStage);
+        }
+
+        function saveCustomerNote() {
+            if (!activeLeadId) return;
+            const lead = leads.find(l => l.id === activeLeadId);
+            lead.notes = document.getElementById('drawerNotes').value;
+            const indicator = document.getElementById('noteSavedIndicator');
+            indicator.classList.remove('opacity-0');
+            setTimeout(() => indicator.classList.add('opacity-0'), 2000);
+        }
+
+        function copyPhoneNumber() {
+            const phone = document.getElementById('drawerName').textContent;
+            const tempInput = document.createElement('input');
+            tempInput.value = phone;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+            showToast(`Nomor ${phone} disalin!`);
+        }
+
+        // New Lead Modal Controls
+        function openNewDealModal() {
+            document.getElementById('newDealModal').classList.remove('hidden');
+        }
+        function closeNewDealModal() {
+            document.getElementById('newDealModal').classList.add('hidden');
+        }
+        function createNewDeal() {
+            const phone = document.getElementById('newPhone').value.trim();
+            if (!phone) {
+                showToast('Masukkan nomor WhatsApp terlebih dahulu');
+                return;
+            }
+            const name = document.getElementById('newName').value.trim() || 'Pelanggan Baru';
+            const stage = document.getElementById('newStage').value;
+            const value = parseInt(document.getElementById('newValue').value) || 0;
+
+            leads.unshift({
+                id: 'lead-' + Date.now(),
+                phone,
+                name: phone,
+                displayName: name,
+                stage,
+                value,
+                agent: 'Tania',
+                tag: 'Hot Lead',
+                source: 'Input Manual',
+                lastActive: 'Baru saja',
+                unread: 0,
+                lastMessage: 'Lead baru ditambahkan ke pipeline.',
+                notes: '',
+                messages: [
+                    { sender: 'agent', text: 'Halo, terima kasih telah menghubungi CSQ!', time: 'Baru saja' }
+                ]
+            });
+
+            document.getElementById('newPhone').value = '';
+            document.getElementById('newName').value = '';
+            closeNewDealModal();
+            renderBoard();
+            showToast('Lead baru berhasil ditambahkan');
+        }
+
+        // Filters & Toast
+        function resetFilters() {
+            document.getElementById('globalSearch').value = '';
+            document.getElementById('filterAgent').value = 'all';
+            document.getElementById('filterTag').value = 'all';
+            renderBoard();
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMessage').textContent = msg;
+            toast.classList.remove('opacity-0');
+            setTimeout(() => toast.classList.add('opacity-0'), 2500);
+        }
+
+        // Event Listeners for Filters
+        document.getElementById('globalSearch').addEventListener('input', renderBoard);
+        document.getElementById('filterAgent').addEventListener('change', renderBoard);
+        document.getElementById('filterTag').addEventListener('change', renderBoard);
+
+        // Initialize on Load
+        window.onload = () => {
+            renderBoard();
+        };
+    </script>
+</body>
+</html>

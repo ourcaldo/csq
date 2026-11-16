@@ -2,6 +2,16 @@
 
 Version format: `XX.YY.ZZ` - YY (minor) and ZZ (patch) stay within 0-10; XX (major) may grow beyond. Minor = new feature/behavior change, patch = fix, major = breaking change (schema, API contract, env vars).
 
+## 4.7.0 - 2026-11-16 (branch `monorepo`)
+
+Pipeline management revamp (owner request 2026-11-16, reference `docs/assets/csq_pipeline_management_revamp.html`).
+
+- **Deal value:** `Deal.value` (whole rupiah, migration `20261116100000_deal_value`) - shown on cards, per-stage totals, and the board header ("Potensi Nilai Pipeline"). Editable from the drawer; audited as `deal.value_change`.
+- **Rich cards:** phone + unread badge, contact name, last-message snippet, last activity, first tag, value, PIC.
+- **Slide-over drawer** replaces the detail dialog: stage selector, editable value, last-message preview, quick reply (same send path as the inbox), contact info, owner-only contact note (save on blur), Buka Kontak / Buka Chat.
+- **Tambah Lead:** phone + optional name + initial stage + value; 08xx normalizes to 628xx; an existing number updates its deal instead of duplicating. New `POST /api/dashboard/pipeline/deals`; the PATCH now accepts `value` as well as `stage`.
+- Filters now apply the date range immediately (previously only assignee/tag triggered a reload), plus a Reset button and toast feedback.
+
 ## 4.6.3 - 2026-11-16 (branch `monorepo`)
 
 Pipeline coverage for outbound-only conversations (owner report 2026-11-16: an API send delivered the WhatsApp message but nothing appeared in the Pipeline).

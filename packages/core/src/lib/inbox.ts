@@ -5,7 +5,11 @@ import { HttpError } from "@csq/core/lib/queries";
 import { logAction } from "@csq/core/lib/audit";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { enqueueOutbound, awaitOutbound } from "@csq/core/lib/outbox";
-import { ensureInitialDeal } from "@csq/core/lib/pipeline";
+import {
+  ensureInitialDeal,
+  setConversationStage,
+  setDealValue,
+} from "@csq/core/lib/pipeline";
 import type { InboundMessage, InboundKind } from "@csq/core/types/whatsapp";
 import { events } from "@csq/core/lib/events";
 
@@ -101,6 +105,71 @@ export async function findOrCreateConversation(
     }
     throw err;
   }
+}
+
+// Manual lead entry from the pipeline board (pipeline revamp 2026-11-16):
+// normalize the phone to the same identity the inbox uses, reuse or create the
+// thread on the tenant's connected channel, then place the deal and set its
+// estimated value. Re-adding an existing number moves that deal instead of
+// creating a second conversation (tenantId+customerPhone is unique).
+export async function createLead(input: {
+  tenantId: string;
+  phone: string;
+  name?: string;
+  stageName: string;
+  value?: number;
+  createdByUserId: string;
+}): Promise<{ conversation: Conversation; created: boolean; dealId: string }> {
+  const digits = input.phone.replace(/[^0-9]/g, "");
+  // Local Indonesian entry (08xx) -> international (628xx); other countries
+  // keep their digits as typed.
+  const phone = digits.startsWith("0") ? `62${digits.slice(1)}` : digits;
+  if (phone.length < 8 || phone.length > 20) {
+    throw new HttpError("VALIDATION_ERROR", "Nomor WhatsApp tidak valid.");
+  }
+  const channel =
+    (await prisma.channel.findFirst({
+      where: { tenantId: input.tenantId, status: "CONNECTED" },
+      orderBy: { createdAt: "asc" },
+    })) ??
+    (await prisma.channel.findFirst({
+      where: { tenantId: input.tenantId },
+      orderBy: { createdAt: "asc" },
+    }));
+  if (!channel) {
+    throw new HttpError(
+      "VALIDATION_ERROR",
+      "Hubungkan saluran WhatsApp terlebih dahulu."
+    );
+  }
+
+  const { conversation, created } = await findOrCreateConversation(
+    input.tenantId,
+    channel.id,
+    phone
+  );
+  if (input.name?.trim()) {
+    await prisma.contact.update({
+      where: { tenantId_phone: { tenantId: input.tenantId, phone } },
+      data: { name: input.name.trim() },
+    });
+  }
+  const placed = await setConversationStage({
+    tenantId: input.tenantId,
+    conversationId: conversation.id,
+    stageName: input.stageName,
+    movedByUserId: input.createdByUserId,
+    reason: created ? "lead.created" : "lead.updated",
+  });
+  if (input.value !== undefined) {
+    await setDealValue({
+      tenantId: input.tenantId,
+      conversationId: conversation.id,
+      value: input.value,
+      movedByUserId: input.createdByUserId,
+    });
+  }
+  return { conversation, created, dealId: placed.dealId };
 }
 
 // Shared inbound ingest path (SDD §4.9 / phase 7.4). Both the Cloud API

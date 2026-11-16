@@ -1189,6 +1189,9 @@ model Deal {
   tenantId       String
   conversationId String   @unique
   stageId        String
+  // Estimated deal value in whole rupiah (pipeline revamp 2026-11-16). IDR has
+  // no practical minor unit, so an Int avoids Decimal serialization in the UI.
+  value          Int      @default(0)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

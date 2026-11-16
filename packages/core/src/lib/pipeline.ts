@@ -12,9 +12,25 @@ export type PipelineWithStages = Prisma.PipelineGetPayload<{
   include: { stages: true };
 }>;
 
-// A deal joined with its stage + conversation (contact, assignee) for the kanban.
+// A deal joined with its stage + conversation (contact, assignee, channel,
+// tags, last message) for the kanban board (pipeline revamp 2026-11-16).
 export type DealWithRelations = Prisma.DealGetPayload<{
-  include: { stage: true; conversation: { include: { contact: true; assignee: true } } };
+  include: {
+    stage: true;
+    conversation: {
+      include: {
+        contact: true;
+        assignee: true;
+        channel: { select: { id: true; provider: true } };
+        tags: { include: { tag: true } };
+        messages: {
+          take: 1;
+          orderBy: { createdAt: "desc" };
+          select: { body: true; senderType: true; kind: true };
+        };
+      };
+    };
+  };
 }>;
 
 // Default pipeline template - copied per tenant on first Pipeline-page open.
@@ -173,6 +189,56 @@ export async function ensureInitialDeal(args: {
   });
 }
 
+// Set (or correct) the estimated deal value. The deal normally already exists
+// (created with the conversation); if it does not, place it on the first stage
+// rather than failing. Audited when the value actually changes.
+export async function setDealValue(args: {
+  tenantId: string;
+  conversationId: string;
+  value: number;
+  movedByUserId?: string;
+}): Promise<{ dealId: string; value: number }> {
+  if (!Number.isInteger(args.value) || args.value < 0 || args.value > 1_000_000_000_000) {
+    throw new HttpError("VALIDATION_ERROR", "Nilai deal tidak valid.");
+  }
+  const conversation = await prisma.conversation.findFirst({
+    where: { id: args.conversationId, tenantId: args.tenantId },
+    select: { id: true },
+  });
+  if (!conversation) {
+    throw new HttpError("NOT_FOUND", "Percakapan tidak ditemukan.");
+  }
+  const existing = await prisma.deal.findUnique({
+    where: { conversationId: args.conversationId },
+  });
+  if (!existing) {
+    await ensureInitialDeal({
+      tenantId: args.tenantId,
+      conversationId: args.conversationId,
+    });
+  }
+  const deal = await prisma.deal.update({
+    where: { conversationId: args.conversationId },
+    data: { value: args.value },
+  });
+  if ((existing?.value ?? 0) !== args.value) {
+    await logAction({
+      tenantId: args.tenantId,
+      agentId: null,
+      action: "deal.value_change",
+      entityType: "Deal",
+      entityId: deal.id,
+      beforeValue: { value: existing?.value ?? 0 },
+      afterValue: {
+        value: args.value,
+        byUserId: args.movedByUserId ?? null,
+      },
+      approvalStatus: "NONE",
+    });
+  }
+  return { dealId: deal.id, value: deal.value };
+}
+
 // Paginated, filtered deals query for the kanban page.
 export async function listDealsForKanban(args: {
   tenantId: string;
@@ -183,7 +249,13 @@ export async function listDealsForKanban(args: {
   to?: string;
   page: number;
   pageSize: number;
-}): Promise<{ items: DealWithRelations[]; total: number; page: number; pageSize: number }> {
+}): Promise<{
+  items: DealWithRelations[];
+  total: number;
+  page: number;
+  pageSize: number;
+  valueTotal: number;
+}> {
   const { tenantId, stageId, assigneeUserId, tagId, from, to, page, pageSize } = args;
   const where: Prisma.DealWhereInput = { tenantId };
   const conversationWhere: Prisma.ConversationWhereInput = {};
@@ -206,20 +278,35 @@ export async function listDealsForKanban(args: {
     where.conversation = conversationWhere;
   }
 
-  const [items, total] = await Promise.all([
+  const [items, total, sum] = await Promise.all([
     prisma.deal.findMany({
       where,
       include: {
         stage: true,
-        conversation: { include: { contact: true, assignee: true } },
+        conversation: {
+          include: {
+            contact: true,
+            assignee: true,
+            channel: { select: { id: true, provider: true } },
+            tags: { include: { tag: true } },
+            messages: {
+              take: 1,
+              orderBy: { createdAt: "desc" },
+              select: { body: true, senderType: true, kind: true },
+            },
+          },
+        },
       },
       skip: (page - 1) * pageSize,
       take: pageSize,
       orderBy: { updatedAt: "desc" },
     }),
     prisma.deal.count({ where }),
+    // Stage/column total for the board header - over the whole filtered set,
+    // not just the loaded page.
+    prisma.deal.aggregate({ where, _sum: { value: true } }),
   ]);
-  return { items, total, page, pageSize };
+  return { items, total, page, pageSize, valueTotal: sum._sum.value ?? 0 };
 }
 
 // Per-stage deal counts for the funnel cone + conversion rates.

@@ -275,6 +275,22 @@ handle customer conversations alongside the AI agent.
     outbound-only conversation never appeared on the Pipeline board. The
     write is guarded - a pipeline failure logs and never blocks ingest or
     send - and idempotent (moving to the same stage is a no-op).
+    Amendment 2026-11-16 (owner request, pipeline revamp): the Manajemen
+    Pipeline board was rebuilt to the reference in
+    `docs/assets/csq_pipeline_management_revamp.html`. Deals carry an
+    estimated value (`Deal.value`, whole rupiah, migration
+    `20261116100000_deal_value`) shown on cards and summed per stage and
+    for the whole board. Cards show phone, unread badge, contact name, last
+    message snippet, last activity, first tag, value, and PIC. A slide-over
+    drawer replaces the small dialog: stage selector, editable value, the
+    last messages of the thread with a quick reply (same send path as the
+    inbox, so it takes the conversation over like any dashboard reply),
+    contact info (phone, PIC, channel source, tags), and the contact note
+    (owner-only, saved through the contacts PUT). "Tambah Lead" adds a lead
+    by phone: 08xx normalizes to 628xx, the thread reuses or creates on the
+    tenant's connected channel, and re-adding an existing number updates
+    that deal instead of duplicating it. Stage and value changes are
+    audited (`deal.stage_change` / `deal.value_change`).
 -   **Private notes (MVP):** staff can add internal notes to a
     conversation — visible to team members only, never sent to the
     customer (like Cekat.AI's Private Note feature).
