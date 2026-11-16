@@ -38,6 +38,4 @@ export type PipelineBoardResult = {
   total: number;
   page: number;
   pageSize: number;
-  // Sum of deal values for the stage across the whole filtered set.
-  valueTotal: number;
 };

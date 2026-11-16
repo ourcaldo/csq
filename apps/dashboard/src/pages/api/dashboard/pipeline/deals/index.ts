@@ -162,7 +162,6 @@ export default async function handler(
           total: result.total,
           page: result.page,
           pageSize: result.pageSize,
-          valueTotal: result.valueTotal,
         })
       );
     }

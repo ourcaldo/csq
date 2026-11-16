@@ -2,6 +2,13 @@
 
 Version format: `XX.YY.ZZ` - YY (minor) and ZZ (patch) stay within 0-10; XX (major) may grow beyond. Minor = new feature/behavior change, patch = fix, major = breaking change (schema, API contract, env vars).
 
+## 4.7.1 - 2026-11-16 (branch `monorepo`)
+
+Pipeline board cleanup (owner request 2026-11-16).
+
+- Removed the "Potensi Nilai Pipeline" header pill and the per-stage "Total: Rp" line from the board.
+- The per-deal estimated value stays (card, drawer, Tambah Lead); the deals endpoint no longer computes the per-stage value aggregate.
+
 ## 4.7.0 - 2026-11-16 (branch `monorepo`)
 
 Pipeline management revamp (owner request 2026-11-16, reference `docs/assets/csq_pipeline_management_revamp.html`).

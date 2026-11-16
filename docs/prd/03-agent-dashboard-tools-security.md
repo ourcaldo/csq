@@ -279,8 +279,10 @@ handle customer conversations alongside the AI agent.
     Pipeline board was rebuilt to the reference in
     `docs/assets/csq_pipeline_management_revamp.html`. Deals carry an
     estimated value (`Deal.value`, whole rupiah, migration
-    `20261116100000_deal_value`) shown on cards and summed per stage and
-    for the whole board. Cards show phone, unread badge, contact name, last
+    `20261116100000_deal_value`) shown on cards and editable in the drawer;
+    the per-stage "Total" line and the board-level "Potensi Nilai Pipeline"
+    pill were removed the same day at the owner's request (board clutter) -
+    the value stays a per-deal field. Cards show phone, unread badge, contact name, last
     message snippet, last activity, first tag, value, and PIC. A slide-over
     drawer replaces the small dialog: stage selector, editable value, the
     last messages of the thread with a quick reply (same send path as the

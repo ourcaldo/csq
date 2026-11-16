@@ -37,7 +37,6 @@ type ColumnState = {
   page: number;
   pageSize: number;
   total: number;
-  valueTotal: number;
   loading: boolean;
 };
 
@@ -157,7 +156,6 @@ export default function PipelinePage() {
                 page: res.page,
                 pageSize: res.pageSize,
                 total: res.total,
-                valueTotal: res.valueTotal,
                 loading: false,
               }
             : c
@@ -180,7 +178,6 @@ export default function PipelinePage() {
         page: 1,
         pageSize: COLUMN_PAGE_SIZE,
         total: 0,
-        valueTotal: 0,
         loading: true,
       }))
     );
@@ -284,7 +281,6 @@ export default function PipelinePage() {
   }
 
   const totalActive = columns.reduce((sum, c) => sum + c.total, 0);
-  const totalValue = columns.reduce((sum, c) => sum + c.valueTotal, 0);
   const maxFunnelCount = Math.max(1, ...(funnel ?? []).map((s) => s.count));
 
   return (
@@ -343,22 +339,11 @@ export default function PipelinePage() {
           </div>
         </div>
 
-        {/* Summary + filters */}
+        {/* Filters */}
         <div className="shrink-0 space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-1.5">
-                <span className="block text-[11px] font-medium text-green-700">
-                  Potensi Nilai Pipeline
-                </span>
-                <span className="text-sm font-bold text-green-900">
-                  {formatRupiah(totalValue)}
-                </span>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-end gap-3">
-              <div>
-                <Label htmlFor="filter-assignee">Penanggung Jawab</Label>
+          <div className="flex flex-wrap items-end gap-3">
+            <div>
+              <Label htmlFor="filter-assignee">Penanggung Jawab</Label>
                 <Select
                   id="filter-assignee"
                   value={assignee}
@@ -420,7 +405,6 @@ export default function PipelinePage() {
               >
                 Reset
               </Button>
-            </div>
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
         </div>
@@ -462,12 +446,6 @@ export default function PipelinePage() {
                         {col?.total ?? 0}
                       </span>
                     </div>
-                    <p className="mt-0.5 text-[11px] font-medium text-slate-500">
-                      Total:{" "}
-                      <span className="font-semibold text-slate-700">
-                        {formatRupiah(col?.valueTotal ?? 0)}
-                      </span>
-                    </p>
                   </div>
                   <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto p-2.5">
                     {col?.loading && items.length === 0 && (
@@ -721,7 +699,6 @@ export default function PipelinePage() {
               page: 1,
               pageSize: COLUMN_PAGE_SIZE,
               total: 0,
-              valueTotal: 0,
               loading: true,
             }))
           );

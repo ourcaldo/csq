@@ -254,7 +254,6 @@ export async function listDealsForKanban(args: {
   total: number;
   page: number;
   pageSize: number;
-  valueTotal: number;
 }> {
   const { tenantId, stageId, assigneeUserId, tagId, from, to, page, pageSize } = args;
   const where: Prisma.DealWhereInput = { tenantId };
@@ -278,7 +277,7 @@ export async function listDealsForKanban(args: {
     where.conversation = conversationWhere;
   }
 
-  const [items, total, sum] = await Promise.all([
+  const [items, total] = await Promise.all([
     prisma.deal.findMany({
       where,
       include: {
@@ -302,11 +301,8 @@ export async function listDealsForKanban(args: {
       orderBy: { updatedAt: "desc" },
     }),
     prisma.deal.count({ where }),
-    // Stage/column total for the board header - over the whole filtered set,
-    // not just the loaded page.
-    prisma.deal.aggregate({ where, _sum: { value: true } }),
   ]);
-  return { items, total, page, pageSize, valueTotal: sum._sum.value ?? 0 };
+  return { items, total, page, pageSize };
 }
 
 // Per-stage deal counts for the funnel cone + conversion rates.
