@@ -13,7 +13,7 @@ import { verifyAccessToken } from "@csq/core/lib/api-jwt";
 
 export type ApiAuth =
   | { kind: "SERVICE" }
-  | { kind: "API_KEY"; tenantId: string; keyId: string }
+  | { kind: "API_KEY"; tenantId: string; keyId: string; keyName: string }
   | { kind: "JWT_USER"; userId: string; tenantId: string; role: string };
 
 export function bearerToken(req: NextApiRequest): string | null {
@@ -48,7 +48,7 @@ export async function requireApiAuth(req: NextApiRequest): Promise<ApiAuth | nul
       void prisma.apiKey
         .update({ where: { id: key.id }, data: { lastUsedAt: new Date() } })
         .catch(() => undefined);
-      return { kind: "API_KEY", tenantId: key.tenantId, keyId: key.id };
+      return { kind: "API_KEY", tenantId: key.tenantId, keyId: key.id, keyName: key.name };
     }
     // Phase 8: the mobile realm - a signed access JWT is a user-scoped
     // credential carrying its own tenantId.

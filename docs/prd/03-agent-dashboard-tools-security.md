@@ -293,6 +293,13 @@ handle customer conversations alongside the AI agent.
     tenant's connected channel, and re-adding an existing number updates
     that deal instead of duplicating it. Stage and value changes are
     audited (`deal.stage_change` / `deal.value_change`).
+    Amendment 2026-11-16 (owner case, lead origin): a lead now records
+    where it came from. `Contact.source` is set by the entry path: an
+    explicit `source` on a PRD 24 API send (e.g. "Placement Test"), else
+    the API key's name on first contact, else "API"; manual leads get
+    "Input Manual"; inbound-only leads keep it empty. The board card shows
+    the source next to the contact name and the drawer has a "Sumber Lead"
+    row, so an integration-created lead is attributable at a glance.
 -   **Private notes (MVP):** staff can add internal notes to a
     conversation — visible to team members only, never sent to the
     customer (like Cekat.AI's Private Note feature).

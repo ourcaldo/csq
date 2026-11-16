@@ -504,6 +504,9 @@ export default function PipelinePage() {
                               </div>
                               <p className="truncate text-xs text-slate-500">
                                 {contactName ?? "Pelanggan baru"}
+                                {d.conversation.contact?.source
+                                  ? ` - ${d.conversation.contact.source}`
+                                  : ""}
                               </p>
                             </div>
                             <span className="whitespace-nowrap text-[11px] text-slate-400">

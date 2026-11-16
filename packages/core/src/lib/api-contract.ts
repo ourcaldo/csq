@@ -103,6 +103,11 @@ export const sendMessageRequestSchema = z
     // multiple channels, so the sender must be explicit about which one.
     // The dashboard's Saluran page shows the channel ID with a copy button.
     channelId: z.string().uuid(),
+    // Lead source (amendment 2026-11-16): what brought this customer in, e.g.
+    // "Placement Test". Stored on the contact and shown on the pipeline card.
+    // An explicit source always updates it; without one, a first contact falls
+    // back to the API key's name, then "API".
+    source: z.string().trim().min(1).max(80).optional(),
   })
   .refine((value) => Boolean(value.text) || Boolean(value.media), {
     message: "text or media is required",
@@ -215,7 +220,7 @@ export const API_OPERATIONS: ApiOperation[] = [
     slug: "messages-send",
     summary: "Send a WhatsApp message",
     description:
-      "Sends a text message, an image, or an image with a caption (text) through the channel named by channelId (required - tenants can run multiple channels). Recorded in the inbox conversation and audited; the agent keeps owning the conversation (no takeover). On the Cloud API, free-form sends are only allowed within 24 hours of the customer's last inbound message.",
+      "Sends a text message, an image, or an image with a caption (text) through the channel named by channelId (required - tenants can run multiple channels). Optional source labels where the lead came from (e.g. \"Placement Test\"); it is stored on the contact and shown on the pipeline card. Recorded in the inbox conversation and audited; the agent keeps owning the conversation (no takeover). On the Cloud API, free-form sends are only allowed within 24 hours of the customer's last inbound message.",
     tags: ["Messages"],
     security: "bearer",
     request: sendMessageRequestSchema,

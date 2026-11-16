@@ -107,6 +107,28 @@ export async function findOrCreateConversation(
   }
 }
 
+// Lead source (pipeline revamp 2026-11-16): where a customer came from, e.g.
+// "Placement Test" declared by an API integration, an API key name, or
+// "Input Manual". An explicit source overwrites; a fallback only fills an
+// empty source so the first real origin sticks. Trimmed and capped at 80.
+export async function setContactSource(input: {
+  tenantId: string;
+  phone: string;
+  source: string;
+  onlyIfEmpty?: boolean;
+}): Promise<void> {
+  const source = input.source.trim().slice(0, 80);
+  if (!source) return;
+  await prisma.contact.updateMany({
+    where: {
+      tenantId: input.tenantId,
+      phone: input.phone,
+      ...(input.onlyIfEmpty ? { source: null } : {}),
+    },
+    data: { source },
+  });
+}
+
 // Manual lead entry from the pipeline board (pipeline revamp 2026-11-16):
 // normalize the phone to the same identity the inbox uses, reuse or create the
 // thread on the tenant's connected channel, then place the deal and set its
@@ -154,6 +176,13 @@ export async function createLead(input: {
       data: { name: input.name.trim() },
     });
   }
+  // A manual entry is the declared origin unless the customer already has one.
+  await setContactSource({
+    tenantId: input.tenantId,
+    phone,
+    source: "Input Manual",
+    onlyIfEmpty: true,
+  });
   const placed = await setConversationStage({
     tenantId: input.tenantId,
     conversationId: conversation.id,

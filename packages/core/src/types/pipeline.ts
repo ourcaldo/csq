@@ -21,6 +21,8 @@ export type PipelineDeal = {
       phone: string;
       email: string | null;
       notes: string | null;
+      // Lead source: "Placement Test", an API key name, "Input Manual"...
+      source: string | null;
     } | null;
     assignee: { id: string; name: string | null; email: string } | null;
     channel: { provider: "CLOUD_API" | "BAILEYS" };

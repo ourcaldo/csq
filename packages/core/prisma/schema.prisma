@@ -1016,6 +1016,10 @@ model Contact {
   name      String?
   email     String?
   notes     String?
+  // Lead source (pipeline revamp 2026-11-16): where this customer came from,
+  // e.g. "Placement Test" (PRD 24 explicit source), an API key name, or
+  // "Input Manual". First real origin sticks; an explicit API source updates it.
+  source    String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

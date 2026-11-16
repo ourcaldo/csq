@@ -36,6 +36,11 @@ Request:
   fallback: tenants will run multiple channels (PRD 15), so the sender is
   always explicit. The dashboard's Saluran page shows the channel ID on
   the connected-channel card with a copy button.
+- `source` (optional, max 80 - amendment 2026-11-16, owner request): where
+  this lead came from, e.g. `"Placement Test"`. Stored on the contact and
+  shown on the Pipeline card ("Sumber Lead"). An explicit source always
+  updates the contact; without it, a first contact falls back to the API
+  key's name, then `"API"`, and an existing organic lead keeps its origin.
 - At least one of `text` / `media` is required.
 
 Response `200`:
@@ -74,6 +79,9 @@ Response `200`:
    (first contact with that number), the conversation also lands on the
    pipeline's first stage (amendment 2026-11-16, PRD 03 15.8) - the
    Pipeline board shows leads, and an outbound-only chat is a lead too.
+   The contact's `source` records the origin (explicit `source`, else the
+   API key name, else "API") so the pipeline card and drawer show where
+   the lead came from.
 7. **Decision - no AI stand-down, no reassignment.** A dashboard human
    reply takes the conversation over (reply-as-takeover, PRD 03 amendment
    2026-11-10). API sends are automation, not a person typing: they count

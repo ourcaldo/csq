@@ -133,6 +133,7 @@ export default async function handler(
                     phone: c.contact.phone,
                     email: c.contact.email,
                     notes: c.contact.notes,
+                    source: c.contact.source,
                   }
                 : null,
               assignee: c.assignee

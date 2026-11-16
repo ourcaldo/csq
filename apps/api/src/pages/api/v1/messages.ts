@@ -7,6 +7,7 @@ import { withTenantContext } from "@csq/core/lib/tenant-context";
 import {
   findOrCreateConversation,
   recordOutboundMessage,
+  setContactSource,
   CLOUD_API_WINDOW_MS,
 } from "@csq/core/lib/inbox";
 import { enqueueOutbound, awaitOutbound } from "@csq/core/lib/outbox";
@@ -79,7 +80,7 @@ export default async function handler(
         )
       );
   }
-  const { text, media, channelId } = parsed.data;
+  const { text, media, channelId, source } = parsed.data;
   // Conversation identity is bare digits (matches the inbox's canonical form).
   const to = parsed.data.to.replace(/[^0-9]/g, "");
 
@@ -127,11 +128,30 @@ export default async function handler(
     }
 
     // Same find-or-create as inbound: a RESOLVED conversation reopens.
-    const { conversation } = await findOrCreateConversation(
+    const { conversation, created } = await findOrCreateConversation(
       auth.tenantId,
       channel.id,
       to
     );
+
+    // Lead source (amendment 2026-11-16): an explicit source always wins and
+    // updates the contact. Without one, only a brand-new thread (first contact
+    // ever) falls back to the API key's name, then "API" - an existing organic
+    // lead keeps its origin. Never blocks the send.
+    const fallbackSource =
+      auth.kind === "API_KEY" && auth.keyName.trim()
+        ? auth.keyName.trim()
+        : "API";
+    if (source !== undefined || created) {
+      await setContactSource({
+        tenantId: auth.tenantId,
+        phone: to,
+        source: source ?? fallbackSource,
+        onlyIfEmpty: source === undefined,
+      }).catch((err: unknown) => {
+        console.error(`[messages] contact source failed for ${to}:`, err);
+      });
+    }
 
     // 24h customer-service window - Cloud API only (same rule as the
     // dashboard reply). Baileys has no such enforcement.

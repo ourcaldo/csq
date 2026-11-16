@@ -363,6 +363,12 @@ export function LeadDrawer(props: Props) {
                   {providerLabel(conversation.channel.provider)}
                 </span>
               </div>
+              <div className="flex justify-between px-3 py-2.5">
+                <span className="text-slate-500">Sumber Lead</span>
+                <span className="font-medium text-slate-900">
+                  {contact?.source ?? "-"}
+                </span>
+              </div>
               <div className="flex items-center justify-between px-3 py-2.5">
                 <span className="text-slate-500">Tag Pelanggan</span>
                 <span className="flex flex-wrap justify-end gap-1">

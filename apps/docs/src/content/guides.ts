@@ -259,7 +259,8 @@ curl -X POST "${API}/api/v1/messages" \\
   -d '{
     "to": "628123456789",
     "channelId": "YOUR_CHANNEL_ID",
-    "text": "Halo Kak, pesanan Anda sudah dikirim hari ini."
+    "text": "Halo Kak, pesanan Anda sudah dikirim hari ini.",
+    "source": "Placement Test"
   }'
 \`\`\`
 
@@ -313,6 +314,7 @@ Response:
 - **At least one of \`text\` / \`media\` is required.** \`text\` max 4096 characters.
 - **\`channelId\` is REQUIRED** - the UUID of the connected channel to send from (tenants can run multiple channels). Copy it from the dashboard's **Saluran** page: the connected-channel card shows a **Channel ID (untuk API)** field with a copy button. A channel outside your tenant gets \`403\`; a disconnected one gets \`409\`.
 - **Media** must be an HTTPS URL pointing at an image (png, jpeg, webp, gif), max 10 MB. It is downloaded and stored on our side before sending.
+- **\`source\` (optional, max 80)** labels where the lead came from, e.g. \`"Placement Test"\`. It is stored on the contact and shown on the Pipeline card ("Sumber Lead"). Omit it and a first contact falls back to the API key's name, then \`"API"\`; an existing organic lead keeps its origin. Send the same source on every message from that integration so the label stays stable.
 - **24-hour window (Cloud API):** free-form messages are only allowed within 24 hours of the customer's last message. Outside it the API returns \`422 WINDOW_CLOSED\` - an approved template is required for proactive sends. Baileys channels have no such restriction.
 - **Takeover:** API sends do NOT reassign the conversation or mute the AI - they count as an answer to the customer message they respond to, and the agent keeps owning the chat. (A dashboard reply takes over; the API is automation.)
 - **Rate limit:** 60 requests per minute per credential.
