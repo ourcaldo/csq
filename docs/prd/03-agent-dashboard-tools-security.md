@@ -266,6 +266,15 @@ handle customer conversations alongside the AI agent.
     senderUserId equals the viewer's id renders with no name label. The
     conversation-list preview shows "API: " alongside the existing
     AI:/Skenario:/Kampanye: prefixes.
+    Amendment 2026-11-16 (owner report, pipeline coverage): a new
+    conversation is a new lead - it is placed on the pipeline's first
+    OPENING stage the moment the conversation is created (reason
+    "conversation.created"), for every entry path: inbound, PRD 24 API
+    send, campaign, dashboard reply. Before this a Deal existed only after
+    the AI called `deal.setStage` or a human moved a card, so an
+    outbound-only conversation never appeared on the Pipeline board. The
+    write is guarded - a pipeline failure logs and never blocks ingest or
+    send - and idempotent (moving to the same stage is a no-op).
 -   **Private notes (MVP):** staff can add internal notes to a
     conversation — visible to team members only, never sent to the
     customer (like Cekat.AI's Private Note feature).

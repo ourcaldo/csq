@@ -5,6 +5,7 @@ import { HttpError } from "@csq/core/lib/queries";
 import { logAction } from "@csq/core/lib/audit";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { enqueueOutbound, awaitOutbound } from "@csq/core/lib/outbox";
+import { ensureInitialDeal } from "@csq/core/lib/pipeline";
 import type { InboundMessage, InboundKind } from "@csq/core/types/whatsapp";
 import { events } from "@csq/core/lib/events";
 
@@ -70,6 +71,17 @@ export async function findOrCreateConversation(
         contactId: contact.id,
         lastMessageAt: new Date(),
       },
+    });
+    // New lead -> a card on the pipeline's first stage. Guarded: a pipeline
+    // write must never block an inbound ingest or an API send.
+    await ensureInitialDeal({
+      tenantId,
+      conversationId: conversation.id,
+    }).catch((err: unknown) => {
+      console.error(
+        `[inbox] initial pipeline deal failed for conversation ${conversation.id}:`,
+        err
+      );
     });
     return { conversation, created: true };
   } catch (err) {

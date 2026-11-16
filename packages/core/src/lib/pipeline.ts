@@ -151,6 +151,28 @@ export async function setConversationStage(args: {
   return { dealId: deal.id, stageId: stage.id };
 }
 
+// Every new conversation is a new lead, so it belongs on the pipeline's first
+// stage immediately (owner report 2026-11-16: an API send created the chat but
+// nothing appeared in the Pipeline). Deals used to exist only after the AI or
+// a human moved a card, so an outbound-only conversation (API send, campaign,
+// scenario) never showed up. Idempotent: setConversationStage no-ops when the
+// deal is already on that stage.
+export async function ensureInitialDeal(args: {
+  tenantId: string;
+  conversationId: string;
+}): Promise<void> {
+  const pipeline = await getOrCreatePipeline(args.tenantId);
+  const first =
+    pipeline.stages.find((s) => s.kind === "OPENING") ?? pipeline.stages[0];
+  if (!first) return;
+  await setConversationStage({
+    tenantId: args.tenantId,
+    conversationId: args.conversationId,
+    stageName: first.name,
+    reason: "conversation.created",
+  });
+}
+
 // Paginated, filtered deals query for the kanban page.
 export async function listDealsForKanban(args: {
   tenantId: string;

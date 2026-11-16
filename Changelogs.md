@@ -2,6 +2,14 @@
 
 Version format: `XX.YY.ZZ` - YY (minor) and ZZ (patch) stay within 0-10; XX (major) may grow beyond. Minor = new feature/behavior change, patch = fix, major = breaking change (schema, API contract, env vars).
 
+## 4.6.3 - 2026-11-16 (branch `monorepo`)
+
+Pipeline coverage for outbound-only conversations (owner report 2026-11-16: an API send delivered the WhatsApp message but nothing appeared in the Pipeline).
+
+- **Cause:** the Pipeline board renders `Deal` rows, and a Deal was created only when the AI called `deal.setStage` or a human moved a card. A conversation created by `POST /api/v1/messages` (or a campaign) has no AI turn, so it never got a deal.
+- **Fix:** `findOrCreateConversation` now places every newly created conversation on the pipeline's first OPENING stage (`ensureInitialDeal`, reason `conversation.created`), for all entry paths: inbound, API send, campaign, dashboard reply. Idempotent (same-stage moves are no-ops) and guarded - a pipeline failure logs and never blocks ingest or send.
+- Existing conversations without a deal were backfilled to their pipeline's OPENING stage on the clone.
+
 ## 4.6.2 - 2026-11-16 (branch `monorepo`)
 
 AI stopped answering customer messages that needed a tool (owner report 2026-11-16: two messages left unanswered, then auto-escalated after 11 retries).

@@ -70,7 +70,10 @@ Response `200`:
    keys), `kind MEDIA` + `mediaId` for image sends. `lastMessageAt`
    updates and the send is audited as `api.message_send`. It appears in
    the inbox thread like any other reply and counts as an answer to the
-   customer message it responds to.
+   customer message it responds to. When the send creates the conversation
+   (first contact with that number), the conversation also lands on the
+   pipeline's first stage (amendment 2026-11-16, PRD 03 15.8) - the
+   Pipeline board shows leads, and an outbound-only chat is a lead too.
 7. **Decision - no AI stand-down, no reassignment.** A dashboard human
    reply takes the conversation over (reply-as-takeover, PRD 03 amendment
    2026-11-10). API sends are automation, not a person typing: they count
