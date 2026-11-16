@@ -7,6 +7,7 @@ Version format: `XX.YY.ZZ` - YY (minor) and ZZ (patch) stay within 0-10; XX (maj
 Lead source (owner case 2026-11-16: placement-test leads appeared in the Pipeline with no origin).
 
 - `Contact.source` (migration `20261116160000_contact_source`) records where a lead came from. The Pipeline card shows it next to the contact name and the drawer has a "Sumber Lead" row.
+- Card values render only when set: an unset deal no longer shows "Rp 0" (owner report 2026-11-16).
 - `POST /api/v1/messages` accepts an optional `source` (max 80), e.g. `"Placement Test"`. An explicit source always updates the contact; without one, a first contact falls back to the API key's name, then `"API"`; an existing organic lead keeps its origin. Manual leads (Tambah Lead) get `"Input Manual"`.
 - Existing API-created contacts were backfilled to `"API"` on the clone, and the one API conversation missing its pipeline deal (created before the 4.6.3 deploy) got one.
 - Docs: the sending-messages guide and the generated reference carry `source`; PRD 24 and PRD 03 amended.
