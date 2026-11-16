@@ -526,9 +526,11 @@ export default function PipelinePage() {
                             <span className="truncate rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
                               {d.conversation.tags[0]?.tag.name ?? "Tanpa tag"}
                             </span>
-                            <span className="shrink-0 text-xs font-bold text-green-700">
-                              {formatRupiah(d.value)}
-                            </span>
+                            {d.value > 0 && (
+                              <span className="shrink-0 text-xs font-bold text-green-700">
+                                {formatRupiah(d.value)}
+                              </span>
+                            )}
                           </div>
 
                           <div className="mt-2 flex items-center justify-between border-t border-slate-50 pt-2 text-[11px] text-slate-500">
