@@ -140,7 +140,9 @@ export async function createLead(input: {
   name?: string;
   stageName: string;
   value?: number;
-  createdByUserId: string;
+  // Dashboard sends the session user; the /api/v1 pipeline route has none
+  // for API-key callers (PRD 25).
+  createdByUserId?: string;
 }): Promise<{ conversation: Conversation; created: boolean; dealId: string }> {
   const digits = input.phone.replace(/[^0-9]/g, "");
   // Local Indonesian entry (08xx) -> international (628xx); other countries

@@ -28,7 +28,7 @@ the file contents and names.
 | `16-completeness-remediation.md` | new | Remaining audit gaps outside PRD 15: security, correctness, missing features, admin, billing, operations, docs | Live - approved 2026-11-09; implementation tracked by item IDs |
 | `17-staff-kpi.md` | new | Staff and tenant KPIs: metrics, targets, periods, snapshot history, report | Live - approved and implemented 2026-11-10 |
 | `24-outbound-messaging-api.md` | new | Outbound messaging API: `POST /api/v1/messages` - text / image / image+caption sends from tenant systems, CRM-dashboard behavior, 24h window rule | Live - approved and implemented 2026-11-15 |
-| `25-pipeline-management-api.md` | new | Pipeline management API: list/move/create deals under `/api/v1/pipeline/*` for tenant systems, same core pipeline logic as the dashboard | Awaiting owner approval - drafted 2026-11-17 |
+| `25-pipeline-management-api.md` | new | Pipeline management API: list/move/create deals under `/api/v1/pipeline/*` for tenant systems, same core pipeline logic as the dashboard | Live - approved and implemented 2026-11-17 |
 
 Companion working documents (plans, registers, status) stay in `docs/`
 with date prefixes, e.g. `docs/plans/2026-11-08-enterprise-architecture-plan.md`.

@@ -331,6 +331,86 @@ Response:
 | 429 | \`RATE_LIMITED\` | 60/min per credential exceeded |
 | 502 | \`SEND_FAILED\` | The provider rejected the send |`;
 
+const PIPELINE = `Manage your sales pipeline (the same board as the dashboard's Manajemen Pipeline) from your own systems: list deals, move a lead between stages, set its value, and create new leads.
+
+All endpoints require a tenant API key (or user JWT) and the **pipeline** feature on the tenant's plan. Rate limit: 60 requests per minute per credential.
+
+## Discover the stages
+
+Stage names are per-tenant (defaults: Baru, Tertarik, Penawaran, Pesanan, Menang, Kalah). List them before moving anything:
+
+\`\`\`bash
+curl -H "Authorization: Bearer $CSQ_API_KEY" \\
+  ${API}/api/v1/pipeline/stages
+\`\`\`
+
+\`\`\`json
+{
+  "success": true,
+  "data": {
+    "items": [
+      { "id": "...", "name": "Baru", "kind": "OPENING", "order": 1 },
+      { "id": "...", "name": "Menang", "kind": "WON", "order": 5 }
+    ]
+  }
+}
+\`\`\`
+
+## List deals
+
+\`\`\`bash
+curl -H "Authorization: Bearer $CSQ_API_KEY" \\
+  "${API}/api/v1/pipeline/deals?stage=Baru&pageSize=50"
+\`\`\`
+
+Each item carries the deal's stage, value, the customer's phone, the contact name and \`source\` (where the lead came from, e.g. "Placement Test"), the assignee, and tags. Optional filters: \`stage\` (name), \`assignee\` (user UUID), \`tag\` (name), \`from\`/\`to\` (chat-activity ISO dates), \`page\`/\`pageSize\` (max 100).
+
+## Move a lead / set its value
+
+\`PATCH\` with the deal's \`conversationId\` (it is in every list item and in the response of a message send):
+
+\`\`\`bash
+curl -X PATCH -H "Authorization: Bearer $CSQ_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{ "stage": "Penawaran", "value": 250000, "reason": "placement test completed" }' \\
+  ${API}/api/v1/pipeline/deals/CONVERSATION_ID
+\`\`\`
+
+- \`stage\` is matched by name, case-insensitive. Terminal stages (**Menang** / **Kalah**) cannot be moved out of; moving INTO them is allowed.
+- \`value\` is whole rupiah (0 to 1,000,000,000,000). \`0\` clears the display on the card.
+- \`reason\` (max 300) lands in the stage history row - tag it with your integration's name so its moves are identifiable.
+- At least one of \`stage\` / \`value\` per call. Both land in the same audit trail (\`deal.stage_change\` / \`deal.value_change\`) as a dashboard move.
+
+## Create a lead
+
+\`\`\`bash
+curl -X POST -H "Authorization: Bearer $CSQ_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{ "phone": "08123456789", "name": "Budi", "stage": "Tertarik", "value": 250000 }' \\
+  ${API}/api/v1/pipeline/deals
+\`\`\`
+
+- \`phone\` is normalized like the dashboard's Tambah Lead dialog: \`08xx\` becomes \`628xx\`. A number that already has a conversation reuses its deal instead of creating a duplicate.
+- \`stage\` defaults to the first stage (Baru); \`name\` and \`value\` are optional.
+- The contact's source gets \`"Input Manual"\` only if empty - to record a labeled origin, send the first message through [POST /api/v1/messages](/messages) with a \`source\` first.
+
+## Placement test example
+
+1. The student submits the placement test on your site.
+2. \`POST /api/v1/messages\` with \`"source": "Placement Test"\` - the lead appears on the pipeline labeled with its origin.
+3. When the result is graded, \`PATCH /api/v1/pipeline/deals/{conversationId}\` with \`{"stage": "Tertarik"}\` (or wherever your flow puts it) and optionally the course price as \`value\`.
+
+## Errors
+
+| Status | Code | Meaning |
+| --- | --- | --- |
+| 400 | \`VALIDATION_ERROR\` | Invalid body or query, bad phone |
+| 401 | \`UNAUTHORIZED\` | Missing or invalid Bearer token |
+| 403 | \`PERMISSION_DENIED\` | Service token used |
+| 403 | \`FEATURE_DISABLED\` | The pipeline feature is not on the tenant's plan |
+| 404 | \`NOT_FOUND\` | Unknown stage/tag name, or conversation outside your tenant |
+| 429 | \`RATE_LIMITED\` | 60/min per credential exceeded |`;
+
 export const GUIDES: Record<string, Guide> = {
   introduction: {
     eyebrow: "Get started",
@@ -369,6 +449,13 @@ export const GUIDES: Record<string, Guide> = {
     description:
       "Send a text, an image, or an image with a caption through your tenant's connected WhatsApp channel.",
     markdown: MESSAGES,
+  },
+  pipeline: {
+    eyebrow: "Guides",
+    title: "Managing the pipeline",
+    description:
+      "List deals, move a lead between stages, set its value, and create leads - the dashboard's Manajemen Pipeline over the API.",
+    markdown: PIPELINE,
   },
 };
 

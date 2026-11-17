@@ -2,6 +2,18 @@
 
 Version format: `XX.YY.ZZ` - YY (minor) and ZZ (patch) stay within 0-10; XX (major) may grow beyond. Minor = new feature/behavior change, patch = fix, major = breaking change (schema, API contract, env vars).
 
+## 4.9.0 - 2026-11-17 (branch `monorepo`)
+
+Pipeline management API (PRD 25, owner request 2026-11-17): tenant systems can manage the sales pipeline over `/api/v1`.
+
+- `GET /api/v1/pipeline/stages` - the tenant's stages (id, name, kind, order) so callers discover valid stage names.
+- `GET /api/v1/pipeline/deals` - the board, paged: stage, value, contact (with `source`), assignee, tags. Filters: stage name, assignee UUID, tag name, chat-activity range.
+- `PATCH /api/v1/pipeline/deals/{conversationId}` - move stage (case-insensitive name; terminal Menang/Kalah locked) and/or set value, with an optional `reason` recorded in the stage history. Same core functions and audit trail as the dashboard drawer.
+- `POST /api/v1/pipeline/deals` - create a lead, same as Tambah Lead: phone normalized (08xx to 628xx), existing conversation reused, stage defaults to Baru.
+- All four: API key or user JWT, service tokens rejected, 60/min per credential, gated on the tenant's `pipeline` plan feature (`403 FEATURE_DISABLED`).
+- Docs: "Managing the pipeline" guide (with the placement-test flow: send with `source`, then PATCH the stage), generated reference carries the four endpoints.
+- `createLead` accepts an optional `createdByUserId` (API-key callers have no user).
+
 ## 4.8.0 - 2026-11-16 (branch `monorepo`)
 
 Lead source (owner case 2026-11-16: placement-test leads appeared in the Pipeline with no origin).

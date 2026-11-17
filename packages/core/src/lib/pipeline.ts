@@ -118,6 +118,19 @@ export async function setConversationStage(args: {
   if (existing && existing.tenantId !== tenantId) {
     throw new HttpError("NOT_FOUND", "Deal tidak ditemukan untuk tenant ini.");
   }
+  // Lazy create (PRD 25 API can move a conversation that has no deal yet):
+  // verify the conversation exists and belongs to the tenant BEFORE the
+  // create, otherwise a foreign/nonexistent conversationId 500s on the FK -
+  // or worse, links another tenant's conversation.
+  if (!existing) {
+    const conversation = await prisma.conversation.findFirst({
+      where: { id: conversationId, tenantId },
+      select: { id: true },
+    });
+    if (!conversation) {
+      throw new HttpError("NOT_FOUND", "Percakapan tidak ditemukan.");
+    }
+  }
   const fromStage = existing
     ? pipeline.stages.find((s) => s.id === existing.stageId) ?? null
     : null;

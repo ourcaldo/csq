@@ -148,3 +148,10 @@ Contract lives in `api-contract.ts` (generated reference + OpenAPI
 cannot drift) plus a "Managing the pipeline" guide in `apps/docs` with
 the placement-test example: send with `source`, then PATCH the stage
 when the test result arrives.
+
+## Status
+
+Approved and implemented 2026-11-17 (changelog 4.9.0). Endpoints:
+`GET /api/v1/pipeline/stages`, `GET /api/v1/pipeline/deals`,
+`PATCH /api/v1/pipeline/deals/{conversationId}`,
+`POST /api/v1/pipeline/deals`.

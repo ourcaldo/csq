@@ -54,7 +54,7 @@ export const webhookDiagSchema = z.object({
 export type ApiSecurity = "none" | "bearer" | "service";
 
 export type ApiOperation = {
-  method: "get" | "post";
+  method: "get" | "post" | "patch";
   path: string;
   /** Stable docs URL slug (docs pages must not change when paths change). */
   slug: string;
@@ -123,6 +123,98 @@ export const sendMessageResultSchema = z.object({
 
 export type SendMessageRequest = z.infer<typeof sendMessageRequestSchema>;
 export type SendMessageResult = z.infer<typeof sendMessageResultSchema>;
+
+// Pipeline management API (PRD 25): list / move / create deals on the
+// tenant's sales pipeline from tenant systems - the same core pipeline
+// functions, history rows, and audit trail as the dashboard.
+export const pipelineStageSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  kind: z.enum(["OPENING", "NORMAL", "WON", "LOST"]),
+  order: z.number().int(),
+});
+export type PipelineStageDto = z.infer<typeof pipelineStageSchema>;
+
+export const pipelineDealsQuerySchema = z.object({
+  stage: z.string().trim().min(1).max(60).optional(),
+  assignee: z.string().uuid().optional(),
+  tag: z.string().trim().min(1).max(60).optional(),
+  from: z.string().max(40).optional(),
+  to: z.string().max(40).optional(),
+  page: z.coerce.number().int().min(1).max(1000).optional(),
+  pageSize: z.coerce.number().int().min(1).max(100).optional(),
+});
+
+export const pipelineDealSchema = z.object({
+  id: z.string(),
+  conversationId: z.string(),
+  value: z.number().int(),
+  stage: pipelineStageSchema,
+  conversation: z.object({
+    id: z.string(),
+    customerPhone: z.string(),
+    lastMessageAt: z.string().nullable(),
+    contact: z
+      .object({
+        id: z.string(),
+        name: z.string().nullable(),
+        phone: z.string(),
+        source: z.string().nullable(),
+      })
+      .nullable(),
+    assignee: z
+      .object({ id: z.string(), name: z.string().nullable(), email: z.string() })
+      .nullable(),
+    tags: z.array(z.object({ tag: z.object({ id: z.string(), name: z.string() }) })),
+  }),
+});
+export type PipelineDealDto = z.infer<typeof pipelineDealSchema>;
+
+export const pipelineDealsResultSchema = z.object({
+  items: z.array(pipelineDealSchema),
+  total: z.number().int(),
+  page: z.number().int(),
+  pageSize: z.number().int(),
+});
+export type PipelineDealsResult = z.infer<typeof pipelineDealsResultSchema>;
+
+export const pipelineStagesResultSchema = z.object({
+  items: z.array(pipelineStageSchema),
+});
+
+export const dealPatchRequestSchema = z
+  .object({
+    stage: z.string().trim().min(1).max(60).optional(),
+    value: z.number().int().min(0).max(1_000_000_000_000).optional(),
+    reason: z.string().max(300).optional(),
+  })
+  .refine((v) => v.stage !== undefined || v.value !== undefined, {
+    message: "stage or value is required",
+    path: ["stage"],
+  });
+export type DealPatchRequest = z.infer<typeof dealPatchRequestSchema>;
+
+export const dealPatchResultSchema = z.object({
+  dealId: z.string(),
+  stageId: z.string().optional(),
+  value: z.number().int().optional(),
+});
+export type DealPatchResult = z.infer<typeof dealPatchResultSchema>;
+
+export const createDealRequestSchema = z.object({
+  phone: z.string().min(8).max(25),
+  name: z.string().max(120).optional(),
+  stage: z.string().trim().min(1).max(60).optional(),
+  value: z.number().int().min(0).max(1_000_000_000_000).optional(),
+});
+export type CreateDealRequest = z.infer<typeof createDealRequestSchema>;
+
+export const createDealResultSchema = z.object({
+  conversationId: z.string(),
+  dealId: z.string(),
+  created: z.boolean(),
+});
+export type CreateDealResult = z.infer<typeof createDealResultSchema>;
 
 export const API_OPERATIONS: ApiOperation[] = [
   {
@@ -233,6 +325,96 @@ export const API_OPERATIONS: ApiOperation[] = [
       "422": { description: "Cloud API 24h window closed - an approved template is required" },
       "429": { description: "Rate limited (60 requests per minute per credential)" },
       "502": { description: "Provider send failed" },
+    },
+  },
+  {
+    method: "get",
+    path: "/api/v1/pipeline/deals",
+    slug: "pipeline-deals-list",
+    summary: "List pipeline deals",
+    description:
+      "The tenant's pipeline board (PRD 25): deals with stage, value, contact, source, assignee, and tags. Filters: stage name, assignee user UUID, tag name, chat-activity date range, pagination. Requires the pipeline feature on the tenant's plan.",
+    tags: ["Pipeline"],
+    security: "bearer",
+    parameters: [
+      { name: "stage", in: "path", required: false, description: "Stage name filter", schema: z.string() },
+      { name: "assignee", in: "path", required: false, description: "Assignee user UUID filter", schema: z.string().uuid() },
+      { name: "tag", in: "path", required: false, description: "Tag name filter", schema: z.string() },
+      { name: "from", in: "path", required: false, description: "Chat activity from (ISO date)", schema: z.string() },
+      { name: "to", in: "path", required: false, description: "Chat activity to (ISO date)", schema: z.string() },
+      { name: "page", in: "path", required: false, description: "Page number (default 1)", schema: z.number().int() },
+      { name: "pageSize", in: "path", required: false, description: "Page size (default 50, max 100)", schema: z.number().int() },
+    ],
+    responses: {
+      "200": { description: "Deal page", data: pipelineDealsResultSchema },
+      "400": { description: "Invalid query parameters" },
+      "401": { description: "Bearer token required" },
+      "403": { description: "Service token used, or the pipeline feature is not on the tenant's plan" },
+      "404": { description: "Unknown stage name filter" },
+      "429": { description: "Rate limited (60 requests per minute per credential)" },
+    },
+  },
+  {
+    method: "get",
+    path: "/api/v1/pipeline/stages",
+    slug: "pipeline-stages-list",
+    summary: "List pipeline stages",
+    description:
+      "The tenant's pipeline stages (id, name, kind, order) so a caller can discover valid stage names before moving a deal (PRD 25).",
+    tags: ["Pipeline"],
+    security: "bearer",
+    responses: {
+      "200": { description: "Stage list", data: pipelineStagesResultSchema },
+      "401": { description: "Bearer token required" },
+      "403": { description: "Service token used, or the pipeline feature is not on the tenant's plan" },
+      "429": { description: "Rate limited (60 requests per minute per credential)" },
+    },
+  },
+  {
+    method: "patch",
+    path: "/api/v1/pipeline/deals/{conversationId}",
+    slug: "pipeline-deal-update",
+    summary: "Move a deal's stage or set its value",
+    description:
+      "Same behavior as the dashboard drawer (PRD 25): moving to a stage name (case-insensitive; terminal stages Menang/Kalah cannot be moved out of) writes the stage history row and audit; setting the value audits deal.value_change. A conversation without a deal gets one lazily. At least one of stage / value is required.",
+    tags: ["Pipeline"],
+    security: "bearer",
+    parameters: [
+      {
+        name: "conversationId",
+        in: "path",
+        required: true,
+        description: "Conversation UUID",
+        schema: z.string().uuid(),
+      },
+    ],
+    request: dealPatchRequestSchema,
+    responses: {
+      "200": { description: "Updated deal", data: dealPatchResultSchema },
+      "400": { description: "Invalid body" },
+      "401": { description: "Bearer token required" },
+      "403": { description: "Service token used, or the pipeline feature is not on the tenant's plan" },
+      "404": { description: "Conversation or stage not found for this tenant" },
+      "429": { description: "Rate limited (60 requests per minute per credential)" },
+    },
+  },
+  {
+    method: "post",
+    path: "/api/v1/pipeline/deals",
+    slug: "pipeline-deal-create",
+    summary: "Create a lead",
+    description:
+      "Same as the dashboard's manual lead entry (PRD 25): normalize the phone (08xx to 628xx), reuse the existing conversation for that number instead of duplicating, place the deal on the given (or first) stage, optionally set the contact name and value.",
+    tags: ["Pipeline"],
+    security: "bearer",
+    request: createDealRequestSchema,
+    responses: {
+      "200": { description: "Lead placed on the pipeline", data: createDealResultSchema },
+      "400": { description: "Invalid body or phone" },
+      "401": { description: "Bearer token required" },
+      "403": { description: "Service token used, or the pipeline feature is not on the tenant's plan" },
+      "404": { description: "Unknown stage name" },
+      "429": { description: "Rate limited (60 requests per minute per credential)" },
     },
   },
   {
