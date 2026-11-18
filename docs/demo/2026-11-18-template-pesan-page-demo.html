@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Template Pesan - CSQ (Demo Interaktif)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<style>
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .modal-backdrop { background: rgba(15, 23, 42, 0.45); }
+  .nav-item-active { background-color: rgb(240 253 244); color: rgb(21 128 61); font-weight: 600; }
+  .tpl-input { width: 100%; border-radius: 0.5rem; border: 1px solid rgb(226 232 240); background: #fff; padding: 0.5rem 0.75rem; font-size: 0.875rem; }
+  .tpl-input:focus { border-color: rgb(22 163 74); outline: none; box-shadow: 0 0 0 2px rgb(22 163 74 / 0.2); }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+<!-- ════════ Sidebar ════════ -->
+<aside id="sidebar" class="fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 -translate-x-full flex-col border-r border-slate-200 bg-white transition-transform md:translate-x-0">
+  <div class="flex h-16 items-center gap-2 border-b border-slate-100 px-6">
+    <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-green-600 text-white"><i class="ph-fill ph-chat-circle-dots text-xl"></i></div>
+    <span class="text-xl font-bold tracking-tight text-slate-900">CSQ</span>
+  </div>
+  <nav class="flex-1 space-y-4 overflow-y-auto px-3 py-4 text-sm">
+    <div>
+      <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Utama</p>
+      <div class="space-y-0.5">
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-chart-bar text-lg text-slate-500"></i>Ringkasan</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-chat-circle-dots text-lg text-slate-500"></i>Percakapan</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-lifebuoy text-lg text-slate-500"></i>Tiket</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-megaphone text-lg text-slate-500"></i>Kampanye</a>
+        <a class="nav-item-active flex items-center gap-3 rounded-lg px-3 py-2"><i class="ph ph-notepad text-lg"></i>Template Pesan</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-whatsapp-logo text-lg text-slate-500"></i>Saluran</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-kanban text-lg text-slate-500"></i>Manajemen Pipeline</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-target text-lg text-slate-500"></i>KPI</a>
+      </div>
+    </div>
+    <div>
+      <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Data Bisnis</p>
+      <div class="space-y-0.5">
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-package text-lg text-slate-500"></i>Produk</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-stack text-lg text-slate-500"></i>Inventaris</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-shopping-cart text-lg text-slate-500"></i>Pesanan</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-address-book text-lg text-slate-500"></i>Kontak</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-tag text-lg text-slate-500"></i>Tag</a>
+      </div>
+    </div>
+    <div>
+      <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Pengetahuan</p>
+      <div class="space-y-0.5">
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-books text-lg text-slate-500"></i>Pengetahuan</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-brain text-lg text-slate-500"></i>Memori</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-database text-lg text-slate-500"></i>Sumber Data</a>
+      </div>
+    </div>
+    <div>
+      <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Agent</p>
+      <div class="space-y-0.5">
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-robot text-lg text-slate-500"></i>Agent</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-flow-arrow text-lg text-slate-500"></i>Skenario</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-seal-check text-lg text-slate-500"></i>Approval</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-clock-counter-clockwise text-lg text-slate-500"></i>Aktivitas</a>
+      </div>
+    </div>
+  </nav>
+  <div class="space-y-0.5 border-t border-slate-200 p-3 text-sm">
+    <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-gear text-lg text-slate-500"></i>Pengaturan</a>
+    <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-users text-lg text-slate-500"></i>Tim</a>
+    <a id="nav-plan" class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-wallet text-lg text-slate-500"></i>Paket &amp; Kuota</a>
+  </div>
+</aside>
+
+<div id="nav-overlay" class="modal-backdrop fixed inset-0 z-30 hidden md:hidden" onclick="toggleNav(false)"></div>
+
+<!-- ════════ Main ════════ -->
+<div class="flex min-w-0 flex-col md:pl-64">
+
+  <header class="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 md:px-6">
+    <button class="rounded-md p-2 text-slate-600 hover:bg-slate-100 md:hidden" onclick="toggleNav(true)" aria-label="Buka menu"><i class="ph ph-list text-2xl"></i></button>
+    <div class="relative mx-2 hidden w-full max-w-xl sm:block">
+      <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+      <input type="text" placeholder="Cari atau ketik perintah…" class="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-10 pr-4 text-sm placeholder-slate-400 focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+    </div>
+    <div class="flex items-center gap-3 md:gap-4">
+      <button class="relative text-slate-400 transition-colors hover:text-slate-600"><i class="ph ph-bell text-2xl"></i><span class="absolute right-0 top-0 h-2 w-2 rounded-full border-2 border-white bg-red-500"></span></button>
+      <div class="mx-1 hidden h-6 w-px bg-slate-200 sm:block"></div>
+      <div class="relative">
+        <button id="avatar-btn" class="flex items-center gap-2 rounded-md p-1 hover:bg-slate-100" onclick="toggleMenu()">
+          <div id="avatar-initial" class="flex h-8 w-8 items-center justify-center rounded-full bg-green-600 text-sm font-semibold text-white">B</div>
+          <i class="ph ph-caret-down hidden text-slate-400 sm:block"></i>
+        </button>
+        <div id="avatar-menu" class="absolute right-0 top-12 z-50 hidden w-56 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
+          <div class="border-b border-slate-100 px-3 py-2">
+            <p id="menu-name" class="truncate text-sm font-semibold text-slate-900">Bu Ratih</p>
+            <p id="menu-role" class="text-xs text-slate-500">Owner</p>
+          </div>
+          <!-- Demo-only role switch: di app asli, role datang dari sesi login -->
+          <button onclick="switchRole()" class="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-swap text-base"></i>Ganti peran demo (Owner/Staf)</button>
+          <button class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-sign-out text-base"></i>Keluar</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 overflow-y-auto">
+    <div class="border-b border-slate-200 bg-white px-4 py-4 md:px-6">
+      <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+        <div class="min-w-0">
+          <h1 class="text-xl font-bold text-slate-900">Template Pesan</h1>
+          <p class="mt-0.5 text-sm text-slate-500">Kelola template pesan CSQ (teks bebas dalam window 24 jam) dan template Meta (wajib di-approve di Meta, untuk pesan proaktif di luar window).</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="p-4 md:p-6">
+      <p id="form-error" class="mb-4 hidden rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-700"></p>
+
+      <div class="mb-4 flex items-center justify-end">
+        <button id="btn-add" onclick="openForm('new')" class="flex items-center gap-1.5 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">
+          <i class="ph ph-plus text-base"></i> Tambah Template
+        </button>
+      </div>
+
+      <p id="empty-notice" class="hidden rounded-md border border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+        Belum ada template. Tambahkan template CSQ untuk pesan otomatis, atau daftarkan nama template Meta yang sudah di-approve.
+      </p>
+
+      <div id="grid" class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"></div>
+    </div>
+  </main>
+</div>
+
+<!-- ════════ Dialog: Tambah/Edit Template ════════ -->
+<div id="dlg-form" class="modal-backdrop fixed inset-0 z-50 hidden items-center justify-center p-4">
+  <div class="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl">
+    <div class="border-b border-slate-100 px-5 py-4 text-sm font-semibold" id="dlg-title">Tambah Template</div>
+    <form class="space-y-3 px-5 py-4" onsubmit="onSave(event)">
+      <div>
+        <label class="mb-1 block text-sm font-medium" for="tpl-kind">Jenis</label>
+        <select id="tpl-kind" onchange="setKind(this.value)" class="tpl-input">
+          <option value="CSQ">CSQ - teks bebas (dalam window 24 jam)</option>
+          <option value="META">Meta - nama template yang sudah di-approve</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="mb-1 block text-sm font-medium" for="tpl-key-option">Fungsi template</label>
+        <select id="tpl-key-option" onchange="setKeyOption(this.value)" class="tpl-input"></select>
+        <p id="sys-desc" class="mt-1 hidden text-xs text-slate-400"></p>
+        <div id="custom-key-wrap" class="mt-2 hidden">
+          <input id="tpl-custom-key" placeholder="Nama fungsi (huruf kecil, angka, underscore)" pattern="[a-z0-9_]+" title="huruf kecil, angka, underscore" class="tpl-input" />
+        </div>
+      </div>
+
+      <div>
+        <label class="mb-1 block text-sm font-medium" for="tpl-label">Nama</label>
+        <input id="tpl-label" placeholder="Mis. Pesan penutup sesi" required class="tpl-input" />
+      </div>
+
+      <div id="field-csq">
+        <label class="mb-1 block text-sm font-medium" for="tpl-body">Isi pesan</label>
+        <textarea id="tpl-body" rows="3" placeholder="Teks pesan yang dikirim ke pelanggan…" required class="tpl-input resize-y"></textarea>
+      </div>
+      <div id="field-meta" class="hidden grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div>
+          <label class="mb-1 block text-sm font-medium" for="tpl-meta-name">Nama template Meta</label>
+          <input id="tpl-meta-name" placeholder="mis. session_close_v1" required class="tpl-input" />
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium" for="tpl-meta-lang">Bahasa</label>
+          <input id="tpl-meta-lang" placeholder="id" class="tpl-input" />
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="closeForm()" class="rounded-md border border-slate-200 px-4 py-2 text-sm font-medium hover:bg-slate-50">Batal</button>
+        <button type="submit" class="flex items-center gap-1.5 rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"><i class="ph ph-notepad text-base"></i> Simpan</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+// ══════════ Demo data ══════════
+// systemKeys = SYSTEM_TEMPLATE_KEYS dari packages/core/src/lib/message-templates.ts.
+var systemKeys = [
+  { key: "session_end", label: "Pesan penutup sesi (otomatis saat idle 1 jam)", description: "Dikirim otomatis saat percakapan idle 1 jam sejak pesan terakhir pelanggan." },
+  { key: "agent_fallback", label: "Fallback saat AI gangguan", description: "Menggantikan pesan default sistem saat AI mengalami gangguan dan tidak bisa membalas." },
+  { key: "window_greeting", label: "Sapaan pembuka window baru", description: "Sapaan saat pelanggan memulai kembali setelah sesi sebelumnya berakhir (opsional)." }
+];
+var templates = [
+  { id: "tp1", key: "session_end", label: "Pesan penutup sesi", kind: "CSQ", body: "Terima kasih sudah menghubungi Toko Kopi Nusantara. Sampai jumpa di pesan berikutnya!" },
+  { id: "tp2", key: "agent_fallback", label: "Fallback AI", kind: "CSQ", body: "Maaf, sistem kami sedang sibuk. Silakan ulangi pesan Anda sebentar lagi." },
+  { id: "tp3", key: "promo_diskon", label: "Promo Diskon", kind: "META", body: "", metaName: "promo_diskon_v1", metaLanguage: "id" }
+];
+var role = "OWNER";
+var isOwner = true;
+
+// Form state
+var editingId = null; // null = new
+var formKind = "CSQ";
+var keyOption = "custom";
+var customKey = "";
+
+// ══════════ Helpers (port dari index.tsx) ══════════
+function keyToOption(key) {
+  return systemKeys.some(function (k) { return k.key === key; }) ? "sys:" + key : key || "custom";
+}
+function optionToKey(value) {
+  if (value === "custom") return customKey.trim();
+  return value.startsWith("sys:") ? value.slice(4) : value;
+}
+function esc(s) {
+  return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+}
+
+// ══════════ Render ══════════
+function render() {
+  var grid = document.getElementById("grid");
+  document.getElementById("empty-notice").classList.toggle("hidden", templates.length > 0);
+  grid.innerHTML = templates.map(function (t) {
+    var sys = systemKeys.find(function (k) { return k.key === t.key; });
+    var bodyTxt = t.kind === "META"
+      ? "Nama template Meta: " + (t.metaName || "-") + " (" + (t.metaLanguage || "id") + ")"
+      : t.body;
+    var actions = isOwner
+      ? '<div class="mt-auto flex gap-2 pt-2">' +
+        '<button onclick="openForm(\'' + t.id + '\')" class="flex items-center gap-1 rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium hover:bg-slate-50"><i class="ph ph-pencil-simple text-sm"></i> Edit</button>' +
+        '<button onclick="onDelete(\'' + t.id + '\')" class="flex items-center gap-1 rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium hover:bg-slate-50"><i class="ph ph-trash text-sm"></i></button>' +
+        "</div>"
+      : "";
+    return '<div class="flex flex-col rounded-xl border border-slate-200 bg-white p-4 shadow-sm">' +
+      '<div class="mb-2 flex items-start justify-between gap-2">' +
+      '<div class="min-w-0"><p class="truncate text-sm font-semibold text-slate-900">' + esc(t.label) + "</p>" +
+      (sys ? '<span class="text-[11px] text-slate-400">' + esc(sys.description) + "</span>" : "") +
+      "</div>" +
+      '<span class="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ' +
+      (t.kind === "META" ? "bg-blue-50 text-blue-700" : "bg-green-50 text-green-700") + '">' +
+      (t.kind === "META" ? "Meta" : "CSQ") + "</span></div>" +
+      '<p class="mb-3 min-h-[3rem] whitespace-pre-line rounded-lg bg-slate-50 p-2 text-xs text-slate-600">' + esc(bodyTxt) + "</p>" +
+      actions + "</div>";
+  }).join("");
+}
+
+// ══════════ Form ══════════
+function openForm(idOrNew) {
+  hideError();
+  if (idOrNew === "new") {
+    editingId = null;
+    formKind = "CSQ";
+    keyOption = "custom";
+    customKey = "";
+    document.getElementById("dlg-title").textContent = "Tambah Template";
+    document.getElementById("tpl-label").value = "";
+    document.getElementById("tpl-body").value = "";
+    document.getElementById("tpl-meta-name").value = "";
+    document.getElementById("tpl-meta-lang").value = "id";
+  } else {
+    var t = templates.find(function (x) { return x.id === idOrNew; });
+    editingId = t.id;
+    formKind = t.kind;
+    keyOption = keyToOption(t.key);
+    customKey = t.key;
+    document.getElementById("dlg-title").textContent = "Edit Template";
+    document.getElementById("tpl-label").value = t.label;
+    document.getElementById("tpl-body").value = t.body || "";
+    document.getElementById("tpl-meta-name").value = t.metaName || "";
+    document.getElementById("tpl-meta-lang").value = t.metaLanguage || "id";
+  }
+  renderKeyOptions();
+  document.getElementById("tpl-kind").value = formKind;
+  renderKindFields();
+  openDlg("dlg-form");
+}
+
+// System keys already used for the current kind (excluding the edited row) -
+// disabled in the dropdown: one template per (key, kind).
+function renderKeyOptions() {
+  var used = templates.filter(function (t) {
+    return t.kind === formKind && t.id !== editingId;
+  }).map(function (t) { return t.key; });
+  var sel = document.getElementById("tpl-key-option");
+  sel.innerHTML = systemKeys.map(function (k) {
+    return '<option value="sys:' + k.key + '" ' + (used.indexOf(k.key) > -1 ? "disabled" : "") + " " + (keyOption === "sys:" + k.key ? "selected" : "") + ">" + esc(k.label) + "</option>";
+  }).join("") + '<option value="custom" ' + (keyOption === "custom" ? "selected" : "") + ">Lainnya (buat sendiri)</option>";
+  var sys = systemKeys.find(function (k) { return "sys:" + k.key === keyOption; });
+  var desc = document.getElementById("sys-desc");
+  desc.textContent = sys ? sys.description : "";
+  desc.classList.toggle("hidden", !sys);
+  document.getElementById("custom-key-wrap").classList.toggle("hidden", keyOption !== "custom");
+  if (keyOption === "custom") document.getElementById("tpl-custom-key").value = customKey;
+}
+function setKeyOption(v) { keyOption = v; renderKeyOptions(); }
+function setKind(v) { formKind = v; renderKindFields(); renderKeyOptions(); }
+function renderKindFields() {
+  document.getElementById("field-csq").classList.toggle("hidden", formKind !== "CSQ");
+  var meta = document.getElementById("field-meta");
+  meta.classList.toggle("hidden", formKind !== "META");
+  document.getElementById("tpl-body").required = formKind === "CSQ";
+  document.getElementById("tpl-meta-name").required = formKind === "META";
+}
+
+function onSave(e) {
+  e.preventDefault();
+  var key = optionToKey(keyOption);
+  if (!key) return showError("Key template wajib diisi.");
+  if (keyOption === "custom" && !/^[a-z0-9_]+$/.test(key)) return showError("Nama fungsi hanya huruf kecil, angka, underscore.");
+  var payload = {
+    key: key,
+    label: document.getElementById("tpl-label").value.trim(),
+    kind: formKind,
+    body: formKind === "CSQ" ? document.getElementById("tpl-body").value.trim() : "",
+    metaName: formKind === "META" ? document.getElementById("tpl-meta-name").value.trim() : undefined,
+    metaLanguage: formKind === "META" ? document.getElementById("tpl-meta-lang").value.trim() || "id" : undefined
+  };
+  // POST path di app asli: satu template per (key, kind) - edit menggantikan, bukan duplikat.
+  var dup = templates.find(function (t) { return t.key === payload.key && t.kind === payload.kind && t.id !== editingId; });
+  if (editingId) {
+    var t = templates.find(function (x) { return x.id === editingId; });
+    Object.assign(t, payload);
+  } else {
+    if (dup) return showError("Template dengan fungsi dan jenis yang sama sudah ada.");
+    templates.unshift({ id: "tp" + Date.now(), ...payload });
+  }
+  closeForm();
+  render();
+}
+function onDelete(id) {
+  hideError();
+  templates = templates.filter(function (t) { return t.id !== id; });
+  render();
+}
+function closeForm() { closeDlg("dlg-form"); }
+function showError(msg) { var el = document.getElementById("form-error"); el.textContent = msg; el.classList.remove("hidden"); }
+function hideError() { document.getElementById("form-error").classList.add("hidden"); }
+
+// ══════════ Dialog / menu / role ══════════
+function openDlg(id) { var d = document.getElementById(id); d.classList.remove("hidden"); d.classList.add("flex"); }
+function closeDlg(id) { var d = document.getElementById(id); d.classList.add("hidden"); d.classList.remove("flex"); }
+function toggleMenu() { document.getElementById("avatar-menu").classList.toggle("hidden"); }
+function toggleNav(open) {
+  document.getElementById("sidebar").classList.toggle("-translate-x-full", !open);
+  document.getElementById("nav-overlay").classList.toggle("hidden", !open);
+}
+function applyRole() {
+  // Write OWNER-only (sama seperti requireRole(session, "OWNER") di API); staf hanya bisa lihat.
+  isOwner = role === "OWNER";
+  document.getElementById("btn-add").style.display = isOwner ? "" : "none";
+  document.getElementById("menu-role").textContent = isOwner ? "Owner" : "Staff";
+  document.getElementById("menu-name").textContent = isOwner ? "Bu Ratih" : "Dina (Staf)";
+  document.getElementById("avatar-initial").textContent = isOwner ? "B" : "D";
+  render();
+}
+function switchRole() { role = role === "OWNER" ? "STAFF" : "OWNER"; applyRole(); toggleMenu(); }
+document.addEventListener("mousedown", function (e) {
+  var menu = document.getElementById("avatar-menu");
+  var btn = document.getElementById("avatar-btn");
+  if (!menu.classList.contains("hidden") && !btn.contains(e.target) && !menu.contains(e.target)) menu.classList.add("hidden");
+});
+
+render();
+</script>
+</body>
+</html>
