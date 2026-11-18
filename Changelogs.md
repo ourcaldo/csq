@@ -2,6 +2,13 @@
 
 Version format: `XX.YY.ZZ` - YY (minor) and ZZ (patch) stay within 0-10; XX (major) may grow beyond. Minor = new feature/behavior change, patch = fix, major = breaking change (schema, API contract, env vars).
 
+## 4.9.1 - 2026-11-18 (branch `monorepo`)
+
+Inbox list buttons (owner request 2026-11-18): the two dead buttons next to "Percakapan" now work.
+
+- The Faders (filter) button toggles the status/tag filter bar, which now starts hidden; it shows an active (green) state while on and the bar gained a Reset button.
+- The Plus button opens "Mulai Percakapan Baru": enter a phone (08xx normalized) and an optional name, the conversation is created (or the existing one reused) and opened immediately. New BFF `POST /api/dashboard/inbox/conversations`, reusing the inbound find-or-create path; a note in the dialog warns about the Cloud API 24h window for new outbound replies.
+
 ## 4.9.0 - 2026-11-17 (branch `monorepo`)
 
 Pipeline management API (PRD 25, owner request 2026-11-17): tenant systems can manage the sales pipeline over `/api/v1`.

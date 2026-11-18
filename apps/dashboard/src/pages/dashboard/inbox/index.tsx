@@ -7,7 +7,7 @@ import type { ChangeEvent } from "react";
 import type { GetServerSideProps } from "next";
 import { useRouter } from "next/router";
 import { withAuth } from "@csq/core/lib/auth";
-import { apiSend } from "@/lib/api-client";
+import { apiSend, ApiError } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
 import { usePolledApi } from "@/hooks/use-polled-api";
 import type { ListResult, Tag } from "@csq/core/types/dashboard";
@@ -17,6 +17,10 @@ import { ConversationList } from "@/components/dashboard/inbox/conversation-list
 import { ChatPanel } from "@/components/dashboard/inbox/chat-panel";
 import { ContactDetails } from "@/components/dashboard/inbox/contact-details";
 import { Select } from "@csq/ui/components/ui/select";
+import { Dialog } from "@csq/ui/components/ui/dialog";
+import { Input } from "@csq/ui/components/ui/input";
+import { Label } from "@csq/ui/components/ui/label";
+import { Button } from "@csq/ui/components/ui/button";
 
 type Tab = "assigned" | "unassigned";
 
@@ -37,6 +41,15 @@ export default function InboxPage({ apiMediaBase }: InboxPageProps) {
   const [detailsHidden, setDetailsHidden] = useState(false);
   const [status, setStatus] = useState("");
   const [tagId, setTagId] = useState("");
+  // Filter (Faders) button: the status/tag toolbar starts hidden; the button
+  // reveals it (owner request 2026-11-18).
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  // Chat Baru (+) button state.
+  const [newChatOpen, setNewChatOpen] = useState(false);
+  const [newChatPhone, setNewChatPhone] = useState("");
+  const [newChatName, setNewChatName] = useState("");
+  const [newChatBusy, setNewChatBusy] = useState(false);
+  const [newChatError, setNewChatError] = useState<string | null>(null);
 
   // Allow deep-linking to a specific conversation via ?c=<id> (used by the
   // pipeline "Buka Chat" action). Only applied once, on mount.
@@ -96,9 +109,48 @@ export default function InboxPage({ apiMediaBase }: InboxPageProps) {
     void refresh();
   }
 
+  function openNewChat() {
+    setNewChatPhone("");
+    setNewChatName("");
+    setNewChatError(null);
+    setNewChatOpen(true);
+  }
+
+  async function submitNewChat() {
+    if (!newChatPhone.trim()) {
+      setNewChatError("Nomor WhatsApp wajib diisi.");
+      return;
+    }
+    setNewChatBusy(true);
+    setNewChatError(null);
+    try {
+      const res = await apiSend<{ conversationId: string; created: boolean }>(
+        "/api/dashboard/inbox/conversations",
+        "POST",
+        {
+          phone: newChatPhone.trim(),
+          ...(newChatName.trim() ? { name: newChatName.trim() } : {}),
+        }
+      );
+      setNewChatOpen(false);
+      // Reset the list filters so the new chat is visible, then open it.
+      setStatus("");
+      setTagId("");
+      void refresh();
+      setSelectedId(res.conversationId);
+      setDetailsOpen(false);
+    } catch (err) {
+      setNewChatError(err instanceof ApiError ? err.message : "Gagal memulai percakapan.");
+    } finally {
+      setNewChatBusy(false);
+    }
+  }
+
   return (
     <DashboardShell title="Percakapan" flush>
-      {/* Filter toolbar - status + tag drive the server-side query. */}
+      {/* Filter toolbar - status + tag drive the server-side query; hidden
+          until the Faders button reveals it (filtersOpen). */}
+      {filtersOpen && (
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-4 py-2">
         <Select
           value={status}
@@ -122,7 +174,18 @@ export default function InboxPage({ apiMediaBase }: InboxPageProps) {
             <option key={t.id} value={t.id}>{t.name}</option>
           ))}
         </Select>
+        <Button
+          variant="ghost"
+          className="h-8 text-xs"
+          onClick={() => {
+            setStatus("");
+            setTagId("");
+          }}
+        >
+          Reset
+        </Button>
       </div>
+      )}
 
       <div className="flex min-h-0 flex-1">
         <ConversationList
@@ -140,6 +203,9 @@ export default function InboxPage({ apiMediaBase }: InboxPageProps) {
           onSelect={onSelect}
           totals={totals}
           mobileHidden={!!selectedId}
+          filtersOpen={filtersOpen}
+          onToggleFilters={() => setFiltersOpen((v) => !v)}
+          onNewChat={openNewChat}
         />
 
         {selected ? (
@@ -181,6 +247,53 @@ export default function InboxPage({ apiMediaBase }: InboxPageProps) {
           />
         )}
       </div>
+
+      {/* Chat Baru (the + button, owner request 2026-11-18). */}
+      <Dialog
+        open={newChatOpen}
+        onClose={() => setNewChatOpen(false)}
+        title="Mulai Percakapan Baru"
+        description="Masukkan nomor WhatsApp pelanggan. Percakapan yang sudah ada akan dibuka kembali, bukan diduplikasi."
+      >
+        <div className="space-y-3.5">
+          <div>
+            <Label htmlFor="new-chat-phone">Nomor WhatsApp</Label>
+            <Input
+              id="new-chat-phone"
+              value={newChatPhone}
+              onChange={(e) => setNewChatPhone(e.target.value)}
+              placeholder="Contoh: 081234567890"
+              autoFocus
+            />
+          </div>
+          <div>
+            <Label htmlFor="new-chat-name">Nama Pelanggan (opsional)</Label>
+            <Input
+              id="new-chat-name"
+              value={newChatName}
+              onChange={(e) => setNewChatName(e.target.value)}
+              placeholder="Contoh: Budi Santoso"
+            />
+          </div>
+          {newChatError && <p className="text-sm text-red-600">{newChatError}</p>}
+          <p className="text-xs text-slate-500">
+            Catatan: di saluran Resmi (Cloud API), pesan hanya bisa dikirim
+            jika pelanggan baru saja mengirim pesan (jendela 24 jam).
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setNewChatOpen(false)}>
+              Batal
+            </Button>
+            <Button
+              onClick={() => void submitNewChat()}
+              disabled={newChatBusy}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {newChatBusy ? "Memuat…" : "Buka Chat"}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
     </DashboardShell>
   );
 }

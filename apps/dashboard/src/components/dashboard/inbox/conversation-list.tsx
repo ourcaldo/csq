@@ -35,6 +35,11 @@ type ConversationListProps = {
   totals: { assigned: number; unassigned: number };
   /** Hide the list on mobile (a chat is open). Always visible on lg+. */
   mobileHidden?: boolean;
+  /** Filter (Faders) button: toggles the status/tag filter bar (page state). */
+  filtersOpen: boolean;
+  onToggleFilters: () => void;
+  /** New chat (+) button: opens the Chat Baru dialog (page state). */
+  onNewChat: () => void;
 };
 
 type ConversationRowProps = {
@@ -167,6 +172,9 @@ export function ConversationList({
   onSelect,
   totals,
   mobileHidden,
+  filtersOpen,
+  onToggleFilters,
+  onNewChat,
 }: ConversationListProps) {
   function submitSearch(e: FormEvent) {
     e.preventDefault();
@@ -183,11 +191,26 @@ export function ConversationList({
       <div className="border-b border-slate-100 p-4">
         <div className="mb-3 flex items-center justify-between">
           <span className="text-sm font-semibold text-slate-700">Percakapan</span>
-          <div className="flex gap-2 text-slate-400">
-            <button className="hover:text-slate-600" aria-label="Filter">
+          <div className="flex gap-2">
+            <button
+              onClick={onToggleFilters}
+              className={cn(
+                "rounded p-0.5",
+                filtersOpen
+                  ? "bg-green-50 text-green-700"
+                  : "text-slate-400 hover:text-slate-600"
+              )}
+              aria-label="Filter"
+              title="Filter percakapan"
+            >
               <Faders size={18} />
             </button>
-            <button className="hover:text-slate-600" aria-label="Baru">
+            <button
+              onClick={onNewChat}
+              className="rounded p-0.5 text-slate-400 hover:text-slate-600"
+              aria-label="Chat Baru"
+              title="Mulai percakapan baru"
+            >
               <Plus size={18} />
             </button>
           </div>

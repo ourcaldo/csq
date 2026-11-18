@@ -1,11 +1,13 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { ConversationStatus, Prisma } from "@prisma/client";
-import { getAuthSession } from "@csq/core/lib/auth";
+import { z } from "zod";
+import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
-import { paginate, requireTenant, respondError, strQuery } from "@csq/core/lib/queries";
+import { paginate, requireTenant, respondError, strQuery, HttpError } from "@csq/core/lib/queries";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import { getPnForLid } from "@csq/core/lib/baileys-auth-db";
+import { findOrCreateConversation } from "@csq/core/lib/inbox";
 import type { Stage } from "@csq/core/types/inbox";
 
 type Item = Prisma.ConversationGetPayload<{
@@ -46,9 +48,21 @@ const STATUS_BY_KEY: Record<string, ConversationStatus> = {
   RESOLVED: "RESOLVED",
 };
 
+// Chat Baru (owner request 2026-11-18).
+const newChatSchema = z.object({
+  phone: z
+    .string()
+    .min(8)
+    .max(25)
+    .regex(/^[+0-9]+$/, "Nomor hanya boleh angka (dan + di depan)."),
+  name: z.string().max(120).optional(),
+});
+
+type CreateResult = { conversationId: string; created: boolean };
+
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<ApiResponse<ListResult>>
+  res: NextApiResponse<ApiResponse<ListResult | CreateResult>>
 ) {
   const session = await getAuthSession(req, res);
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
@@ -152,6 +166,68 @@ export default async function handler(
       );
 
       return res.status(200).json(apiOk({ items: itemsWithDisplay, total, page, pageSize }));
+    }
+
+    if (req.method === "POST") {
+      // Chat Baru (owner request 2026-11-18): start a chat with a number
+      // before the customer writes in. Same find-or-create as inbound, so a
+      // known number reopens its existing thread instead of duplicating.
+      if (!requireRole(session, "OWNER", "STAFF")) {
+        return respondError(
+          res,
+          "PERMISSION_DENIED",
+          "Hanya owner/staff yang dapat memulai percakapan."
+        );
+      }
+      const parsed = newChatSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return respondError(res, "VALIDATION_ERROR", parsed.error.message);
+      }
+      // Same channel choice as Tambah Lead: the connected channel, else the
+      // first channel (the chat must have a channel to be sendable at all).
+      const channel =
+        (await prisma.channel.findFirst({
+          where: { tenantId, status: "CONNECTED" },
+          orderBy: { createdAt: "asc" },
+        })) ??
+        (await prisma.channel.findFirst({
+          where: { tenantId },
+          orderBy: { createdAt: "asc" },
+        }));
+      if (!channel) {
+        return respondError(
+          res,
+          "VALIDATION_ERROR",
+          "Hubungkan saluran WhatsApp terlebih dahulu."
+        );
+      }
+      try {
+        const digits = parsed.data.phone.replace(/[^0-9]/g, "");
+        const phone = digits.startsWith("0") ? `62${digits.slice(1)}` : digits;
+        const { conversation, created } = await findOrCreateConversation(
+          tenantId,
+          channel.id,
+          phone
+        );
+        if (parsed.data.name?.trim()) {
+          await prisma.contact.update({
+            where: { tenantId_phone: { tenantId, phone } },
+            data: { name: parsed.data.name.trim() },
+          });
+        }
+        return res.status(200).json(
+          apiOk({ conversationId: conversation.id, created })
+        );
+      } catch (err) {
+        if (err instanceof HttpError) {
+          return respondError(res, err.code, err.message);
+        }
+        return respondError(
+          res,
+          "INTERNAL_ERROR",
+          "Gagal memulai percakapan."
+        );
+      }
     }
 
     return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
