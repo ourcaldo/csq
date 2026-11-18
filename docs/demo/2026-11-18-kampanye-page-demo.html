@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Kampanye - CSQ (Demo Interaktif)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<style>
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .modal-backdrop { background: rgba(15, 23, 42, 0.45); }
+  .nav-item-active { background-color: rgb(240 253 244); color: rgb(21 128 61); font-weight: 600; }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+<!-- ════════ Sidebar ════════ -->
+<aside id="sidebar" class="fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 -translate-x-full flex-col border-r border-slate-200 bg-white transition-transform md:translate-x-0">
+  <div class="flex h-16 items-center gap-2 border-b border-slate-100 px-6">
+    <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-green-600 text-white"><i class="ph-fill ph-chat-circle-dots text-xl"></i></div>
+    <span class="text-xl font-bold tracking-tight text-slate-900">CSQ</span>
+  </div>
+  <nav class="flex-1 space-y-4 overflow-y-auto px-3 py-4 text-sm">
+    <div>
+      <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Utama</p>
+      <div class="space-y-0.5">
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-chart-bar text-lg text-slate-500"></i>Ringkasan</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-chat-circle-dots text-lg text-slate-500"></i>Percakapan</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-lifebuoy text-lg text-slate-500"></i>Tiket</a>
+        <a class="nav-item-active flex items-center gap-3 rounded-lg px-3 py-2"><i class="ph ph-megaphone text-lg"></i>Kampanye</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-notepad text-lg text-slate-500"></i>Template Pesan</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-whatsapp-logo text-lg text-slate-500"></i>Saluran</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-kanban text-lg text-slate-500"></i>Manajemen Pipeline</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-target text-lg text-slate-500"></i>KPI</a>
+      </div>
+    </div>
+    <div>
+      <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Data Bisnis</p>
+      <div class="space-y-0.5">
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-package text-lg text-slate-500"></i>Produk</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-stack text-lg text-slate-500"></i>Inventaris</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-shopping-cart text-lg text-slate-500"></i>Pesanan</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-address-book text-lg text-slate-500"></i>Kontak</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-tag text-lg text-slate-500"></i>Tag</a>
+      </div>
+    </div>
+    <div>
+      <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Pengetahuan</p>
+      <div class="space-y-0.5">
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-books text-lg text-slate-500"></i>Pengetahuan</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-brain text-lg text-slate-500"></i>Memori</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-database text-lg text-slate-500"></i>Sumber Data</a>
+      </div>
+    </div>
+    <div>
+      <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Agent</p>
+      <div class="space-y-0.5">
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-robot text-lg text-slate-500"></i>Agent</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-flow-arrow text-lg text-slate-500"></i>Skenario</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-seal-check text-lg text-slate-500"></i>Approval</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-clock-counter-clockwise text-lg text-slate-500"></i>Aktivitas</a>
+      </div>
+    </div>
+  </nav>
+  <div class="space-y-0.5 border-t border-slate-200 p-3 text-sm">
+    <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-gear text-lg text-slate-500"></i>Pengaturan</a>
+    <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-users text-lg text-slate-500"></i>Tim</a>
+    <a id="nav-plan" class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-wallet text-lg text-slate-500"></i>Paket &amp; Kuota</a>
+  </div>
+</aside>
+
+<div id="nav-overlay" class="modal-backdrop fixed inset-0 z-30 hidden md:hidden" onclick="toggleNav(false)"></div>
+
+<!-- ════════ Main ════════ -->
+<div class="flex min-w-0 flex-col md:pl-64">
+
+  <header class="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 md:px-6">
+    <button class="rounded-md p-2 text-slate-600 hover:bg-slate-100 md:hidden" onclick="toggleNav(true)" aria-label="Buka menu"><i class="ph ph-list text-2xl"></i></button>
+    <div class="relative mx-2 hidden w-full max-w-xl sm:block">
+      <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+      <input type="text" placeholder="Cari atau ketik perintah…" class="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-10 pr-4 text-sm placeholder-slate-400 focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+    </div>
+    <div class="flex items-center gap-3 md:gap-4">
+      <button class="relative text-slate-400 transition-colors hover:text-slate-600"><i class="ph ph-bell text-2xl"></i><span class="absolute right-0 top-0 h-2 w-2 rounded-full border-2 border-white bg-red-500"></span></button>
+      <div class="mx-1 hidden h-6 w-px bg-slate-200 sm:block"></div>
+      <div class="relative">
+        <button id="avatar-btn" class="flex items-center gap-2 rounded-md p-1 hover:bg-slate-100" onclick="toggleMenu()">
+          <div id="avatar-initial" class="flex h-8 w-8 items-center justify-center rounded-full bg-green-600 text-sm font-semibold text-white">B</div>
+          <i class="ph ph-caret-down hidden text-slate-400 sm:block"></i>
+        </button>
+        <div id="avatar-menu" class="absolute right-0 top-12 z-50 hidden w-56 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
+          <div class="border-b border-slate-100 px-3 py-2">
+            <p id="menu-name" class="truncate text-sm font-semibold text-slate-900">Bu Ratih</p>
+            <p id="menu-role" class="text-xs text-slate-500">Owner</p>
+          </div>
+          <!-- Demo-only: di app asli, role datang dari sesi login (OWNER atau
+               STAFF dengan izin "Boleh jalankan kampanye" dari halaman Tim) -->
+          <button onclick="switchRole()" class="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-swap text-base"></i>Ganti peran demo (Owner/Staf)</button>
+          <button class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-sign-out text-base"></i>Keluar</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 overflow-y-auto">
+
+    <!-- ════════════════ VIEW: DAFTAR KAMPANYE ════════════════ -->
+    <div id="view-list">
+      <div class="border-b border-slate-200 bg-white px-4 py-4 md:px-6">
+        <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+          <div class="min-w-0">
+            <h1 class="text-xl font-bold text-slate-900">Kampanye</h1>
+            <p class="mt-0.5 text-sm text-slate-500">Kirim pesan promosi ke banyak kontak sekaligus, dengan jadwal dan tempo yang terkontrol.</p>
+          </div>
+          <button id="btn-new" onclick="openWizard(null)" class="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">Kampanye Baru</button>
+        </div>
+      </div>
+
+      <div class="p-4 md:p-6">
+        <p id="no-perm" class="mb-4 hidden rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700">
+          Anda tidak punya izin kampanye. Minta owner mengaktifkan "Boleh jalankan kampanye" di halaman Tim.
+        </p>
+
+        <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Kampanye</p>
+            <p id="stat-total" class="mt-3 text-2xl font-bold text-slate-900">0</p>
+          </div>
+          <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Aktif</p>
+            <p id="stat-active" class="mt-3 text-2xl font-bold text-green-700">0</p>
+          </div>
+          <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">Terkirim Bulan Ini</p>
+            <p id="stat-sent" class="mt-3 text-2xl font-bold text-slate-900">0</p>
+          </div>
+        </div>
+
+        <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                <th class="px-4 py-3 font-medium">Nama</th>
+                <th class="hidden px-4 py-3 font-medium md:table-cell">Penerima</th>
+                <th class="hidden px-4 py-3 font-medium lg:table-cell">Jadwal</th>
+                <th class="hidden px-4 py-3 font-medium xl:table-cell">Kirim berikutnya</th>
+                <th class="px-4 py-3 font-medium">Status</th>
+                <th id="th-actions" class="px-4 py-3 text-right font-medium">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════ VIEW: WIZARD (buat/edit, halaman sendiri di app asli) ════════════════ -->
+    <div id="view-wizard" class="hidden">
+      <div class="border-b border-slate-200 bg-white px-4 py-4 md:px-6">
+        <h1 id="wizard-title" class="text-xl font-bold text-slate-900">Kampanye Baru</h1>
+        <p id="wizard-desc" class="mt-0.5 text-sm text-slate-500">Atur saluran, penerima, pesan, dan jadwal dalam satu halaman.</p>
+      </div>
+
+      <form class="flex flex-col gap-6 p-4 md:p-6" onsubmit="saveWizard(event)">
+        <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+          <div class="flex flex-col gap-8" id="wizard-form"></div>
+        </div>
+        <p id="wizard-err" class="hidden text-sm text-red-600"></p>
+        <div class="flex items-center justify-between gap-2">
+          <button type="button" onclick="backToList()" class="rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-medium hover:bg-slate-50">Batal</button>
+          <button type="submit" id="wizard-save" class="rounded-md bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700">Simpan</button>
+        </div>
+      </form>
+    </div>
+
+  </main>
+</div>
+
+<!-- ════════ Dialog: Riwayat kirim ════════ -->
+<div id="dlg-runs" class="modal-backdrop fixed inset-0 z-50 hidden items-center justify-center p-4">
+  <div class="max-h-[85vh] w-full max-w-xl overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl">
+    <div class="border-b border-slate-100 px-5 py-4 text-sm font-semibold" id="runs-title">Riwayat</div>
+    <div class="max-h-[60vh] space-y-3 overflow-y-auto px-5 py-4" id="runs-body"></div>
+  </div>
+</div>
+
+<!-- ════════ Dialog: Hapus kampanye ════════ -->
+<div id="dlg-del" class="modal-backdrop fixed inset-0 z-50 hidden items-center justify-center p-4">
+  <div class="w-full max-w-md rounded-xl border border-slate-200 bg-white shadow-xl">
+    <div class="border-b border-slate-100 px-5 py-4 text-sm font-semibold">Hapus Kampanye</div>
+    <p class="px-5 py-4 text-sm text-slate-600" id="del-desc"></p>
+    <div class="flex justify-end gap-2 px-5 pb-4">
+      <button onclick="closeDlg('dlg-del')" class="rounded-md border border-slate-200 px-4 py-2 text-sm font-medium hover:bg-slate-50">Batal</button>
+      <button onclick="confirmDelete()" class="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">Hapus</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════ Demo data ══════════
+var WEEKDAYS = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+var role = "OWNER"; // canManage = OWNER || canRunCampaigns
+var canManage = true;
+
+var channels = [
+  { id: "ch1", provider: "CLOUD_API", label: "Toko Utama", phoneNumber: "6281290088999" },
+  { id: "ch2", provider: "BAILEYS", label: "WA Pribadi", phoneNumber: "6285712345678" }
+];
+var categories = [
+  { id: "k1", name: "Pelanggan Baru" },
+  { id: "k2", name: "Langganan" },
+  { id: "k3", name: "Korporat" }
+];
+var tags = [
+  { id: "t1", name: "VIP" },
+  { id: "t2", name: "Follow-up" },
+  { id: "t3", name: "Reseller" }
+];
+var contacts = [
+  { id: "c01", name: "Siti Rahmawati", phone: "628123456789", catIds: ["k2"], tagIds: ["t1", "t3"] },
+  { id: "c02", name: "Budi Santoso", phone: "628129998887", catIds: ["k1"], tagIds: ["t1"] },
+  { id: "c03", name: "Dewi Lestari", phone: "6281377712345", catIds: ["k2", "k3"], tagIds: ["t2"] },
+  { id: "c04", name: "Agus Wijaya", phone: "6281222003333", catIds: ["k1"], tagIds: [] },
+  { id: "c05", name: "Rina Marlina", phone: "6289655501122", catIds: ["k2"], tagIds: ["t1", "t2"] },
+  { id: "c06", name: "Hendra Gunawan", phone: "6287812300999", catIds: ["k3"], tagIds: ["t3"] },
+  { id: "c07", name: "Maya Puspita", phone: "6285644332211", catIds: ["k3"], tagIds: ["t2"] },
+  { id: "c08", name: "Rudi Hartono", phone: "6281255500111", catIds: [], tagIds: [] },
+  { id: "c09", name: "Lina Kartika", phone: "6281900004444", catIds: ["k1"], tagIds: ["t1"] },
+  { id: "c10", name: "Fajar Nugroho", phone: "6289755512340", catIds: ["k2"], tagIds: [] },
+  { id: "c11", name: "Tuti Handayani", phone: "6281355507788", catIds: [], tagIds: ["t3"] },
+  { id: "c12", name: "Pak Warto", phone: "6285744400112", catIds: ["k1"], tagIds: ["t3"] }
+];
+var templates = [
+  { id: "tp1", key: "promo_diskon", label: "Promo Diskon", kind: "META", body: "Promo {nama}! Diskon {diskon}% sampai akhir pean ini." },
+  { id: "tp2", key: "ucapan_idul", label: "Ucapan Idul Fitri", kind: "CSQ", body: "Selamat Hari Raya Idul Fitri, mohon maaf lahir dan batin!" }
+];
+
+var campaigns = [
+  { id: "cmp1", name: "Promo Akhir Pekan", channelId: "ch1", audience: "ALL", categoryIds: [], tagIds: [], contactIds: [], templateKey: "promo_diskon", body: "Kopi pilihan diskon 20% hanya hari Sabtu-Minggu!", images: [], scheduleKind: "WEEKLY", cfg: { time: "09:00", dayOfWeek: 6 }, delaySeconds: 30, status: "ACTIVE", nextRunAt: "2026-11-21T09:00" },
+  { id: "cmp2", name: "Info Menu Baru", channelId: "ch1", audience: "CATEGORY", categoryIds: ["k2"], tagIds: [], contactIds: [], templateKey: "", body: "Ada menu baru: Kopi Susu Gula Aren. Cek di toko kami!", images: [], scheduleKind: "ONCE", cfg: { startAt: "2026-11-20T10:00" }, delaySeconds: 60, status: "DRAFT", nextRunAt: "2026-11-20T10:00" },
+  { id: "cmp3", name: "Follow-up Reseller", channelId: "ch2", audience: "TAGS", categoryIds: [], tagIds: ["t3"], contactIds: [], templateKey: "", body: "Stok kopi baru datang. Mau restock?", images: [], scheduleKind: "INTERVAL", cfg: { time: "08:00", everyDays: 14 }, delaySeconds: 20, status: "PAUSED", nextRunAt: "2026-11-25T08:00" },
+  { id: "cmp4", name: "Katalog Bulanan Korporat", channelId: "ch2", audience: "MANUAL", categoryIds: [], tagIds: [], contactIds: ["c03", "c06", "c07"], templateKey: "", body: "Katalog harga korporat bulan ini terlampir.", images: [], scheduleKind: "MONTHLY", cfg: { time: "10:00", dayOfMonth: 1 }, delaySeconds: 45, status: "PAUSED", nextRunAt: "2026-12-01T10:00" }
+];
+var runsByCampaign = {
+  cmp1: [
+    { id: "r1", startedAt: "2026-11-14T09:00", finishedAt: "2026-11-14T09:06", counts: { total: 12, sent: 10, failed: 1, skipped: 1 }, messages: [
+      { phone: "628123456789", status: "SENT" }, { phone: "628129998887", status: "SENT" },
+      { phone: "6281377712345", status: "SENT" }, { phone: "6281222003333", status: "SENT" },
+      { phone: "6289655501122", status: "SENT" }, { phone: "6287812300999", status: "SENT" },
+      { phone: "6285644332211", status: "FAILED", reason: "nomor tidak terdaftar WhatsApp" },
+      { phone: "6281255500111", status: "SENT" }, { phone: "6281900004444", status: "SENT" },
+      { phone: "6289755512340", status: "SENT" }, { phone: "6281355507788", status: "SKIPPED", reason: "di luar jendela 24 jam" },
+      { phone: "6285744400112", status: "SENT" }
+    ] },
+    { id: "r2", startedAt: "2026-11-07T09:00", finishedAt: "2026-11-07T09:06", counts: { total: 12, sent: 12, failed: 0, skipped: 0 }, messages: [] }
+  ],
+  cmp3: [
+    { id: "r3", startedAt: "2026-11-11T08:00", finishedAt: "2026-11-11T08:01", counts: { total: 3, sent: 3, failed: 0, skipped: 0 }, messages: [
+      { phone: "628123456789", status: "SENT" }, { phone: "6287812300999", status: "SENT" }, { phone: "6285744400112", status: "SENT" }
+    ] }
+  ]
+};
+var delTarget = null;
+
+// ══════════ Format helpers (port dari components/.../format.ts) ══════════
+function formatDateTime(iso) {
+  if (!iso) return "-";
+  var d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return d.toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+function audienceLabel(c) {
+  if (c.audience === "ALL") return "Semua kontak";
+  if (c.audience === "MANUAL") return c.contactIds.length + " kontak terpilih";
+  return c.audience === "CATEGORY" ? "Kategori" : "Tag";
+}
+function scheduleLabel(c) {
+  switch (c.scheduleKind) {
+    case "ONCE": return "Sekali - " + formatDateTime(c.cfg.startAt);
+    case "DAILY": return "Setiap hari " + c.cfg.time;
+    case "WEEKLY": return "Setiap " + WEEKDAYS[c.cfg.dayOfWeek ?? 0] + " " + c.cfg.time;
+    case "MONTHLY": return "Tanggal " + c.cfg.dayOfMonth + " setiap bulan " + c.cfg.time;
+    case "INTERVAL": return "Setiap " + c.cfg.everyDays + " hari " + c.cfg.time;
+  }
+}
+
+// ══════════ Render daftar ══════════
+function badge(status) {
+  if (status === "ACTIVE") return '<span class="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700">ACTIVE</span>';
+  if (status === "PAUSED") return '<span class="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">PAUSED</span>';
+  return '<span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-600">DRAFT</span>';
+}
+function renderList() {
+  var tb = document.getElementById("tbody");
+  if (campaigns.length === 0) {
+    tb.innerHTML = '<tr><td colspan="6" class="px-4 py-10 text-center text-sm text-slate-500">Belum ada kampanye.</td></tr>';
+  } else {
+    tb.innerHTML = campaigns.map(function (c) {
+      var actions = "";
+      if (canManage) {
+        actions = '<button onclick="openRuns(\'' + c.id + '\')" class="rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium hover:bg-slate-50">Riwayat</button>';
+        if (c.status === "DRAFT" || c.status === "PAUSED") {
+          actions += '<button onclick="openWizard(\'' + c.id + '\')" class="rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium hover:bg-slate-50">Edit</button>' +
+            '<button onclick="activate(\'' + c.id + '\')" class="rounded-md bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700">Aktifkan</button>' +
+            '<button onclick="askDelete(\'' + c.id + '\')" class="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700">Hapus</button>';
+        } else if (c.status === "ACTIVE") {
+          actions += '<button onclick="pause(\'' + c.id + '\')" class="rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium hover:bg-slate-50">Jeda</button>';
+        }
+      }
+      return '<tr class="border-b border-slate-100 last:border-0 hover:bg-slate-50/50">' +
+        '<td class="px-4 py-3 font-medium">' + c.name + "</td>" +
+        '<td class="hidden px-4 py-3 md:table-cell">' + audienceLabel(c) + "</td>" +
+        '<td class="hidden px-4 py-3 text-slate-500 lg:table-cell">' + scheduleLabel(c) + "</td>" +
+        '<td class="hidden px-4 py-3 text-slate-500 xl:table-cell">' + formatDateTime(c.nextRunAt) + "</td>" +
+        '<td class="px-4 py-3">' + badge(c.status) + "</td>" +
+        '<td class="px-4 py-3 text-right"><div class="flex flex-wrap justify-end gap-1">' + actions + "</div></td>" +
+        "</tr>";
+    }).join("");
+  }
+  document.getElementById("stat-total").textContent = campaigns.length;
+  document.getElementById("stat-active").textContent = campaigns.filter(function (c) { return c.status === "ACTIVE"; }).length;
+  var sent = 0;
+  Object.keys(runsByCampaign).forEach(function (k) {
+    runsByCampaign[k].forEach(function (r) { sent += r.counts.sent; });
+  });
+  document.getElementById("stat-sent").textContent = sent;
+}
+
+// ══════════ Aksi daftar ══════════
+function activate(id) {
+  var c = campaigns.find(function (x) { return x.id === id; });
+  c.status = "ACTIVE";
+  renderList();
+}
+function pause(id) {
+  var c = campaigns.find(function (x) { return x.id === id; });
+  c.status = "PAUSED";
+  renderList();
+}
+function askDelete(id) {
+  delTarget = id;
+  var c = campaigns.find(function (x) { return x.id === id; });
+  document.getElementById("del-desc").textContent = 'Yakin ingin menghapus kampanye "' + c.name + '"? Riwayat kirimnya ikut terhapus.';
+  openDlg("dlg-del");
+}
+function confirmDelete() {
+  delete runsByCampaign[delTarget];
+  campaigns = campaigns.filter(function (x) { return x.id !== delTarget; });
+  delTarget = null;
+  closeDlg("dlg-del");
+  renderList();
+}
+
+// ══════════ Riwayat kirim ══════════
+var runsOpenDetail = null;
+function openRuns(id) {
+  var c = campaigns.find(function (x) { return x.id === id; });
+  runsOpenDetail = null;
+  document.getElementById("runs-title").textContent = "Riwayat - " + c.name;
+  renderRuns(id);
+  openDlg("dlg-runs");
+}
+function renderRuns(id) {
+  var runs = runsByCampaign[id] || [];
+  var body = document.getElementById("runs-body");
+  if (runs.length === 0) {
+    body.innerHTML = '<p class="py-6 text-center text-sm text-slate-500">Belum pernah kirim.</p>';
+    return;
+  }
+  body.innerHTML = runs.map(function (r) {
+    var open = runsOpenDetail === r.id;
+    var msgs = "";
+    if (open) {
+      var list = (r.messages || []).map(function (m) {
+        var cls = m.status === "SENT" ? "text-green-600" : m.status === "FAILED" ? "text-red-600" : m.status === "SKIPPED" ? "text-amber-600" : "text-slate-500";
+        var lbl = m.status === "PENDING" ? "menunggu" : m.status.toLowerCase();
+        return '<div class="flex items-center justify-between border-b px-2 py-1 text-xs last:border-b-0"><span class="font-mono">' + m.phone + '</span><span class="' + cls + '">' + lbl + (m.reason ? " - " + m.reason : "") + "</span></div>";
+      }).join("");
+      msgs = '<div class="mt-3 max-h-48 overflow-y-auto rounded border border-slate-200">' +
+        (list || '<p class="p-2 text-xs text-slate-500">Tidak ada pesan.</p>') + "</div>";
+    }
+    return '<div class="rounded-md border border-slate-200 p-3 text-sm">' +
+      '<div class="flex items-center justify-between gap-2"><div>' +
+      '<p class="font-medium">' + formatDateTime(r.startedAt) + "</p>" +
+      '<p class="text-xs text-slate-500">' + (r.finishedAt ? "Selesai " + formatDateTime(r.finishedAt) : "Sedang berjalan") +
+      " - total " + r.counts.total + ", terkirim " + r.counts.sent + ", gagal " + r.counts.failed + ", dilewati " + r.counts.skipped + "</p>" +
+      '</div><button onclick="toggleRunDetail(\'' + r.id + '\')" class="shrink-0 rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium hover:bg-slate-50">' + (open ? "Tutup" : "Detail") + "</button></div>" +
+      msgs + "</div>";
+  }).join("");
+}
+function toggleRunDetail(rid) { runsOpenDetail = runsOpenDetail === rid ? null : rid; }
+
+// ══════════ Wizard ══════════
+var wiz = null; // form state
+var editId = null;
+
+function openWizard(id) {
+  editId = id;
+  var c = id ? campaigns.find(function (x) { return x.id === id; }) : null;
+  document.getElementById("wizard-title").textContent = c ? "Edit Kampanye" : "Kampanye Baru";
+  document.getElementById("wizard-desc").textContent = c ? c.name : "Atur saluran, penerima, pesan, dan jadwal dalam satu halaman.";
+  document.getElementById("wizard-err").classList.add("hidden");
+  document.getElementById("wizard-save").textContent = c ? "Simpan Perubahan" : "Simpan";
+  wiz = {
+    name: c ? c.name : "",
+    channelId: c ? c.channelId : "",
+    audience: c ? c.audience : "ALL",
+    categoryIds: c ? c.categoryIds.slice() : [],
+    tagIds: c ? c.tagIds.slice() : [],
+    contactIds: c ? c.contactIds.slice() : [],
+    templateKey: c ? c.templateKey : "",
+    body: c ? c.body : "",
+    images: c ? c.images.slice() : [],
+    scheduleKind: c ? c.scheduleKind : "ONCE",
+    onceAt: c && c.cfg.startAt ? c.cfg.startAt : "",
+    time: c && c.cfg.time ? c.cfg.time : "09:00",
+    dayOfWeek: c && c.cfg.dayOfWeek != null ? c.cfg.dayOfWeek : 1,
+    dayOfMonth: c && c.cfg.dayOfMonth != null ? c.cfg.dayOfMonth : 1,
+    everyDays: c && c.cfg.everyDays != null ? c.cfg.everyDays : 7,
+    delaySeconds: c ? c.delaySeconds : 30
+  };
+  renderWizard();
+  document.getElementById("view-list").classList.add("hidden");
+  document.getElementById("view-wizard").classList.remove("hidden");
+}
+function backToList() {
+  document.getElementById("view-wizard").classList.add("hidden");
+  document.getElementById("view-list").classList.remove("hidden");
+}
+
+// Section header: badge nomor + judul + garis putus-putus (sesuai app asli).
+function section(n, title, inner) {
+  return '<section class="flex flex-col gap-4">' +
+    '<div class="flex items-center gap-3">' +
+    '<span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-600 text-xs font-semibold text-white">' + n + "</span>" +
+    '<h3 class="shrink-0 text-sm font-semibold text-slate-900">' + title + "</h3>" +
+    '<span class="h-px flex-1 border-t border-dashed border-slate-300"></span></div>' +
+    inner + "</section>";
+}
+var field = function (id, label, input) {
+  return '<div class="flex flex-col gap-1.5"><label class="text-sm font-medium">' + label + "</label>" + input + "</div>";
+};
+var inputCls = 'class="w-full rounded-md border border-slate-200 px-3 py-2 text-sm"';
+
+function previewAudience() {
+  // Estimasi penerima + rincian per kategori (di app asli: POST /campaigns/preview).
+  if (wiz.audience === "ALL") return { total: contacts.length, byCat: [] };
+  var rows = contacts;
+  if (wiz.audience === "CATEGORY") rows = contacts.filter(function (c) { return c.catIds.some(function (k) { return wiz.categoryIds.indexOf(k) > -1; }); });
+  if (wiz.audience === "TAGS") rows = contacts.filter(function (c) { return c.tagIds.some(function (t) { return wiz.tagIds.indexOf(t) > -1; }); });
+  if (wiz.audience === "MANUAL") rows = contacts.filter(function (c) { return wiz.contactIds.indexOf(c.id) > -1; });
+  var byCat = wiz.audience === "CATEGORY" ? wiz.categoryIds.map(function (k) {
+    var cat = categories.find(function (x) { return x.id === k; });
+    return { name: cat ? cat.name : k, count: contacts.filter(function (c) { return c.catIds.indexOf(k) > -1; }).length };
+  }) : [];
+  return { total: rows.length, byCat: byCat };
+}
+
+function renderWizard() {
+  var preview = previewAudience();
+  var estimate = preview.total;
+  var ch = channels.find(function (x) { return x.id === wiz.channelId; });
+  var isCloud = ch && ch.provider === "CLOUD_API";
+
+  // ── 1. Dasar ──
+  var s1 = '<div class="flex flex-col gap-4">' +
+    field("", "Nama kampanye", '<input id="w-name" required placeholder="mis. Promo Akhir Pekan" value="' + esc(wiz.name) + '" ' + inputCls + " />") +
+    '<div class="flex flex-col gap-1.5"><label class="text-sm font-medium">Saluran kirim</label>' +
+    '<select id="w-channel" onchange="wiz.channelId=this.value;renderWizard()" ' + inputCls + ">" +
+    '<option value="">Pilih saluran...</option>' +
+    channels.map(function (c) {
+      var label = c.provider === "CLOUD_API" ? (c.label || "WhatsApp API") + " (" + c.phoneNumber + ")" : (c.label || "WhatsApp pribadi") + " (" + c.phoneNumber + ")";
+      return '<option value="' + c.id + '" ' + (wiz.channelId === c.id ? "selected" : "") + ">" + label + "</option>";
+    }).join("") + "</select>" +
+    (isCloud ? '<p class="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-700">Di saluran resmi (Cloud API), pesan bebas hanya sampai ke pelanggan yang chat &lt;24 jam terakhir; sisanya dilewati (tercatat). Untuk menjangkau semua, gunakan template yang sudah disetujui Meta.</p>' : "") +
+    "</div></div>";
+
+  // ── 2. Penerima ──
+  var s2 = '<div class="flex flex-col gap-4">' +
+    field("", "Penerima", '<select onchange="wiz.audience=this.value;renderWizard()" ' + inputCls + ">" +
+      '<option value="ALL" ' + (wiz.audience === "ALL" ? "selected" : "") + ">Semua kontak</option>" +
+      '<option value="CATEGORY" ' + (wiz.audience === "CATEGORY" ? "selected" : "") + ">Per kategori</option>" +
+      '<option value="TAGS" ' + (wiz.audience === "TAGS" ? "selected" : "") + ">Per tag</option>" +
+      '<option value="MANUAL" ' + (wiz.audience === "MANUAL" ? "selected" : "") + ">Pilih manual</option></select>");
+  if (wiz.audience === "CATEGORY") {
+    s2 += '<div class="flex flex-col gap-1.5"><label class="text-sm font-medium">Kategori</label><div class="max-h-32 overflow-y-auto rounded-md border border-slate-200 p-2">' +
+      (categories.length === 0 ? '<p class="text-xs text-slate-500">Belum ada kategori - buat dulu di halaman Tag.</p>' : "") +
+      categories.map(function (c) {
+        return '<label class="flex cursor-pointer items-center gap-2 px-1 py-0.5 text-sm"><input type="checkbox" ' + (wiz.categoryIds.indexOf(c.id) > -1 ? "checked" : "") + ' onchange="toggleWiz(\'categoryIds\',\'' + c.id + '\')" class="h-4 w-4">' + c.name + "</label>";
+      }).join("") + "</div></div>";
+  }
+  if (wiz.audience === "TAGS") {
+    s2 += '<div class="flex flex-col gap-1.5"><label class="text-sm font-medium">Tag</label><div class="max-h-32 overflow-y-auto rounded-md border border-slate-200 p-2">' +
+      tags.map(function (t) {
+        return '<label class="flex cursor-pointer items-center gap-2 px-1 py-0.5 text-sm"><input type="checkbox" ' + (wiz.tagIds.indexOf(t.id) > -1 ? "checked" : "") + ' onchange="toggleWiz(\'tagIds\',\'' + t.id + '\')" class="h-4 w-4">' + t.name + "</label>";
+      }).join("") + "</div></div>";
+  }
+  if (wiz.audience === "MANUAL") {
+    s2 += '<div class="flex flex-col gap-1.5"><label class="text-sm font-medium">Kontak (' + contacts.length + ' terdaftar)</label><div class="max-h-40 overflow-y-auto rounded-md border border-slate-200 p-2">' +
+      contacts.map(function (c) {
+        return '<label class="flex cursor-pointer items-center gap-2 px-1 py-0.5 text-sm"><input type="checkbox" ' + (wiz.contactIds.indexOf(c.id) > -1 ? "checked" : "") + ' onchange="toggleWiz(\'contactIds\',\'' + c.id + '\')" class="h-4 w-4">' + (c.name || c.phone) + "</label>";
+      }).join("") + "</div></div>";
+  }
+  s2 += '<p class="text-sm text-slate-500">Estimasi penerima: <strong>' + estimate + "</strong></p>";
+  if (wiz.audience === "CATEGORY" && preview.byCat.length > 0) {
+    s2 += '<div class="rounded-md border border-slate-200 bg-slate-50 p-2 text-xs text-slate-600"><p class="mb-1 font-medium">Rincian per kategori:</p>' +
+      preview.byCat.map(function (c) { return '<p class="flex justify-between"><span>' + c.name + '</span><span class="font-medium">' + c.count + "</span></p>"; }).join("") + "</div>";
+  }
+  if (estimate > 250) {
+    s2 += '<p class="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-700">Perhatian: audiens di atas 250 penerima. Batas awal pengiriman template Meta adalah 250 penerima unik per 24 jam di luar jendela chat (naik ke 2.000 setelah verifikasi bisnis) - penerima di atasnya berisiko gagal terkirim.</p>';
+  }
+  if (isCloud) {
+    s2 += '<p class="rounded-md border border-blue-500/30 bg-blue-500/10 p-2 text-xs text-blue-700">Di saluran resmi (Cloud API), setiap pesan terkirim dikenakan biaya per pesan oleh Meta sesuai tarif pasar. Pesan bebas hanya sampai ke pelanggan yang chat dalam 24 jam terakhir.</p>';
+  }
+  s2 += "</div>";
+
+  // ── 3. Pesan ──
+  var isMetaTpl = templates.some(function (t) { return t.key === wiz.templateKey && t.kind === "META"; });
+  var s3 = '<div class="flex flex-col gap-4">' +
+    field("", "Dari template (opsional)", '<select onchange="wiz.templateKey=this.value;renderWizard()" ' + inputCls + ">" +
+      '<option value="">Tulis baru</option>' +
+      templates.map(function (t) {
+        return '<option value="' + t.key + '" ' + (wiz.templateKey === t.key ? "selected" : "") + ">" + t.label + " (" + (t.kind === "META" ? "Template Meta" : "CSQ") + ")</option>";
+      }).join("") + "</select>" +
+      (isMetaTpl ? '<p class="rounded-md border border-blue-500/30 bg-blue-500/10 p-2 text-xs text-blue-700">Template Meta dipilih - teks di bawah tetap wajib (dipakai di saluran Baileys dan pratinjau); pelanggan di luar jendela 24 jam menerima template Meta tersebut.</p>' : "")) +
+    field("", "Isi pesan", '<textarea id="w-body" rows="4" placeholder="Tulis isi pesan kampanye..." ' + inputCls + ">" + esc(wiz.body) + "</textarea>" +
+      '<span class="text-xs text-slate-400">Jika kampanye memakai tepat satu gambar, teks ini dikirim sebagai keterangan (caption) gambar - satu gelembung pesan.</span>') +
+    '<div class="flex flex-col gap-1.5"><label class="text-sm font-medium">Gambar (maks 4, 5 MB per gambar)</label>' +
+    '<input type="file" accept="image/jpeg,image/png,image/webp" multiple onchange="uploadImages(this)" class="text-sm" />' +
+    (wiz.images.length > 0 ? '<div class="flex flex-wrap gap-2">' + wiz.images.map(function (img, i) {
+      return '<div class="flex items-center gap-1 rounded-md border border-slate-200 p-1"><img src="' + img.url + '" alt="" class="h-10 w-10 rounded object-cover"><button type="button" onclick="wiz.images.splice(' + i + ',1);renderWizard()" class="text-xs text-red-600 hover:underline">Hapus</button></div>';
+    }).join("") + "</div>" : "") +
+    "</div></div>";
+
+  // ── 4. Jadwal ──
+  var s4 = '<div class="flex flex-col gap-4">' +
+    field("", "Jadwal", '<select onchange="wiz.scheduleKind=this.value;renderWizard()" ' + inputCls + ">" +
+      '<option value="ONCE" ' + (wiz.scheduleKind === "ONCE" ? "selected" : "") + ">Sekali, di waktu tertentu</option>" +
+      '<option value="DAILY" ' + (wiz.scheduleKind === "DAILY" ? "selected" : "") + ">Setiap hari</option>" +
+      '<option value="WEEKLY" ' + (wiz.scheduleKind === "WEEKLY" ? "selected" : "") + ">Setiap minggu</option>" +
+      '<option value="MONTHLY" ' + (wiz.scheduleKind === "MONTHLY" ? "selected" : "") + ">Setiap bulan</option>" +
+      '<option value="INTERVAL" ' + (wiz.scheduleKind === "INTERVAL" ? "selected" : "") + ">Setiap N hari</option></select>");
+  if (wiz.scheduleKind === "ONCE") {
+    s4 += field("", "Waktu kirim", '<input id="w-once" type="datetime-local" required value="' + wiz.onceAt + '" ' + inputCls + " />" +
+      '<button type="button" onclick="instantSend()" class="self-start rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium hover:bg-slate-50">Kirim sekarang (&plusmn; 2 menit)</button>');
+  } else {
+    s4 += field("", "Jam kirim (WIB)", '<input id="w-time" type="time" required value="' + wiz.time + '" ' + inputCls + " />");
+  }
+  if (wiz.scheduleKind === "WEEKLY") {
+    s4 += field("", "Hari", '<select onchange="wiz.dayOfWeek=Number(this.value)" ' + inputCls + ">" +
+      WEEKDAYS.map(function (d, i) { return '<option value="' + i + '" ' + (wiz.dayOfWeek === i ? "selected" : "") + ">" + d + "</option>"; }).join("") + "</select>");
+  }
+  if (wiz.scheduleKind === "MONTHLY") {
+    s4 += field("", "Tanggal", '<input type="number" min="1" max="31" required value="' + wiz.dayOfMonth + '" onchange="wiz.dayOfMonth=Number(this.value)" ' + inputCls + " />");
+  }
+  if (wiz.scheduleKind === "INTERVAL") {
+    s4 += field("", "Setiap berapa hari", '<input type="number" min="1" max="365" required value="' + wiz.everyDays + '" onchange="wiz.everyDays=Number(this.value)" ' + inputCls + " />");
+  }
+  s4 += field("", "Jeda antar kontak (detik)", '<input id="w-delay" type="number" min="10" max="3600" required value="' + wiz.delaySeconds + '" ' + inputCls + " />");
+  if (wiz.audience !== "ALL") {
+    s4 += '<p class="text-xs text-slate-500">&plusmn; ' + estimate + " kontak &times; " + wiz.delaySeconds + " dtk = " + Math.round((estimate * wiz.delaySeconds) / 60) + " menit per kirim</p>";
+  }
+  s4 += "</div>";
+
+  document.getElementById("wizard-form").innerHTML =
+    section(1, "Dasar", s1) + section(2, "Penerima", s2) + section(3, "Pesan", s3) + section(4, "Jadwal", s4);
+
+  // restore text inputs not wired via onchange
+  var elName = document.getElementById("w-name");
+  elName.addEventListener("input", function () { wiz.name = elName.value; });
+  var elBody = document.getElementById("w-body");
+  elBody.addEventListener("input", function () { wiz.body = elBody.value; });
+  var elOnce = document.getElementById("w-once");
+  if (elOnce) elOnce.addEventListener("input", function () { wiz.onceAt = elOnce.value; });
+  var elTime = document.getElementById("w-time");
+  if (elTime) elTime.addEventListener("input", function () { wiz.time = elTime.value; });
+  var elDelay = document.getElementById("w-delay");
+  elDelay.addEventListener("input", function () { wiz.delaySeconds = Number(elDelay.value); });
+}
+
+function esc(s) {
+  return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+}
+function toggleWiz(listName, id) {
+  var l = wiz[listName];
+  var i = l.indexOf(id);
+  if (i > -1) l.splice(i, 1); else l.push(id);
+  renderWizard();
+}
+function instantSend() {
+  // "Kirim sekarang": engine tick jalan tiap menit, jadi now+2menit menyala
+  // sekitar dua menit setelah simpan + aktifkan (sama logika app asli).
+  var d = new Date(Date.now() + 2 * 60 * 1000);
+  var pad = function (n) { return String(n).padStart(2, "0"); };
+  wiz.onceAt = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + "T" + pad(d.getHours()) + ":" + pad(d.getMinutes());
+  renderWizard();
+}
+function uploadImages(input) {
+  var files = Array.from(input.files || []);
+  if (wiz.images.length + files.length > 4) return wizFail("Maksimal 4 gambar per kampanye.");
+  for (var i = 0; i < files.length; i++) {
+    if (files[i].size > 5 * 1024 * 1024) return wizFail("Gambar maksimal 5 MB.");
+    wiz.images.push({ id: "img" + Date.now() + i, url: URL.createObjectURL(files[i]) });
+  }
+  renderWizard();
+}
+function wizFail(msg) {
+  var el = document.getElementById("wizard-err");
+  el.textContent = msg;
+  el.classList.remove("hidden");
+}
+
+function saveWizard(e) {
+  e.preventDefault();
+  if (!wiz.name.trim()) return wizFail("Nama kampanye wajib diisi.");
+  if (!wiz.channelId) return wizFail("Saluran kirim wajib dipilih.");
+  if (wiz.audience === "CATEGORY" && wiz.categoryIds.length === 0) return wizFail("Pilih minimal satu kategori.");
+  if (wiz.audience === "TAGS" && wiz.tagIds.length === 0) return wizFail("Pilih minimal satu tag.");
+  if (wiz.audience === "MANUAL" && wiz.contactIds.length === 0) return wizFail("Pilih minimal satu kontak.");
+  if (!wiz.templateKey && !wiz.body.trim()) return wizFail("Isi pesan wajib diisi (atau pilih template).");
+  if (wiz.scheduleKind === "ONCE" && !wiz.onceAt) return wizFail("Waktu kirim wajib diisi.");
+
+  var cfg = {};
+  if (wiz.scheduleKind === "ONCE") cfg.startAt = wiz.onceAt;
+  else if (wiz.scheduleKind === "WEEKLY") cfg = { time: wiz.time, dayOfWeek: wiz.dayOfWeek };
+  else if (wiz.scheduleKind === "MONTHLY") cfg = { time: wiz.time, dayOfMonth: wiz.dayOfMonth };
+  else if (wiz.scheduleKind === "INTERVAL") cfg = { time: wiz.time, everyDays: wiz.everyDays };
+  else cfg = { time: wiz.time };
+
+  if (editId) {
+    var c = campaigns.find(function (x) { return x.id === editId; });
+    Object.assign(c, {
+      name: wiz.name, channelId: wiz.channelId, audience: wiz.audience,
+      categoryIds: wiz.categoryIds.slice(), tagIds: wiz.tagIds.slice(), contactIds: wiz.contactIds.slice(),
+      templateKey: wiz.templateKey, body: wiz.body, images: wiz.images.slice(),
+      scheduleKind: wiz.scheduleKind, cfg: cfg, delaySeconds: wiz.delaySeconds
+    });
+  } else {
+    campaigns.unshift({
+      id: "cmp" + Date.now(), name: wiz.name, channelId: wiz.channelId, audience: wiz.audience,
+      categoryIds: wiz.categoryIds.slice(), tagIds: wiz.tagIds.slice(), contactIds: wiz.contactIds.slice(),
+      templateKey: wiz.templateKey, body: wiz.body, images: wiz.images.slice(),
+      scheduleKind: wiz.scheduleKind, cfg: cfg, delaySeconds: wiz.delaySeconds,
+      status: "DRAFT", nextRunAt: wiz.scheduleKind === "ONCE" ? wiz.onceAt : null
+    });
+  }
+  backToList();
+  renderList();
+}
+
+// ══════════ Dialog / menu / role ══════════
+function openDlg(id) { var d = document.getElementById(id); d.classList.remove("hidden"); d.classList.add("flex"); }
+function closeDlg(id) { var d = document.getElementById(id); d.classList.add("hidden"); d.classList.remove("flex"); }
+function toggleMenu() { document.getElementById("avatar-menu").classList.toggle("hidden"); }
+function toggleNav(open) {
+  document.getElementById("sidebar").classList.toggle("-translate-x-full", !open);
+  document.getElementById("nav-overlay").classList.toggle("hidden", !open);
+}
+function applyRole() {
+  // canManage = OWNER || canRunCampaigns; demo staf tidak punya izin.
+  canManage = role === "OWNER";
+  document.getElementById("no-perm").classList.toggle("hidden", canManage);
+  document.getElementById("btn-new").style.display = canManage ? "" : "none";
+  document.getElementById("menu-role").textContent = canManage ? "Owner" : "Staff";
+  document.getElementById("menu-name").textContent = canManage ? "Bu Ratih" : "Dina (Staf)";
+  document.getElementById("avatar-initial").textContent = canManage ? "B" : "D";
+  renderList();
+}
+function switchRole() { role = role === "OWNER" ? "STAFF" : "OWNER"; applyRole(); toggleMenu(); }
+document.addEventListener("mousedown", function (e) {
+  var menu = document.getElementById("avatar-menu");
+  var btn = document.getElementById("avatar-btn");
+  if (!menu.classList.contains("hidden") && !btn.contains(e.target) && !menu.contains(e.target)) menu.classList.add("hidden");
+});
+
+renderList();
+</script>
+</body>
+</html>
