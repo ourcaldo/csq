@@ -2,6 +2,14 @@
 
 Version format: `XX.YY.ZZ` - YY (minor) and ZZ (patch) stay within 0-10; XX (major) may grow beyond. Minor = new feature/behavior change, patch = fix, major = breaking change (schema, API contract, env vars).
 
+## 4.12.0 - 2026-11-18 (branch `monorepo`)
+
+Contacts page: add, import, export (owner request 2026-11-18).
+
+- Tambah Kontak (OWNER): manual single contact - phone (normalized 08xx -> 628xx, same rule as leads), name, email, notes, categories, tags. Duplicate phone is rejected.
+- Impor Kontak (OWNER): bulk import from Excel/CSV (same base64 transport and 10k-row cap as the product import). Columns matched by header (nomor/phone/no hp required; nama/name, email, catatan/notes optional). Invalid and duplicate rows (in-file or already in the DB) are skipped and reported - partial success by design. Imported contacts get source "Import Kontak".
+- Ekspor (all roles): CSV download of all tenant contacts with name, phone, email, notes, categories, tags, created date.
+
 ## 4.11.0 - 2026-11-18 (branch `monorepo`)
 
 Document sends end to end (owner request 2026-11-18, PRD 24 amendment). Images already worked; documents now ride the same paths.

@@ -131,6 +131,7 @@ monorepo test stack (commits 01fe601 through a7421d7). Live verification:
 | OPS-7 | Resolve the outbox architecture claim. Conversation and test sends stay on the outbox; campaign sends stay in the campaign engine with the COR-1 claim. Amend PRD 08 to state this and remove the "all sends" wording. | PRD 08 matches the code; no duplicate send path is introduced. |
 | OPS-8 | Operations docs: add the `pg_dump` backup command to the README, update the deploy steps for api and worker images, and add `API_JWT_SECRET` plus per-app env examples. | A fresh operator can follow the README to build, deploy, and back up the stack. |
 | OPS-9 | Low-risk code truth-ups: add `packages/core` exports (or amend the plan), implement or remove `findSimilar` filters, and either implement read receipts or remove `markAsRead` from plan 07. | The plan and code agree; no reserved option is presented as working. |
+| OPS-10 | Amendment 2026-11-18 (owner request): the contacts page gets manual add (OWNER: phone, name, email, notes, categories, tags; phone normalized 08xx -> 628xx; duplicate rejected), bulk import (OWNER: Excel/CSV, header-matched columns, invalid/duplicate rows skipped and reported, max 10k rows), and CSV export (all roles). | A contact can be added by hand, imported in bulk from a spreadsheet with a created/skipped summary, and downloaded as CSV. |
 
 ## P2 - Documentation truth-up
 
