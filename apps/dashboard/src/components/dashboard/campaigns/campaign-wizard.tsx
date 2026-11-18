@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
+import { Checks, WhatsappLogo } from "@phosphor-icons/react";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
 import type { Category, Contact, ListResult, Tag } from "@csq/core/types/dashboard";
@@ -14,6 +15,7 @@ import type { CampaignRow } from "@csq/core/types/campaign";
 import { Button } from "@csq/ui/components/ui/button";
 import { StateNotice } from "@/components/dashboard/state-notice";
 import { LoadingSkeleton } from "@/components/dashboard/loading-skeleton";
+import { cn } from "@csq/ui/lib/utils";
 import {
   CampaignWizardForm,
   type MessageTemplateRow,
@@ -212,60 +214,161 @@ export function CampaignWizard({
 
   const loading = channels.loading || (mode === "edit" && !campaign);
 
+  // Live preview sidebar state (template redesign 2026-11-18): the selected
+  // channel label + the WhatsApp bubble + the execution estimate.
+  const selectedChannel = connectedChannels.find((c) => c.id === channelId);
+  const isCloud = selectedChannel?.provider === "CLOUD_API";
+  const previewText =
+    body.trim() ||
+    (templates.data?.items ?? []).find((t) => t.key === templateKey)?.body ||
+    "";
+  const estRecipients =
+    previewTotal ?? (audience === "ALL" ? contacts.data?.total ?? 0 : 0);
+  const estMinutes = Math.max(1, Math.round((estRecipients * delaySeconds) / 60));
+
   return (
     <form onSubmit={onSave} className="flex flex-col gap-6">
-      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-        {loading ? (
-          <LoadingSkeleton rows={8} />
-        ) : (
-          <CampaignWizardForm
-            channels={connectedChannels}
-            channelId={channelId}
-            onChannelId={setChannelId}
-            name={name}
-            onName={setName}
-            audience={audience}
-            onAudience={setAudience}
-            categories={categories.data ?? []}
-            categoryIds={categoryIds}
-            onToggleCategory={(id) => setCategoryIds((l) => toggle(l, id))}
-            tags={tags.data?.items ?? []}
-            tagIds={tagIds}
-            onToggleTag={(id) => setTagIds((l) => toggle(l, id))}
-            contacts={contacts.data?.items ?? []}
-            contactTotal={contacts.data?.total ?? 0}
-            contactIds={contactIds}
-            onToggleContact={(id) => setContactIds((l) => toggle(l, id))}
-            previewTotal={previewTotal}
-            previewByCategory={previewByCategory}
-            templates={templates.data?.items ?? []}
-            templateKey={templateKey}
-            onTemplateKey={setTemplateKey}
-            body={body}
-            onBody={setBody}
-            images={images}
-            onRemoveImage={(id) => setImages((l) => l.filter((x) => x.id !== id))}
-            onUpload={onUpload}
-            uploading={uploading}
-            scheduleKind={scheduleKind}
-            onScheduleKind={setScheduleKind}
-            onceAt={onceAt}
-            onOnceAt={setOnceAt}
-            time={time}
-            onTime={setTime}
-            dayOfWeek={dayOfWeek}
-            onDayOfWeek={setDayOfWeek}
-            dayOfMonth={dayOfMonth}
-            onDayOfMonth={setDayOfMonth}
-            everyDays={everyDays}
-            onEveryDays={setEveryDays}
-            delaySeconds={delaySeconds}
-            onDelaySeconds={setDelaySeconds}
-          />
-        )}
-      </div>
+      {formError && (
+        <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-medium text-red-600">
+          {formError}
+        </p>
+      )}
 
-      {formError && <p className="text-sm text-destructive">{formError}</p>}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        {/* Left column: the 4-section form */}
+        <div className="lg:col-span-8">
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+            {loading ? (
+              <LoadingSkeleton rows={8} />
+            ) : (
+              <CampaignWizardForm
+                channels={connectedChannels}
+                channelId={channelId}
+                onChannelId={setChannelId}
+                name={name}
+                onName={setName}
+                audience={audience}
+                onAudience={setAudience}
+                categories={categories.data ?? []}
+                categoryIds={categoryIds}
+                onToggleCategory={(id) => setCategoryIds((l) => toggle(l, id))}
+                tags={tags.data?.items ?? []}
+                tagIds={tagIds}
+                onToggleTag={(id) => setTagIds((l) => toggle(l, id))}
+                contacts={contacts.data?.items ?? []}
+                contactTotal={contacts.data?.total ?? 0}
+                contactIds={contactIds}
+                onToggleContact={(id) => setContactIds((l) => toggle(l, id))}
+                previewTotal={previewTotal}
+                previewByCategory={previewByCategory}
+                templates={templates.data?.items ?? []}
+                templateKey={templateKey}
+                onTemplateKey={setTemplateKey}
+                body={body}
+                onBody={setBody}
+                images={images}
+                onRemoveImage={(id) => setImages((l) => l.filter((x) => x.id !== id))}
+                onUpload={onUpload}
+                uploading={uploading}
+                scheduleKind={scheduleKind}
+                onScheduleKind={setScheduleKind}
+                onceAt={onceAt}
+                onOnceAt={setOnceAt}
+                time={time}
+                onTime={setTime}
+                dayOfWeek={dayOfWeek}
+                onDayOfWeek={setDayOfWeek}
+                dayOfMonth={dayOfMonth}
+                onDayOfMonth={setDayOfMonth}
+                everyDays={everyDays}
+                onEveryDays={setEveryDays}
+                delaySeconds={delaySeconds}
+                onDelaySeconds={setDelaySeconds}
+              />
+            )}
+          </div>
+        </div>
+
+        {/* Right column: sticky live preview + delivery estimate (template redesign) */}
+        <div className="lg:col-span-4">
+          <div className="sticky top-24 space-y-4">
+            {/* Live WhatsApp bubble preview */}
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <div className="flex items-center justify-between border-b border-slate-100 bg-slate-50/70 px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <WhatsappLogo size={16} weight="fill" className="text-green-600" />
+                  <span className="text-xs font-semibold text-slate-900">Pratinjau Pesan</span>
+                </div>
+                <span className="rounded bg-slate-200/70 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                  {selectedChannel ? selectedChannel.label : "Belum pilih saluran"}
+                </span>
+              </div>
+              <div className="bg-slate-100/80 p-4">
+                <div className="ml-auto max-w-[90%] rounded-xl rounded-tr-xs border border-green-200/80 bg-green-50 p-3 shadow-xs">
+                  {images.length > 0 && (
+                    <div className="mb-2 grid grid-cols-2 gap-1.5">
+                      {images.map((img) => (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          key={img.id}
+                          src={img.url}
+                          alt=""
+                          className="h-20 w-full rounded-lg border border-green-200/60 object-cover"
+                        />
+                      ))}
+                    </div>
+                  )}
+                  <p
+                    className={cn(
+                      "whitespace-pre-wrap text-xs leading-relaxed",
+                      previewText ? "text-slate-800" : "italic text-slate-400"
+                    )}
+                  >
+                    {previewText || "Isi pesan kampanye akan tampil di sini..."}
+                  </p>
+                  <div className="mt-1.5 flex items-center justify-end gap-1 text-[10px] text-slate-400">
+                    <span>
+                      {scheduleKind === "ONCE" && onceAt
+                        ? new Date(onceAt).toTimeString().slice(0, 5)
+                        : time}
+                    </span>
+                    <Checks size={12} weight="bold" className="text-blue-500" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Ringkasan Eksekusi */}
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <p className="text-xs font-semibold text-slate-900">Ringkasan Eksekusi</p>
+              <div className="mt-3 space-y-2 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Estimasi Penerima</span>
+                  <span className="font-semibold tabular-nums text-slate-900">
+                    {audience === "ALL" ? contacts.data?.total ?? "..." : estRecipients || "..."} kontak
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Jeda Antar Pesan</span>
+                  <span className="font-mono tabular-nums text-slate-700">{delaySeconds} detik</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Estimasi Durasi</span>
+                  <span className="font-semibold tabular-nums text-slate-900">
+                    &plusmn; {estMinutes} menit
+                  </span>
+                </div>
+              </div>
+              {isCloud && (
+                <p className="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-2 text-[11px] leading-relaxed text-blue-700">
+                  Saluran resmi (Cloud API): pesan bebas hanya sampai ke pelanggan
+                  dalam jendela 24 jam; sisanya dilewati (tercatat).
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div className="flex items-center justify-between gap-2">
         <Button

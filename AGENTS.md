@@ -182,6 +182,14 @@ Write the **least code that fully solves the task**. Boring beats clever.
   If verifying requires something genuinely unavailable (no hardware, no
   credentials, destructive action on production), say exactly that blocker
   and ask - do not silently downgrade the verification.
+- **BACKGROUND SHELL DISCIPLINE (owner directive 2026-11-19).** A command
+  that gets auto-backgrounded by a timeout is NOT "someone else's problem
+  until a notification arrives." Builds on this machine take minutes, not
+  hours. If a backgrounded build has not reported within 15 minutes, it is
+  hung: kill it, clean up, and rerun it synchronously with a longer timeout.
+  NEVER end a session, go idle, or wait passively while a build runs in the
+  background. "Do not poll" means do not busy-loop; it does not mean
+  "abandon". Leaving a hung process running for hours is a process failure.
 - **LANGUAGE RULE (owner directive 2026-11-18, second occurrence).** Reply to
   the owner in English; UI copy in Indonesian. NEVER reply in Chinese or any
   language the owner did not use. If an incoming message appears in a foreign
