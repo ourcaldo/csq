@@ -172,6 +172,16 @@ Write the **least code that fully solves the task**. Boring beats clever.
   3. For UI changes: verify the page renders correctly.
   4. For API/tool changes: verify the endpoint responds correctly.
 - Never mark a task complete by assumption. Demonstrate it works.
+- **NEVER SKIP VERIFICATION (owner directive 2026-11-18).** "Skipped: X, risk:
+  none known" is banned. If a check matters - a redirect hop, a race, a live
+  behavior, a boundary the fix claims to close - then BUILD the way to check
+  it and RUN it: write the loopback server, spin the harness, run the SQL,
+  drive the browser. Do not declare the risk "none known" instead of testing
+  it. The only acceptable skip is one the owner explicitly approved, and it
+  must be reported as "owner-approved skip", never as an agent decision.
+  If verifying requires something genuinely unavailable (no hardware, no
+  credentials, destructive action on production), say exactly that blocker
+  and ask - do not silently downgrade the verification.
 
 ### After Code Changes - Build + Verify
 - After changes to app code (NOT docs/config-only):
