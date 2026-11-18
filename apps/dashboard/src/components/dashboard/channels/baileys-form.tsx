@@ -4,12 +4,15 @@ import { Button } from "@csq/ui/components/ui/button";
 import { Switch } from "@csq/ui/components/ui/switch";
 import { AgentPicker } from "./agent-picker";
 import { ConfigureCard } from "./configure-card";
+import { Field } from "./field";
 import type { AgentItem } from "./types";
 
 export function BaileysForm(props: {
   agents: AgentItem[];
   agentId: string;
   onAgentChange: (v: string) => void;
+  label: string;
+  onLabelChange: (v: string) => void;
   tos: boolean;
   onTosChange: (v: boolean) => void;
   connecting: boolean;
@@ -26,6 +29,13 @@ export function BaileysForm(props: {
       onBack={props.onBack}
     >
       <div className="space-y-4">
+        <Field
+          label="Nama saluran"
+          value={props.label}
+          onChange={props.onLabelChange}
+          hint="Contoh: Sales, Support"
+          disabled={!props.isOwner}
+        />
         <AgentPicker
           agents={props.agents}
           value={props.agentId}

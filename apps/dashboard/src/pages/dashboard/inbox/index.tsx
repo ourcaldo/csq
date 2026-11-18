@@ -28,6 +28,15 @@ function isHumanAssigned(c: ConversationListItem): boolean {
   return !!c.assignee;
 }
 
+// Channel filter option shape (from /api/dashboard/channels).
+type ChannelSummary = {
+  id: string;
+  label: string;
+  provider: "CLOUD_API" | "BAILEYS";
+  status: string;
+  phoneNumber: string | null;
+};
+
 type InboxPageProps = {
   apiMediaBase: string;
 };
@@ -41,6 +50,8 @@ export default function InboxPage({ apiMediaBase }: InboxPageProps) {
   const [detailsHidden, setDetailsHidden] = useState(false);
   const [status, setStatus] = useState("");
   const [tagId, setTagId] = useState("");
+  // PRD 15: channel filter ("Semua saluran" + each channel).
+  const [channelId, setChannelId] = useState("");
   // Filter (Faders) button: the status/tag toolbar starts hidden; the button
   // reveals it (owner request 2026-11-18).
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -59,12 +70,14 @@ export default function InboxPage({ apiMediaBase }: InboxPageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.query.c]);
 
-  // Server-side filters (status + tag) are appended to the API URL so the
-  // list reflects them directly; tab/search still filter client-side on top.
+  // Server-side filters (status + tag + channel) are appended to the API URL
+  // so the list reflects them directly; tab/search still filter client-side
+  // on top.
   const conversationsUrl =
     `/api/dashboard/inbox/conversations?pageSize=100` +
     (status ? `&status=${status}` : "") +
-    (tagId ? `&tagId=${tagId}` : "");
+    (tagId ? `&tagId=${tagId}` : "") +
+    (channelId ? `&channelId=${channelId}` : "");
   const { data, loading, error, refresh } = usePolledApi<ListResult<ConversationListItem>>(
     conversationsUrl,
     8000
@@ -73,6 +86,12 @@ export default function InboxPage({ apiMediaBase }: InboxPageProps) {
   // Tenant tags for the tag filter dropdown.
   const { data: tagsData } = useApi<ListResult<Tag>>(`/api/dashboard/tags?pageSize=100`);
   const tags = tagsData?.items ?? [];
+
+  // Tenant channels for the channel filter dropdown (PRD 15).
+  const { data: channelsData } = useApi<{ items: ChannelSummary[] }>(
+    "/api/dashboard/channels"
+  );
+  const channels = channelsData?.items ?? [];
 
   const all = data?.items ?? [];
   const filtered = all.filter((c) => {
@@ -136,6 +155,7 @@ export default function InboxPage({ apiMediaBase }: InboxPageProps) {
       // Reset the list filters so the new chat is visible, then open it.
       setStatus("");
       setTagId("");
+      setChannelId("");
       void refresh();
       setSelectedId(res.conversationId);
       setDetailsOpen(false);
@@ -174,12 +194,27 @@ export default function InboxPage({ apiMediaBase }: InboxPageProps) {
             <option key={t.id} value={t.id}>{t.name}</option>
           ))}
         </Select>
+        <Select
+          value={channelId}
+          onChange={(e: ChangeEvent<HTMLSelectElement>) => setChannelId(e.target.value)}
+          className="h-8 w-auto text-xs"
+          aria-label="Filter saluran"
+        >
+          <option value="">Semua saluran</option>
+          {channels.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.label || (c.provider === "CLOUD_API" ? "Resmi" : "Pribadi")}
+              {c.phoneNumber ? ` (${c.phoneNumber})` : ""}
+            </option>
+          ))}
+        </Select>
         <Button
           variant="ghost"
           className="h-8 text-xs"
           onClick={() => {
             setStatus("");
             setTagId("");
+            setChannelId("");
           }}
         >
           Reset
@@ -213,6 +248,8 @@ export default function InboxPage({ apiMediaBase }: InboxPageProps) {
             conversationId={selected.id}
             customerName={selected.contact?.name ?? selected.customerPhoneDisplay}
             customerPhone={selected.customerPhoneDisplay}
+            channelLabel={selected.channel.label || null}
+            channelNumber={selected.channel.phoneNumber}
             aiActive={!selected.assignee && !!selected.assignedAgent}
             humanTakenOver={!!selected.assignee}
             mediaBase={apiMediaBase}

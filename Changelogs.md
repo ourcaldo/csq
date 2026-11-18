@@ -2,6 +2,20 @@
 
 Version format: `XX.YY.ZZ` - YY (minor) and ZZ (patch) stay within 0-10; XX (major) may grow beyond. Minor = new feature/behavior change, patch = fix, major = breaking change (schema, API contract, env vars).
 
+## 5.0.0 - 2026-11-18 (branch `monorepo`)
+
+Multiple channels per tenant (PRD 15, owner "do it all" 2026-11-18). A tenant holds several WhatsApp numbers; a channel is one sending number, never a tenant.
+
+- Schema: `Channel` gains `label`, `phoneNumber`, `externalId`, `wabaId`, `archivedAt` + unique `(tenantId, provider, externalId)` (multi-NULL allows Baileys pre-pairing). Migration `20261118160000_multi_channel_identity` backfills labels and Cloud API external IDs. Identity lives in columns; `config` keeps secrets only.
+- Connect flow rewritten: each connect creates a NEW channel (no more one-per-provider upsert); reconfigure is per channel (`channelId` in the body). Label required. Cloud API verifies the phone number ID against the Graph API on connect (wrong ID fails immediately, Meta's error surfaced) and rejects a number already registered to another tenant. Plan limit counts CONNECTED channels.
+- Archive (new `POST /api/dashboard/channels/archive`): DISCONNECTED-only soft archive; hides the channel, keeps all conversations/messages/campaigns, frees a plan seat. No hard delete exists.
+- Webhook verification moved to app level: `WHATSAPP_VERIFY_TOKEN` on the api service verifies every number with one token; the legacy per-channel token is accepted as a transition fallback (one release). Disconnect no longer rotates any token. Signature checks use `WHATSAPP_APP_SECRET` with the per-channel override kept.
+- Saluran page rebuilt as a channel list: one card per channel (label, number, status, per-channel Edit/Putuskan/Arsipkan/Test), add flow per provider. Baileys writes the paired number to the row when the socket opens.
+- Inbox: conversations carry channel label + number; the row badge shows the channel label; the filter toolbar gains a "Semua saluran" channel filter; the chat header shows the channel and its number.
+- Campaigns: the "Saluran kirim" selector shows label + number per channel.
+- Admin fleet: label, number, WABA and archive state columns; archived rows dimmed.
+- Worker: per-instance Baileys socket cap (`BAILEYS_MAX_SOCKETS`, default 5) with a log line when hit; boot reconnect and heartbeat skip archived channels.
+
 ## 4.12.0 - 2026-11-18 (branch `monorepo`)
 
 Contacts page: add, import, export (owner request 2026-11-18).

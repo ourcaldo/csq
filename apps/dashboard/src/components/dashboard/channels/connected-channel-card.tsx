@@ -13,12 +13,14 @@ export function ConnectedChannelCard(props: {
   isOwner: boolean;
   onEdit: () => void;
   onDisconnect: () => void;
+  onArchive: () => void;
   testTo: Record<string, string>;
   testing: string | null;
   onTestTo: (v: string) => void;
   onTest: () => void;
 }) {
   const channel = props.channel;
+  const connected = channel.status === "CONNECTED";
   return (
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="flex flex-col gap-3 p-5 md:flex-row md:items-start md:justify-between">
@@ -33,16 +35,16 @@ export function ConnectedChannelCard(props: {
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h2 className="text-base font-semibold text-slate-900">
-                {channel.provider === "CLOUD_API"
-                  ? "WhatsApp Resmi"
-                  : "Bawa Nomor Sendiri"}
+                {channel.label}
               </h2>
-              <BadgeStatus tone="green">Terhubung</BadgeStatus>
+              <BadgeStatus tone={connected ? "green" : "neutral"}>
+                {connected ? "Terhubung" : "Terputus"}
+              </BadgeStatus>
             </div>
             <p className="mt-1 text-sm text-slate-500">
               {channel.provider === "CLOUD_API"
-                ? `Phone Number ID: ${channel.phoneNumberId ?? "-"}`
-                : "Terhubung via pindaian QR."}
+                ? `WhatsApp Resmi - ${channel.phoneNumber ?? channel.phoneNumberId ?? "-"}`
+                : `Bawa Nomor Sendiri - ${channel.phoneNumber ?? "nomor terdeteksi saat pairing"}`}
             </p>
           </div>
         </div>
@@ -63,14 +65,21 @@ export function ConnectedChannelCard(props: {
             disabled={!props.isOwner}
             onClick={props.onDisconnect}
           >
-            Putuskan
+            {connected ? "Putuskan" : "Sambungkan"}
           </Button>
+          {!connected && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!props.isOwner}
+              onClick={props.onArchive}
+              className="hover:text-red-600"
+            >
+              Arsipkan
+            </Button>
+          )}
         </div>
       </div>
-      <p className="px-5 pb-4 text-xs text-slate-400">
-        Ingin berganti metode? Putuskan saluran ini, lalu pilih metode lain (mis.
-        WhatsApp Resmi) dari langkah pertama.
-      </p>
       <div className="space-y-3 px-5 pb-5">
         <Separator />
         <div className="pt-4">
@@ -91,7 +100,7 @@ export function ConnectedChannelCard(props: {
           <ReadOnlyField
             label="Verify Token"
             value={props.cloudVerifyToken ?? "-"}
-            hint="Berganti otomatis setiap kali saluran disambungkan ulang - perbarui juga di Meta."
+            hint="Token level aplikasi - sama untuk semua nomor, tidak berubah saat menyambungkan ulang."
           />
         </div>
       )}

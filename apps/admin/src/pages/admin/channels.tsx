@@ -16,6 +16,10 @@ type Channel = {
   provider: string;
   type: string;
   status: string;
+  label: string;
+  phoneNumber: string | null;
+  wabaId: string | null;
+  archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
   leaseHeld: boolean;
@@ -91,6 +95,7 @@ export default function ChannelsPage() {
           <thead>
             <tr>
               <th>Tenant</th>
+              <th>Channel</th>
               <th>Provider</th>
               <th>Type</th>
               <th>Status</th>
@@ -102,12 +107,20 @@ export default function ChannelsPage() {
           </thead>
           <tbody>
             {items.map((c) => (
-              <tr key={c.id}>
+              <tr key={c.id} className={c.archivedAt ? "opacity-50" : undefined}>
                 <td>
                   <div className="font-medium">{c.tenantName}</div>
                   <div className="text-[12px] text-muted-foreground">
                     {c.tenantSlug}
                     {c.tenantStatus === "SUSPENDED" && " / suspended"}
+                  </div>
+                </td>
+                <td>
+                  <div className="font-medium">{c.label}</div>
+                  <div className="text-[12px] text-muted-foreground">
+                    {c.phoneNumber ?? "-"}
+                    {c.wabaId ? ` / WABA ${c.wabaId}` : ""}
+                    {c.archivedAt ? " / archived" : ""}
                   </div>
                 </td>
                 <td>
@@ -177,14 +190,14 @@ export default function ChannelsPage() {
             ))}
             {!loading && items.length === 0 && (
               <tr>
-                <td colSpan={8} className="py-12 text-center text-[13px] text-muted-foreground">
+                <td colSpan={9} className="py-12 text-center text-[13px] text-muted-foreground">
                   No channels across any tenant.
                 </td>
               </tr>
             )}
             {loading && (
               <tr>
-                <td colSpan={8} className="py-12 text-center text-[13px] text-muted-foreground">
+                <td colSpan={9} className="py-12 text-center text-[13px] text-muted-foreground">
                   Loading...
                 </td>
               </tr>

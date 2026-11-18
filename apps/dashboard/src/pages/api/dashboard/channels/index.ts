@@ -19,7 +19,12 @@ export type ChannelView = {
   provider: "CLOUD_API" | "BAILEYS";
   type: "WHATSAPP";
   status: string;
+  label: string;
   agentId: string | null;
+  phoneNumber: string | null;
+  externalId: string | null;
+  wabaId: string | null;
+  archivedAt: string | null;
   phoneNumberId?: string;
   tosAcknowledged?: boolean;
   createdAt: string;
@@ -31,7 +36,12 @@ type RawChannel = {
   provider: string;
   type: string;
   status: string;
+  label: string;
   agentId: string | null;
+  phoneNumber: string | null;
+  externalId: string | null;
+  wabaId: string | null;
+  archivedAt: Date | null;
   config: unknown;
   createdAt: Date;
   updatedAt: Date;
@@ -52,7 +62,12 @@ function sanitize(channel: RawChannel): ChannelView {
     provider: z.enum(["CLOUD_API", "BAILEYS"]).parse(channel.provider),
     type: z.enum(["WHATSAPP"]).parse(channel.type),
     status: channel.status,
+    label: channel.label,
     agentId: channel.agentId,
+    phoneNumber: channel.phoneNumber,
+    externalId: channel.externalId,
+    wabaId: channel.wabaId,
+    archivedAt: channel.archivedAt ? channel.archivedAt.toISOString() : null,
     phoneNumberId,
     tosAcknowledged,
     createdAt: channel.createdAt.toISOString(),
@@ -73,8 +88,10 @@ export default async function handler(
   const tenantId = requireTenant(session);
 
   return withTenantContext(tenantId, async () => {
+    // Archived channels are hidden from the working list (PRD 15); data
+    // stays queryable everywhere else.
     const channels = await prisma.channel.findMany({
-      where: { tenantId },
+      where: { tenantId, archivedAt: null },
       orderBy: { createdAt: "asc" },
     });
 

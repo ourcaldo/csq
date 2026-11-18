@@ -467,15 +467,22 @@ model Agent {
 }
 
 model Channel {
-  id        String          @id @default(uuid())
-  tenantId  String
-  agentId   String?
-  type      ChannelType     @default(WHATSAPP)
-  provider  ChannelProvider @default(CLOUD_API)
-  config    Json
-  status    ChannelStatus   @default(DISCONNECTED)
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
+  id          String          @id @default(uuid())
+  tenantId    String
+  agentId     String?
+  type        ChannelType     @default(WHATSAPP)
+  provider    ChannelProvider @default(CLOUD_API)
+  config      Json
+  status      ChannelStatus   @default(DISCONNECTED)
+  // Multi-channel identity (PRD 15): identity lives in columns, config keeps
+  // secrets only. externalId = Cloud API phone number ID or Baileys phone.
+  label       String          @default("")
+  phoneNumber String?
+  externalId  String?
+  wabaId      String?
+  archivedAt  DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 
   tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   agent         Agent?         @relation(fields: [agentId], references: [id], onDelete: SetNull)
@@ -484,6 +491,9 @@ model Channel {
   commands      ChannelCommand[]
 
   @@index([tenantId])
+  // One provider identity per tenant (PRD 15). Postgres allows multiple
+  // NULLs, so a Baileys channel is valid before pairing.
+  @@unique([tenantId, provider, externalId])
 }
 
 // Baileys (bring-your-own-number) auth state, stored in the DB so it

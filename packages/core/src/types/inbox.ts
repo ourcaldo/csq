@@ -54,7 +54,12 @@ export type ConversationListItem = {
   tenantId: string;
   channelId: string;
   // FEA-6 (PRD 16): channel provider for the Resmi/Pribadi badge in the list.
-  channel: { provider: "CLOUD_API" | "BAILEYS" };
+  // PRD 15 adds label + display number for the channel badge/filter.
+  channel: {
+    provider: "CLOUD_API" | "BAILEYS";
+    label: string;
+    phoneNumber: string | null;
+  };
   customerPhone: string; // full JID (e.g. <lid>@lid) - used for sending
   customerPhoneDisplay: string; // real phone number for display (LID resolved)
   contactId: string | null;

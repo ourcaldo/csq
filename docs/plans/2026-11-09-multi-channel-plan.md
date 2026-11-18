@@ -1,7 +1,19 @@
 # Multiple Channels per Tenant - Implementation Plan (2026-11-09)
 
-Status: **PENDING** - not scheduled, do not execute. PRD:
-`docs/prd/15-multi-channel.md`. The owner will schedule this later.
+Status: **EXECUTED 2026-11-18** - all phases shipped (owner "do it all").
+PRD: `docs/prd/15-multi-channel.md`. Migration:
+`20261118160000_multi_channel_identity` (applied to the clone + ledger
+recorded). Notes on deviations from the plan text:
+
+- Webhook GET accepts the app token first, then the legacy per-channel
+  token as transition fallback (one release, then remove the fallback).
+- The Graph API connect verification calls the phone number ID with
+  `display_phone_number`; the WABA ID is NOT fetched (needs a separate
+  parent lookup) - `wabaId` fills from `config.businessAccountId` on
+  reconfigure or stays null. shortcut: wabaId backfill needs a second
+  Graph call, add when an owner actually needs the column displayed.
+- The Saluran page keeps the MethodCard grid as the "add" entry (titled
+  "Tambah Nomor...") instead of a separate "Tambah saluran" button.
 
 ## Deep dive summary
 

@@ -20,7 +20,13 @@ export type MessageTemplateRow = {
   metaLanguage?: string;
 };
 
-type ChannelOption = { id: string; provider: string; phoneNumberId?: string };
+type ChannelOption = {
+  id: string;
+  provider: string;
+  label: string;
+  phoneNumber: string | null;
+  phoneNumberId?: string;
+};
 
 type WizardFormProps = {
   channels: ChannelOption[];
@@ -115,8 +121,8 @@ export function CampaignWizardForm(props: WizardFormProps) {
               {props.channels.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.provider === "CLOUD_API"
-                    ? `WhatsApp API${c.phoneNumberId ? ` (${c.phoneNumberId})` : ""}`
-                    : "WhatsApp pribadi (Baileys)"}
+                    ? `${c.label || "WhatsApp API"}${c.phoneNumber ? ` (${c.phoneNumber})` : c.phoneNumberId ? ` (${c.phoneNumberId})` : ""}`
+                    : `${c.label || "WhatsApp pribadi"}${c.phoneNumber ? ` (${c.phoneNumber})` : ""}`}
                 </option>
               ))}
             </Select>

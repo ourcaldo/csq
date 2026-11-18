@@ -72,9 +72,24 @@ export default async function handler(
       res.status(403).send("Forbidden");
       return;
     }
-    // Find the CLOUD_API channel whose config.verifyToken matches. JSON path
-    // filter keeps this multi-tenant ready (each channel its own token).
-    // Cross-tenant lookup: bypass context (PRD 16 SEC-1).
+    // PRD 15: verification is app-level. One Meta app, one callback URL,
+    // one WHATSAPP_VERIFY_TOKEN for every number. The legacy per-channel
+    // config.verifyToken is accepted as a transition fallback (removed
+    // after one release).
+    const appToken = process.env.WHATSAPP_VERIFY_TOKEN;
+    if (appToken) {
+      const appMatch = crypto.timingSafeEqual(
+        Buffer.from(verifyToken),
+        Buffer.from(appToken)
+      );
+      if (appMatch) {
+        res.setHeader("Content-Type", "text/plain");
+        res.status(200).send(challenge);
+        return;
+      }
+    }
+    // Transition fallback: any CLOUD_API channel still carrying a matching
+    // legacy per-channel token.
     const channel = await withSystemContext(async () =>
       prisma.channel.findFirst({
         where: {
@@ -83,12 +98,12 @@ export default async function handler(
         },
       })
     );
-    if (!channel) {
-      res.status(403).send("Forbidden");
+    if (channel) {
+      res.setHeader("Content-Type", "text/plain");
+      res.status(200).send(challenge);
       return;
     }
-    res.setHeader("Content-Type", "text/plain");
-    res.status(200).send(challenge);
+    res.status(403).send("Forbidden");
     return;
   }
 
@@ -160,11 +175,12 @@ export default async function handler(
       return;
     }
 
-    // Signature verification - fail-closed. Resolve the app secret from the
-    // channel config first, then fall back to WHATSAPP_APP_SECRET. If neither
-    // is set, reject (401): never accept unsigned inbound POSTs, since a spoofed
-    // message would flow straight into the agent loop. The HMAC is verified
-    // against the raw body with a constant-time compare.
+    // Signature verification - fail-closed. App secret from env first
+    // (PRD 15: app-level), then the per-channel config override for edge
+    // cases. If neither is set, reject (401): never accept unsigned inbound
+    // POSTs, since a spoofed message would flow straight into the agent
+    // loop. The HMAC is verified against the raw body with a constant-time
+    // compare.
     const sigHeader = req.headers["x-hub-signature-256"];
     const signature = Array.isArray(sigHeader) ? sigHeader[0] : sigHeader;
     const configResult = cloudApiConfigSchema.safeParse(channel.config);

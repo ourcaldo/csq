@@ -12,7 +12,7 @@ import type { Stage } from "@csq/core/types/inbox";
 
 type Item = Prisma.ConversationGetPayload<{
   include: {
-    channel: { select: { provider: true } };
+    channel: { select: { provider: true; label: true; phoneNumber: true } };
     contact: true;
     assignedAgent: true;
     assignee: true;
@@ -78,6 +78,7 @@ export default async function handler(
       const assigneeUserId = strQuery(req.query, "assigneeUserId");
       const search = strQuery(req.query, "search");
       const tagId = strQuery(req.query, "tagId");
+      const channelId = strQuery(req.query, "channelId");
 
       const where: Prisma.ConversationWhereInput = {
         tenantId,
@@ -86,6 +87,8 @@ export default async function handler(
         ...(assigneeUserId ? { assigneeUserId } : {}),
         ...(search ? { customerPhone: { contains: search } } : {}),
         ...(tagId ? { tags: { some: { tagId } } } : {}),
+        // PRD 15 inbox: channel filter.
+        ...(channelId ? { channelId } : {}),
       };
 
       const [items, total] = await Promise.all([
@@ -94,7 +97,7 @@ export default async function handler(
           skip,
           take,
           include: {
-            channel: { select: { provider: true } },
+            channel: { select: { provider: true, label: true, phoneNumber: true } },
             contact: {
               include: {
                 categories: { include: { category: true } },

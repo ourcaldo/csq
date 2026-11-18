@@ -33,6 +33,9 @@ type ChatPanelProps = {
   conversationId: string;
   customerName: string;
   customerPhone: string;
+  /** Channel identity for the header badge (PRD 15). */
+  channelLabel: string | null;
+  channelNumber: string | null;
   aiActive: boolean; // an AI agent is assigned (not handed to a human)
   humanTakenOver: boolean; // a human staff member has taken over
   /** Origin that serves /api/media (the api service in the monorepo split). */
@@ -224,7 +227,7 @@ function TypingIndicator({ label }: { label: string }) {
   );
 }
 
-export function ChatPanel({ conversationId, customerName, customerPhone, aiActive, humanTakenOver, mediaBase, onBack, onOpenDetails, onRead }: ChatPanelProps) {
+export function ChatPanel({ conversationId, customerName, customerPhone, channelLabel, channelNumber, aiActive, humanTakenOver, mediaBase, onBack, onOpenDetails, onRead }: ChatPanelProps) {
   const { data: session } = useSession();
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -493,6 +496,14 @@ export function ChatPanel({ conversationId, customerName, customerPhone, aiActiv
             </button>
           )}
           <h2 className="truncate text-lg font-semibold text-slate-900">{customerName}</h2>
+          {(channelLabel || channelNumber) && (
+            <span
+              className="shrink-0 rounded bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700"
+              title={channelNumber ?? undefined}
+            >
+              {channelLabel ?? "WhatsApp"}{channelNumber ? ` - ${channelNumber}` : ""}
+            </span>
+          )}
           {aiActive ? (
             <span className="inline-flex shrink-0 items-center gap-1 rounded bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
               <Robot size={12} weight="fill" /> AI menangani

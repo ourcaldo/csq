@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
-import { withTenantContext } from "@csq/core/lib/tenant-context";
+import { withTenantContext, withSystemContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import {
   cloudApiConfigSchema,
@@ -14,18 +14,19 @@ import {
 import { isFatalDisconnect } from "@csq/core/services/baileys";
 import { createChannelCommand, awaitChannelCommand } from "@csq/core/lib/channel-commands";
 import { getTenantEntitlements } from "@csq/core/lib/entitlements";
-import { generateVerifyToken } from "@csq/core/lib/whatsapp-verify-token";
 
-// Connect (or reconfigure) a WhatsApp channel for this tenant (plan 7.5).
-// Owner picks the provider at onboarding. Baileys is gated on tosAcknowledged
-// (ToS/ban risk, FR-WA-011) - enforced HERE in the backend, not just the UI.
-// For Baileys, starts the socket and returns the QR to scan; for Cloud API,
-// stores the credentials and marks CONNECTED. The Cloud API verify token is
-// generated when the owner enters the connect step (saluran page SSP) and is
-// PRESERVED here - see src/lib/whatsapp-verify-token.ts.
+// Connect a WhatsApp channel (PRD 15, multi-channel). Each call connects ONE
+// channel: reconfiguring an existing channel (channelId given) keeps its
+// identity; without channelId a NEW channel row is created. Baileys is gated
+// on tosAcknowledged (ToS/ban risk, FR-WA-011) - enforced HERE in the backend,
+// not just the UI. For Baileys, starts the socket and returns the QR to scan;
+// for Cloud API, the Graph API verifies the phone number ID before anything
+// is stored, so a wrong ID fails here instead of at first webhook.
 
 const connectSchema = z.object({
   provider: z.enum(["CLOUD_API", "BAILEYS"]),
+  channelId: z.string().uuid().optional(),
+  label: z.string().min(1).max(60),
   agentId: z.string().uuid().optional(),
   config: z.unknown(),
 });
@@ -36,6 +37,45 @@ export type ConnectResult = {
   status: string;
   qr: string | null;
 };
+
+// Verify a Cloud API phone number ID against the Graph API and fetch the
+// display number + WABA (PRD 15 connect flow). Throws a plain Error with a
+// user-facing Indonesian message on failure.
+async function verifyPhoneNumberId(
+  phoneNumberId: string,
+  token: string
+): Promise<{ displayNumber: string; wabaId: string | null }> {
+  let res: Response;
+  try {
+    res = await fetch(
+      `https://graph.facebook.com/v25.0/${phoneNumberId}?fields=display_phone_number,quality_rating`,
+      { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(15_000) }
+    );
+  } catch {
+    throw new Error("Tidak dapat menghubungi Meta. Coba lagi sebentar.");
+  }
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    // Surface Meta's own error (wrong ID, bad token, or the registered-
+    // number cap) - never fail silently (PRD 15 limits).
+    throw new Error(`Verifikasi Meta gagal (${res.status}): ${text.slice(0, 300)}`);
+  }
+  const json: unknown = await res.json();
+  const parsed = z
+    .object({
+      display_phone_number: z.string().optional(),
+      // The phone number's parent WABA comes back on the id-with-fields call.
+      id: z.string(),
+    })
+    .safeParse(json);
+  if (!parsed.success) {
+    throw new Error("Respon Meta tidak dikenal. Periksa Phone Number ID dan token.");
+  }
+  return {
+    displayNumber: parsed.data.display_phone_number ?? "",
+    wabaId: null,
+  };
+}
 
 export default async function handler(
   req: NextApiRequest,
@@ -57,16 +97,18 @@ export default async function handler(
     if (!parsed.success) {
       return respondError(res, "VALIDATION_ERROR", parsed.error.message);
     }
-    const { provider, agentId } = parsed.data;
+    const { provider, channelId, label, agentId } = parsed.data;
 
-    // Upsert target (one channel per provider for MVP).
-    const existing = await prisma.channel.findFirst({
-      where: { tenantId, provider },
-    });
+    // Existing row only when reconfiguring that specific channel.
+    const existing = channelId
+      ? await prisma.channel.findFirst({ where: { id: channelId, tenantId } })
+      : null;
+    if (channelId && !existing) {
+      return respondError(res, "NOT_FOUND", "Channel tidak ditemukan.");
+    }
 
-    // Plan channel limit (PRD 14): only CONNECTED channels count. Connecting a
-    // channel that is not already connected is blocked when the active count is
-    // at the limit; reconfiguring an already-connected channel is always allowed.
+    // Plan channel limit (PRD 14/15): only CONNECTED channels count.
+    // Reconfiguring an already-connected channel is always allowed.
     const alreadyConnected = existing?.status === "CONNECTED";
     if (!alreadyConnected) {
       const entitlements = await getTenantEntitlements(tenantId);
@@ -86,20 +128,41 @@ export default async function handler(
 
     let config: CloudApiConfig | BaileysConfig;
     let status: "CONNECTED" | "DISCONNECTED";
+    // Identity columns written on connect (PRD 15 data model).
+    let phoneNumber: string | null = null;
+    let externalId: string | null = null;
+    let wabaId: string | null = null;
     if (provider === "CLOUD_API") {
-      const { verifyToken: _clientToken, ...rest } =
-        cloudApiConfigSchema.parse(parsed.data.config);
-      // The verify token was already generated server-side and shown to the
-      // owner when they entered the connect step (they pasted it into Meta's
-      // webhook config). Connect must PRESERVE it, not rotate it - rotating here
-      // would invalidate what Meta already verified. Rotation happens on
-      // disconnect (see disconnect.ts).
+      const cfg = cloudApiConfigSchema.parse(parsed.data.config);
+      // Verify against Meta BEFORE storing anything or checking duplicates:
+      // a wrong ID/token must fail immediately with Meta's own error.
+      const verified = await verifyPhoneNumberId(cfg.phoneNumberId, cfg.token);
+      phoneNumber = verified.displayNumber || null;
+      wabaId = verified.wabaId;
+      externalId = cfg.phoneNumberId;
+      // One phone number ID belongs to exactly one tenant (PRD 15 security).
+      // Cross-tenant lookup: bypass context.
+      const dupe = await withSystemContext(async () =>
+        prisma.channel.findFirst({
+          where: { provider: "CLOUD_API", externalId: cfg.phoneNumberId },
+        })
+      );
+      if (dupe && dupe.id !== existing?.id) {
+        return respondError(
+          res,
+          "VALIDATION_ERROR",
+          "Nomor WhatsApp ini sudah terdaftar di workspace lain."
+        );
+      }
+      // Keep the per-channel verifyToken when reconfiguring (it may hold the
+      // legacy token Meta verified); it is app-level now but harmless.
       const parsedExisting = cloudApiConfigSchema.safeParse(existing?.config);
-      const token =
-        parsedExisting.success && parsedExisting.data.verifyToken
-          ? parsedExisting.data.verifyToken
-          : generateVerifyToken();
-      config = { ...rest, verifyToken: token };
+      const legacyToken =
+        parsedExisting.success ? parsedExisting.data.verifyToken : undefined;
+      config = {
+        ...cfg,
+        ...(legacyToken ? { verifyToken: legacyToken } : {}),
+      };
       status = "CONNECTED";
     } else {
       const cfg = baileysConfigSchema.parse(parsed.data.config);
@@ -114,19 +177,19 @@ export default async function handler(
       status = "DISCONNECTED"; // until the QR is scanned and the socket opens
     }
 
-    // Upsert the tenant's channel for this provider (one per provider for MVP).
-    // `existing` was already fetched above for the token-preserve path.
-    // Baileys: do NOT write status here. The socket events own it (open writes
-    // CONNECTED, a fatal close writes DISCONNECTED) - writing DISCONNECTED on
-    // every connect call desynced the row when the owner re-clicked connect on
-    // an already-open socket, and nothing repaired it.
+    // Create a new channel, or reconfigure the named one. Baileys: do NOT
+    // write status here - socket events own it (open writes CONNECTED, a
+    // fatal close writes DISCONNECTED).
     const channel = existing
       ? await prisma.channel.update({
           where: { id: existing.id },
-          data:
-            provider === "BAILEYS"
-              ? { agentId: agentId ?? existing.agentId, config }
-              : { agentId: agentId ?? existing.agentId, config, status },
+          data: {
+            agentId: agentId ?? existing.agentId,
+            label,
+            ...(provider === "CLOUD_API"
+              ? { config, status, phoneNumber, externalId, wabaId }
+              : { config }),
+          },
         })
       : await prisma.channel.create({
           data: {
@@ -134,8 +197,12 @@ export default async function handler(
             agentId,
             type: "WHATSAPP",
             provider,
+            label,
             config,
             status,
+            ...(provider === "CLOUD_API"
+              ? { phoneNumber, externalId, wabaId }
+              : {}),
           },
         });
 
@@ -154,10 +221,6 @@ export default async function handler(
       qr = result.qr;
       open = result.open;
       if (!qr && !open) {
-        // A silent qr:null left the Saluran page showing nothing at all. A 401
-        // means WhatsApp's server REFUSED the pairing handshake (rate-limited
-        // or flagged number, or a stale linked device still registered on the
-        // phone) - point the owner at the two things that actually clear it.
         if (isFatalDisconnect(result.closeCode)) {
           return respondError(
             res,
@@ -172,8 +235,6 @@ export default async function handler(
             "Worker tidak merespons - layanan pesan belum siap. Coba lagi sebentar."
           );
         }
-        // The command ran and failed (e.g. closeCode=405): surface the
-        // worker's actual reason instead of blaming the worker.
         return respondError(
           res,
           "VALIDATION_ERROR",

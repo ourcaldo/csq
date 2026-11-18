@@ -53,7 +53,8 @@ function rowsEqual(a: ConversationRowProps, b: ConversationRowProps): boolean {
     a.active === b.active &&
     a.conversation.updatedAt === b.conversation.updatedAt &&
     a.conversation.unreadCount === b.conversation.unreadCount &&
-    a.conversation.channel.provider === b.conversation.channel.provider
+    a.conversation.channel.provider === b.conversation.channel.provider &&
+    a.conversation.channel.label === b.conversation.channel.label
   );
 }
 
@@ -97,8 +98,8 @@ const ConversationRow = memo(function ConversationRow({
         <div className="mb-1 flex items-baseline justify-between">
           <div className="flex min-w-0 items-baseline gap-1.5">
             <h4 className="truncate text-sm font-semibold text-slate-900">{name}</h4>
-            {/* FEA-6 (PRD 16): channel provider - Cloud API (official) vs
-                Baileys (personal number). */}
+            {/* Channel badge (PRD 15): the channel label; falls back to the
+                provider name for legacy rows without a meaningful label. */}
             <span
               className={cn(
                 "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium",
@@ -106,8 +107,10 @@ const ConversationRow = memo(function ConversationRow({
                   ? "bg-blue-50 text-blue-700"
                   : "bg-slate-100 text-slate-600"
               )}
+              title={c.channel.phoneNumber ?? undefined}
             >
-              {c.channel.provider === "CLOUD_API" ? "Resmi" : "Pribadi"}
+              {c.channel.label ||
+                (c.channel.provider === "CLOUD_API" ? "Resmi" : "Pribadi")}
             </span>
           </div>
           <span className="ml-2 shrink-0 text-xs text-slate-400">

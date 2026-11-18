@@ -200,6 +200,7 @@ export async function seedDemo(): Promise<void> {
         type: "WHATSAPP",
         provider: "CLOUD_API",
         status: "DISCONNECTED",
+        label: "WhatsApp Resmi",
         config: {
           phoneNumberId: "DEMO_PHONE_NUMBER_ID",
           token: "DEMO_TOKEN",

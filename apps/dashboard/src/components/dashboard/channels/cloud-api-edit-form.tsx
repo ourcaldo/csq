@@ -20,6 +20,13 @@ export function CloudApiEditForm(props: {
     >
       <div className="space-y-3">
         <Field
+          label="Nama saluran"
+          value={props.form.label}
+          onChange={(v) => props.onChange({ label: v })}
+          hint="Nama baru untuk saluran ini"
+          disabled={!props.isOwner}
+        />
+        <Field
           label="Phone Number ID"
           value={props.form.phoneNumberId}
           onChange={(v) => props.onChange({ phoneNumberId: v })}
@@ -54,8 +61,8 @@ export function CloudApiEditForm(props: {
           </Button>
         </div>
         <p className="text-xs text-slate-400">
-          Menyimpan membuat verify token baru - perbarui token webhook di Meta
-          App Manager setelahnya.
+          Menyimpan kredensial memverifikasi nomor ke Meta. Verify token tidak
+          berubah - tidak perlu memperbarui webhook di Meta.
         </p>
       </div>
     </ConfigureCard>

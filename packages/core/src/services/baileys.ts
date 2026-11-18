@@ -96,6 +96,11 @@ type SocketEntry = {
 };
 const sockets = new Map<string, SocketEntry>();
 
+// PRD 15 runtime: per-instance safety cap on concurrent Baileys sockets
+// (memory guard; the plan limit is the commercial cap, this is the physical
+// one). Env-tunable for bigger workers; 512MB Render instances keep 5.
+const MAX_SOCKETS_PER_INSTANCE = Number(process.env.BAILEYS_MAX_SOCKETS ?? 5);
+
 // Normalize a bare number to a WhatsApp JID. JIDs pass through unchanged.
 // Indonesian owners type numbers in local form ("0812...", "812...", "+62 812...")
 // - appending the domain raw makes "0812...@s.whatsapp.net", a non-existent
@@ -268,6 +273,15 @@ async function connectBaileysChannelInner(
     return { qr: null, open: true, closeCode: null };
   }
 
+  // PRD 15 runtime: per-instance socket safety cap. Each socket costs memory;
+  // the plan limit is commercial, this is the physical guard on one worker.
+  if (!existing && sockets.size >= MAX_SOCKETS_PER_INSTANCE) {
+    console.error(
+      `[baileys] socket cap reached (${sockets.size}/${MAX_SOCKETS_PER_INSTANCE}) - refusing channel ${channel.id}`
+    );
+    return { qr: null, open: false, closeCode: null };
+  }
+
   let entry: SocketEntry;
   if (existing) {
     // A socket already exists for this channel (e.g. login pending). Reuse it
@@ -316,8 +330,20 @@ async function connectBaileysChannelInner(
         entry.open = true;
         entry.qr = null;
         console.log(`[baileys:${channel.id}] OPEN - marking channel CONNECTED`);
+        // PRD 15: capture the paired number on open. sock.user.id is the
+        // logged-in JID ("62812...@s.whatsapp.net"); the bare digits are the
+        // channel's display number and provider identity (externalId).
+        const paired = sock.user ? sock.user.id.split("@")[0].split(":")[0] : "";
         void prisma.channel
-          .update({ where: { id: channel.id }, data: { status: "CONNECTED" } })
+          .update({
+            where: { id: channel.id },
+            data: {
+              status: "CONNECTED",
+              ...(paired
+                ? { phoneNumber: paired, externalId: paired }
+                : {}),
+            },
+          })
           .catch((err) =>
             console.error(`[baileys:${channel.id}] failed to mark CONNECTED:`, err)
           );
@@ -587,7 +613,7 @@ export async function startBaileysChannels(): Promise<void> {
   // enters its own context.
   const channels = await withSystemContext(async () =>
     prisma.channel.findMany({
-      where: { provider: "BAILEYS", status: "CONNECTED" },
+      where: { provider: "BAILEYS", status: "CONNECTED", archivedAt: null },
     })
   );
   for (const c of channels) {
@@ -611,7 +637,7 @@ export function startBaileysHeartbeat(): void {
   heartbeat = setInterval(async () => {
     const channels = await withSystemContext(async () =>
       prisma.channel.findMany({
-        where: { provider: "BAILEYS", status: "CONNECTED" },
+        where: { provider: "BAILEYS", status: "CONNECTED", archivedAt: null },
       })
     );
     for (const c of channels) {

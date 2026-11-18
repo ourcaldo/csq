@@ -1,8 +1,11 @@
 # 15. Multiple Channels per Tenant (owner direction 2026-11-09)
 
-Status: **PENDING** - direction approved, not scheduled. Execution plan:
-`docs/plans/2026-11-09-multi-channel-plan.md`. Do not start before the
-owner schedules it.
+Status: **SHIPPED 2026-11-18** - all five phases landed (owner "do it all",
+2026-11-18). Execution plan: `docs/plans/2026-11-09-multi-channel-plan.md`.
+The five open decisions were all confirmed as recommended: archive only,
+app-level verify token + app secret with transition fallback, Graph API
+verification on connect, label required on create, per-channel analytics
+deferred.
 
 ## Decision
 

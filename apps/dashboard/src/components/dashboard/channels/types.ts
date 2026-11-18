@@ -5,7 +5,12 @@ export type ChannelView = {
   provider: Provider;
   type: "WHATSAPP";
   status: string;
+  label: string;
   agentId: string | null;
+  phoneNumber: string | null;
+  externalId: string | null;
+  wabaId: string | null;
+  archivedAt: string | null;
   phoneNumberId?: string;
   tosAcknowledged?: boolean;
   createdAt: string;
@@ -15,6 +20,7 @@ export type ChannelView = {
 export type AgentItem = { id: string; name: string; status: string };
 
 export type CloudForm = {
+  label: string;
   phoneNumberId: string;
   token: string;
   appSecret: string;
@@ -22,6 +28,7 @@ export type CloudForm = {
 };
 
 export const EMPTY_CLOUD: CloudForm = {
+  label: "",
   phoneNumberId: "",
   token: "",
   appSecret: "",

@@ -36,7 +36,12 @@ export default async function handler(
         return {
           id: c.id, tenantName: c.tenant.name, tenantSlug: c.tenant.slug,
           tenantStatus: c.tenant.status, provider: c.provider, type: c.type,
-          status: c.status, createdAt: c.createdAt.toISOString(),
+          status: c.status,
+          // PRD 15: identity columns - the admin sees the fleet without
+          // reading the config secrets.
+          label: c.label, phoneNumber: c.phoneNumber, wabaId: c.wabaId,
+          archivedAt: c.archivedAt ? c.archivedAt.toISOString() : null,
+          createdAt: c.createdAt.toISOString(),
           updatedAt: c.updatedAt.toISOString(),
           leaseHeld: lease ? lease.lockedUntil > new Date() : false,
           leaseUntil: lease?.lockedUntil?.toISOString() ?? null,

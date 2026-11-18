@@ -26,6 +26,13 @@ export function CloudApiForm(props: {
     >
       <div className="space-y-3">
         <Field
+          label="Nama saluran"
+          value={props.form.label}
+          onChange={(v) => props.onChange({ label: v })}
+          hint="Contoh: Sales, Support"
+          disabled={!props.isOwner}
+        />
+        <Field
           label="Phone Number ID"
           value={props.form.phoneNumberId}
           onChange={(v) => props.onChange({ phoneNumberId: v })}
@@ -70,7 +77,7 @@ export function CloudApiForm(props: {
           <ReadOnlyField
             label="Verify Token"
             value={props.cloudVerifyToken ?? "-"}
-            hint="Token saat ini. Berganti otomatis setiap kali disambungkan ulang - salin nilai terbaru dari kartu saluran setelah Sambungkan."
+            hint="Token level aplikasi - sama untuk semua nomor. Salin sekali ke Meta App Manager."
           />
         </div>
 

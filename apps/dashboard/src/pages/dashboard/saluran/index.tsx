@@ -1,19 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import type { GetServerSideProps } from "next";
 import { useSession } from "next-auth/react";
-import { Check, Cloud, WhatsappLogo } from "@phosphor-icons/react";
+import { Cloud, PlusCircle, WhatsappLogo } from "@phosphor-icons/react";
 import { withAuth, getSSRSession } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
-import { cloudApiConfigSchema } from "@csq/core/types/whatsapp";
-import { generateVerifyToken } from "@csq/core/lib/whatsapp-verify-token";
-import { z } from "zod";
 import { apiFetch, apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { StateNotice } from "@/components/dashboard/state-notice";
 import { LoadingSkeleton } from "@/components/dashboard/loading-skeleton";
-import { cn } from "@csq/ui/lib/utils";
 import { MethodCard } from "@/components/dashboard/channels/method-card";
 import { ConnectedChannelCard } from "@/components/dashboard/channels/connected-channel-card";
 import { CloudApiForm } from "@/components/dashboard/channels/cloud-api-form";
@@ -30,10 +26,10 @@ import {
   type ToastState,
 } from "@/components/dashboard/channels/types";
 
-// Channels / WhatsApp onboarding page (gap B). The wizard state lives here;
-// the method cards, forms and connected card are separate components under
-// components/dashboard/channels/ (PRD 09 page-splitting).
-const STEPS = ["Pilih Metode", "Sambungkan", "Aktif"];
+// Channels page (PRD 15 multi-channel): every channel of the tenant is listed
+// as its own card; "Tambah saluran" starts the provider flow for a NEW
+// channel. Single-channel tenants see the same list with one card - no
+// behavioral change for them beyond the label.
 
 function errMsg(e: unknown, fallback: string): string {
   return e instanceof Error ? e.message : fallback;
@@ -53,17 +49,14 @@ export default function SaluranPage({
   );
 
   const channels = channelsData?.items ?? [];
-  const connected = channels.find((c) => c.status === "CONNECTED") ?? null;
-  const cloud = channels.find((c) => c.provider === "CLOUD_API");
-  const baileys = channels.find((c) => c.provider === "BAILEYS");
-
   const activeAgents = (agentsData?.items ?? []).filter(
     (a) => a.status === "ACTIVE"
   );
 
-  const [step, setStep] = useState<1 | 2>(1);
-  const [method, setMethod] = useState<Provider | null>(null);
-  const [editCreds, setEditCreds] = useState(false);
+  // Add-flow state; null = list view, otherwise the provider choice is done
+  // and the form is showing. Per-channel edit state is separate.
+  const [adding, setAdding] = useState<Provider | null>(null);
+  const [editing, setEditing] = useState<ChannelView | null>(null);
 
   const [agentId, setAgentId] = useState("");
   useEffect(() => {
@@ -71,12 +64,7 @@ export default function SaluranPage({
   }, [activeAgents, agentId]);
 
   const [cloudForm, setCloudForm] = useState<CloudForm>(EMPTY_CLOUD);
-  useEffect(() => {
-    if (cloud?.phoneNumberId && !cloudForm.phoneNumberId) {
-      setCloudForm((f) => ({ ...f, phoneNumberId: cloud.phoneNumberId ?? "" }));
-    }
-  }, [cloud?.phoneNumberId, cloudForm.phoneNumberId]);
-
+  const [byoLabel, setByoLabel] = useState("");
   function setCloud(patch: Partial<CloudForm>) {
     setCloudForm((f) => ({ ...f, ...patch }));
   }
@@ -115,6 +103,7 @@ export default function SaluranPage({
           deadPolls.current = 0;
           setQr(null);
           setQrAt(null);
+          setAdding(null);
           refresh();
         } else if (state.qr) {
           deadPolls.current = 0;
@@ -138,24 +127,28 @@ export default function SaluranPage({
     };
   }, [byoChannelId, qr, refresh]);
 
-  useEffect(() => {
-    if (baileys?.status === "CONNECTED" && qr) {
-      setQr(null);
-      setQrAt(null);
-    }
-  }, [baileys?.status, qr]);
-
-  const currentStep = connected && !editCreds ? 3 : step;
   const qrStale =
-    qrAt !== null &&
-    baileys?.status !== "CONNECTED" &&
-    Date.now() - qrAt > 60_000;
+    qrAt !== null && Date.now() - qrAt > 60_000;
 
-  function chooseMethod(p: Provider) {
-    setMethod(p);
-    setStep(2);
+  function openAdd(p: Provider) {
+    setAdding(p);
+    setEditing(null);
     setPageError(null);
     setQr(null);
+    setTos(false);
+    setByoLabel("");
+  }
+
+  function openEdit(channel: ChannelView) {
+    setEditing(channel);
+    setAdding(null);
+    setCloudForm({
+      label: channel.label,
+      phoneNumberId: channel.phoneNumberId ?? channel.externalId ?? "",
+      token: "",
+      appSecret: "",
+      businessAccountId: "",
+    });
   }
 
   async function connectCloud() {
@@ -164,6 +157,8 @@ export default function SaluranPage({
     try {
       await apiSend<ConnectResult>("/api/dashboard/channels/connect", "POST", {
         provider: "CLOUD_API",
+        ...(editing ? { channelId: editing.id } : {}),
+        label: cloudForm.label.trim(),
         agentId: agentId || undefined,
         config: {
           phoneNumberId: cloudForm.phoneNumberId.trim(),
@@ -172,8 +167,9 @@ export default function SaluranPage({
           businessAccountId: cloudForm.businessAccountId.trim() || undefined,
         },
       });
-      setCloudForm((f) => ({ ...f, token: "", appSecret: "" }));
-      setEditCreds(false);
+      setCloudForm(EMPTY_CLOUD);
+      setAdding(null);
+      setEditing(null);
       refresh();
     } catch (e) {
       setPageError(errMsg(e, "Gagal menyambungkan."));
@@ -192,6 +188,7 @@ export default function SaluranPage({
         "POST",
         {
           provider: "BAILEYS",
+          label: byoLabel.trim(),
           agentId: agentId || undefined,
           config: { tosAcknowledged: true },
         }
@@ -213,12 +210,24 @@ export default function SaluranPage({
     setPageError(null);
     try {
       await apiSend(`/api/dashboard/channels/disconnect?id=${id}`, "POST");
-      setEditCreds(false);
-      setStep(1);
-      setMethod(null);
+      setAdding(null);
+      setEditing(null);
       refresh();
     } catch (e) {
       setPageError(errMsg(e, "Gagal memutus saluran."));
+    }
+  }
+
+  async function archiveChannel(id: string) {
+    setPageError(null);
+    try {
+      await apiSend(`/api/dashboard/channels/archive?id=${id}`, "POST");
+      setAdding(null);
+      setEditing(null);
+      refresh();
+      showToast("Saluran diarsipkan. Data percakapan tetap tersimpan.", "success");
+    } catch (e) {
+      setPageError(errMsg(e, "Gagal mengarsipkan saluran."));
     }
   }
 
@@ -240,7 +249,7 @@ export default function SaluranPage({
   return (
     <DashboardShell
       title="Saluran"
-      description="Sambungkan WhatsApp untuk mengirim dan menerima pesan dari pelanggan."
+      description="Sambungkan satu atau lebih nomor WhatsApp untuk mengirim dan menerima pesan dari pelanggan."
     >
       {pageError && (
         <p className="mb-4 rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-700">
@@ -256,84 +265,42 @@ export default function SaluranPage({
         </p>
       )}
 
-      {!loading && (
-        <div className="mb-6 flex items-center gap-1 overflow-x-auto">
-          {STEPS.map((label, i) => {
-            const n = i + 1;
-            const done = currentStep > n;
-            const active = currentStep === n;
-            return (
-              <div key={label} className="flex shrink-0 items-center">
-                <div className="flex items-center gap-2">
-                  <div
-                    className={cn(
-                      "flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold",
-                      active
-                        ? "bg-green-600 text-white"
-                        : done
-                          ? "bg-green-100 text-green-700"
-                          : "bg-slate-100 text-slate-400"
-                    )}
-                  >
-                    {done ? <Check size={14} weight="bold" /> : n}
-                  </div>
-                  <span
-                    className={cn(
-                      "text-sm",
-                      active ? "font-semibold text-slate-900" : "text-slate-500"
-                    )}
-                  >
-                    {label}
-                  </span>
-                </div>
-                {i < STEPS.length - 1 && (
-                  <div
-                    className={cn(
-                      "mx-2 h-px w-6 shrink-0 sm:w-12",
-                      done ? "bg-green-300" : "bg-slate-200"
-                    )}
-                  />
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
       {loading && <LoadingSkeleton rows={2} />}
 
-      {!loading && activeAgents.length === 0 && !connected && (
+      {!loading && channels.length === 0 && activeAgents.length === 0 && !adding && (
         <StateNotice
           variant="empty"
           message="Belum ada agent aktif. Deploy sebuah agent di halaman Agent sebelum menyambungkan saluran."
         />
       )}
 
-      {!loading && connected && !editCreds && (
-        <ConnectedChannelCard
-          channel={connected}
-          webhookUrl={webhookUrl}
-          cloudVerifyToken={cloudVerifyToken}
-          isOwner={isOwner}
-          onEdit={() => {
-            setMethod("CLOUD_API");
-            setStep(2);
-            setEditCreds(true);
-          }}
-          onDisconnect={() => void disconnectChannel(connected.id)}
-          testTo={testTo}
-          testing={testing}
-          onTestTo={(v) => setTestTo((p) => ({ ...p, [connected.id]: v }))}
-          onTest={() => void testChannel(connected.id)}
-        />
-      )}
+      {/* Channel list (PRD 15): one card per channel. */}
+      {!loading &&
+        channels.map((c) => (
+          <div key={c.id} className="mb-4">
+            <ConnectedChannelCard
+              channel={c}
+              webhookUrl={webhookUrl}
+              cloudVerifyToken={cloudVerifyToken}
+              isOwner={isOwner}
+              onEdit={() => openEdit(c)}
+              onDisconnect={() => void disconnectChannel(c.id)}
+              onArchive={() => void archiveChannel(c.id)}
+              testTo={testTo}
+              testing={testing}
+              onTestTo={(v) => setTestTo((p) => ({ ...p, [c.id]: v }))}
+              onTest={() => void testChannel(c.id)}
+            />
+          </div>
+        ))}
 
-      {!loading && !connected && step === 1 && (
+      {/* Add flow step 1: provider choice. */}
+      {!loading && !adding && (
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
           <MethodCard
             icon={<Cloud size={22} weight="fill" />}
             tone="green"
-            title="WhatsApp Resmi"
+            title="Tambah Nomor Resmi"
             subtitle="Via Meta Cloud API"
             points={[
               "Resmi & patuh ToS WhatsApp",
@@ -342,12 +309,12 @@ export default function SaluranPage({
             ]}
             ctaLabel="Pilih WhatsApp Resmi"
             disabled={!isOwner || activeAgents.length === 0}
-            onChoose={() => chooseMethod("CLOUD_API")}
+            onChoose={() => openAdd("CLOUD_API")}
           />
           <MethodCard
             icon={<WhatsappLogo size={22} weight="fill" />}
             tone="slate"
-            title="Bawa Nomor Sendiri"
+            title="Tambah Nomor Pribadi"
             subtitle="Pindai QR dari aplikasi WhatsApp"
             points={[
               "Aktif dalam hitungan menit",
@@ -356,12 +323,21 @@ export default function SaluranPage({
             ]}
             ctaLabel="Pilih Bawa Nomor Sendiri"
             disabled={!isOwner || activeAgents.length === 0}
-            onChoose={() => chooseMethod("BAILEYS")}
+            onChoose={() => openAdd("BAILEYS")}
           />
         </div>
       )}
 
-      {!loading && !connected && step === 2 && method === "CLOUD_API" && (
+      {!loading && channels.length > 0 && !adding && (
+        <p className="mt-4 flex items-center gap-1.5 text-xs text-slate-400">
+          <PlusCircle size={14} />
+          Tambahkan nomor lain kapan saja - setiap saluran punya percakapan dan
+          agent-nya sendiri.
+        </p>
+      )}
+
+      {/* Add flow step 2: Cloud API form. */}
+      {!loading && adding === "CLOUD_API" && (
         <CloudApiForm
           form={cloudForm}
           onChange={setCloud}
@@ -372,34 +348,38 @@ export default function SaluranPage({
           cloudVerifyToken={cloudVerifyToken}
           connecting={connecting}
           isOwner={isOwner}
-          onBack={() => setStep(1)}
+          onBack={() => setAdding(null)}
           onSubmit={() => void connectCloud()}
         />
       )}
 
-      {!loading && !connected && step === 2 && method === "BAILEYS" && (
+      {/* Add flow step 2: Baileys QR. */}
+      {!loading && adding === "BAILEYS" && (
         <BaileysForm
           agents={activeAgents}
           agentId={agentId}
           onAgentChange={setAgentId}
+          label={byoLabel}
+          onLabelChange={setByoLabel}
           tos={tos}
           onTosChange={setTos}
           connecting={connecting}
           isOwner={isOwner}
           qr={qr}
           qrStale={qrStale}
-          onBack={() => setStep(1)}
+          onBack={() => setAdding(null)}
           onConnect={() => void connectByo()}
         />
       )}
 
-      {!loading && connected && editCreds && method === "CLOUD_API" && (
+      {/* Per-channel credential edit. */}
+      {!loading && editing && editing.provider === "CLOUD_API" && (
         <CloudApiEditForm
           form={cloudForm}
           onChange={setCloud}
           connecting={connecting}
           isOwner={isOwner}
-          onBack={() => setEditCreds(false)}
+          onBack={() => setEditing(null)}
           onSubmit={() => void connectCloud()}
         />
       )}
@@ -425,55 +405,31 @@ export const getServerSideProps: GetServerSideProps<SaluranProps> = withAuth<
   ).replace(/\/$/, "");
   const webhookUrl = `${apiBase || fallback}/api/webhooks/whatsapp`;
 
-  // Verify token is sanitized out of the channels list API (secret-adjacent).
-  // The Cloud API channel row carries the token; if none exists yet (first
-  // connect) or the stored one is missing or still the old predictable default
-  // ("demo-verify-token"), create/persist a freshly generated token NOW - so
-  // the token is on screen before the owner clicks Sambungkan, and Meta's
-  // webhook Verify can succeed immediately.
+  // PRD 15: the verify token is app-level (WHATSAPP_VERIFY_TOKEN on the api
+  // service). The legacy per-channel token is still displayed as a fallback
+  // during the transition; if neither exists, generate a value only so the
+  // owner has SOMETHING to paste - but prefer the env token, which is what
+  // the webhook actually verifies now.
   const session = await getSSRSession(ctx);
-  let cloudVerifyToken: string | null = null;
-  if (session?.user.tenantId) {
+  let cloudVerifyToken: string | null =
+    process.env.WHATSAPP_VERIFY_TOKEN ?? null;
+  if (session?.user.tenantId && !cloudVerifyToken) {
     const tenantId = session.user.tenantId;
-    // RLS context (PRD 16 SEC-1): the Channel reads/writes below are this
-    // tenant's rows.
+    // RLS context (PRD 16 SEC-1): the Channel read below is this tenant's.
     await withTenantContext(tenantId, async () => {
       const existing = await prisma.channel.findFirst({
         where: { tenantId, provider: "CLOUD_API" },
       });
-      const parsed = cloudApiConfigSchema.safeParse(existing?.config);
-      const existingToken = parsed.success ? parsed.data.verifyToken : undefined;
-      const isWeakToken = !existingToken || existingToken === "demo-verify-token";
-      if (existingToken && !isWeakToken) {
-        cloudVerifyToken = existingToken;
-      } else if (existing) {
-        // Channel exists but has no token (or still the pre-rotation default) -
-        // write a fresh one.
-        const rawConfig = z.record(z.unknown()).safeParse(existing.config);
-        const merged = {
-          ...(rawConfig.success ? rawConfig.data : {}),
-          verifyToken: generateVerifyToken(),
-        };
-        await prisma.channel.update({
-          where: { id: existing.id },
-          data: { config: merged },
-        });
-        cloudVerifyToken = merged.verifyToken;
-      } else {
-        // No channel row yet: create the stub now (DISCONNECTED, no secrets)
-        // so a verified webhook + on-screen token exist before Sambungkan.
-        const token = generateVerifyToken();
-        await prisma.channel.create({
-          data: {
-            tenantId,
-            type: "WHATSAPP",
-            provider: "CLOUD_API",
-            status: "DISCONNECTED",
-            config: { verifyToken: token },
-          },
-        });
-        cloudVerifyToken = token;
-      }
+      const parsedConfig = existing?.config;
+      const rawConfig =
+        parsedConfig && typeof parsedConfig === "object" && "verifyToken" in parsedConfig
+          ? parsedConfig
+          : {};
+      const existingToken =
+        "verifyToken" in rawConfig && typeof rawConfig.verifyToken === "string"
+          ? rawConfig.verifyToken
+          : undefined;
+      cloudVerifyToken = existingToken ?? null;
     });
   }
 

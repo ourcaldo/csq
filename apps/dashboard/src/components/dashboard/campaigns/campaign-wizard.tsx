@@ -23,6 +23,8 @@ type ChannelView = {
   id: string;
   provider: "CLOUD_API" | "BAILEYS";
   status: string;
+  label: string;
+  phoneNumber: string | null;
   phoneNumberId?: string;
 };
 
