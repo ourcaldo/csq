@@ -136,9 +136,17 @@ export default async function handler(
       const cfg = cloudApiConfigSchema.parse(parsed.data.config);
       // Verify against Meta BEFORE storing anything or checking duplicates:
       // a wrong ID/token must fail immediately with Meta's own error.
-      const verified = await verifyPhoneNumberId(cfg.phoneNumberId, cfg.token);
-      phoneNumber = verified.displayNumber || null;
-      wabaId = verified.wabaId;
+      try {
+        const verified = await verifyPhoneNumberId(cfg.phoneNumberId, cfg.token);
+        phoneNumber = verified.displayNumber || null;
+        wabaId = verified.wabaId;
+      } catch (err) {
+        return respondError(
+          res,
+          "VALIDATION_ERROR",
+          err instanceof Error ? err.message : "Verifikasi Meta gagal."
+        );
+      }
       externalId = cfg.phoneNumberId;
       // One phone number ID belongs to exactly one tenant (PRD 15 security).
       // Cross-tenant lookup: bypass context.

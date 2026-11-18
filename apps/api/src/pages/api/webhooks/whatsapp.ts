@@ -78,10 +78,10 @@ export default async function handler(
     // after one release).
     const appToken = process.env.WHATSAPP_VERIFY_TOKEN;
     if (appToken) {
-      const appMatch = crypto.timingSafeEqual(
-        Buffer.from(verifyToken),
-        Buffer.from(appToken)
-      );
+      const a = Buffer.from(verifyToken);
+      const b = Buffer.from(appToken);
+      const appMatch =
+        a.length === b.length && crypto.timingSafeEqual(a, b);
       if (appMatch) {
         res.setHeader("Content-Type", "text/plain");
         res.status(200).send(challenge);
