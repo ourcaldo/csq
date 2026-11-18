@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>KPI - CSQ (Demo Interaktif)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<style>
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .modal-backdrop { background: rgba(15, 23, 42, 0.45); }
+  .nav-item-active { background-color: rgb(240 253 244); color: rgb(21 128 61); font-weight: 600; }
+  .kpi-input { width: 100%; border-radius: 0.375rem; border: 1px solid rgb(226 232 240); background: rgb(248 250 252); padding: 0.5rem 0.75rem; font-size: 0.875rem; }
+  .kpi-input:focus { border-color: rgb(203 213 225); outline: none; box-shadow: 0 0 0 2px rgb(226 232 240); }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+<!-- ════════ Sidebar ════════ -->
+<aside id="sidebar" class="fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 -translate-x-full flex-col border-r border-slate-200 bg-white transition-transform md:translate-x-0">
+  <div class="flex h-16 items-center gap-2 border-b border-slate-100 px-6">
+    <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-green-600 text-white"><i class="ph-fill ph-chat-circle-dots text-xl"></i></div>
+    <span class="text-xl font-bold tracking-tight text-slate-900">CSQ</span>
+  </div>
+  <nav class="flex-1 space-y-4 overflow-y-auto px-3 py-4 text-sm">
+    <div>
+      <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Utama</p>
+      <div class="space-y-0.5">
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-chart-bar text-lg text-slate-500"></i>Ringkasan</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-chat-circle-dots text-lg text-slate-500"></i>Percakapan</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-lifebuoy text-lg text-slate-500"></i>Tiket</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-megaphone text-lg text-slate-500"></i>Kampanye</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-notepad text-lg text-slate-500"></i>Template Pesan</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-whatsapp-logo text-lg text-slate-500"></i>Saluran</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-kanban text-lg text-slate-500"></i>Manajemen Pipeline</a>
+        <a class="nav-item-active flex items-center gap-3 rounded-lg px-3 py-2"><i class="ph ph-target text-lg"></i>KPI</a>
+      </div>
+    </div>
+    <div>
+      <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Data Bisnis</p>
+      <div class="space-y-0.5">
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-package text-lg text-slate-500"></i>Produk</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-stack text-lg text-slate-500"></i>Inventaris</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-shopping-cart text-lg text-slate-500"></i>Pesanan</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-address-book text-lg text-slate-500"></i>Kontak</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-tag text-lg text-slate-500"></i>Tag</a>
+      </div>
+    </div>
+    <div>
+      <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Pengetahuan</p>
+      <div class="space-y-0.5">
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-books text-lg text-slate-500"></i>Pengetahuan</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-brain text-lg text-slate-500"></i>Memori</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-database text-lg text-slate-500"></i>Sumber Data</a>
+      </div>
+    </div>
+    <div>
+      <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Agent</p>
+      <div class="space-y-0.5">
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-robot text-lg text-slate-500"></i>Agent</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-flow-arrow text-lg text-slate-500"></i>Skenario</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-seal-check text-lg text-slate-500"></i>Approval</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-clock-counter-clockwise text-lg text-slate-500"></i>Aktivitas</a>
+      </div>
+    </div>
+  </nav>
+  <div class="space-y-0.5 border-t border-slate-200 p-3 text-sm">
+    <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-gear text-lg text-slate-500"></i>Pengaturan</a>
+    <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-users text-lg text-slate-500"></i>Tim</a>
+    <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-wallet text-lg text-slate-500"></i>Paket &amp; Kuota</a>
+  </div>
+</aside>
+
+<div id="nav-overlay" class="modal-backdrop fixed inset-0 z-30 hidden md:hidden" onclick="toggleNav(false)"></div>
+
+<!-- ════════ Main ════════ -->
+<div class="flex min-w-0 flex-col md:pl-64">
+
+  <header class="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 md:px-6">
+    <button class="rounded-md p-2 text-slate-600 hover:bg-slate-100 md:hidden" onclick="toggleNav(true)" aria-label="Buka menu"><i class="ph ph-list text-2xl"></i></button>
+    <div class="relative mx-2 hidden w-full max-w-xl sm:block">
+      <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+      <input type="text" placeholder="Cari atau ketik perintah…" class="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-10 pr-4 text-sm placeholder-slate-400 focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+    </div>
+    <div class="flex items-center gap-3 md:gap-4">
+      <button class="relative text-slate-400 transition-colors hover:text-slate-600"><i class="ph ph-bell text-2xl"></i><span class="absolute right-0 top-0 h-2 w-2 rounded-full border-2 border-white bg-red-500"></span></button>
+      <div class="mx-1 hidden h-6 w-px bg-slate-200 sm:block"></div>
+      <div class="relative">
+        <button id="avatar-btn" class="flex items-center gap-2 rounded-md p-1 hover:bg-slate-100" onclick="toggleMenu()">
+          <div id="avatar-initial" class="flex h-8 w-8 items-center justify-center rounded-full bg-green-600 text-sm font-semibold text-white">B</div>
+          <i class="ph ph-caret-down hidden text-slate-400 sm:block"></i>
+        </button>
+        <div id="avatar-menu" class="absolute right-0 top-12 z-50 hidden w-56 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
+          <div class="border-b border-slate-100 px-3 py-2">
+            <p id="menu-name" class="truncate text-sm font-semibold text-slate-900">Bu Ratih</p>
+            <p id="menu-role" class="text-xs text-slate-500">Owner</p>
+          </div>
+          <!-- KPI is OWNER-only in the real app (withAuth requiredRole OWNER);
+               the demo role switch just changes the header identity. -->
+          <button onclick="switchRole()" class="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-swap text-base"></i>Ganti identitas demo (Bu Ratih / Pak Dhe)</button>
+          <button class="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-sign-out text-base"></i>Keluar</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 overflow-y-auto">
+    <div class="border-b border-slate-200 bg-white px-4 py-4 md:px-6">
+      <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+        <div class="min-w-0">
+          <h1 class="text-xl font-bold text-slate-900">KPI</h1>
+          <p class="mt-0.5 text-sm text-slate-500">Target kinerja untuk tim dan tenant. Dihitung dari data percakapan, pesanan, dan pipeline.</p>
+        </div>
+        <button onclick="openCreate()" class="flex items-center gap-1 rounded-md bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700">
+          <i class="ph ph-plus text-base"></i> KPI Baru
+        </button>
+      </div>
+    </div>
+
+    <div class="space-y-6 p-4 md:p-6">
+      <!-- ═══ Laporan ═══ -->
+      <div id="report-section"></div>
+
+      <!-- ═══ Kelola KPI ═══ -->
+      <div>
+        <h2 class="mb-3 flex items-center gap-1.5 text-sm font-semibold text-slate-700"><i class="ph ph-target text-base"></i> Kelola KPI</h2>
+        <p id="targets-empty" class="hidden text-sm text-slate-400">Belum ada KPI yang dibuat.</p>
+        <div id="targets-table-wrap" class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-slate-100 text-left text-xs uppercase tracking-wider text-slate-400">
+                <th class="px-4 py-2 font-medium">KPI</th>
+                <th class="px-4 py-2 font-medium">Cakupan</th>
+                <th class="px-4 py-2 font-medium">Periode</th>
+                <th class="px-4 py-2 font-medium">Target</th>
+                <th class="px-4 py-2 font-medium">Status</th>
+                <th class="px-4 py-2"></th>
+              </tr>
+            </thead>
+            <tbody id="targets-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- ════════ Dialog: KPI Baru ════════ -->
+<div id="dlg-create" class="modal-backdrop fixed inset-0 z-50 hidden items-center justify-center p-4">
+  <div class="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl">
+    <div class="border-b border-slate-100 px-5 py-4">
+      <p class="text-sm font-semibold">KPI Baru</p>
+      <p class="mt-0.5 text-xs text-slate-500">Maksimum 5 KPI aktif per tenant dan per anggota tim.</p>
+    </div>
+    <form class="space-y-3 px-5 py-4" onsubmit="createKpi(event)">
+      <p id="create-err" class="hidden rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"></p>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700">Berlaku untuk</label>
+        <select id="c-apply-to" class="kpi-input" onchange="setApplyTo(this.value)">
+          <option value="TENANT">Seluruh tenant (total tim)</option>
+          <option value="ONE_STAFF">Staf tertentu</option>
+          <option value="ALL_STAFF">Semua anggota tim (satu KPI per orang)</option>
+        </select>
+      </div>
+      <div id="c-user-wrap" class="hidden">
+        <label class="mb-1 block text-sm font-medium text-slate-700">Anggota tim</label>
+        <select id="c-user" class="kpi-input"><option value="">- pilih anggota -</option></select>
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700">Metrik</label>
+        <select id="c-metric" class="kpi-input" onchange="setMetric(this.value)"></select>
+        <p id="c-metric-note" class="mt-1 hidden text-xs text-slate-400">Metrik pengukuran: persentase chat yang direspons tepat waktu dihitung otomatis - tidak ada target angka.</p>
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-slate-700">Periode</label>
+        <select id="c-period" class="kpi-input">
+          <option value="DAY">Per hari</option>
+          <option value="WEEK">Per minggu</option>
+          <option value="TWO_WEEK">Per 2 minggu</option>
+          <option value="MONTH">Per bulan</option>
+        </select>
+      </div>
+      <div id="c-threshold-wrap" class="hidden">
+        <label class="mb-1 block text-sm font-medium text-slate-700">Batas waktu respons (menit)</label>
+        <input id="c-threshold" type="number" min="1" placeholder="misal 10" class="kpi-input" />
+      </div>
+      <div id="c-target-wrap">
+        <label class="mb-1 block text-sm font-medium text-slate-700">Target jumlah</label>
+        <input id="c-target" type="number" min="1" placeholder="misal 20" class="kpi-input" />
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="closeDlg('dlg-create')" class="rounded-md px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100">Batal</button>
+        <button type="submit" class="rounded-md bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700">Simpan KPI</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ════════ Dialog: Ubah KPI ════════ -->
+<div id="dlg-edit" class="modal-backdrop fixed inset-0 z-50 hidden items-center justify-center p-4">
+  <div class="w-full max-w-md rounded-xl border border-slate-200 bg-white shadow-xl">
+    <div class="border-b border-slate-100 px-5 py-4 text-sm font-semibold">Ubah KPI</div>
+    <form class="space-y-3 px-5 py-4" onsubmit="saveEdit(event)">
+      <p id="edit-err" class="hidden rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"></p>
+      <div id="e-threshold-wrap" class="hidden">
+        <label class="mb-1 block text-sm font-medium text-slate-700">Batas waktu respons (menit)</label>
+        <input id="e-threshold" type="number" min="1" required class="kpi-input" />
+        <p class="mt-1 text-xs text-slate-400">Metrik pengukuran - tidak ada target angka; persentase dihitung otomatis.</p>
+      </div>
+      <div id="e-target-wrap">
+        <label class="mb-1 block text-sm font-medium text-slate-700">Target jumlah</label>
+        <input id="e-target" type="number" min="0" required class="kpi-input" />
+      </div>
+      <p class="text-xs text-slate-400">Periode terakhir yang sudah tutup tidak berubah - riwayat menyimpan target saat periode itu berjalan.</p>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" onclick="closeDlg('dlg-edit')" class="rounded-md px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100">Batal</button>
+        <button type="submit" class="rounded-md bg-green-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-green-700">Simpan</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+// ══════════ Demo data ══════════
+var METRIC_LABELS = { ORDERS: "Pesanan dibuat", DEALS_WON: "Deal menang", FIRST_RESPONSE: "Respons chat", REPLIES: "Chat direspons" };
+var PERIOD_LABELS = { DAY: "per hari", WEEK: "per minggu", TWO_WEEK: "per 2 minggu", MONTH: "per bulan" };
+
+var team = [
+  { id: "u1", email: "ratih@tokokopi.id", name: "Bu Ratih", role: "OWNER" },
+  { id: "u2", email: "dina@tokokopi.id", name: "Dina", role: "STAFF" },
+  { id: "u3", email: "bagus@tokokopi.id", name: "Bagus", role: "STAFF" }
+];
+
+// targets = /api/dashboard/kpi/targets rows; report rows are derived per
+// target with current + history (in the real app: /api/dashboard/kpi/report).
+var targets = [
+  { id: "k1", scope: "TENANT", userId: null, userName: null, metric: "REPLIES", period: "WEEK", thresholdMinutes: null, targetValue: 60, active: true,
+    current: { key: "2026-W47", end: "2026-11-22T23:59:59+07:00", actual: 42, progress: 70, achieved: false },
+    history: [
+      { key: "2026-W46", actual: 55, target: 60, achieved: false },
+      { key: "2026-W45", actual: 63, target: 60, achieved: true },
+      { key: "2026-W44", actual: 58, target: 60, achieved: false }
+    ] },
+  { id: "k2", scope: "TENANT", userId: null, userName: null, metric: "ORDERS", period: "MONTH", thresholdMinutes: null, targetValue: 100, active: true,
+    current: { key: "2026-11", end: "2026-11-30T23:59:59+07:00", actual: 73, progress: 73, achieved: false },
+    history: [
+      { key: "2026-10", actual: 112, target: 100, achieved: true },
+      { key: "2026-09", actual: 95, target: 100, achieved: false }
+    ] },
+  { id: "k3", scope: "TENANT", userId: null, userName: null, metric: "FIRST_RESPONSE", period: "MONTH", thresholdMinutes: 10, targetValue: 0, active: true,
+    current: { key: "2026-11", end: "2026-11-30T23:59:59+07:00", actual: 87.5, progress: 0, achieved: false,
+      meta: { incomingChats: 48, answeredChats: 42, avgMinutes: 6 } },
+    history: [
+      { key: "2026-10", actual: 82, target: 0, achieved: false },
+      { key: "2026-09", actual: 79, target: 0, achieved: false }
+    ] },
+  { id: "k4", scope: "USER", userId: "u2", userName: "Dina", metric: "DEALS_WON", period: "MONTH", thresholdMinutes: null, targetValue: 15, active: true,
+    current: { key: "2026-11", end: "2026-11-30T23:59:59+07:00", actual: 18, progress: 100, achieved: true },
+    history: [
+      { key: "2026-10", actual: 16, target: 15, achieved: true },
+      { key: "2026-09", actual: 11, target: 15, achieved: false }
+    ] },
+  { id: "k5", scope: "USER", userId: "u3", userName: "Bagus", metric: "REPLIES", period: "WEEK", thresholdMinutes: null, targetValue: 30, active: false,
+    current: { key: "2026-W47", end: "2026-11-22T23:59:59+07:00", actual: 0, progress: 0, achieved: false }, history: [] }
+];
+
+var identity = "OWNER";
+var staffFilter = "";
+var editTargetId = null;
+
+// Form state (create dialog)
+var applyTo = "TENANT";
+var metric = "REPLIES";
+
+// ══════════ Helpers (port dari index.tsx) ══════════
+function periodKeyLabel(key) {
+  if (key.includes("-H")) return key.replace("-H1", " (awal bulan)").replace("-H2", " (akhir bulan)");
+  if (key.includes("-W")) return "Pekan " + key.split("-W")[1] + " " + key.split("-W")[0];
+  if (key.length === 7) return new Date(key + "-02T00:00:00Z").toLocaleDateString("id-ID", { month: "long", year: "numeric" });
+  return key;
+}
+function daysLeft(endIso) {
+  return Math.max(0, Math.ceil((new Date(endIso).getTime() - Date.now()) / 86400000));
+}
+function esc(s) { return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;"); }
+
+// ══════════ Render ══════════
+function visibleReport() {
+  var active = targets.filter(function (t) { return t.active; });
+  return staffFilter ? active.filter(function (t) { return t.userId === staffFilter; }) : active;
+}
+function staffOptions() {
+  var seen = {};
+  var out = [];
+  targets.forEach(function (t) {
+    if (t.scope === "USER" && t.userName && t.active && !seen[t.userId]) {
+      seen[t.userId] = true;
+      out.push([t.userId, t.userName]);
+    }
+  });
+  return out;
+}
+
+function renderReport() {
+  var el = document.getElementById("report-section");
+  var report = targets.filter(function (t) { return t.active; });
+  if (report.length === 0) {
+    el.innerHTML = '<div class="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-6 py-12 text-center">' +
+      '<p class="text-sm font-semibold text-slate-900">Belum ada KPI</p>' +
+      '<p class="mt-1 max-w-sm text-sm text-slate-500">Buat KPI pertama untuk mulai mengukur kinerja tim dan tenant.</p></div>';
+    return;
+  }
+  var opts = staffOptions();
+  var filterHtml = opts.length > 0
+    ? '<div class="mb-4 flex items-center gap-2"><label class="text-xs font-medium text-slate-500">Tampilkan</label>' +
+      '<select onchange="setStaffFilter(this.value)" class="h-8 w-auto rounded-md border border-slate-200 bg-white px-2 text-xs" aria-label="Filter staf">' +
+      '<option value="">Semua KPI</option>' +
+      opts.map(function (o) { return '<option value="' + o[0] + '" ' + (staffFilter === o[0] ? "selected" : "") + ">" + esc(o[1]) + "</option>"; }).join("") +
+      "</select></div>"
+    : "";
+  var visible = visibleReport();
+  if (visible.length === 0) {
+    el.innerHTML = filterHtml + '<div class="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50/50 px-6 py-12 text-center">' +
+      '<p class="text-sm font-semibold text-slate-900">Tidak ada KPI</p>' +
+      '<p class="mt-1 max-w-sm text-sm text-slate-500">Staf ini belum memiliki KPI aktif.</p></div>';
+    return;
+  }
+  el.innerHTML = filterHtml + '<div class="grid gap-4 md:grid-cols-2">' + visible.map(reportCard).join("") + "</div>";
+}
+
+function reportCard(t) {
+  var isResp = t.metric === "FIRST_RESPONSE";
+  var meta = t.current.meta || {};
+  var valueText = isResp ? t.current.actual.toFixed(0) + "%" : String(Math.round(t.current.actual));
+  var scopeLabel = t.scope === "TENANT" ? "Seluruh tenant" : (t.userName || "Staf");
+  var subLabel = isResp ? "respons < " + t.thresholdMinutes + " menit" : PERIOD_LABELS[t.period];
+
+  var badge = !isResp
+    ? '<span class="rounded-full px-2 py-0.5 text-xs font-medium ' + (t.current.achieved ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700") + '">' +
+      (t.current.achieved ? "Tercapai" : "Berjalan") + "</span>"
+    : "";
+
+  var body = isResp
+    ? '<div class="mb-2"><span class="text-2xl font-bold text-slate-900">' + valueText + '</span><p class="text-xs text-slate-500">chat masuk yang direspons tepat waktu</p></div>' +
+      '<p class="mb-2 text-xs text-slate-400">' +
+      (typeof meta.incomingChats === "number"
+        ? (meta.answeredChats || 0) + " dari " + meta.incomingChats + " chat direspons < " + t.thresholdMinutes + " menit"
+        : "Belum ada chat masuk") +
+      (typeof meta.avgMinutes === "number" ? " - rata-rata " + meta.avgMinutes + " menit" : "") +
+      "</p>"
+    : '<div class="mb-2 flex items-baseline justify-between"><span class="text-2xl font-bold text-slate-900">' + valueText + "</span>" +
+      '<span class="text-xs text-slate-500">Target: ' + t.targetValue + " " + PERIOD_LABELS[t.period] + "</span></div>" +
+      '<div class="mb-2 h-2 overflow-hidden rounded-full bg-slate-100">' +
+      '<div class="h-full rounded-full transition-all ' + (t.current.achieved ? "bg-green-500" : "bg-amber-500") + '" style="width:' + Math.max(2, t.current.progress) + '%"></div></div>';
+
+  var historyHtml = "";
+  if (t.history.length > 0) {
+    historyHtml = '<div class="mb-3 border-t border-slate-100 pt-2"><p class="mb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Riwayat</p><ul class="space-y-1">' +
+      t.history.slice(0, 6).map(function (h) {
+        return '<li class="flex items-center justify-between text-xs"><span class="text-slate-600">' + periodKeyLabel(h.key) + "</span>" +
+          '<span class="flex items-center gap-1.5"><span class="text-slate-900">' +
+          (isResp ? h.actual.toFixed(0) + "%" : h.actual + " / " + h.target) + "</span>" +
+          (!isResp ? (h.achieved ? '<i class="ph-bold ph-check text-[13px] text-green-600"></i>' : '<i class="ph-bold ph-x text-[13px] text-red-500"></i>') : "") +
+          "</span></li>";
+      }).join("") + "</ul></div>";
+  }
+
+  return '<div class="rounded-xl border border-slate-200 bg-white p-4">' +
+    '<div class="mb-3 flex items-start justify-between gap-2"><div>' +
+    '<p class="text-sm font-semibold text-slate-900">' + METRIC_LABELS[t.metric] + "</p>" +
+    '<p class="text-xs text-slate-500">' + scopeLabel + " - " + subLabel + "</p></div>" + badge + "</div>" +
+    body +
+    '<p class="mb-3 text-xs text-slate-400">Sisa ' + daysLeft(t.current.end) + " hari di periode ini (" + t.current.key + ")</p>" +
+    historyHtml + "</div>";
+}
+
+function renderTargets() {
+  var tb = document.getElementById("targets-tbody");
+  document.getElementById("targets-empty").classList.toggle("hidden", targets.length > 0);
+  document.getElementById("targets-table-wrap").classList.toggle("hidden", targets.length === 0);
+  tb.innerHTML = targets.map(function (t) {
+    return '<tr class="border-b border-slate-50 last:border-0">' +
+      '<td class="px-4 py-2.5">' + METRIC_LABELS[t.metric] + "</td>" +
+      '<td class="px-4 py-2.5 text-slate-600">' + (t.scope === "TENANT" ? "Seluruh tenant" : (t.userName || "Staf")) + "</td>" +
+      '<td class="px-4 py-2.5 text-slate-600">' + PERIOD_LABELS[t.period] + "</td>" +
+      '<td class="px-4 py-2.5 text-slate-600">' + (t.metric === "FIRST_RESPONSE" ? "respons < " + t.thresholdMinutes + " menit" : String(t.targetValue)) + "</td>" +
+      '<td class="px-4 py-2.5"><span class="rounded-full px-2 py-0.5 text-xs font-medium ' + (t.active ? "bg-green-50 text-green-700" : "bg-slate-100 text-slate-500") + '">' + (t.active ? "Aktif" : "Nonaktif") + "</span></td>" +
+      '<td class="px-4 py-2.5"><div class="flex justify-end gap-1">' +
+      '<button onclick="openEdit(\'' + t.id + '\')" ' + (t.active ? "" : "disabled") + ' aria-label="Ubah target" class="rounded-md p-1.5 text-slate-400 hover:bg-slate-50 hover:text-slate-600 disabled:opacity-40"><i class="ph ph-pencil-simple text-base"></i></button>' +
+      '<button onclick="toggleActive(\'' + t.id + '\')" class="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50">' + (t.active ? "Nonaktifkan" : "Aktifkan") + "</button>" +
+      "</div></td></tr>";
+  }).join("");
+}
+
+function renderAll() { renderReport(); renderTargets(); }
+function setStaffFilter(v) { staffFilter = v; renderReport(); }
+
+// ══════════ Create ══════════
+function metricOptions() {
+  // TENANT includes ORDERS; per-staff metrics exclude it (port dari index.tsx).
+  return applyTo === "TENANT" ? ["ORDERS", "DEALS_WON", "FIRST_RESPONSE", "REPLIES"] : ["DEALS_WON", "FIRST_RESPONSE", "REPLIES"];
+}
+function openCreate() {
+  hideErr("create-err");
+  applyTo = "TENANT";
+  metric = "REPLIES";
+  document.getElementById("c-apply-to").value = "TENANT";
+  document.getElementById("c-period").value = "WEEK";
+  document.getElementById("c-target").value = "";
+  document.getElementById("c-threshold").value = "";
+  document.getElementById("c-user").value = "";
+  document.getElementById("c-user").innerHTML = '<option value="">- pilih anggota -</option>' +
+    team.map(function (m) { return '<option value="' + m.id + '">' + esc(m.name || m.email) + "</option>"; }).join("");
+  renderCreateForm();
+  openDlg("dlg-create");
+}
+function renderCreateForm() {
+  var isMeasurement = metric === "FIRST_RESPONSE";
+  document.getElementById("c-metric").innerHTML = metricOptions().map(function (m) {
+    return '<option value="' + m + '" ' + (metric === m ? "selected" : "") + ">" + METRIC_LABELS[m] + "</option>";
+  }).join("");
+  document.getElementById("c-metric-note").classList.toggle("hidden", !isMeasurement);
+  document.getElementById("c-user-wrap").classList.toggle("hidden", applyTo !== "ONE_STAFF");
+  document.getElementById("c-threshold-wrap").classList.toggle("hidden", !isMeasurement);
+  document.getElementById("c-target-wrap").classList.toggle("hidden", isMeasurement);
+}
+function setApplyTo(v) {
+  applyTo = v;
+  if (applyTo === "TENANT" && metric === "ORDERS") metric = "REPLIES"; // not offered per-staff
+  if (applyTo !== "TENANT" && !metricOptions().includes(metric)) metric = "REPLIES";
+  renderCreateForm();
+}
+function setMetric(v) { metric = v; renderCreateForm(); }
+
+function createKpi(e) {
+  e.preventDefault();
+  hideErr("create-err");
+  var isMeasurement = metric === "FIRST_RESPONSE";
+  var targetValue = isMeasurement ? 0 : Number(document.getElementById("c-target").value);
+  var thresholdMinutes = isMeasurement ? Number(document.getElementById("c-threshold").value) : null;
+  if (applyTo === "ONE_STAFF" && !document.getElementById("c-user").value) return showErr("create-err", "Pilih anggota tim terlebih dahulu.");
+  if (isMeasurement && (!thresholdMinutes || thresholdMinutes < 1)) return showErr("create-err", "Batas waktu respons minimal 1 menit.");
+  if (!isMeasurement && (!targetValue || targetValue < 1)) return showErr("create-err", "Target jumlah minimal 1.");
+  // Max 5 active KPIs per tenant and per member (real rule from the API).
+  var activeSame = targets.filter(function (t) {
+    if (!t.active) return false;
+    if (applyTo === "TENANT") return t.scope === "TENANT";
+    if (applyTo === "ALL_STAFF") return t.scope === "USER";
+    return t.scope === "USER" && t.userId === document.getElementById("c-user").value;
+  });
+  if (applyTo !== "ONE_STAFF" && activeSame.length >= 5) return showErr("create-err", "Maksimum 5 KPI aktif per tenant dan per anggota tim.");
+
+  var period = document.getElementById("c-period").value;
+  var days = period === "DAY" ? 1 : period === "WEEK" ? 7 : period === "TWO_WEEK" ? 14 : 30;
+  var endIso = new Date(Date.now() + days * 86400000).toISOString();
+  function makeTarget(uid, uname) {
+    return {
+      id: "k" + Date.now() + (uid || "t"), scope: uid ? "USER" : "TENANT", userId: uid, userName: uname,
+      metric: metric, period: period, thresholdMinutes: isMeasurement ? thresholdMinutes : null,
+      targetValue: targetValue, active: true,
+      current: { key: "demo", end: endIso, actual: 0, progress: 0, achieved: false, meta: null },
+      history: []
+    };
+  }
+  if (applyTo === "TENANT") {
+    targets.push(makeTarget(null, null));
+  } else if (applyTo === "ONE_STAFF") {
+    var uid = document.getElementById("c-user").value;
+    var m = team.find(function (x) { return x.id === uid; });
+    targets.push(makeTarget(uid, m.name || m.email));
+  } else {
+    team.filter(function (m) { return m.role === "STAFF"; }).forEach(function (m) { targets.push(makeTarget(m.id, m.name)); });
+  }
+  closeDlg("dlg-create");
+  renderAll();
+}
+
+// ══════════ Edit / toggle ══════════
+function openEdit(id) {
+  var t = targets.find(function (x) { return x.id === id; });
+  editTargetId = id;
+  hideErr("edit-err");
+  var isMeasurement = t.metric === "FIRST_RESPONSE";
+  document.getElementById("e-threshold-wrap").classList.toggle("hidden", !isMeasurement);
+  document.getElementById("e-target-wrap").classList.toggle("hidden", isMeasurement);
+  if (isMeasurement) document.getElementById("e-threshold").value = t.thresholdMinutes;
+  else document.getElementById("e-target").value = t.targetValue;
+  openDlg("dlg-edit");
+}
+function saveEdit(e) {
+  e.preventDefault();
+  var t = targets.find(function (x) { return x.id === editTargetId; });
+  if (t.metric === "FIRST_RESPONSE") {
+    var v = Number(document.getElementById("e-threshold").value);
+    if (!v || v < 1) return showErr("edit-err", "Batas waktu respons minimal 1 menit.");
+    t.thresholdMinutes = v;
+  } else {
+    var v2 = Number(document.getElementById("e-target").value);
+    if (v2 < 0) return showErr("edit-err", "Target tidak boleh negatif.");
+    t.targetValue = v2;
+    t.current.progress = Math.min(100, Math.round((t.current.actual / v2) * 100));
+    t.current.achieved = t.current.actual >= v2;
+  }
+  closeDlg("dlg-edit");
+  renderAll();
+}
+function toggleActive(id) {
+  var t = targets.find(function (x) { return x.id === id; });
+  t.active = !t.active;
+  renderAll();
+}
+
+// ══════════ Dialog / menu / identity ══════════
+function openDlg(id) { var d = document.getElementById(id); d.classList.remove("hidden"); d.classList.add("flex"); }
+function closeDlg(id) { var d = document.getElementById(id); d.classList.add("hidden"); d.classList.remove("flex"); }
+function showErr(id, msg) { var el = document.getElementById(id); el.textContent = msg; el.classList.remove("hidden"); }
+function hideErr(id) { document.getElementById(id).classList.add("hidden"); }
+function toggleMenu() { document.getElementById("avatar-menu").classList.toggle("hidden"); }
+function toggleNav(open) {
+  document.getElementById("sidebar").classList.toggle("-translate-x-full", !open);
+  document.getElementById("nav-overlay").classList.toggle("hidden", !open);
+}
+function switchIdentity() {
+  identity = identity === "OWNER" ? "OTHER" : "OWNER";
+  document.getElementById("menu-name").textContent = identity === "OWNER" ? "Bu Ratih" : "Pak Dhe";
+  document.getElementById("menu-role").textContent = identity === "OWNER" ? "Owner" : "Owner";
+  document.getElementById("avatar-initial").textContent = identity === "OWNER" ? "B" : "P";
+  toggleMenu();
+}
+document.addEventListener("mousedown", function (e) {
+  var menu = document.getElementById("avatar-menu");
+  var btn = document.getElementById("avatar-btn");
+  if (!menu.classList.contains("hidden") && !btn.contains(e.target) && !menu.contains(e.target)) menu.classList.add("hidden");
+});
+
+renderAll();
+</script>
+</body>
+</html>
