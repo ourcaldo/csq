@@ -532,7 +532,10 @@ async function connectBaileysChannelInner(
             kind,
             waMessageId: m.key.id ?? "",
             receivedAt: new Date(),
-            customerName: m.pushName || undefined,
+            // Cap the customer-controlled pushName (audit run-1,
+            // webhook.profile-name-prompt-injection: same unbounded-store
+            // hazard as the Cloud API profile name).
+            customerName: m.pushName ? m.pushName.slice(0, 200) : undefined,
             ...(media ? { media } : {}),
           });
           // Redelivery of a waMessageId we already stored: no second turn.

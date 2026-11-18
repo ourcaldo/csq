@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { ToolDefinition, ToolResult } from "@csq/core/types/tools";
+import { tenantRaw } from "@csq/core/lib/tenant-context";
 
 // source.* tools. source.search lets the CS agent read INSIDE the imported
 // sumber data (Excel/Google Sheets) - every column, not just the five mapped
@@ -53,10 +54,14 @@ const sourceSearch: ToolDefinition<SourceSearchParams> = {
 
     // Tenant-scoped, DB-side substring search over the stored rows' JSON. Only
     // ACTIVE sources are searched. Parameterized - no string interpolation of
-    // user input (prompt-injection / SQL-injection safe).
-    const rows = await ctx.prisma.$queryRaw<
+    // user input (prompt-injection / SQL-injection safe). tenantRaw (audit
+    // run-1, source-search-raw-sql-rls-context-bypass): bare $queryRaw
+    // bypasses the db.ts RLS hook ($allModels only), so under active RLS this
+    // silently returned zero rows. tenantRaw sets the session variable on the
+    // same connection - the documented raw-SQL contract (tenant-context.ts).
+    const rows = await tenantRaw<
       Array<{ dataSourceId: string; sourceName: string; dataType: string; rowIndex: number; dataText: string }>
-    >`
+    >(ctx.tenantId, ctx.prisma.$queryRaw`
       SELECT sr."dataSourceId", ds.name AS "sourceName", ds."dataType" AS "dataType", sr."rowIndex", sr.data::text AS "dataText"
       FROM "SourceRow" sr
       JOIN "DataSource" ds ON ds.id = sr."dataSourceId"
@@ -65,7 +70,7 @@ const sourceSearch: ToolDefinition<SourceSearchParams> = {
         AND sr.data::text ILIKE '%' || ${p.query} || '%'
       ORDER BY sr."dataSourceId", sr."rowIndex"
       LIMIT ${limit}
-    `;
+    `);
 
     const matches: SerializedMatch[] = [];
     for (const raw of rows) {

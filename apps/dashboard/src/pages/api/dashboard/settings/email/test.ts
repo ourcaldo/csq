@@ -67,8 +67,15 @@ export default async function handler(
       });
       return res.status(200).json(apiOk({ sent: true, to, messageId: info.messageId }));
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Gagal mengirim email tes.";
-      return respondError(res, "VALIDATION_ERROR", `Email tes gagal terkirim: ${message}`);
+      // Generic message only (audit run-1, smtp-ssrf-port-probe): the raw
+      // transport error reflects internal network topology (connect targets,
+      // banners) to the tenant. Log the detail server-side.
+      console.error(`[email-test] tenant ${tenantId} send failed:`, err);
+      return respondError(
+        res,
+        "VALIDATION_ERROR",
+        "Email tes gagal terkirim. Periksa host, port, dan kredensial Anda."
+      );
     }
   });
 }

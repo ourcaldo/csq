@@ -96,7 +96,7 @@ export default async function handler(
           data: { passwordHash },
         });
         await auditAdminAction({
-          adminId: admin.adminId,
+          adminId: admin.adminId,          email: admin.email ?? "",
           action: "tenant.reset_password",
           targetType: "User",
           targetId: user.id,
@@ -159,7 +159,7 @@ export default async function handler(
           orders: await prisma.order.count({ where: { tenantId: id } }),
         };
         await auditAdminAction({
-          adminId: admin.adminId,
+          adminId: admin.adminId,          email: admin.email ?? "",
           action: "tenant.delete",
           targetType: "Tenant",
           targetId: id,
@@ -200,7 +200,7 @@ export default async function handler(
       }
 
       await auditAdminAction({
-        adminId: admin.adminId,
+        adminId: admin.adminId,        email: admin.email ?? "",
         action: parsed.data.action === "suspend" ? "tenant.suspend" : "tenant.activate",
         targetType: "Tenant", targetId: id,
         beforeValue: { status: tenant.status },

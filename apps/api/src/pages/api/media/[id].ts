@@ -31,5 +31,12 @@ export default async function handler(
   res.setHeader("Content-Type", asset.mimeType);
   res.setHeader("Content-Length", String(asset.byteSize));
   res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+  // Content-injection hardening (audit run-1): never let a stored asset
+  // execute in the browser. nosniff everywhere, and non-image bytes download
+  // instead of render even if a script-executable mime slipped into storage.
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  if (!asset.mimeType.startsWith("image/")) {
+    res.setHeader("Content-Disposition", "attachment");
+  }
   res.end(asset.data);
 }

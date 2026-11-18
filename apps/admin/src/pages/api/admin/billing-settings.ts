@@ -60,7 +60,7 @@ export default async function handler(
         update: data,
       });
       await auditAdminAction({
-        adminId: admin.adminId,
+        adminId: admin.adminId,        email: admin.email ?? "",
         action: "billing_settings.update",
         targetType: "BillingSetting",
         targetId: "singleton",

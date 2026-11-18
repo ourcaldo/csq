@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getAuthSession } from "@csq/core/lib/auth";
+import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import { parseFile, detectColumns, type ColumnMapping } from "@csq/core/services/excel";
 import { excelUploadSchema } from "@csq/core/types/import";
 import { apiError, apiOk, type ApiResponse } from "@csq/core/types/api";
@@ -25,6 +25,13 @@ export default async function handler(
 
   const session = await getAuthSession(req, res);
   if (!session) return res.status(401).json(apiError("UNAUTHORIZED", "Masuk dulu."));
+  // SEC-2 OWNER gate (audit run-1, import.excel-preview-missing-owner-gate):
+  // every other route in the import family is OWNER-only; the preview parses
+  // the same business data and drives the exceljs parser, so it carries the
+  // same gate.
+  if (!requireRole(session, "OWNER")) {
+    return res.status(403).json(apiError("PERMISSION_DENIED", "Hanya owner yang dapat mengubah data bisnis."));
+  }
 
   const parsed = excelUploadSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -33,6 +40,11 @@ export default async function handler(
 
   const { filename, base64 } = parsed.data;
   const buffer = Buffer.from(base64, "base64");
+  // Explicit byte cap before parsing (audit run-1): the 10k row cap fires
+  // only after the workbook is fully materialized in memory.
+  if (buffer.length > 10 * 1024 * 1024) {
+    return res.status(400).json(apiError("VALIDATION_ERROR", "Berkas maksimal 10 MB."));
+  }
   const { headers, rows } = await parseFile(buffer, filename);
   const { mapping, confidence, fieldConfidence } = detectColumns(headers);
 

@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
+import dns from "node:dns/promises";
+import net from "node:net";
 import prisma from "@csq/core/lib/db";
 
 // Per-tenant email delivery config for the scenario Email module. Each store
@@ -33,6 +35,52 @@ export const smtpProviderSchema = z.object({
   password: z.string().min(1).max(255),
   from: emailAddress,
 });
+
+// SSRF guard for the tenant-chosen SMTP destination (audit run-1,
+// smtp-ssrf-port-probe): server processes dial config.host:config.port via
+// nodemailer, so loopback/private/link-local/metadata addresses must be
+// rejected after DNS resolution - otherwise the config is an internal
+// port-scan oracle from trusted containers.
+export async function assertPublicSmtpHost(host: string): Promise<void> {
+  const literal = net.isIP(host) ? host : undefined;
+  if (literal !== undefined) {
+    if (isBlockedAddress(literal)) {
+      throw new Error("Host SMTP internal tidak diizinkan.");
+    }
+    return;
+  }
+  const addrs = await dns.lookup(host, { all: true });
+  if (addrs.length === 0) {
+    throw new Error("Host SMTP tidak dapat diselesaikan.");
+  }
+  if (addrs.some((a) => isBlockedAddress(a.address))) {
+    throw new Error("Host SMTP internal tidak diizinkan.");
+  }
+}
+
+function isBlockedAddress(ip: string): boolean {
+  if (net.isIPv6(ip)) {
+    const lower = ip.toLowerCase();
+    return (
+      lower === "::1" ||
+      lower.startsWith("fe80") ||
+      lower.startsWith("fc") ||
+      lower.startsWith("fd") ||
+      lower.startsWith("ff")
+    );
+  }
+  if (!net.isIPv4(ip)) return true;
+  const [a, b] = ip.split(".").map(Number);
+  return (
+    a === 0 ||
+    a === 10 ||
+    a === 127 ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    a >= 224
+  );
+}
 
 export const resendProviderSchema = z.object({
   type: z.literal("RESEND"),

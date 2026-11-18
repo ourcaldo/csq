@@ -46,7 +46,7 @@ export default async function handler(
         where: { id }, data: { revokedAt: new Date() },
       });
       await auditAdminAction({
-        adminId: admin.adminId, action: "apikey.revoke",
+        adminId: admin.adminId,        email: admin.email ?? "", action: "apikey.revoke",
         targetType: "ApiKey", targetId: id,
         afterValue: { name: updated.name, prefix: updated.prefix },
       });

@@ -40,7 +40,9 @@ export async function verifyAccessToken(
 ): Promise<{ userId: string; tenantId: string; role: string } | null> {
   if (!process.env.API_JWT_SECRET) return null;
   try {
-    const { payload } = await jwtVerify(token, key());
+    const { payload } = await jwtVerify(token, key(), {
+      algorithms: ["HS256"], // pin (audit run-1 hardening): header alg must not be honored
+    });
     const parsed = claimsSchema.safeParse(payload);
     return parsed.success
       ? {

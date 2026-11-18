@@ -677,10 +677,14 @@ model AdminUser {
 }
 
 // Every operator mutation, audited with actor + before/after (PRD 13).
-// Platform table - no tenantId.
+// Platform table - no tenantId. adminEmail snapshots the actor at write time
+// and the FK is SetNull (audit run-1, admin-delete-cascades-audit-log): the
+// accountability record must outlive the account - deleting an operator
+// never deletes their history.
 model AdminActionLog {
   id          String    @id @default(uuid())
-  adminId     String
+  adminId     String?
+  adminEmail  String
   action      String
   targetType  String
   targetId    String?
@@ -688,7 +692,7 @@ model AdminActionLog {
   afterValue  Json?
   createdAt   DateTime  @default(now())
 
-  admin AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  admin AdminUser? @relation(fields: [adminId], references: [id], onDelete: SetNull)
 
   @@index([adminId])
   @@index([createdAt])

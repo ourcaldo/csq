@@ -69,7 +69,7 @@ export default async function handler(
         },
       });
       await auditAdminAction({
-        adminId: admin.adminId,
+        adminId: admin.adminId,        email: admin.email ?? "",
         action: "plan_request.status",
         targetType: "PlanRequest",
         targetId: updated.id,

@@ -188,7 +188,7 @@ export default async function handler(
         return res.status(404).json(apiError("NOT_FOUND", "Message not found or not FAILED."));
       }
       await auditAdminAction({
-        adminId: admin.adminId, action: "outbox.retry",
+        adminId: admin.adminId,        email: admin.email ?? "", action: "outbox.retry",
         targetType: "OutboundMessage", targetId: parsed.data.messageId,
       });
       return res.status(200).json(apiOk({ retried: true }));

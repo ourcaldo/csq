@@ -4,6 +4,7 @@ import { withSystemContext } from "@csq/core/lib/tenant-context";
 import { hashPassword, verifyPassword } from "@csq/core/lib/password";
 import { assignRequestId } from "@csq/core/lib/request-id";
 import { checkRateLimit } from "@csq/core/lib/rate-limit";
+import { clientIp } from "@csq/core/lib/client-ip";
 import { signAccessToken, ACCESS_TOKEN_TTL_SECONDS } from "@csq/core/lib/api-jwt";
 import {
   generateRefreshToken,
@@ -27,10 +28,7 @@ export default async function handler(
     res.setHeader("Allow", "POST");
     return res.status(405).json(apiError("METHOD_NOT_ALLOWED", "Method not allowed"));
   }
-  const ipRaw = req.headers["x-forwarded-for"];
-  const ip = ((Array.isArray(ipRaw) ? ipRaw[0] : ipRaw) ?? "unknown")
-    .split(",")[0]
-    .trim();
+  const ip = clientIp(req);
   if (!checkRateLimit(`auth:${ip}`, 5, 60_000)) {
     return res.status(429).json(apiError("RATE_LIMITED", "Terlalu banyak percobaan. Coba lagi sebentar."));
   }

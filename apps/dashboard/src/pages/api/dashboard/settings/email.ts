@@ -12,6 +12,7 @@ import {
   saveEmailProvider,
   clearEmailProvider,
   maskEmailProvider,
+  assertPublicSmtpHost,
   type EmailProviderStatus,
 } from "@csq/core/lib/email-config";
 
@@ -115,6 +116,19 @@ export default async function handler(
       const stored = emailProviderSchema.safeParse(config);
       if (!stored.success) {
         return respondError(res, "VALIDATION_ERROR", stored.error.message);
+      }
+      // SSRF guard (audit run-1, smtp-ssrf-port-probe): the tenant-chosen
+      // SMTP host is dialed by server processes - reject internal addresses.
+      if (stored.data.type === "SMTP") {
+        try {
+          await assertPublicSmtpHost(stored.data.host);
+        } catch (err) {
+          return respondError(
+            res,
+            "VALIDATION_ERROR",
+            err instanceof Error ? err.message : "Host SMTP tidak valid."
+          );
+        }
       }
       await saveEmailProvider(tenantId, stored.data);
       await logHuman({

@@ -6,6 +6,7 @@ import { hashPassword } from "@csq/core/lib/password";
 import { logHuman } from "@csq/core/lib/audit";
 import { withSystemContext } from "@csq/core/lib/tenant-context";
 import { respondError, strQuery } from "@csq/core/lib/queries";
+import { getTenantEntitlements } from "@csq/core/lib/entitlements";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 
 // FEA-5 (PRD 16): public consumer of the one-time invite token. There is no
@@ -75,6 +76,25 @@ export default async function handler(
     const existing = await prisma.user.findUnique({ where: { email: invite.email } });
     if (existing) {
       return respondError(res, "VALIDATION_ERROR", "Email sudah terdaftar - masuk saja.");
+    }
+
+    // Seat-limit re-check at the moment the seat is consumed (audit run-1,
+    // invite-accept-staff-limit-bypass): the invite-time count excluded
+    // pending invites, and this public route ran with no entitlements check
+    // at all. The invite stays burnable if rejected, so a stale over-limit
+    // invite does not lock the owner out of anything but seat creation.
+    const entitlements = await getTenantEntitlements(invite.tenantId);
+    if (entitlements.staffLimit !== null && invite.role === "STAFF") {
+      const staff = await prisma.user.count({
+        where: { tenantId: invite.tenantId, role: "STAFF" },
+      });
+      if (staff >= entitlements.staffLimit) {
+        return respondError(
+          res,
+          "PERMISSION_DENIED",
+          `Kuota staf paket sudah penuh (${entitlements.staffLimit}). Hubungi owner.`
+        );
+      }
     }
 
     const user = await prisma.user.create({

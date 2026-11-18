@@ -133,7 +133,7 @@ export default async function handler(
       });
 
       await auditAdminAction({
-        adminId: admin.adminId, action: "tenant.create",
+        adminId: admin.adminId,        email: admin.email ?? "", action: "tenant.create",
         targetType: "Tenant", targetId: tenantId,
         afterValue: { name, slug, ownerEmail },
       });

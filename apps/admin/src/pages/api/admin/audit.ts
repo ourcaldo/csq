@@ -58,7 +58,11 @@ export default async function handler(
       ]);
       return res.status(200).json(apiOk({
         items: items.map((a) => ({
-          id: a.id, adminEmail: a.admin.email, adminName: a.admin.name,
+          id: a.id,
+          // adminEmail snapshot keeps deleted operators' entries attributable
+          // (audit run-1); the join is null after the actor's row is gone.
+          adminEmail: a.admin?.email ?? a.adminEmail,
+          adminName: a.admin?.name ?? null,
           action: a.action, targetType: a.targetType, targetId: a.targetId,
           beforeValue: a.beforeValue, afterValue: a.afterValue,
           createdAt: a.createdAt.toISOString(),

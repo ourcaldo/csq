@@ -40,15 +40,20 @@ function classifyMessage(
   if (typeof msg.text?.body === "string") {
     return { body: msg.text.body, kind: "text" };
   }
-  if (msg.image?.id) {
-    const caption = msg.image.caption ?? "";
+  const imageCaption = msg.image?.caption;
+  if (msg.image?.id || imageCaption) {
+    const caption = imageCaption ?? "";
     return {
       body: caption,
       kind: caption.length > 0 ? "text" : "media",
-      media: {
-        externalId: msg.image.id,
-        mimeType: msg.image.mime_type ?? "image/jpeg",
-      },
+      ...(msg.image?.id
+        ? {
+            media: {
+              externalId: msg.image.id,
+              mimeType: msg.image.mime_type ?? "image/jpeg",
+            },
+          }
+        : {}),
     };
   }
   const caption = msg.video?.caption ?? msg.document?.caption;

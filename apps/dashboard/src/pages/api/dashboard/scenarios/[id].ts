@@ -13,6 +13,7 @@ import {
   triggerTypeSchema,
   triggerConfigSchema,
 } from "@csq/core/types/scenario";
+import { validateScenarioGraph } from "@csq/core/lib/scenario-validate";
 
 // Single scenario: GET / PUT (edit fields) / DELETE. Activation and pause are
 // separate endpoints ([id]/activate, [id]/pause) because they run graph
@@ -57,11 +58,37 @@ export default async function handler(
       if (!requireRole(session, "OWNER", "STAFF")) {
         return respondError(res, "PERMISSION_DENIED", "Tidak ada izin mengubah scenario.");
       }
+      // Live-graph guard (audit run-1, scenario-put-live-graph-unvalidated):
+      // an ACTIVE scenario executes against real customers, so its graph must
+      // only change through the OWNER-gated activate transition (which runs
+      // full validation). Mirrors the campaigns PUT not-live guard.
+      if (existing.status === "ACTIVE") {
+        return respondError(
+          res,
+          "VALIDATION_ERROR",
+          "Scenario aktif harus dijeda dulu sebelum diubah."
+        );
+      }
       const parsed = updateSchema.safeParse(req.body);
       if (!parsed.success) {
         return respondError(res, "VALIDATION_ERROR", parsed.error.issues[0]?.message ?? "Input tidak valid.");
       }
       const data = parsed.data;
+
+      // Semantic graph validation on any graph-bearing edit (audit run-1):
+      // the Zod shape parse alone let cycles/dangling nodes into stored graphs.
+      if (data.graph !== undefined) {
+        const graphErrors = validateScenarioGraph(data.graph, {
+          cloudApi: false,
+        });
+        if (graphErrors.errors.length > 0) {
+          return respondError(
+            res,
+            "VALIDATION_ERROR",
+            graphErrors.errors.join(" ")
+          );
+        }
+      }
 
       // Per-trigger-type required fields must survive the update: either this
       // update's triggerConfig carries them, or the existing one already does.

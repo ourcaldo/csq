@@ -3,6 +3,7 @@ import prisma from "@csq/core/lib/db";
 import { withSystemContext } from "@csq/core/lib/tenant-context";
 import { assignRequestId } from "@csq/core/lib/request-id";
 import { checkRateLimit } from "@csq/core/lib/rate-limit";
+import { clientIp } from "@csq/core/lib/client-ip";
 import { signAccessToken, ACCESS_TOKEN_TTL_SECONDS } from "@csq/core/lib/api-jwt";
 import {
   generateRefreshToken,
@@ -25,10 +26,7 @@ export default async function handler(
     res.setHeader("Allow", "POST");
     return res.status(405).json(apiError("METHOD_NOT_ALLOWED", "Method not allowed"));
   }
-  const ipRaw = req.headers["x-forwarded-for"];
-  const ip = ((Array.isArray(ipRaw) ? ipRaw[0] : ipRaw) ?? "unknown")
-    .split(",")[0]
-    .trim();
+  const ip = clientIp(req);
   if (!checkRateLimit(`refresh:${ip}`, 20, 60_000)) {
     return res.status(429).json(apiError("RATE_LIMITED", "Terlalu banyak percobaan."));
   }
@@ -62,10 +60,17 @@ export default async function handler(
     }
 
     // Rotate: the presented token dies, a new one is born in the same action.
-    await prisma.refreshToken.update({
-      where: { id: row.id },
+    // Conditional revocation IS the gate (audit run-1,
+    // apiv1.auth.refresh-rotation-race): an unconditional update let two
+    // concurrent presentations both mint successors, defeating theft
+    // detection. count === 0 means another request already rotated it.
+    const revoked = await prisma.refreshToken.updateMany({
+      where: { id: row.id, revokedAt: null },
       data: { revokedAt: new Date() },
     });
+    if (revoked.count === 0) {
+      return res.status(401).json(apiError("UNAUTHORIZED", "Refresh token tidak valid."));
+    }
     const refresh = generateRefreshToken();
     await prisma.refreshToken.create({
       data: {

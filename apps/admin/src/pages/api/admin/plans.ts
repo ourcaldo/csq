@@ -63,7 +63,7 @@ export default async function handler(
       }
       const plan = await prisma.plan.create({ data: parsed.data });
       await auditAdminAction({
-        adminId: admin.adminId, action: "plan.create",
+        adminId: admin.adminId,        email: admin.email ?? "", action: "plan.create",
         targetType: "Plan", targetId: plan.id, afterValue: parsed.data,
       });
       return res.status(201).json(apiOk(plan));
@@ -81,7 +81,7 @@ export default async function handler(
       }
       const updated = await prisma.plan.update({ where: { id }, data });
       await auditAdminAction({
-        adminId: admin.adminId, action: "plan.update",
+        adminId: admin.adminId,        email: admin.email ?? "", action: "plan.update",
         targetType: "Plan", targetId: id,
         beforeValue: existing, afterValue: updated,
       });
@@ -104,7 +104,7 @@ export default async function handler(
       }
       await prisma.plan.delete({ where: { id } });
       await auditAdminAction({
-        adminId: admin.adminId, action: "plan.delete",
+        adminId: admin.adminId,        email: admin.email ?? "", action: "plan.delete",
         targetType: "Plan", targetId: id, beforeValue: { name: plan.name },
       });
       return res.status(200).json(apiOk({ id, deleted: true }));
@@ -134,7 +134,7 @@ export default async function handler(
         select: { id: true, name: true, planId: true },
       });
       await auditAdminAction({
-        adminId: admin.adminId, action: "plan.assign",
+        adminId: admin.adminId,        email: admin.email ?? "", action: "plan.assign",
         targetType: "Tenant", targetId: parsed.data.tenantId,
         beforeValue: { planId: tenant.planId },
         afterValue: { planId: updated.planId },

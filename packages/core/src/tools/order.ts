@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { withTenantTransaction } from "@csq/core/lib/tenant-context";
 import type { ToolDefinition, ToolResult } from "@csq/core/types/tools";
 import { events } from "@csq/core/lib/events";
+import { resolveScopedPhone } from "@csq/core/tools/scope";
 
 // order.* tools. order.read allowed by default. order.create is a write
 // (denied + approval by default): creates an Order + OrderItems and decrements
@@ -251,6 +252,26 @@ const orderCreate: ToolDefinition<OrderCreateParams> = {
   defaultPermission: { allowed: false, requiresApproval: true },
   async handler(ctx): Promise<ToolResult> {
     const p = ctx.params;
+    // D2 scope guard (audit run-1, order.create.unscoped-customer-phone): in
+    // the agent path the conversation's customer is the ONLY possible order
+    // customer - a model-supplied phone differing from ctx.customerPhone is
+    // denied and audited, exactly like order.list/customer.*. The HTTP
+    // gateway path (no conversationId) keeps explicit params by design.
+    const scopedPhone = resolveScopedPhone(ctx, p.customerPhone);
+    if (p.customerPhone !== undefined && !scopedPhone) {
+      await ctx.audit({
+        action: "order.create",
+        entityType: "order",
+        entityId: "",
+        afterValue: { scopeDenied: true, requestedPhone: p.customerPhone },
+      });
+      return {
+        success: false,
+        error: "Hanya bisa membuat pesanan untuk pelanggan percakapan ini.",
+        errorCode: "PERMISSION_DENIED",
+      };
+    }
+    const orderPhone = scopedPhone ?? ctx.customerPhone;
     const productIds = p.items.map((it) => it.productId);
 
     // One transaction: validate stock + compute totals + create order + decrement.
@@ -308,7 +329,8 @@ const orderCreate: ToolDefinition<OrderCreateParams> = {
         data: {
           tenantId: ctx.tenantId,
           customerName: p.customerName,
-          customerPhone: p.customerPhone,
+          // Server-resolved identity (audit run-1): never the raw model value.
+          customerPhone: orderPhone,
           totalAmount: total,
           createdByAgentId: ctx.agentId,
           status: "CONFIRMED",

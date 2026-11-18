@@ -38,7 +38,9 @@ const metadataSchema = z.object({
 
 const contactSchema = z.object({
   wa_id: z.string(),
-  profile: z.object({ name: z.string() }).optional(),
+  // Bounded (audit run-1): Meta payload fields are untrusted content - no
+  // unbounded strings into storage.
+  profile: z.object({ name: z.string().max(200) }).optional(),
 });
 
 // `type` is a string (text/image/audio/...). Only `text` carries a body;
@@ -46,11 +48,11 @@ const contactSchema = z.object({
 // recorded as placeholders so the conversation stays traceable, and are
 // classified as MEDIA or OTHER so they never reach the LLM (D6).
 export const messageSchema = z.object({
-  type: z.string(),
-  id: z.string(),
-  from: z.string(),
-  timestamp: z.string(),
-  text: z.object({ body: z.string() }).optional(),
+  type: z.string().max(32),
+  id: z.string().max(200),
+  from: z.string().max(32),
+  timestamp: z.string().max(20),
+  text: z.object({ body: z.string().max(4096) }).optional(),
   image: z
     .object({
       caption: z.string().optional(),

@@ -26,7 +26,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     const esc = (v: string | null) => {
-      const s = v ?? "";
+      let s = v ?? "";
+      // Formula-injection guard (audit run-1, contacts-export.csv-formula-
+      // injection): customer-controlled fields (name via WhatsApp profile,
+      // notes, email) can start with = + - @ and execute when the owner opens
+      // the export in a spreadsheet app. Prefix with a single quote (OWASP
+      // CSV-injection pattern) before structural quoting.
+      if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
       return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
     const header = "nama,nomor,email,catatan,kategori,tag,dibuat";

@@ -16,6 +16,7 @@ import {
   getWebhookDiags,
 } from "@csq/core/lib/webhook-diagnostics";
 import { checkRateLimit } from "@csq/core/lib/rate-limit";
+import { clientIp } from "@csq/core/lib/client-ip";
 
 // WhatsApp Cloud API webhook. UNAUTHENTICATED - Meta calls it directly, so
 // tenantId is resolved from the channel config (looked up by phone_number_id),
@@ -65,6 +66,13 @@ export default async function handler(
 ): Promise<void> {
   // ── GET: webhook verification ──
   if (req.method === "GET") {
+    // Rate limit the unauthenticated verification probe too (audit run-1
+    // hardening): each request performs a token scan against the DB.
+    const ip = clientIp(req);
+    if (!checkRateLimit(`wh-verify:${ip}`, 30, 60_000)) {
+      res.status(429).send("Too Many Requests");
+      return;
+    }
     const mode = queryParam(req.query["hub.mode"]);
     const challenge = queryParam(req.query["hub.challenge"]);
     const verifyToken = queryParam(req.query["hub.verify_token"]);
@@ -111,10 +119,7 @@ export default async function handler(
   if (req.method === "POST") {
     // Phase 7: per-IP burst guard on the unauthenticated inbound path
     // (in-memory, per-instance). Meta's real traffic sits far below this.
-    const ipRaw = req.headers["x-forwarded-for"];
-    const ip = ((Array.isArray(ipRaw) ? ipRaw[0] : ipRaw) ?? "unknown")
-      .split(",")[0]
-      .trim();
+    const ip = clientIp(req);
     if (!checkRateLimit(`wh:${ip}`, 120, 60_000)) {
       res.status(429).send("Too Many Requests");
       return;
@@ -156,12 +161,18 @@ export default async function handler(
       return;
     }
     // Cross-tenant lookup by phone id: bypass context (PRD 16 SEC-1).
+    // Deterministic resolution (audit run-1,
+    // channel-externalid-cross-tenant-race): query the identity COLUMN (the
+    // global unique index backs it) with a stable order, never an unordered
+    // findFirst on the config JSON path.
     const channel = await withSystemContext(async () =>
       prisma.channel.findFirst({
         where: {
           provider: "CLOUD_API",
-          config: { path: ["phoneNumberId"], equals: phoneNumberId },
+          externalId: phoneNumberId,
+          archivedAt: null,
         },
+        orderBy: { createdAt: "asc" },
       })
     );
     if (!channel) {
@@ -193,6 +204,7 @@ export default async function handler(
       recordWebhookDiag({
         at: new Date().toISOString(),
         kind: "NO_SECRET",
+        tenantId: channel.tenantId,
         phoneId: phoneNumberId,
       });
       res.status(401).send("Unauthorized");
@@ -211,6 +223,7 @@ export default async function handler(
       recordWebhookDiag({
         at: new Date().toISOString(),
         kind: "SIG_MISMATCH",
+        tenantId: channel.tenantId,
         phoneId: phoneNumberId,
         receivedSig: expected,
         computedSig: computed,

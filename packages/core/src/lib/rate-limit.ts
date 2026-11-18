@@ -14,7 +14,20 @@ export function checkRateLimit(
   const now = Date.now();
   const bucket = buckets.get(key);
   if (!bucket || bucket.resetAt <= now) {
-    if (buckets.size > 5000) buckets.clear();
+    // Evict expired entries instead of clearing the whole map (audit run-1
+    // hardening): clear() let one high-cardinality caller reset every honest
+    // user's window. Insertion-ordered Map: first entries are the oldest.
+    if (buckets.size > 5000) {
+      for (const [k, v] of buckets) {
+        if (buckets.size <= 4000) break;
+        if (v.resetAt <= now) buckets.delete(k);
+      }
+      while (buckets.size > 5000) {
+        const oldest = buckets.keys().next().value;
+        if (oldest === undefined) break;
+        buckets.delete(oldest);
+      }
+    }
     buckets.set(key, { count: 1, resetAt: now + windowMs });
     return true;
   }

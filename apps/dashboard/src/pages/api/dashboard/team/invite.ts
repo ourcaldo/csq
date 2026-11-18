@@ -76,10 +76,19 @@ export default async function handler(
     }
 
     // Plan staff seats (PRD 13). Owner is not a seat; only STAFF users count.
+    // Pending unexpired invites count too (audit run-1,
+    // invite-accept-staff-limit-bypass): counting only accepted users let an
+    // owner stockpile unlimited invites while under the limit, and accept
+    // never re-checked - the seat is consumed at accept time.
     const entitlements = await getTenantEntitlements(tenantId);
     if (entitlements.staffLimit !== null) {
-      const staff = await prisma.user.count({ where: { tenantId, role: "STAFF" } });
-      if (staff >= entitlements.staffLimit) {
+      const [staff, pending] = await Promise.all([
+        prisma.user.count({ where: { tenantId, role: "STAFF" } }),
+        prisma.teamInvite.count({
+          where: { tenantId, acceptedAt: null, expiresAt: { gt: new Date() } },
+        }),
+      ]);
+      if (staff + pending >= entitlements.staffLimit) {
         return respondError(
           res,
           "PERMISSION_DENIED",

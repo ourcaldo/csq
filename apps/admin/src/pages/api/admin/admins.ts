@@ -50,7 +50,7 @@ export default async function handler(
         select: { id: true, email: true, name: true, createdAt: true },
       });
       await auditAdminAction({
-        adminId: admin.adminId, action: "admin.create",
+        adminId: admin.adminId,        email: admin.email ?? "", action: "admin.create",
         targetType: "AdminUser", targetId: created.id,
         afterValue: { email: created.email, name: created.name },
       });
@@ -75,7 +75,7 @@ export default async function handler(
       }
       await prisma.adminUser.delete({ where: { id } });
       await auditAdminAction({
-        adminId: admin.adminId, action: "admin.delete",
+        adminId: admin.adminId,        email: admin.email ?? "", action: "admin.delete",
         targetType: "AdminUser", targetId: id,
         beforeValue: { email: target.email, name: target.name },
       });

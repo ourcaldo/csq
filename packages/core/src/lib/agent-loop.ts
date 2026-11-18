@@ -334,8 +334,18 @@ export async function runAgentReply(args: {
       }),
     ]);
     const parts = [
-      contact?.name ? `Nama pelanggan tercatat: ${contact.name}` : null,
-      contact?.email ? `Email tercatat: ${contact.email}` : null,
+      // Untrusted-content neutralization (audit run-1,
+      // webhook.profile-name-prompt-injection): the profile name / pushName is
+      // customer-controlled and stored verbatim. Strip control characters
+      // and cap it before it joins prompt material, and never let it carry
+      // line breaks that could fake system framing.
+      contact?.name
+        ? `Nama pelanggan tercatat: ${contact.name
+            .replace(/[\u0000-\u001f\u007f]+/g, " ")
+            .trim()
+            .slice(0, 80)}`
+        : null,
+      contact?.email ? `Email tercatat: ${contact.email.slice(0, 120)}` : null,
       orderCount > 0
         ? `${orderCount} order sebelumnya (terakhir: ${new Date(
             lastOrder!.createdAt

@@ -50,7 +50,7 @@ export default async function handler(
           "the platform SMTP configuration is correct and ready as the fallback for all tenants.",
       });
       await auditAdminAction({
-        adminId: admin.adminId,
+        adminId: admin.adminId,        email: admin.email ?? "",
         action: "platform_email.test",
         targetType: "BillingSetting",
         targetId: "singleton",

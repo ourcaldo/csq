@@ -406,7 +406,11 @@ async function advanceRunInner(run: ScenarioRunWithScenario): Promise<void> {
         data: { currentNodeId, context: toJsonValue(context) },
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Node execution failed";
+      // Scrub before persisting (audit run-1, smtp-ssrf-port-probe): raw
+      // error strings can echo backend internals (SMTP connect targets,
+      // provider response bodies) into STAFF-readable step/audit rows. Full
+      // detail stays in the server log.
+      const message = scrubNodeError(err);
       await prisma.scenarioRunStep.update({
         where: { id: step.id },
         data: { status: "FAILED", error: message, completedAt: new Date() },
@@ -420,6 +424,19 @@ async function advanceRunInner(run: ScenarioRunWithScenario): Promise<void> {
   if (iterations >= MAX_NODES_PER_ADVANCE) {
     await failRun(run.id, run.tenantId, "Loop terlalu panjang - kemungkinan siklus.");
   }
+}
+
+// Node failure messages normalized to a closed set (audit run-1): classify by
+// the node's own vocabulary, never the exception text.
+function scrubNodeError(err: unknown): string {
+  const raw = err instanceof Error ? err.message : "";
+  if (/timeout/i.test(raw)) return "Waktu tunggu habis.";
+  if (/ENOTFOUND|dns/i.test(raw)) return "Host tujuan tidak dapat diselesaikan.";
+  if (/ECONNREFUSED|ECONNRESET|EHOSTUNREACH|ENETUNREACH/i.test(raw)) {
+    return "Koneksi ke layanan eksternal gagal.";
+  }
+  if (/401|403|unauthor|auth/i.test(raw)) return "Autentikasi layanan eksternal gagal.";
+  return "Node gagal dijalankan.";
 }
 
 async function failRun(runId: string, tenantId: string, message: string): Promise<void> {

@@ -68,7 +68,7 @@ export default async function handler(
       }
       await savePlatformEmailProvider(stored.data);
       await auditAdminAction({
-        adminId: admin.adminId,
+        adminId: admin.adminId,        email: admin.email ?? "",
         action: "platform_email.update",
         targetType: "BillingSetting",
         targetId: "singleton",
@@ -83,7 +83,7 @@ export default async function handler(
       if (before) {
         await clearPlatformEmailProvider();
         await auditAdminAction({
-          adminId: admin.adminId,
+          adminId: admin.adminId,          email: admin.email ?? "",
           action: "platform_email.disconnect",
           targetType: "BillingSetting",
           targetId: "singleton",

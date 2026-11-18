@@ -12,6 +12,7 @@ import {
 } from "@csq/core/lib/inbox";
 import { enqueueOutbound, awaitOutbound } from "@csq/core/lib/outbox";
 import { logAction } from "@csq/core/lib/audit";
+import { safeFetch } from "@csq/core/lib/ssrf-guard";
 import { apiError, apiOk, type ApiResponse } from "@csq/core/types/api";
 import {
   sendMessageRequestSchema,
@@ -30,15 +31,35 @@ import {
 const MAX_MEDIA_BYTES = 10 * 1024 * 1024;
 const MEDIA_TIMEOUT_MS = 15_000;
 
+// Same document allow-list as the dashboard inbox upload route (security
+// audit run-1, finding media-serving.stored-content-injection): the API send
+// path must not be the mime bypass.
+const ALLOWED_DOC_MIME = new Set([
+  "application/pdf",
+  "application/msword",
+  "application/vnd.ms-excel",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  "text/plain",
+]);
+
 async function fetchMedia(
   url: string,
   kind: "image" | "document"
 ): Promise<{ bytes: Buffer; mimeType: string }> {
-  const res = await fetch(url, { signal: AbortSignal.timeout(MEDIA_TIMEOUT_MS) });
-  if (!res.ok) throw new Error(`Media fetch failed (HTTP ${res.status}).`);
+  // SSRF guard (audit run-1): http(s) only, public hosts only, re-validated
+  // on every redirect hop. All failures map to one generic message so the
+  // fetch cannot double as an internal port/status oracle.
+  const res = await safeFetch(url, { timeoutMs: MEDIA_TIMEOUT_MS });
+  if (!res.ok) throw new Error("Media URL tidak dapat diambil.");
   const mimeType = (res.headers.get("content-type") ?? "").split(";")[0].trim();
   if (kind === "image" && !mimeType.startsWith("image/")) {
     throw new Error("Media URL must point at an image (png, jpeg, webp, gif).");
+  }
+  if (kind === "document" && !ALLOWED_DOC_MIME.has(mimeType)) {
+    throw new Error("Media URL must point at a document (pdf, office, txt).");
   }
   const bytes = Buffer.from(await res.arrayBuffer());
   if (bytes.length === 0) throw new Error("Media is empty.");
@@ -119,15 +140,12 @@ export default async function handler(
           },
         });
         mediaId = asset.id;
-      } catch (err) {
+      } catch {
+        // Generic error: the fetch path must not reflect upstream statuses
+        // (port-scan oracle, audit run-1).
         return res
           .status(400)
-          .json(
-            apiError(
-              "VALIDATION_ERROR",
-              err instanceof Error ? err.message : "Invalid media URL"
-            )
-          );
+          .json(apiError("VALIDATION_ERROR", "Media URL tidak valid atau tidak dapat diambil."));
       }
     }
 

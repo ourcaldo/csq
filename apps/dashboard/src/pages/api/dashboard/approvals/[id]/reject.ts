@@ -46,14 +46,22 @@ export default async function handler(
         .json(apiError("VALIDATION_ERROR", "Approval already resolved"));
     }
 
-    await prisma.approval.update({
-      where: { id },
+    // Atomic claim (audit run-1, approval-resolution.race): conditional
+    // update so a racing reject can never overwrite an APPROVED row (or race
+    // an in-flight execution) - count 0 means someone else resolved it first.
+    const rejected = await prisma.approval.updateMany({
+      where: { id, tenantId, status: "PENDING" },
       data: {
         status: "REJECTED",
         resolvedById: session.user.id,
         resolvedAt: new Date(),
       },
     });
+    if (rejected.count !== 1) {
+      return res
+        .status(400)
+        .json(apiError("VALIDATION_ERROR", "Approval already resolved"));
+    }
 
     await logAction({
       tenantId: approval.tenantId,

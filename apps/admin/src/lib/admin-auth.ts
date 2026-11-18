@@ -127,6 +127,7 @@ export function respondAdminError(
 // records an action that did not happen.
 export async function auditAdminAction(input: {
   adminId: string;
+  email: string;
   action: string;
   targetType: string;
   targetId?: string | null;
@@ -137,6 +138,9 @@ export async function auditAdminAction(input: {
     .create({
       data: {
         adminId: input.adminId,
+        // Snapshot the actor (audit run-1): the log must stay attributable
+        // after the AdminUser row is gone (FK is SetNull).
+        adminEmail: input.email,
         action: input.action,
         targetType: input.targetType,
         targetId: input.targetId ?? null,
@@ -161,7 +165,23 @@ export async function requireAdmin(
     res.status(401).json(apiError("UNAUTHORIZED", "Admin login required."));
     return null;
   }
-  return { adminId: session.user.id, email: session.user.email ?? "" };
+  // Re-validate the principal per request (audit run-1,
+  // admin-delete-no-session-revocation): the JWT realm is stateless, so a
+  // deleted operator's cookie would otherwise stay valid until expiry. One
+  // query per admin request - the same price the tenant realm pays for its
+  // suspended-tenant re-check.
+  const admin = await withSystemContext(async () =>
+    prisma.adminUser.findUnique({
+      where: { id: session.user.id },
+      select: { id: true, email: true },
+    })
+  );
+  if (!admin) {
+    res.setHeader("WWW-Authenticate", "Bearer");
+    res.status(401).json(apiError("UNAUTHORIZED", "Admin login required."));
+    return null;
+  }
+  return { adminId: admin.id, email: admin.email };
 }
 
 export type { ApiResponse };

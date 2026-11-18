@@ -2,6 +2,28 @@
 
 Version format: `XX.YY.ZZ` - YY (minor) and ZZ (patch) stay within 0-10; XX (major) may grow beyond. Minor = new feature/behavior change, patch = fix, major = breaking change (schema, API contract, env vars).
 
+## 5.1.0 - 2026-11-18 (branch `monorepo`)
+
+Security audit remediation (audit run-1, docs/audit/run-1/): all 16 confirmed findings fixed, HIGH to LOW, plus both needs-validation leads closed with the recommended fixes.
+
+- HIGH media SSRF (apiv1.messages.media-ssrf): new shared `packages/core/src/lib/ssrf-guard.ts` (`assertPublicHttpHost` + `safeFetch` with manual per-hop redirect re-validation). `/api/v1/messages` fetchMedia now pins http(s), rejects loopback/private/link-local/metadata after DNS resolution on every redirect hop, enforces the inbox document mime allow-list, and returns a generic error (no upstream status echo). Public `/api/media/[id]` adds `nosniff` + `Content-Disposition: attachment` for non-image assets (stored-content-injection).
+- HIGH deleted-admin session (admin-delete-no-session-revocation): `requireAdmin` re-checks the AdminUser row per request - a deleted operator's cookie dies immediately.
+- MED audit-log cascade (admin-delete-cascades-audit-log): `AdminActionLog.adminId` nullable + `SetNull` FK + new `adminEmail` snapshot column (migration `20261118200000_audit_log_retention`, applied to the clone); all 20 audit call sites write the snapshot; the audit listing falls back to it.
+- MED order.create scope (order.create.unscoped-customer-phone): the create handler now runs `resolveScopedPhone` - a model-supplied phone differing from the conversation's customer is denied and audited; the Order row always carries the server-resolved identity. HTTP gateway path (no conversation) unchanged.
+- MED Sheets OAuth state (sheets-oauth-callback-state-not-validated): the callback now requires `state === session tenant` before exchanging the code, and the placeholder DataSource is find-or-create (no row-per-GET).
+- MED XFF rate-limit bypass: new `packages/core/src/lib/client-ip.ts` (trust order: X-Real-IP, then the LAST X-Forwarded-For hop, else "unknown" shared bucket); token/refresh/webhook limiters switched; webhook GET verification now rate-limited too (30/min); rate-limit map evicts expired/oldest instead of clear-all.
+- MED refresh rotation race: revocation is a conditional `updateMany(revokedAt: null)` + count check - one presentation mints, replays (concurrent or sequential) 401.
+- MED approval resolution race: approve claims atomically (conditional `updateMany` PENDING->APPROVED + count check) BEFORE the handler, reverting to PENDING on failure; reject uses the same conditional claim.
+- MED scenario live-graph PUT: PUT rejects ACTIVE scenarios (pause first, mirroring campaigns) and runs `validateScenarioGraph` on every graph-bearing edit.
+- MED profile-name prompt injection: windowContext sanitizes the stored name (control chars stripped, 80-char cap) before prompt assembly; `contactSchema.profile.name` and `messageSchema` fields get max bounds; Baileys pushName capped at ingest; scenario node errors normalize to a closed message set before persisting to STAFF-readable rows.
+- MED SMTP SSRF probe: `assertPublicSmtpHost` (DNS-resolve, reject internal ranges) at settings save; test-send returns a generic error; raw transport errors no longer reach tenant-visible rows.
+- MED CSV formula injection: contacts export `esc()` prefixes `= + - @ \t \r` leading values with a single quote (OWASP pattern).
+- LOW webhook-diag cross-tenant leak: diag records carry `tenantId` (stamped where the channel is resolved); the BFF filters by session tenant - UNKNOWN_PHONE_ID (unattributable) excluded from tenant views.
+- LOW excel preview gate: OWNER-only + explicit 10MB byte cap before parsing.
+- LOW staff seat-limit bypass: invite creation counts pending unexpired invites; accept re-checks staffLimit before creating the user.
+- Leads: global partial unique index `(provider, externalId) WHERE externalId IS NOT NULL` (migration `20261118210000_channel_externalid_global`, applied to the clone; clone verified duplicate-free first) + webhook channel lookup switched to the identity column with deterministic order; `source.search` wrapped in `tenantRaw` (RLS context set on the raw connection - the documented raw-SQL contract).
+- Hardening from the report: JWT verify pins `algorithms: ["HS256"]`; pre-existing captioned-image classification self-check failure fixed (caption counts as text even without a media id); new `scripts/self-check-ssrf-guard.ts`.
+
 ## 5.0.0 - 2026-11-18 (branch `monorepo`)
 
 Multiple channels per tenant (PRD 15, owner "do it all" 2026-11-18). A tenant holds several WhatsApp numbers; a channel is one sending number, never a tenant.

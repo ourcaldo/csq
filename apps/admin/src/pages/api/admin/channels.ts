@@ -74,7 +74,7 @@ export default async function handler(
         requestedBy: admin.adminId,
       });
       await auditAdminAction({
-        adminId: admin.adminId,
+        adminId: admin.adminId,        email: admin.email ?? "",
         action: `channel.${action}`,
         targetType: "Channel",
         targetId: channel.id,

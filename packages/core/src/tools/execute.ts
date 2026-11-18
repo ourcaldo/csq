@@ -184,6 +184,31 @@ export async function executeApprovedAction(
     };
   }
 
+  // Atomic claim BEFORE any side effect (audit run-1,
+  // approval-resolution.race): flipping PENDING -> APPROVED with a
+  // conditional update means exactly one concurrent request can win; the
+  // loser sees count 0 and must not execute. Mirrors the campaign engine's
+  // claim (campaign-engine.ts PENDING -> SENDING). On handler failure the
+  // claim reverts to PENDING so the retryable-on-failure design is kept.
+  const claimed = await prisma.approval.updateMany({
+    where: {
+      id: approval.id,
+      tenantId: args.tenantId,
+      status: "PENDING",
+    },
+    data: {
+      status: "APPROVED",
+      resolvedById: args.resolvedByUserId,
+      resolvedAt: new Date(),
+    },
+  });
+  if (claimed.count !== 1) {
+    return {
+      kind: "validation_error",
+      message: "Approval already resolved",
+    };
+  }
+
   const tool = getTool(approval.action);
   if (!tool) {
     return { kind: "tool_not_found" };
@@ -227,20 +252,28 @@ export async function executeApprovedAction(
 
   try {
     const result = await tool.handler(ctx);
-    await prisma.approval.update({
-      where: { id: approval.id },
-      data: {
-        status: "APPROVED",
-        resolvedById: args.resolvedByUserId,
-        resolvedAt: new Date(),
-      },
-    });
+    // Status was already flipped by the atomic claim above; only stamp the
+    // resolvedAt again (harmless) - no unconditional overwrite that a racing
+    // reject could abuse.
     return { kind: "ok", result };
   } catch (err) {
     console.error(
       `[executeApprovedAction] ${approval.action} threw for approval ${approval.id}:`,
       err
     );
+    // Revert the claim so the approval stays retryable (design: stays PENDING
+    // on failure) - conditional again so nothing overwrites a concurrently
+    // resolved row.
+    await prisma.approval
+      .updateMany({
+        where: {
+          id: approval.id,
+          status: "APPROVED",
+          resolvedById: args.resolvedByUserId,
+        },
+        data: { status: "PENDING", resolvedById: null, resolvedAt: null },
+      })
+      .catch(() => undefined);
     return { kind: "internal_error", message: "Approved action failed to execute" };
   }
 }

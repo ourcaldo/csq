@@ -140,7 +140,7 @@ export default async function handler(
           },
         });
         await auditAdminAction({
-          adminId: admin.adminId,
+          adminId: admin.adminId,          email: admin.email ?? "",
           action: "invoice.create",
           targetType: "Invoice",
           targetId: invoice.id,
@@ -188,7 +188,7 @@ export default async function handler(
             : { status: "VOID", note: parsed.data.note ?? null },
       });
       await auditAdminAction({
-        adminId: admin.adminId,
+        adminId: admin.adminId,        email: admin.email ?? "",
         action: `invoice.${parsed.data.action}`,
         targetType: "Invoice",
         targetId: updated.id,

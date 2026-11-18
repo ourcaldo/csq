@@ -15,6 +15,7 @@ import { apiOk, type ApiResponse } from "@csq/core/types/api";
 const diagSchema = z.object({
   at: z.string(),
   kind: z.enum(["SIG_MISMATCH", "NO_SECRET", "UNKNOWN_PHONE_ID"]),
+  tenantId: z.string().optional(),
   phoneId: z.string().optional(),
   receivedSig: z.string().optional(),
   computedSig: z.string().optional(),
@@ -41,6 +42,11 @@ export default async function handler(
   }
   if (!requireRole(session, "OWNER")) {
     respondError(res, "PERMISSION_DENIED", "Hanya owner.");
+    return;
+  }
+  const tenantId = session.user.tenantId;
+  if (!tenantId) {
+    respondError(res, "PERMISSION_DENIED", "Tenant tidak dikenal.");
     return;
   }
 
@@ -71,6 +77,12 @@ export default async function handler(
       respondError(res, "INTERNAL_ERROR", "Respons diagnostik tidak valid.");
       return;
     }
-    res.status(200).json(apiOk({ items: parsed.data.data.items }));
+    // Tenant scoping (audit run-1, webhook-diag-cross-tenant-leak): only
+    // entries recorded for THIS tenant's channels. UNKNOWN_PHONE_ID entries
+    // (no resolvable tenant) are excluded from tenant views.
+    const items = parsed.data.data.items.filter(
+      (d) => d.tenantId === tenantId
+    );
+    res.status(200).json(apiOk({ items }));
   });
 }
