@@ -9,7 +9,7 @@ and the inbox. All on branch `monorepo` (testing stack).
 transferred to a human. It fires on all three handoff paths:
 
 - the AI agent's `conversation.handoff` tool (customer asks for a human),
-- the dashboard assignment picker / reply-as-takeover (`assignConversation`),
+- the dashboard assignment picker (`assignConversation`),
 - the AI-failure escalation (retries exhausted, conversation lands on the owner).
 
 A transfer to a human counts; assigning back to the AI or clearing the

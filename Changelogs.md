@@ -2,6 +2,14 @@
 
 Version format: `XX.YY.ZZ` - YY (minor) and ZZ (patch) stay within 0-10; XX (major) may grow beyond. Minor = new feature/behavior change, patch = fix, major = breaking change (schema, API contract, env vars).
 
+## 4.10.1 - 2026-11-18 (branch `monorepo`)
+
+Remove reply-as-takeover (owner correction 2026-11-18: the 2026-11-10 rule was recorded as an owner decision in error; the owner never asked for it).
+
+- A human reply from the chat panel no longer reassigns the conversation to the replier. Assignment changes only through the explicit "Ambil alih / Lepas" actions (PRD 03 15.8 amendment 2026-11-18). Consequence: on an AI-owned conversation, the AI keeps auto-answering after a human reply unless the human takes over explicitly.
+- ON_HANDOFF now fires only on the AI handoff tool, the assignment picker, and the AI-failure escalation (PRD 26 updated).
+- Staff KPI FIRST_RESPONSE measurement is unchanged (it keys on the human reply itself, not assignment; PRD 17 note added).
+
 ## 4.10.0 - 2026-11-18 (branch `monorepo`)
 
 Scenario module additions + inbox template picker (owner request 2026-11-18, PRD 26).

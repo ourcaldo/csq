@@ -82,14 +82,13 @@ Response `200`:
    The contact's `source` records the origin (explicit `source`, else the
    API key name, else "API") so the pipeline card and drawer show where
    the lead came from.
-7. **Decision - no AI stand-down, no reassignment.** A dashboard human
-   reply takes the conversation over (reply-as-takeover, PRD 03 amendment
-   2026-11-10). API sends are automation, not a person typing: they count
-   as an answer (the agent will not double-reply to the customer message
-   they respond to), but the AI keeps owning the conversation. Rationale:
-   a notification send (e.g. "order shipped") must not silently mute the
-   AI for that customer. Tenants who want takeover semantics reply from
-   the dashboard.
+ 7. **Decision - no AI stand-down, no reassignment.** Dashboard human
+    replies never reassign (amendment 2026-11-18, PRD 03 15.8: the
+    reply-as-takeover rule was removed). API sends are automation, not a
+    person typing: they count as an answer (the agent will not double-reply
+    to the customer message they respond to), but the AI keeps owning the
+    conversation. Rationale: a notification send (e.g. "order shipped") must
+    not silently mute the AI for that customer.
 
 ## Errors
 
