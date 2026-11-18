@@ -412,6 +412,23 @@ export async function assignConversation(
     data,
   });
 
+  // ON_HANDOFF scenarios (owner request 2026-11-18): a transfer to a human
+  // fires the trigger. Only a real human assignment counts - clearing an
+  // assignment or assigning an AI agent never fires it. Fire-and-forget.
+  if (userId) {
+    const contact = await prisma.contact.findFirst({
+      where: { tenantId, id: conv.contactId ?? undefined },
+      select: { name: true },
+    });
+    events.conversationHandoff.emit({
+      tenantId,
+      conversationId,
+      assigneeUserId: userId,
+      customerPhone: conv.customerPhone,
+      customerName: contact?.name ?? undefined,
+    });
+  }
+
   await logAction({
     tenantId,
     agentId: conv.assignedAgentId,

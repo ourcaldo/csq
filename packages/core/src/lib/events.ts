@@ -46,9 +46,21 @@ const conversationTaggedSchema = z.object({
   tagId: z.string(),
 });
 
+// A chat was transferred to a human agent (AI handoff tool, dashboard
+// assignment, or the AI-failure escalation). `assigneeUserId` identifies the
+// handoff so the trigger's dedup key can distinguish two different handoffs.
+const conversationHandoffSchema = z.object({
+  tenantId: z.string(),
+  conversationId: z.string(),
+  assigneeUserId: z.string(),
+  customerPhone: z.string().optional(),
+  customerName: z.string().optional(),
+});
+
 export type ConversationNewEvent = z.infer<typeof conversationNewSchema>;
 export type OrderPurchasedEvent = z.infer<typeof orderPurchasedSchema>;
 export type ConversationTaggedEvent = z.infer<typeof conversationTaggedSchema>;
+export type ConversationHandoffEvent = z.infer<typeof conversationHandoffSchema>;
 
 // ─────────────────────────── Channel ───────────────────────────
 
@@ -98,4 +110,5 @@ export const events = {
   conversationNew: new TypedChannel(conversationNewSchema),
   orderPurchased: new TypedChannel(orderPurchasedSchema),
   conversationTagged: new TypedChannel(conversationTaggedSchema),
+  conversationHandoff: new TypedChannel(conversationHandoffSchema),
 };

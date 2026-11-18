@@ -47,6 +47,7 @@ const TRIGGER_LABEL: Record<ScenarioTriggerType, string> = {
   ON_TAG_ADDED: "Tag ditambahkan",
   ON_SCHEDULE: "Jadwal",
   ON_NO_REPLY: "Tanpa balasan pelanggan",
+  ON_HANDOFF: "Dialihkan ke agen manusia",
 };
 
 const STATUS_TONE: Record<ScenarioStatus, "neutral" | "green" | "amber"> = {
@@ -294,7 +295,7 @@ function Builder({ id }: { id: string }) {
   }, [canEdit, undo, redo]);
 
   function defaultDataFor(type: string): Record<string, unknown> {
-    if (type === "send") return { body: "" };
+    if (type === "send") return { body: "", to: "" };
     if (type === "ai") return { prompt: "" };
     if (type === "wait") return { durationMs: 60 * 60 * 1000 };
     if (type === "condition") return { field: "", operator: "equals", value: "" };
@@ -1070,6 +1071,7 @@ function PropertiesPanel({
                 <option value="ON_TAG_ADDED">Tag ditambahkan</option>
                 <option value="ON_SCHEDULE">Jadwal (waktu tertentu)</option>
                 <option value="ON_NO_REPLY">Tanpa balasan pelanggan</option>
+                <option value="ON_HANDOFF">Dialihkan ke agen manusia</option>
               </Select>
             </div>
             {str(node.data?.triggerType) === "ON_TAG_ADDED" && (
@@ -1176,19 +1178,34 @@ function PropertiesPanel({
         )}
 
         {type === "send" && (
-          <div>
-            <Label className="text-xs">Pesan</Label>
-            <Textarea
-              disabled={!canEdit}
-              rows={5}
-              value={str(node.data?.body)}
-              placeholder="Halo {{customer_name}}, makasih udah order {{order_id}}. Survei: https://s.id/s?o={{order_id}}"
-              onChange={(e) => onPatch({ body: e.target.value })}
-            />
-            <p className="mt-1 text-[11px] text-slate-400">
-              Gunakan {`{{customer_name}}`}, {`{{order_id}}`}, {`{{order_total}}`}, {`{{order_items}}`}.
-            </p>
-          </div>
+          <>
+            <div>
+              <Label className="text-xs">Pesan</Label>
+              <Textarea
+                disabled={!canEdit}
+                rows={5}
+                value={str(node.data?.body)}
+                placeholder="Halo {{customer_name}}, makasih udah order {{order_id}}. Survei: https://s.id/s?o={{order_id}}"
+                onChange={(e) => onPatch({ body: e.target.value })}
+              />
+              <p className="mt-1 text-[11px] text-slate-400">
+                Gunakan {`{{customer_name}}`}, {`{{order_id}}`}, {`{{order_total}}`}, {`{{order_items}}`}.
+              </p>
+            </div>
+            <div>
+              <Label className="text-xs">Tujuan (opsional)</Label>
+              <Input
+                disabled={!canEdit}
+                value={str(node.data?.to)}
+                placeholder="Kosong = pelanggan percakapan ini"
+                onChange={(e) => onPatch({ to: e.target.value })}
+              />
+              <p className="mt-1 text-[11px] text-slate-400">
+                Isi nomor WhatsApp untuk kirim ke nomor lain, mis. 081234567890.
+                Tag seperti {`{{customer_phone}}`} juga bisa dipakai.
+              </p>
+            </div>
+          </>
         )}
 
         {type === "wait" && (

@@ -22,6 +22,7 @@ import {
 import { cn } from "@csq/ui/lib/utils";
 import { apiFetch, apiSend } from "@/lib/api-client";
 import type { Message } from "@csq/core/types/inbox";
+import type { MessageTemplate } from "@csq/core/lib/message-templates";
 import { useSession } from "next-auth/react";
 import { LoadingSkeleton } from "@/components/dashboard/loading-skeleton";
 import { EmptyState } from "@/components/dashboard/empty-state";
@@ -219,7 +220,8 @@ export function ChatPanel({ conversationId, customerName, customerPhone, aiActiv
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [templateOpen, setTemplateOpen] = useState(false);
-  const [templateName, setTemplateName] = useState("");
+  const [templateId, setTemplateId] = useState("");
+  const [templates, setTemplates] = useState<MessageTemplate[] | null>(null);
   const [templateLang, setTemplateLang] = useState("id");
   const [templateSending, setTemplateSending] = useState(false);
   const [templateError, setTemplateError] = useState<string | null>(null);
@@ -375,24 +377,44 @@ export function ChatPanel({ conversationId, customerName, customerPhone, aiActiv
     }
   }
 
-  // Send an approved WhatsApp template - used to reach a customer outside the
-  // 24h Cloud API window. The template must be pre-approved in Meta Business
-  // Manager; the operator supplies its name + language code.
+  // Template dialog: list the tenant's saved templates (Pengaturan Template
+  // Pesan) once, on first open (owner request 2026-11-18 - the old dialog
+  // made the operator hand-type a Meta-approved name).
+  useEffect(() => {
+    if (!templateOpen || templates !== null) return;
+    void apiFetch<{ items: MessageTemplate[] }>("/api/dashboard/templates")
+      .then((data) => setTemplates(data.items))
+      .catch(() => setTemplates([]));
+  }, [templateOpen, templates]);
+
+  const selectedTemplate = (templates ?? []).find((t) => t.id === templateId) ?? null;
+
   async function sendTemplate() {
-    const name = templateName.trim();
-    if (!name || templateSending) return;
+    if (!selectedTemplate || templateSending) return;
     setTemplateSending(true);
     setTemplateError(null);
     try {
-      const created = await apiSend<Message>(
-        `/api/dashboard/inbox/conversations/${conversationId}/template`,
-        "POST",
-        { templateName: name, language: templateLang }
-      );
+      // CSQ: the saved body is sent as a normal reply (24h window applies,
+      // same as typing it by hand). META: the pre-approved template name goes
+      // to Meta - the only compliant path outside the 24h window.
+      const created =
+        selectedTemplate.kind === "CSQ"
+          ? await apiSend<Message>(
+              `/api/dashboard/inbox/conversations/${conversationId}/messages`,
+              "POST",
+              { body: selectedTemplate.body }
+            )
+          : await apiSend<Message>(
+              `/api/dashboard/inbox/conversations/${conversationId}/template`,
+              "POST",
+              {
+                templateName: selectedTemplate.metaName,
+                language: selectedTemplate.metaLanguage ?? templateLang,
+              }
+            );
       setMessages((prev) => [...(prev ?? []), created]);
       setTemplateOpen(false);
-      setTemplateName("");
-      setTemplateLang("id");
+      setTemplateId("");
     } catch (err) {
       setTemplateError(err instanceof Error ? err.message : "Gagal mengirim template.");
     } finally {
@@ -568,33 +590,49 @@ export function ChatPanel({ conversationId, customerName, customerPhone, aiActiv
         </div>
       </div>
 
-      {/* Template send dialog - for messaging outside the 24h window. */}
+      {/* Template send dialog - pick from the tenant's saved templates.
+          CSQ kind sends the saved body as a normal reply (24h window);
+          META kind sends the pre-approved template (works outside 24h). */}
       <Dialog
         open={templateOpen}
         onClose={() => setTemplateOpen(false)}
         title="Kirim Template"
-        description="Pesan template disetujui untuk mengirim di luar jendela 24 jam."
+        description="Pilih template dari daftar Template Pesan Anda."
       >
         {templateError && <p className="mb-2 text-xs text-red-600">{templateError}</p>}
         <div className="space-y-3">
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Nama Template</label>
-            <input
-              value={templateName}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setTemplateName(e.target.value)}
-              placeholder="contoh: order_confirmation"
-              className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200"
-            />
+            <label className="mb-1 block text-sm font-medium text-slate-700">Template</label>
+            {templates === null ? (
+              <p className="text-sm text-slate-400">Memuat daftar template…</p>
+            ) : templates.length === 0 ? (
+              <p className="text-sm text-slate-500">
+                Belum ada template. Buat dulu di menu Template Pesan.
+              </p>
+            ) : (
+              <select
+                value={templateId}
+                onChange={(e: ChangeEvent<HTMLSelectElement>) => setTemplateId(e.target.value)}
+                className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200"
+              >
+                <option value="">Pilih template…</option>
+                {templates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.label} ({t.kind === "CSQ" ? "teks bebas" : "Meta"})
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Bahasa</label>
-            <input
-              value={templateLang}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setTemplateLang(e.target.value)}
-              placeholder="id"
-              className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200"
-            />
-          </div>
+          {selectedTemplate && (
+            <p className="rounded-md bg-slate-50 p-2 text-xs text-slate-600">
+              {selectedTemplate.kind === "CSQ"
+                ? selectedTemplate.body
+                : `Template Meta "${selectedTemplate.metaName}" (${
+                    selectedTemplate.metaLanguage ?? "id"
+                  }) - dikirim di luar jendela 24 jam.`}
+            </p>
+          )}
           <div className="flex justify-end gap-2">
             <button
               onClick={() => setTemplateOpen(false)}
@@ -604,7 +642,7 @@ export function ChatPanel({ conversationId, customerName, customerPhone, aiActiv
             </button>
             <button
               onClick={sendTemplate}
-              disabled={templateSending || !templateName.trim()}
+              disabled={templateSending || !selectedTemplate}
               className="rounded-md bg-slate-900 px-3 py-1.5 text-sm text-white hover:bg-slate-800 disabled:opacity-50"
             >
               {templateSending ? "Mengirim…" : "Kirim Template"}

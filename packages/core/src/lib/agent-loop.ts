@@ -19,6 +19,7 @@ import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { chargeCredits, getCreditStatus } from "@csq/core/lib/credits";
 import { getTemplateBody } from "@csq/core/lib/message-templates";
 import { logAction } from "@csq/core/lib/audit";
+import { events } from "@csq/core/lib/events";
 import type { ChatMessage, ToolCallRecord } from "@csq/core/types/chat";
 
 // OPS-2 (PRD 16): when no agent is active for the conversation (never
@@ -526,6 +527,26 @@ async function escalateToHuman(args: {
       at: new Date().toISOString(),
     },
   });
+
+  // ON_HANDOFF scenarios (owner request 2026-11-18): the error escalation is
+  // a transfer to a human too - same trigger as the handoff tool.
+  const conv = await prisma.conversation.findFirst({
+    where: { id: args.conversationId, tenantId: args.tenantId },
+    select: { customerPhone: true, contactId: true },
+  });
+  if (conv) {
+    const contact = await prisma.contact.findFirst({
+      where: { tenantId: args.tenantId, id: conv.contactId ?? undefined },
+      select: { name: true },
+    });
+    events.conversationHandoff.emit({
+      tenantId: args.tenantId,
+      conversationId: args.conversationId,
+      assigneeUserId: owner.id,
+      customerPhone: conv.customerPhone,
+      customerName: contact?.name ?? undefined,
+    });
+  }
 }
 
 export async function processInboundWithAgent(args: {

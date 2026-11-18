@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { ToolDefinition, ToolResult } from "@csq/core/types/tools";
+import { events } from "@csq/core/lib/events";
 
 // conversation.* tools. conversation.handoff transfers the current conversation
 // from the AI to a human (FR-AS-003 / FR-HD-001): it sets `assigneeUserId` to
@@ -94,7 +95,23 @@ const conversationHandoff: ToolDefinition<HandoffParams> = {
         id: true,
         assignedAgentId: true,
         assigneeUserId: true,
+        customerPhone: true,
+        contactId: true,
       },
+    });
+
+    // ON_HANDOFF scenarios (owner request 2026-11-18): same trigger as the
+    // dashboard assignment picker - fire-and-forget, never blocks the tool.
+    const contact = await ctx.prisma.contact.findFirst({
+      where: { tenantId: ctx.tenantId, id: after.contactId ?? undefined },
+      select: { name: true },
+    });
+    events.conversationHandoff.emit({
+      tenantId: ctx.tenantId,
+      conversationId,
+      assigneeUserId: owner.id,
+      customerPhone: after.customerPhone,
+      customerName: contact?.name ?? undefined,
     });
 
     await ctx.audit({

@@ -8,7 +8,7 @@ import {
 import { tenantActive } from "@csq/core/lib/tenant-status";
 import { getProvider } from "@csq/core/lib/whatsapp-provider";
 import { logAction, toJsonValue } from "@csq/core/lib/audit";
-import { CLOUD_API_WINDOW_MS, assignConversation } from "@csq/core/lib/inbox";
+import { CLOUD_API_WINDOW_MS, assignConversation, findOrCreateConversation } from "@csq/core/lib/inbox";
 import { setConversationStage } from "@csq/core/lib/pipeline";
 import { generateText, isTextLlmConfigured } from "@csq/core/services/llm";
 import { sendEmailWithProvider } from "@csq/core/services/email";
@@ -20,6 +20,7 @@ import type {
   ConversationNewEvent,
   OrderPurchasedEvent,
   ConversationTaggedEvent,
+  ConversationHandoffEvent,
 } from "@csq/core/lib/events";
 import {
   scenarioGraphSchema,
@@ -95,6 +96,21 @@ export function registerScenarioEngine(): void {
         tag_name: e.tagName,
       },
     }).catch((err: unknown) => console.error("[scenario] conversation.tagged trigger threw:", err));
+  });
+
+  events.conversationHandoff.on((e: ConversationHandoffEvent) => {
+    // dedupKey includes the assignee: the same handoff can never double-fire,
+    // but a later transfer to a DIFFERENT human can re-run the scenario.
+    void startRunsForTrigger("ON_HANDOFF", e.tenantId, {
+      dedupKey: `${e.conversationId}:${e.assigneeUserId}`,
+      conversationId: e.conversationId,
+      context: {
+        customer_name: e.customerName ?? "",
+        customer_phone: e.customerPhone ?? "",
+        conversation_id: e.conversationId,
+        assignee_user_id: e.assigneeUserId,
+      },
+    }).catch((err: unknown) => console.error("[scenario] conversation.handoff trigger threw:", err));
   });
 }
 
@@ -439,15 +455,20 @@ async function executeNode(
 
     case "send": {
       const body = interpolate(node.data.body, ctx.context);
+      // Owner request 2026-11-18: optional destination override. `to` is
+      // interpolated first so {{customer_phone}} resolves to the run's
+      // customer; a raw number sends to that number instead.
+      const to = node.data.to ? interpolate(node.data.to, ctx.context).trim() : "";
       const result = await sendScenarioMessage({
         tenantId: ctx.tenantId,
         conversationId: ctx.conversationId,
         body,
+        ...(to ? { to } : {}),
       });
       return {
         kind: "continue",
         nextNodeId: nextOf(ctx.graph, node.id),
-        result: { sent: result.sent, skippedWindow: result.skippedWindow },
+        result: { sent: result.sent, skippedWindow: result.skippedWindow, ...(to ? { to } : {}) },
       };
     }
 
@@ -750,6 +771,10 @@ async function sendScenarioMessage(input: {
   tenantId: string;
   conversationId: string;
   body: string;
+  // Optional destination override (owner request 2026-11-18): a raw phone
+  // number (or a {{tag}} that resolved to one). Empty/absent = the run's
+  // conversation customer.
+  to?: string;
 }): Promise<{ sent: boolean; skippedWindow: boolean }> {
   const conv = await prisma.conversation.findFirst({
     where: { id: input.conversationId, tenantId: input.tenantId },
@@ -769,11 +794,43 @@ async function sendScenarioMessage(input: {
     return { sent: false, skippedWindow: false };
   }
 
+  // Destination resolution: default = the run's conversation. A `to` override
+  // normalizes the number (08xx -> 628xx, same rule as campaigns/JID), then
+  // finds or creates the destination conversation on the same channel so the
+  // message lands in that customer's thread (and its 24h window applies).
+  let targetConversationId = input.conversationId;
+  let targetPhone = conv.customerPhone;
+  if (input.to) {
+    const digits = input.to.replace(/\D/g, "");
+    const normalized = digits.startsWith("0") ? `62${digits.slice(1)}` : digits;
+    if (!normalized) {
+      await logAction({
+        tenantId: input.tenantId,
+        agentId: null,
+        action: "scenario.send_skipped_no_channel",
+        entityType: "Message",
+        entityId: input.conversationId,
+        approvalStatus: "NONE",
+        afterValue: { reason: "Destination number empty after normalization", to: input.to },
+      });
+      return { sent: false, skippedWindow: false };
+    }
+    if (normalized !== conv.customerPhone.replace(/\D/g, "")) {
+      const { conversation: dest } = await findOrCreateConversation(
+        input.tenantId,
+        conv.channelId,
+        normalized
+      );
+      targetConversationId = dest.id;
+    }
+    targetPhone = normalized;
+  }
+
   // Cloud API 24h customer-service window. Out-of-window → skip + audit
   // (never silently drop, never send into a Meta rejection). Baileys bypasses.
   if (conv.channel.provider === "CLOUD_API") {
     const lastInbound = await prisma.message.findFirst({
-      where: { conversationId: input.conversationId, direction: "INBOUND" },
+      where: { conversationId: targetConversationId, direction: "INBOUND" },
       orderBy: { createdAt: "desc" },
     });
     const withinWindow =
@@ -785,9 +842,9 @@ async function sendScenarioMessage(input: {
         agentId: null,
         action: "scenario.send_skipped_window",
         entityType: "Message",
-        entityId: input.conversationId,
+        entityId: targetConversationId,
         approvalStatus: "NONE",
-        customerPhone: conv.customerPhone,
+        customerPhone: targetPhone,
         afterValue: { reason: "24h window closed on Cloud API", body: input.body },
       });
       return { sent: false, skippedWindow: true };
@@ -795,12 +852,12 @@ async function sendScenarioMessage(input: {
   }
 
   const provider = getProvider(conv.channel);
-  const sendResult = await provider.sendText({ to: conv.customerPhone, body: input.body });
+  const sendResult = await provider.sendText({ to: targetPhone, body: input.body });
 
   const message = await prisma.message.create({
     data: {
       tenantId: input.tenantId,
-      conversationId: input.conversationId,
+      conversationId: targetConversationId,
       direction: "OUTBOUND",
       senderType: "SCENARIO",
       body: input.body,
@@ -809,7 +866,7 @@ async function sendScenarioMessage(input: {
   });
 
   await prisma.conversation.update({
-    where: { id: input.conversationId },
+    where: { id: targetConversationId },
     data: { lastMessageAt: new Date() },
   });
 
@@ -820,7 +877,7 @@ async function sendScenarioMessage(input: {
     entityType: "Message",
     entityId: message.id,
     approvalStatus: "NONE",
-    customerPhone: conv.customerPhone,
+    customerPhone: targetPhone,
     afterValue: { body: input.body, waMessageId: sendResult.waMessageId },
   });
 

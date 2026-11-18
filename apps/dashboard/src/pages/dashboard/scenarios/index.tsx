@@ -25,6 +25,7 @@ const TRIGGER_LABEL: Record<ScenarioTriggerType, string> = {
   ON_TAG_ADDED: "Tag ditambahkan",
   ON_SCHEDULE: "Jadwal",
   ON_NO_REPLY: "Tanpa balasan pelanggan",
+  ON_HANDOFF: "Dialihkan ke agen manusia",
 };
 
 const STATUS_LABEL: Record<ScenarioStatus, string> = {

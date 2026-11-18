@@ -2,6 +2,15 @@
 
 Version format: `XX.YY.ZZ` - YY (minor) and ZZ (patch) stay within 0-10; XX (major) may grow beyond. Minor = new feature/behavior change, patch = fix, major = breaking change (schema, API contract, env vars).
 
+## 4.10.0 - 2026-11-18 (branch `monorepo`)
+
+Scenario module additions + inbox template picker (owner request 2026-11-18, PRD 26).
+
+- New scenario trigger `ON_HANDOFF` (Dialihkan ke agen manusia): fires when a chat is transferred to a human - via the AI handoff tool, the dashboard assignment picker, the reply-as-takeover, or the AI-failure escalation. Assigning back to the AI never fires. The worker now registers the scenario engine, so event-bus triggers emitted on Baileys-side code actually fire there (previously silently lost).
+- Kirim Pesan node: new optional Tujuan (`to`) field. Empty = conversation customer (unchanged); a phone number (or a `{{tag}}` resolving to one) sends there instead - normalized, destination conversation find-or-created on the same channel, 24h window checked against the destination thread, message recorded on the destination thread.
+- Inbox chat panel Template dialog: now a dropdown of the tenant's saved templates (Template Pesan page). CSQ templates send their body as a normal reply (24h window applies); META templates keep the out-of-window approved-template path. Previously the operator had to hand-type a Meta-approved template name.
+- Migration `20261118100000_scenario_handoff_trigger` (enum value only).
+
 ## 4.9.1 - 2026-11-18 (branch `monorepo`)
 
 Inbox list buttons (owner request 2026-11-18): the two dead buttons next to "Percakapan" now work.

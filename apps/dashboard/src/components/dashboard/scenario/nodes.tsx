@@ -84,7 +84,9 @@ export const TriggerNode = memo(function TriggerNode({ data, selected }: NodePro
               ? `Tanpa balasan ${
                   typeof data?.noReplyAfterMinutes === "number" ? `${data.noReplyAfterMinutes}m` : "?"
                 }`
-              : "-";
+              : triggerType === "ON_HANDOFF"
+                ? "Dialihkan ke manusia"
+                : "-";
   return (
     <NodeShell type="trigger" selected={selected}>
       <Handle type="target" position={Position.Left} isConnectable={false} />
@@ -96,9 +98,13 @@ export const TriggerNode = memo(function TriggerNode({ data, selected }: NodePro
 
 export const SendNode = memo(function SendNode({ data, selected }: NodeProps) {
   const body = str(data?.body);
+  const to = str(data?.to);
   return (
     <NodeShell type="send" selected={selected}>
       <Handle type="target" position={Position.Left} />
+      {to && (
+        <p className="truncate text-[10px] font-semibold text-blue-700">ke: {to}</p>
+      )}
       <p className="line-clamp-3 break-words text-slate-800">{body || "(pesan kosong)"}</p>
       <Handle type="source" position={Position.Right} />
     </NodeShell>

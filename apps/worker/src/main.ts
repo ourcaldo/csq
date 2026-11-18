@@ -14,6 +14,7 @@ import {
   stopChannelRuntime,
 } from "@csq/core/services/channel-runtime";
 import { shutdownBaileysChannels } from "@csq/core/services/baileys";
+import { registerScenarioEngine } from "@csq/core/lib/scenario-engine";
 
 // Trivial health listener: Render health checks need a listening port, and
 // "is the loop alive" is exactly the question it answers.
@@ -28,6 +29,10 @@ server.listen(port, () => {
 
 startScheduler();
 startChannelRuntime();
+// Scenario engine: Baileys inbound and agent tool calls run in THIS process,
+// so event-bus triggers (ON_NEW_CONVERSATION, ON_HANDOFF, ...) must be
+// subscribed here too or they are silently lost on own-number channels.
+registerScenarioEngine();
 console.log("[worker] runtime up: scheduler + channel commands + outbox drain");
 
 // Runtime heartbeat (PRD 09 alerting). The health listener proves the process

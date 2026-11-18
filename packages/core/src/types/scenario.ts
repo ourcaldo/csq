@@ -18,6 +18,7 @@ export const triggerTypeSchema = z.enum([
   "ON_TAG_ADDED",
   "ON_SCHEDULE",
   "ON_NO_REPLY",
+  "ON_HANDOFF",
 ]);
 export type ScenarioTriggerType = z.infer<typeof triggerTypeSchema>;
 
@@ -79,8 +80,14 @@ export const triggerNodeDataSchema = z.object({
 // Send a WhatsApp message (free text + {{variable}} interpolation). On Cloud
 // API the runtime enforces the 24h customer-service window; out-of-window
 // sends are skipped + audited, never silently dropped or sent into a reject.
+// `to` (owner request 2026-11-18): optional destination override. Empty/absent
+// = the conversation's customer (unchanged). A phone number or a {{tag}} that
+// resolves to one sends there instead - normalized 08xx -> 628xx, a
+// conversation is find-or-created for the destination, and the 24h window is
+// checked against the destination's thread.
 export const sendNodeDataSchema = z.object({
   body: z.string().min(1).max(4096),
+  to: z.string().max(120).optional(),
 });
 
 // Pause the run until resumeAt = now + durationMs. Persisted (not an in-memory
