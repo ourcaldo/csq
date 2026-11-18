@@ -1,6 +1,7 @@
 import type {
   CloudApiConfig,
   ParsedInbound,
+  SendDocumentInput,
   SendImageInput,
   SendTemplateInput,
   SendTextInput,
@@ -197,6 +198,38 @@ export class CloudApiProvider implements WhatsAppProvider {
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       throw new Error(`WhatsApp Cloud API image send failed (${res.status}): ${text}`);
+    }
+    const json: unknown = await res.json();
+    const data = sendTextResponseSchema.parse(json);
+    return { waMessageId: data.messages[0].id };
+  }
+
+  // Document send (PRD 24 amendment 2026-11-18): Meta fetches the public
+  // link server-side, same caching behavior as images. `filename` is what the
+  // customer sees on the bubble; `caption` rides as document text.
+  async sendDocument(input: SendDocumentInput): Promise<SendTextResult> {
+    const url = `https://graph.facebook.com/${GRAPH_API_VERSION}/${this.config.phoneNumberId}/messages`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.config.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: input.to,
+        type: "document",
+        document: {
+          link: input.link,
+          filename: input.filename,
+          ...(input.caption ? { caption: input.caption } : {}),
+        },
+      }),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      throw new Error(`WhatsApp Cloud API document send failed (${res.status}): ${text}`);
     }
     const json: unknown = await res.json();
     const data = sendTextResponseSchema.parse(json);

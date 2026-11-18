@@ -559,9 +559,11 @@ model OutboundMessage {
   body         String?
   templateName String?
   language     String?
-  // Image sends (PRD 24): the MediaAsset to send; `body` becomes the caption.
-  // The worker loads the bytes and sends through the channel's provider.
+  // Image/document sends (PRD 24): the MediaAsset to send; `body` becomes the
+  // caption. The worker loads the bytes and sends through the channel's
+  // provider. `filename` is set for document sends only.
   mediaId      String?
+  filename     String?
   source       OutboundSource
   status       OutboundStatus @default(QUEUED)
   waMessageId  String?
@@ -1048,6 +1050,10 @@ model Message {
   // MediaAsset and are served by apps/api at /api/media/[id]; the inbox
   // renders this as an image instead of a text placeholder.
   mediaId        String?
+  // Document sends (PRD 24 amendment 2026-11-18): set alongside mediaId for
+  // documents - the inbox renders a file card with this name instead of an
+  // image, and it rides to WhatsApp as the bubble filename.
+  filename       String?
   isInternal     Boolean           @default(false)
   createdAt      DateTime          @default(now())
 

@@ -83,9 +83,9 @@ export type ApiOperation = {
   >;
 };
 
-// Outbound messaging API (PRD 24): send a text, an image, or an image with a
-// caption through the tenant's connected channel. `text` becomes the caption
-// when `media` is present.
+// Outbound messaging API (PRD 24): send a text, an image, an image with a
+// caption, or a document through the tenant's connected channel. `text`
+// becomes the caption when `media` is present.
 export const sendMessageRequestSchema = z
   .object({
     to: z
@@ -97,6 +97,15 @@ export const sendMessageRequestSchema = z
     media: z
       .object({
         url: z.string().url().max(2048),
+        // Amendment 2026-11-18: documents. `image` (default) sends an image
+        // message; `document` sends a document and REQUIRES `filename` (the
+        // name the customer sees on the bubble, max 120 chars).
+        kind: z.enum(["image", "document"]).default("image"),
+        filename: z.string().min(1).max(120).optional(),
+      })
+      .refine((m) => m.kind !== "document" || !!m.filename, {
+        message: "filename is required for document media",
+        path: ["filename"],
       })
       .optional(),
     // Required by design (owner decision 2026-11-15): tenants will run
@@ -312,13 +321,13 @@ export const API_OPERATIONS: ApiOperation[] = [
     slug: "messages-send",
     summary: "Send a WhatsApp message",
     description:
-      "Sends a text message, an image, or an image with a caption (text) through the channel named by channelId (required - tenants can run multiple channels). Optional source labels where the lead came from (e.g. \"Placement Test\"); it is stored on the contact and shown on the pipeline card. Recorded in the inbox conversation and audited; the agent keeps owning the conversation (no takeover). On the Cloud API, free-form sends are only allowed within 24 hours of the customer's last inbound message.",
+      "Sends a text message, an image (with optional caption), or a document (media.kind \"document\", filename required) through the channel named by channelId (required - tenants can run multiple channels). Optional source labels where the lead came from (e.g. \"Placement Test\"); it is stored on the contact and shown on the pipeline card. Recorded in the inbox conversation and audited; the agent keeps owning the conversation (no takeover). On the Cloud API, free-form sends are only allowed within 24 hours of the customer's last inbound message.",
     tags: ["Messages"],
     security: "bearer",
     request: sendMessageRequestSchema,
     responses: {
       "200": { description: "Message sent and recorded", data: sendMessageResultSchema },
-      "400": { description: "Invalid payload, or the media URL is not a fetchable image" },
+      "400": { description: "Invalid payload, or the media URL is not fetchable" },
       "401": { description: "Bearer token required" },
       "403": { description: "Service token used, or channel outside your tenant" },
       "409": { description: "No connected WhatsApp channel" },

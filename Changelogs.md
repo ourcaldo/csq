@@ -2,6 +2,16 @@
 
 Version format: `XX.YY.ZZ` - YY (minor) and ZZ (patch) stay within 0-10; XX (major) may grow beyond. Minor = new feature/behavior change, patch = fix, major = breaking change (schema, API contract, env vars).
 
+## 4.11.0 - 2026-11-18 (branch `monorepo`)
+
+Document sends end to end (owner request 2026-11-18, PRD 24 amendment). Images already worked; documents now ride the same paths.
+
+- API `POST /api/v1/messages`: new `media.kind` (`image` default, `document` new) and `media.filename` (required for documents, max 120 chars, no path separators). Document URLs (pdf, doc/docx, xls/xlsx, ppt/pptx, txt) are fetched and stored like images, then sent as a WhatsApp document message with the filename on the customer's bubble.
+- Inbox composer: the paperclip now opens a file picker (images and documents) and sends through the new `POST /api/dashboard/inbox/conversations/[id]/media` route (raw bytes, filename on the query, draft as caption). Document bubbles render as a file card with a download link.
+- Providers: `sendDocument` added to the WhatsAppProvider interface - Cloud API sends `type: "document"` with `link`/`filename`/`caption`; Baileys sends `{ document, mimetype, fileName, caption }` in-process.
+- Worker outbox routes on the stored asset's mime: image/* -> image message, anything else -> document message (needs the new `OutboundMessage.filename` column).
+- Migration `20261118140000_outbound_filename` (`OutboundMessage.filename`, `Message.filename`).
+
 ## 4.10.1 - 2026-11-18 (branch `monorepo`)
 
 Remove reply-as-takeover (owner correction 2026-11-18: the 2026-11-10 rule was recorded as an owner decision in error; the owner never asked for it).

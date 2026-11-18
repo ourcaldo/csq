@@ -248,7 +248,7 @@ Responses carry an \`X-Request-Id\` header. Include it when reporting an issue -
 
 Retry on \`429\`, \`500\`, and network timeouts with exponential backoff and jitter. Do **not** retry \`400\`, \`401\`, \`403\`, or \`404\` - the request or credential must change first. A rotated refresh token (\`401\` on refresh) must never be retried; persist the new token instead.`;
 
-const MESSAGES = `Send a WhatsApp message from your own systems through your tenant's connected channel: a text, an image, or an image with a caption. The message appears in the CSQ inbox thread exactly like a reply typed there.
+const MESSAGES = `Send a WhatsApp message from your own systems through your tenant's connected channel: a text, an image, an image with a caption, or a document. The message appears in the CSQ inbox thread exactly like a reply typed there.
 
 ## Text message
 
@@ -293,6 +293,26 @@ curl -X POST "${API}/api/v1/messages" \\
   }'
 \`\`\`
 
+## Document
+
+Send a PDF or other document file. \`media.kind\` must be \`"document"\` and \`filename\` is required - it is the name the customer sees on the chat bubble.
+
+\`\`\`bash
+curl -X POST "${API}/api/v1/messages" \\
+  -H "Authorization: Bearer $CSQ_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "to": "628123456789",
+    "channelId": "YOUR_CHANNEL_ID",
+    "text": "Ini brosur harga terbaru kami, Kak.",
+    "media": {
+      "kind": "document",
+      "url": "https://cdn.example.com/price-list.pdf",
+      "filename": "price-list.pdf"
+    }
+  }'
+\`\`\`
+
 Response:
 
 \`\`\`json
@@ -313,10 +333,11 @@ Response:
 
 - **At least one of \`text\` / \`media\` is required.** \`text\` max 4096 characters.
 - **\`channelId\` is REQUIRED** - the UUID of the connected channel to send from (tenants can run multiple channels). Copy it from the dashboard's **Saluran** page: the connected-channel card shows a **Channel ID (untuk API)** field with a copy button. A channel outside your tenant gets \`403\`; a disconnected one gets \`409\`.
-- **Media** must be an HTTPS URL pointing at an image (png, jpeg, webp, gif), max 10 MB. It is downloaded and stored on our side before sending.
+- **Image media** (\`media.url\` alone, or \`media.kind: "image"\`) must be an HTTPS URL pointing at an image (png, jpeg, webp, gif), max 10 MB. It is downloaded and stored on our side before sending.
+- **Document media** (\`media.kind: "document"\`) must be an HTTPS URL to a document file (pdf, doc/docx, xls/xlsx, ppt/pptx, txt), max 10 MB, and \`filename\` is required (max 120 chars, no path separators) - the customer sees it as the bubble's file name.
 - **\`source\` (optional, max 80)** labels where the lead came from, e.g. \`"Placement Test"\`. It is stored on the contact and shown on the Pipeline card ("Sumber Lead"). Omit it and a first contact falls back to the API key's name, then \`"API"\`; an existing organic lead keeps its origin. Send the same source on every message from that integration so the label stays stable.
 - **24-hour window (Cloud API):** free-form messages are only allowed within 24 hours of the customer's last message. Outside it the API returns \`422 WINDOW_CLOSED\` - an approved template is required for proactive sends. Baileys channels have no such restriction.
-- **Takeover:** API sends do NOT reassign the conversation or mute the AI - they count as an answer to the customer message they respond to, and the agent keeps owning the chat. (A dashboard reply takes over; the API is automation.)
+- **Takeover:** API sends do NOT reassign the conversation or mute the AI - they count as an answer to the customer message they respond to, and the agent keeps owning the chat. (Dashboard replies never reassign either - assignment changes only through the explicit Ambil alih / Lepas actions.)
 - **Rate limit:** 60 requests per minute per credential.
 - **Audit:** every send is recorded as \`api.message_send\` in the activity log.
 
@@ -324,7 +345,7 @@ Response:
 
 | Status | Code | Meaning |
 | --- | --- | --- |
-| 400 | \`VALIDATION_ERROR\` | Invalid body, or the media URL is not a fetchable image |
+| 400 | \`VALIDATION_ERROR\` | Invalid body, or the media URL is not fetchable |
 | 403 | \`PERMISSION_DENIED\` | Service token used, or channel outside your tenant |
 | 409 | \`NO_CONNECTED_CHANNEL\` | No connected WhatsApp channel |
 | 422 | \`WINDOW_CLOSED\` | 24h window closed (Cloud API) |

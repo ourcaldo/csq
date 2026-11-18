@@ -19,21 +19,25 @@ import {
 } from "@csq/core/lib/api-contract";
 
 // POST /api/v1/messages (PRD 24) - send a WhatsApp message from a tenant's
-// connected channel: text, an image, or an image with a caption (text).
-// Auth: tenant API key or user access JWT (service tokens rejected - they are
-// not tenant-bound). The send rides the same pipeline as a CRM dashboard
-// reply: 24h window check (Cloud API), worker outbox (web processes hold no
-// socket), OUTBOUND Message recorded in the conversation, audit. API sends do
-// NOT take the conversation over - the AI keeps owning it (PRD 24 decision).
+// connected channel: text, an image, an image with a caption, or a document
+// (amendment 2026-11-18). Auth: tenant API key or user access JWT (service
+// tokens rejected - they are not tenant-bound). The send rides the same
+// pipeline as a CRM dashboard reply: 24h window check (Cloud API), worker
+// outbox (web processes hold no socket), OUTBOUND Message recorded in the
+// conversation, audit. API sends do NOT take the conversation over - the AI
+// keeps owning it (PRD 24 decision).
 
 const MAX_MEDIA_BYTES = 10 * 1024 * 1024;
 const MEDIA_TIMEOUT_MS = 15_000;
 
-async function fetchImage(url: string): Promise<{ bytes: Buffer; mimeType: string }> {
+async function fetchMedia(
+  url: string,
+  kind: "image" | "document"
+): Promise<{ bytes: Buffer; mimeType: string }> {
   const res = await fetch(url, { signal: AbortSignal.timeout(MEDIA_TIMEOUT_MS) });
   if (!res.ok) throw new Error(`Media fetch failed (HTTP ${res.status}).`);
   const mimeType = (res.headers.get("content-type") ?? "").split(";")[0].trim();
-  if (!mimeType.startsWith("image/")) {
+  if (kind === "image" && !mimeType.startsWith("image/")) {
     throw new Error("Media URL must point at an image (png, jpeg, webp, gif).");
   }
   const bytes = Buffer.from(await res.arrayBuffer());
@@ -105,13 +109,13 @@ export default async function handler(
     let mediaId: string | undefined;
     if (media) {
       try {
-        const image = await fetchImage(media.url);
+        const fetched = await fetchMedia(media.url, media.kind);
         const asset = await prisma.mediaAsset.create({
           data: {
             tenantId: auth.tenantId,
-            mimeType: image.mimeType,
-            byteSize: image.bytes.length,
-            data: image.bytes,
+            mimeType: fetched.mimeType,
+            byteSize: fetched.bytes.length,
+            data: fetched.bytes,
           },
         });
         mediaId = asset.id;
@@ -184,6 +188,9 @@ export default async function handler(
       to,
       ...(text ? { body: text } : {}),
       ...(mediaId ? { mediaId } : {}),
+      ...(mediaId && media?.kind === "document" && media.filename
+        ? { filename: media.filename }
+        : {}),
       source: "REPLY",
     });
     const sendResult = await awaitOutbound(outboxId);

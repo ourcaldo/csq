@@ -356,6 +356,7 @@ export async function recordOutboundMessage(input: {
   isInternal?: boolean;
   kind?: "TEXT" | "MEDIA";
   mediaId?: string;
+  filename?: string;
 }): Promise<Message> {
   return prisma.message.create({
     data: {
@@ -369,6 +370,7 @@ export async function recordOutboundMessage(input: {
       isInternal: input.isInternal ?? false,
       ...(input.kind ? { kind: input.kind } : {}),
       ...(input.mediaId ? { mediaId: input.mediaId } : {}),
+      ...(input.filename ? { filename: input.filename } : {}),
     },
   });
 }
@@ -448,11 +450,15 @@ export async function assignConversation(
 
 // Send a human reply from the inbox: enforce the 24h window for Cloud API,
 // send via the channel's provider, persist the outbound Message, and audit.
+// With `mediaId` + `filename` set, the reply is a document send: `body`
+// becomes the caption and the Message row is recorded with kind MEDIA.
 export async function sendHumanReply(input: {
   conversationId: string;
   tenantId: string;
   userId: string;
   body: string;
+  mediaId?: string;
+  filename?: string;
 }): Promise<Message> {
   const conv = await prisma.conversation.findFirst({
     where: { id: input.conversationId, tenantId: input.tenantId },
@@ -486,7 +492,9 @@ export async function sendHumanReply(input: {
     tenantId: input.tenantId,
     channelId: conv.channel.id,
     to: conv.customerPhone,
-    body: input.body,
+    ...(input.body ? { body: input.body } : {}),
+    ...(input.mediaId ? { mediaId: input.mediaId } : {}),
+    ...(input.filename ? { filename: input.filename } : {}),
     source: "REPLY",
   });
   const result = await awaitOutbound(outboxId);
@@ -500,6 +508,9 @@ export async function sendHumanReply(input: {
     senderUserId: input.userId,
     body: input.body,
     waMessageId: result.waMessageId ?? undefined,
+    ...(input.mediaId
+      ? { kind: "MEDIA" as const, mediaId: input.mediaId, filename: input.filename }
+      : {}),
   });
 
   await prisma.conversation.update({

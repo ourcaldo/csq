@@ -18,6 +18,7 @@ import {
   ArrowLeft,
   UserCircle,
   Checks,
+  FilePdf,
 } from "@phosphor-icons/react";
 import { cn } from "@csq/ui/lib/utils";
 import { apiFetch, apiSend } from "@/lib/api-client";
@@ -158,9 +159,22 @@ function MessageBubble({
             isScenario || isCampaign ? "msg-scenario" : isAi ? "msg-ai" : "msg-sent"
           )}
         >
-          {/* Outbound media (campaign images): render the real image; the
-              caption rides below it in the same bubble. */}
-          {m.mediaId && (
+          {/* Outbound media: documents render as a file card; images render
+              the real image with the caption below in the same bubble. */}
+          {m.mediaId && m.filename && (
+            <a
+              href={`${mediaBase}/api/media/${m.mediaId}`}
+              target="_blank"
+              rel="noreferrer"
+              className="mb-1 flex items-center gap-2 rounded-md bg-slate-900/5 px-2.5 py-2 hover:bg-slate-900/10"
+            >
+              <FilePdf size={22} className="shrink-0 text-red-500" />
+              <span className="min-w-0 truncate text-xs font-medium text-slate-700">
+                {m.filename}
+              </span>
+            </a>
+          )}
+          {m.mediaId && !m.filename && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={`${mediaBase}/api/media/${m.mediaId}`}
@@ -225,6 +239,8 @@ export function ChatPanel({ conversationId, customerName, customerPhone, aiActiv
   const [templateLang, setTemplateLang] = useState("id");
   const [templateSending, setTemplateSending] = useState(false);
   const [templateError, setTemplateError] = useState<string | null>(null);
+  const [fileSending, setFileSending] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   // First render of a conversation's messages vs a silent background refresh.
   const hadMessagesRef = useRef(false);
@@ -347,6 +363,7 @@ export function ChatPanel({ conversationId, customerName, customerPhone, aiActiv
       waMessageId: null,
       kind: "TEXT",
       mediaId: null,
+      filename: null,
       isInternal: mode === "note",
       createdAt: new Date().toISOString(),
     };
@@ -374,6 +391,45 @@ export function ChatPanel({ conversationId, customerName, customerPhone, aiActiv
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       send();
+    }
+  }
+
+  // Attachment send (PRD 24 amendment 2026-11-18): the picked file is POSTed
+  // raw to the media endpoint with the filename on the query string; the
+  // server stores the MediaAsset and sends through the same pipeline as a
+  // typed reply. The draft, when present, rides as the caption header.
+  async function sendFile(file: File) {
+    if (fileSending) return;
+    setFileSending(true);
+    setSendError(null);
+    try {
+      const caption = draft.trim();
+      const created = await fetch(
+        `/api/dashboard/inbox/conversations/${conversationId}/media?filename=${encodeURIComponent(file.name)}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": file.type || "application/octet-stream",
+            ...(caption ? { "X-Caption": encodeURIComponent(caption) } : {}),
+          },
+          body: file,
+        }
+      ).then((r) => {
+        if (!r.ok) {
+          return r.json().then((data: { error?: { message?: string } }) => {
+            throw new Error(data.error?.message ?? "Gagal mengirim berkas.");
+          });
+        }
+        return r.json();
+      });
+      const message: Message = created.data;
+      setMessages((prev) => [...(prev ?? []), message]);
+      if (caption) setDraft("");
+    } catch (err) {
+      setSendError(err instanceof Error ? err.message : "Gagal mengirim berkas.");
+    } finally {
+      setFileSending(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
 
@@ -572,8 +628,24 @@ export function ChatPanel({ conversationId, customerName, customerPhone, aiActiv
             className="max-h-32 w-full resize-none border-none bg-transparent py-2 text-sm text-slate-700 outline-none placeholder-slate-400 focus:outline-none focus:ring-0"
           />
           <div className="flex shrink-0 gap-1 pb-1">
-            <button className="p-2 text-slate-400 hover:text-slate-600" aria-label="Lampiran">
-              <Paperclip size={20} />
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) void sendFile(file);
+              }}
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={fileSending || mode === "note"}
+              className="p-2 text-slate-400 hover:text-slate-600 disabled:opacity-50"
+              aria-label="Lampiran"
+              title="Kirim gambar atau dokumen"
+            >
+              <Paperclip size={20} className={fileSending ? "animate-pulse" : ""} />
             </button>
             <button
               onClick={send}

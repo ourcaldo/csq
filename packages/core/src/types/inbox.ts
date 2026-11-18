@@ -95,6 +95,9 @@ export type Message = {
   // Outbound media reference (campaign image sends). When present the chat
   // renders the actual image from the api service's /api/media/[id].
   mediaId: string | null;
+  // Document sends (PRD 24 amendment 2026-11-18): alongside mediaId for
+  // documents - the chat renders a file card with this name.
+  filename: string | null;
   isInternal: boolean;
   createdAt: string;
 };

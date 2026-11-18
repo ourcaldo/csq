@@ -164,6 +164,18 @@ export type SendImageInput = {
   caption?: string;
 };
 
+// Document send (PRD 24 amendment 2026-11-18): same shape as images plus a
+// `filename` - the name the customer sees in the chat bubble. Cloud API sends
+// the public `link`; Baileys needs the actual `bytes` in-process.
+export type SendDocumentInput = {
+  to: string;
+  link: string;
+  bytes?: Buffer;
+  mimeType?: string;
+  filename: string;
+  caption?: string;
+};
+
 // Meta's response to POST /messages: { messaging_product, contacts[], messages[{id}] }.
 export const sendTextResponseSchema = z.object({
   messages: z.array(z.object({ id: z.string() })).min(1),
@@ -195,5 +207,6 @@ export interface WhatsAppProvider {
   parseInbound(payload: unknown): ParsedInbound[];
   sendText(input: SendTextInput): Promise<SendTextResult>;
   sendImage(input: SendImageInput): Promise<SendTextResult>;
+  sendDocument(input: SendDocumentInput): Promise<SendTextResult>;
   sendTemplate(input: SendTemplateInput): Promise<SendTextResult>;
 }

@@ -64,10 +64,21 @@ Response `200`:
    window the endpoint returns `422 WINDOW_CLOSED` with a clear message
    (approved templates are out of scope for v1). Baileys has no such
    enforcement, exactly like the dashboard today.
-5. **Send path**: web processes hold no WhatsApp socket, so the send goes
-   through the worker's outbox (the same queue every dashboard reply
-   uses). `OutboundMessage` gains `mediaId`; the worker sends an image
-   (with `body` as caption) or a text.
+ 5. **Send path**: web processes hold no WhatsApp socket, so the send goes
+    through the worker's outbox (the same queue every dashboard reply
+    uses). `OutboundMessage` gains `mediaId`; the worker sends an image
+    (with `body` as caption) or a text.
+    Amendment 2026-11-18 (documents): `media.kind` selects the WhatsApp
+    message type - `image` (default, unchanged) or `document`. A document
+    send REQUIRES `media.filename` (the name on the customer's bubble, max
+    120 chars, no path separators). The worker routes on the stored asset's
+    mime: image/* sends an image message, anything else a document message
+    (filename from the new `OutboundMessage.filename` column). `OutboundMessage`
+    and `Message` gain a `filename` column; a document send is recorded with
+    `kind MEDIA`, `mediaId`, and `filename`, and the inbox renders a file
+    card (download link) instead of an image. The inbox composer's paperclip
+    sends images and documents through the same path
+    (`POST .../conversations/[id]/media`, raw bytes, filename on the query).
 6. **Recording**: the send is recorded as an OUTBOUND message in the
    conversation - `senderType API` (amendment 2026-11-15: the inbox labels
    it "API"; it is not an unnamed human reply), `senderUserId` = the JWT
@@ -105,7 +116,7 @@ Response `200`:
 ## Out of scope (v1)
 
 - Approved templates outside the 24h window (future `template` object).
-- Video, audio, documents, multiple images (images only, one per call).
+- Video, audio, multiple images (documents added 2026-11-18; one media item per call).
 - Scheduling and bulk sends (campaigns own that).
 - Delivery-status webhooks.
 

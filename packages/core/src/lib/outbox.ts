@@ -30,6 +30,7 @@ export async function enqueueOutbound(input: {
   templateName?: string;
   language?: string;
   mediaId?: string;
+  filename?: string;
   source: OutboundSource;
 }): Promise<string> {
   const row = await prisma.outboundMessage.create({
@@ -41,6 +42,7 @@ export async function enqueueOutbound(input: {
       templateName: input.templateName ?? null,
       language: input.language ?? null,
       mediaId: input.mediaId ?? null,
+      filename: input.filename ?? null,
       source: input.source,
     },
     select: { id: true },
@@ -105,19 +107,30 @@ export async function drainOutbox(): Promise<void> {
           const provider = getProvider(channel);
           let result: { waMessageId?: string };
           if (row.mediaId) {
-            // Image send (PRD 24): `body` is the caption when present.
+            // Media send (PRD 24): `body` is the caption when present. The
+            // asset's mime decides the WhatsApp message type - image/* goes as
+            // an image, anything else as a document (filename required).
             const asset = await prisma.mediaAsset.findUnique({
               where: { id: row.mediaId },
               select: { data: true, mimeType: true },
             });
             if (!asset) throw new Error("Media asset not found.");
-            result = await provider.sendImage({
-              to: row.toJid,
-              link: publicMediaUrl(row.mediaId),
-              bytes: Buffer.from(asset.data),
-              mimeType: asset.mimeType,
-              ...(row.body && row.body.length > 0 ? { caption: row.body } : {}),
-            });
+            result = asset.mimeType.startsWith("image/")
+              ? await provider.sendImage({
+                  to: row.toJid,
+                  link: publicMediaUrl(row.mediaId),
+                  bytes: Buffer.from(asset.data),
+                  mimeType: asset.mimeType,
+                  ...(row.body && row.body.length > 0 ? { caption: row.body } : {}),
+                })
+              : await provider.sendDocument({
+                  to: row.toJid,
+                  link: publicMediaUrl(row.mediaId),
+                  bytes: Buffer.from(asset.data),
+                  mimeType: asset.mimeType,
+                  filename: row.filename ?? "document",
+                  ...(row.body && row.body.length > 0 ? { caption: row.body } : {}),
+                });
           } else if (row.templateName) {
             result = await provider.sendTemplate({
               to: row.toJid,

@@ -25,6 +25,7 @@ import type {
   InboundKind,
   ParsedInbound,
   SendImageInput,
+  SendDocumentInput,
   SendTemplateInput,
   SendTextInput,
   SendTextResult,
@@ -759,6 +760,31 @@ export class BaileysProvider implements WhatsAppProvider {
     const sent = await entry.sock.sendMessage(jid, {
       image: input.bytes,
       mimetype: input.mimeType,
+      ...(input.caption ? { caption: input.caption } : {}),
+    });
+    const sentKeySchema = z.object({ key: z.object({ id: z.string() }).optional() });
+    const parsed = sentKeySchema.safeParse(sent);
+    return { waMessageId: parsed.success ? parsed.data.key?.id : undefined };
+  }
+
+  // Document send (PRD 24 amendment 2026-11-18): Baileys sends the bytes
+  // in-process; `fileName` is the name the customer sees on the bubble.
+  async sendDocument(input: SendDocumentInput): Promise<SendTextResult> {
+    const entry = sockets.get(this.channelId);
+    if (!entry || !entry.open) {
+      throw new Error(
+        `Baileys channel ${this.channelId} is not connected. Scan the QR via /api/dashboard/channels/connect first.`
+      );
+    }
+    if (!input.bytes) {
+      throw new Error("Baileys document send requires the document bytes.");
+    }
+    const jid = await this.destination(input.to);
+    console.log(`[baileys:${this.channelId}] sendDocument to=${jid}`);
+    const sent = await entry.sock.sendMessage(jid, {
+      document: input.bytes,
+      mimetype: input.mimeType ?? "application/octet-stream",
+      fileName: input.filename,
       ...(input.caption ? { caption: input.caption } : {}),
     });
     const sentKeySchema = z.object({ key: z.object({ id: z.string() }).optional() });
