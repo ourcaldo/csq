@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="id" class="antialiased">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Saluran — Pengaturan Kanal WhatsApp</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
+          mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        }
+      }
+    }
+  }
+</script>
+<style>
+  body {
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+
+  /* Subtle custom scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+  ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+  /* Smooth modal transitions */
+  .modal-backdrop {
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(2px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.16s ease-out;
+  }
+  .modal-backdrop.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .modal-panel {
+    transform: scale(0.97) translateY(6px);
+    transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .modal-backdrop.open .modal-panel {
+    transform: scale(1) translateY(0);
+  }
+</style>
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-900 pb-20">
+
+  <!-- ══ Top Contextual SaaS Navigation Bar ══ -->
+  <header class="sticky top-0 z-30 border-b border-slate-200/90 bg-white/85 backdrop-blur-md">
+    <div class="mx-auto flex h-14 max-w-5xl items-center justify-between px-4 sm:px-6">
+      <nav aria-label="Breadcrumb" class="flex items-center gap-2 text-sm">
+        <span class="font-medium text-slate-400">Pengaturan</span>
+        <i class="ph ph-caret-right text-xs text-slate-400"></i>
+        <span class="font-semibold text-slate-900">Saluran</span>
+      </nav>
+      <div class="flex items-center gap-3">
+        <div class="hidden items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 sm:flex">
+          <span class="h-1.5 w-1.5 rounded-full bg-green-600"></span>
+          <span class="tabular-nums">2 / 5</span> Kursi Aktif
+        </div>
+        <button onclick="showToast('Membuka dokumentasi integrasi WhatsApp...')"
+          class="inline-flex items-center gap-1 text-xs font-medium text-slate-500 transition hover:text-slate-900">
+          <span>Dokumentasi</span>
+          <i class="ph ph-arrow-up-right"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-5xl px-4 pt-8 sm:px-6">
+
+    <!-- ══ Page Header ══ -->
+    <div class="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+      <div>
+        <h1 class="text-2xl font-bold tracking-tight text-slate-900">Saluran</h1>
+        <p class="mt-1 text-sm text-slate-500">
+          Sambungkan satu atau lebih nomor WhatsApp. Setiap saluran punya percakapan dan agent tersendiri.
+        </p>
+      </div>
+      <button onclick="openModal('add-modal')"
+        class="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700 active:scale-[0.99]">
+        <i class="ph-bold ph-plus text-sm"></i>
+        <span>Tambah Saluran</span>
+      </button>
+    </div>
+
+    <!-- ══ Collapsible Global Webhook Panel ══ -->
+    <section class="mb-8 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+      <button onclick="toggleWebhook()"
+        class="flex w-full items-center justify-between px-5 py-3.5 text-left transition hover:bg-slate-50/80">
+        <div class="flex items-center gap-3">
+          <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-green-50 text-green-600">
+            <i class="ph ph-plugs-connected text-lg"></i>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <h2 class="text-sm font-semibold text-slate-900">Setelan Webhook Meta</h2>
+            <span class="rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">
+              sekali untuk semua nomor
+            </span>
+          </div>
+        </div>
+        <div class="flex items-center gap-1.5 text-xs font-medium text-slate-500">
+          <span id="webhook-toggle-label" class="hidden sm:inline">Sembunyikan</span>
+          <i id="webhook-chevron" class="ph ph-caret-up text-sm transition-transform duration-200"></i>
+        </div>
+      </button>
+
+      <div id="webhook-body" class="border-t border-slate-100 bg-slate-50/40 px-5 py-4">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <!-- Callback URL -->
+          <div>
+            <div class="mb-1.5 flex items-center justify-between">
+              <label class="text-xs font-medium text-slate-600">Callback URL</label>
+              <span class="text-[11px] text-slate-400">Endpoint HTTPS</span>
+            </div>
+            <div class="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 transition focus-within:border-slate-400">
+              <code id="callback-url" class="truncate font-mono text-xs text-slate-700 select-all">https://csq-api.onrender.com/api/webhooks/whatsapp</code>
+              <button onclick="copyText('callback-url', this)"
+                class="ml-2 inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                title="Salin Callback URL">
+                <i class="ph ph-copy text-sm"></i>
+                <span>Salin</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Verify Token -->
+          <div>
+            <div class="mb-1.5 flex items-center justify-between">
+              <label class="text-xs font-medium text-slate-600">Verify Token</label>
+              <span class="text-[11px] text-slate-400">Token Statis</span>
+            </div>
+            <div class="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 transition focus-within:border-slate-400">
+              <code id="verify-token" class="truncate font-mono text-xs text-slate-700 select-all">csq-app-verify-token-nov18</code>
+              <button onclick="copyText('verify-token', this)"
+                class="ml-2 inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+                title="Salin Verify Token">
+                <i class="ph ph-copy text-sm"></i>
+                <span>Salin</span>
+              </button>
+            </div>
+          </div>
+        </div>
+        <p class="mt-3 flex items-start gap-1.5 text-xs text-slate-500">
+          <i class="ph ph-info mt-0.5 shrink-0 text-slate-400"></i>
+          <span>Tempel kedua nilai ini di <strong>Meta App Manager (WhatsApp &gt; Configuration)</strong>. Tidak berubah saat menambah atau memutus saluran.</span>
+        </p>
+      </div>
+    </section>
+
+    <!-- ══ Filter Tabs & Search Bar ══ -->
+    <div class="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+      <div class="inline-flex rounded-lg border border-slate-200 bg-slate-200/60 p-0.5 text-xs font-medium">
+        <button onclick="filterChannels('all', this)" class="tab-btn rounded-md bg-white px-3 py-1.5 text-slate-900 shadow-sm">
+          Semua <span class="ml-1 tabular-nums text-slate-400">2</span>
+        </button>
+        <button onclick="filterChannels('connected', this)" class="tab-btn rounded-md px-3 py-1.5 text-slate-600 hover:text-slate-900">
+          Terhubung <span class="ml-1 tabular-nums text-slate-400">1</span>
+        </button>
+        <button onclick="filterChannels('disconnected', this)" class="tab-btn rounded-md px-3 py-1.5 text-slate-600 hover:text-slate-900">
+          Terputus <span class="ml-1 tabular-nums text-slate-400">1</span>
+        </button>
+      </div>
+
+      <div class="relative w-full sm:w-64">
+        <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400"></i>
+        <input type="text" id="channel-search" oninput="searchChannels(this.value)" placeholder="Cari nama atau nomor..."
+          class="w-full rounded-lg border border-slate-200 bg-white py-1.5 pl-8 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none" />
+      </div>
+    </div>
+
+    <!-- ══ Channel List ══ -->
+    <div id="channel-list" class="space-y-3">
+
+      <!-- Card 1: Connected Cloud API -->
+      <div data-status="connected" data-search="sales utama +62 812-9009-8999 1277448755459529"
+        class="channel-card rounded-xl border border-slate-200 bg-white shadow-sm transition hover:border-slate-300" id="card-1">
+        <div class="p-5">
+          <div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+            <!-- Left: Identity & Metadata -->
+            <div class="flex items-start gap-3.5">
+              <div class="relative mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                <i class="ph ph-cloud-arrow-up text-xl"></i>
+                <span class="absolute -bottom-0.5 -right-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-white">
+                  <span class="h-2 w-2 rounded-full bg-green-600"></span>
+                </span>
+              </div>
+              <div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="text-sm font-semibold text-slate-900">Sales Utama</span>
+                  <span class="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-semibold text-green-700">
+                    <span class="h-1.5 w-1.5 rounded-full bg-green-600"></span>
+                    Terhubung
+                  </span>
+                  <span class="rounded bg-blue-50 px-1.5 py-0.5 text-[11px] font-medium text-blue-700">
+                    Resmi
+                  </span>
+                </div>
+                <div class="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-slate-500">
+                  <span class="font-mono font-medium text-slate-700 tabular-nums">+62 812-9009-8999</span>
+                  <span class="text-slate-300">&bull;</span>
+                  <span class="font-mono text-[11px] text-slate-400 tabular-nums">ID 1277448755459529</span>
+                  <span class="text-slate-300">&bull;</span>
+                  <span class="inline-flex items-center gap-1 text-slate-600">
+                    <i class="ph ph-robot text-slate-400"></i> Customer Service Agent
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right: Clean Primary Actions + Overflow Menu -->
+            <div class="flex items-center gap-2 self-end md:self-center">
+              <button onclick="toggleTest('test-1')"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50">
+                <i class="ph ph-paper-plane-tilt text-slate-500"></i>
+                <span>Kirim Test</span>
+              </button>
+              <button onclick="openModal('edit-modal')"
+                class="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50">
+                <i class="ph ph-pencil-simple text-slate-500"></i>
+                <span>Edit Kredensial</span>
+              </button>
+
+              <!-- Overflow Dropdown -->
+              <div class="relative">
+                <button onclick="toggleMenu('menu-1', event)"
+                  class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
+                  aria-label="Opsi saluran">
+                  <i class="ph ph-dots-three-vertical text-base"></i>
+                </button>
+                <div id="menu-1" class="dropdown-menu absolute right-0 z-20 mt-1.5 hidden w-44 origin-top-right rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                  <button onclick="openModal('disconnect-modal')"
+                    class="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50">
+                    <i class="ph ph-plugs text-sm text-slate-500"></i> Putuskan
+                  </button>
+                  <button onclick="openModal('archive-modal')"
+                    class="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50">
+                    <i class="ph ph-archive text-sm text-slate-500"></i> Arsipkan
+                  </button>
+                  <div class="my-1 border-t border-slate-100"></div>
+                  <button onclick="openModal('delete-modal')"
+                    class="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-red-600 hover:bg-red-50">
+                    <i class="ph ph-trash text-sm"></i> Hapus Permanen
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Inline Test Row -->
+          <div id="test-1" class="mt-4 hidden border-t border-slate-100 pt-3.5">
+            <div class="flex flex-col justify-between gap-2.5 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center">
+              <div class="flex flex-1 items-center gap-2.5">
+                <span class="shrink-0 text-xs font-medium text-slate-600">Nomor tujuan:</span>
+                <input id="test-phone-1" type="tel" placeholder="mis. 6281290088999"
+                  class="w-full max-w-xs rounded-lg border border-slate-200 bg-white px-3 py-1.5 font-mono text-xs text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none" />
+              </div>
+              <div class="flex items-center justify-end gap-2">
+                <button onclick="toggleTest('test-1')"
+                  class="rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-800">
+                  Batal
+                </button>
+                <button onclick="sendTestMessage('test-phone-1', 'test-1')"
+                  class="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700">
+                  <i class="ph ph-paper-plane-right"></i> Kirim
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2: Disconnected Baileys -->
+      <div data-status="disconnected" data-search="support pribadi +62 857-1234-5678 qr pairing"
+        class="channel-card rounded-xl border border-slate-200 bg-white shadow-sm transition hover:border-slate-300">
+        <div class="p-5">
+          <div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+            <!-- Left: Identity & Metadata -->
+            <div class="flex items-start gap-3.5">
+              <div class="relative mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-green-50 text-green-600">
+                <i class="ph ph-whatsapp-logo text-xl"></i>
+                <span class="absolute -bottom-0.5 -right-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-white">
+                  <span class="h-2 w-2 rounded-full bg-slate-400"></span>
+                </span>
+              </div>
+              <div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="text-sm font-semibold text-slate-900">Support Pribadi</span>
+                  <span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                    <span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span>
+                    Terputus
+                  </span>
+                  <span class="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">
+                    Pribadi
+                  </span>
+                </div>
+                <div class="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-slate-500">
+                  <span class="font-mono font-medium text-slate-700 tabular-nums">+62 857-1234-5678</span>
+                  <span class="text-slate-300">&bull;</span>
+                  <span>QR pairing</span>
+                  <span class="text-slate-300">&bull;</span>
+                  <span class="inline-flex items-center gap-1 text-slate-600">
+                    <i class="ph ph-robot text-slate-400"></i> Customer Service Agent
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right: Clean Primary Action + Overflow Menu -->
+            <div class="flex items-center gap-2 self-end md:self-center">
+              <button onclick="openModal('qr-modal')"
+                class="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-green-700">
+                <i class="ph ph-qr-code"></i>
+                <span>Sambungkan</span>
+              </button>
+
+              <!-- Overflow Dropdown -->
+              <div class="relative">
+                <button onclick="toggleMenu('menu-2', event)"
+                  class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
+                  aria-label="Opsi saluran">
+                  <i class="ph ph-dots-three-vertical text-base"></i>
+                </button>
+                <div id="menu-2" class="dropdown-menu absolute right-0 z-20 mt-1.5 hidden w-44 origin-top-right rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                  <button onclick="openModal('archive-modal')"
+                    class="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50">
+                    <i class="ph ph-archive text-sm text-slate-500"></i> Arsipkan
+                  </button>
+                  <div class="my-1 border-t border-slate-100"></div>
+                  <button onclick="openModal('delete-modal')"
+                    class="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-red-600 hover:bg-red-50">
+                    <i class="ph ph-trash text-sm"></i> Hapus
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Empty Filter State -->
+      <div id="empty-state" class="hidden rounded-xl border border-dashed border-slate-300 bg-white py-12 text-center">
+        <div class="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+          <i class="ph ph-tray text-xl"></i>
+        </div>
+        <p class="mt-3 text-sm font-semibold text-slate-900">Tidak ada saluran ditemukan</p>
+        <p class="mt-1 text-xs text-slate-500">Coba ubah filter status atau kata kunci pencarian Anda.</p>
+      </div>
+    </div>
+
+    <!-- Footer Note -->
+    <p class="mt-5 flex items-start gap-1.5 text-xs text-slate-400">
+      <i class="ph ph-info mt-0.5 shrink-0"></i>
+      <span>Arsip menyembunyikan saluran tanpa menghapus data. Hapus menghapus saluran beserta seluruh percakapannya secara permanen.</span>
+    </p>
+  </main>
+
+  <!-- ═══════════ Modals ═══════════ -->
+
+  <!-- Tambah Saluran -->
+  <div id="add-modal" class="modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="modal-panel w-full max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+      <div class="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+        <div>
+          <h3 id="add-modal-title" class="text-base font-semibold text-slate-900">Tambah Saluran</h3>
+          <p id="add-modal-subtitle" class="text-xs text-slate-500">Pilih jenis koneksi nomor WhatsApp Anda</p>
+        </div>
+        <button onclick="closeModals()" class="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+          <i class="ph ph-x text-lg"></i>
+        </button>
+      </div>
+
+      <div class="p-6">
+        <!-- Step 1: provider choice -->
+        <div id="add-step-1" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <button onclick="addStep(2)"
+            class="group flex flex-col justify-between rounded-xl border-2 border-slate-200 p-5 text-left transition hover:border-green-500 hover:bg-slate-50/40">
+            <div>
+              <div class="mb-3 flex items-center justify-between">
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                  <i class="ph ph-cloud-arrow-up text-xl"></i>
+                </div>
+                <span class="rounded bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-700">Resmi</span>
+              </div>
+              <p class="font-semibold text-slate-900">WhatsApp Resmi</p>
+              <p class="mt-1 text-xs leading-relaxed text-slate-500">Via Meta Cloud API. Resmi, patuh ToS, cocok untuk nomor bisnis.</p>
+            </div>
+            <div class="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-green-600">
+              <span>Lanjutkan</span>
+              <i class="ph ph-arrow-right transition-transform group-hover:translate-x-0.5"></i>
+            </div>
+          </button>
+
+          <button onclick="addStep(3)"
+            class="group flex flex-col justify-between rounded-xl border-2 border-slate-200 p-5 text-left transition hover:border-green-500 hover:bg-slate-50/40">
+            <div>
+              <div class="mb-3 flex items-center justify-between">
+                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-green-50 text-green-600">
+                  <i class="ph ph-whatsapp-logo text-xl"></i>
+                </div>
+                <span class="rounded bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">QR Pairing</span>
+              </div>
+              <p class="font-semibold text-slate-900">Bawa Nomor Sendiri</p>
+              <p class="mt-1 text-xs leading-relaxed text-slate-500">Pindai QR dari aplikasi WhatsApp. Aktif dalam hitungan menit.</p>
+            </div>
+            <div class="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-green-600">
+              <span>Lanjutkan</span>
+              <i class="ph ph-arrow-right transition-transform group-hover:translate-x-0.5"></i>
+            </div>
+          </button>
+        </div>
+
+        <!-- Step 2: Cloud API form -->
+        <div id="add-step-2" class="hidden space-y-3.5">
+          <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+            <div>
+              <label class="text-xs font-medium text-slate-600">Nama saluran</label>
+              <input placeholder="mis. Sales Utama" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none" />
+            </div>
+            <div>
+              <label class="text-xs font-medium text-slate-600">Agent</label>
+              <select class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-slate-400 focus:outline-none">
+                <option>Customer Service Agent</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label class="text-xs font-medium text-slate-600">Phone Number ID</label>
+            <input placeholder="103xxxxxxxxxx" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-mono text-sm focus:border-slate-400 focus:outline-none" />
+          </div>
+          <div>
+            <label class="text-xs font-medium text-slate-600">Access Token</label>
+            <input type="password" placeholder="EAAG..." class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-mono text-sm focus:border-slate-400 focus:outline-none" />
+          </div>
+          <div>
+            <label class="text-xs font-medium text-slate-600">App Secret (opsional)</label>
+            <input type="password" placeholder="••••••••••••" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-mono text-sm focus:border-slate-400 focus:outline-none" />
+          </div>
+          <p class="flex items-start gap-2 rounded-lg bg-slate-50 p-2.5 text-xs text-slate-600">
+            <i class="ph-fill ph-check-circle mt-0.5 shrink-0 text-green-600"></i>
+            <span>Nomor diverifikasi ke Meta saat menyambungkan — ID yang salah langsung ditolak.</span>
+          </p>
+          <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
+            <button onclick="addStep(1)" class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Kembali</button>
+            <button onclick="closeModals(); showToast('Saluran WhatsApp Resmi berhasil disambungkan.');"
+              class="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700">Sambungkan</button>
+          </div>
+        </div>
+
+        <!-- Step 3: Baileys QR -->
+        <div id="add-step-3" class="hidden space-y-3.5">
+          <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+            <div>
+              <label class="text-xs font-medium text-slate-600">Nama saluran</label>
+              <input placeholder="mis. Support Pribadi" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none" />
+            </div>
+            <div>
+              <label class="text-xs font-medium text-slate-600">Agent</label>
+              <select class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-slate-400 focus:outline-none">
+                <option>Customer Service Agent</option>
+              </select>
+            </div>
+          </div>
+          <p class="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-700">
+            <i class="ph-fill ph-warning mt-0.5 shrink-0"></i>
+            <span>Metode tidak resmi — nomor berisiko diblokir WhatsApp. Gunakan nomor bisnis khusus.</span>
+          </p>
+          <div class="flex flex-col items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:flex-row">
+            <div class="flex h-28 w-28 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-300 shadow-inner">
+              <i class="ph ph-qr-code text-5xl"></i>
+            </div>
+            <p class="text-xs leading-relaxed text-slate-600">
+              Klik <strong>"Tampilkan QR"</strong>, lalu pindai dari <strong>WhatsApp &gt; Tautkan perangkat</strong>. QR tampil di sini dan diperbarui otomatis.
+            </p>
+          </div>
+          <label class="flex cursor-pointer items-center gap-2 text-xs text-slate-600">
+            <input type="checkbox" class="rounded border-slate-300 text-green-600 focus:ring-green-600" />
+            <span>Saya menyetujui ketentuan layanan untuk nomor pribadi.</span>
+          </label>
+          <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
+            <button onclick="addStep(1)" class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Kembali</button>
+            <button onclick="showToast('Memuat kode QR...')" class="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700">Tampilkan QR</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Kredensial -->
+  <div id="edit-modal" class="modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="modal-panel w-full max-w-lg overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+      <div class="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+        <h3 class="text-base font-semibold text-slate-900">Edit Kredensial — Sales Utama</h3>
+        <button onclick="closeModals()" class="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+          <i class="ph ph-x text-lg"></i>
+        </button>
+      </div>
+      <div class="space-y-3.5 p-6">
+        <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+          <div>
+            <label class="text-xs font-medium text-slate-600">Nama saluran</label>
+            <input value="Sales Utama" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none" />
+          </div>
+          <div>
+            <label class="text-xs font-medium text-slate-600">Agent</label>
+            <select class="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm focus:border-slate-400 focus:outline-none">
+              <option selected>Customer Service Agent</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="text-xs font-medium text-slate-600">Phone Number ID</label>
+          <input value="1277448755459529" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-mono text-sm focus:border-slate-400 focus:outline-none" />
+        </div>
+        <div>
+          <label class="text-xs font-medium text-slate-600">Access Token</label>
+          <input type="password" placeholder="Masukkan ulang token" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-mono text-sm focus:border-slate-400 focus:outline-none" />
+        </div>
+        <div>
+          <label class="text-xs font-medium text-slate-600">App Secret (opsional)</label>
+          <input type="password" placeholder="••••••••••••" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 font-mono text-sm focus:border-slate-400 focus:outline-none" />
+        </div>
+        <p class="text-xs text-slate-400">Nomor diverifikasi ulang ke Meta saat disimpan.</p>
+        <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
+          <button onclick="closeModals()" class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Batal</button>
+          <button onclick="closeModals(); showToast('Kredensial berhasil diperbarui.');" class="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700">Simpan</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- QR pairing (reconnect Baileys) -->
+  <div id="qr-modal" class="modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="modal-panel w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+      <div class="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+        <h3 class="text-base font-semibold text-slate-900">Sambungkan — Support Pribadi</h3>
+        <button onclick="closeModals()" class="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+          <i class="ph ph-x text-lg"></i>
+        </button>
+      </div>
+      <div class="flex flex-col items-center gap-4 p-6 text-center">
+        <div class="flex h-44 w-44 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-300">
+          <i class="ph ph-qr-code" style="font-size: 72px;"></i>
+        </div>
+        <p class="text-xs leading-relaxed text-slate-500">
+          Buka <strong>WhatsApp &gt; Tautkan perangkat</strong>, lalu pindai QR ini. Status diperbarui otomatis.
+        </p>
+        <button onclick="showToast('Memuat kode QR...')" class="w-full rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700">
+          Tampilkan QR
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hapus (confirm) -->
+  <div id="delete-modal" class="modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="modal-panel w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+      <div class="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-red-50 text-red-600">
+        <i class="ph ph-warning text-2xl"></i>
+      </div>
+      <h3 class="text-base font-semibold text-slate-900">Hapus saluran "Support Pribadi"?</h3>
+      <p class="mt-2 text-sm leading-relaxed text-slate-500">
+        Semua percakapan, pesan, dan kampanye di saluran ini ikut terhapus <strong>permanen</strong> dan tidak bisa dikembalikan.
+        Jika hanya ingin menyembunyikannya tanpa menghapus data, gunakan <strong>Arsipkan</strong>.
+      </p>
+      <div class="mt-6 flex justify-end gap-2">
+        <button onclick="closeModals()" class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Batal</button>
+        <button onclick="closeModals(); showToast('Saluran telah dihapus permanen.');" class="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">Ya, Hapus Permanen</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Arsipkan (confirm ringan) -->
+  <div id="archive-modal" class="modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="modal-panel w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+      <h3 class="text-base font-semibold text-slate-900">Arsipkan "Support Pribadi"?</h3>
+      <p class="mt-2 text-sm leading-relaxed text-slate-500">
+        Saluran disembunyikan dari daftar, data percakapan tetap tersimpan, dan kursi paket terbebaskan. Bisa dipulihkan oleh admin.
+      </p>
+      <div class="mt-6 flex justify-end gap-2">
+        <button onclick="closeModals()" class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Batal</button>
+        <button onclick="closeModals(); showToast('Saluran diarsipkan.');" class="rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-900">Arsipkan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Putuskan (confirm ringan) -->
+  <div id="disconnect-modal" class="modal-backdrop fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="modal-panel w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+      <h3 class="text-base font-semibold text-slate-900">Putuskan "Sales Utama"?</h3>
+      <p class="mt-2 text-sm leading-relaxed text-slate-500">
+        Saluran berhenti mengirim dan menerima pesan sampai disambungkan kembali. Percakapan tersimpan.
+      </p>
+      <div class="mt-6 flex justify-end gap-2">
+        <button onclick="closeModals()" class="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Batal</button>
+        <button onclick="closeModals(); showToast('Saluran diputuskan.');" class="rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-900">Putuskan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Non-blocking Toast Notification -->
+  <div id="toast" class="pointer-events-none fixed bottom-5 right-5 z-50 flex translate-y-3 items-center gap-2 rounded-lg bg-slate-900 px-3.5 py-2.5 text-xs font-medium text-white opacity-0 shadow-lg transition-all duration-200">
+    <i class="ph-fill ph-check-circle text-sm text-green-400"></i>
+    <span id="toast-msg">Berhasil disalin</span>
+  </div>
+
+<script>
+  function openModal(id) {
+    closeDropdowns();
+    closeModals();
+    const m = document.getElementById(id);
+    m.classList.add('open');
+    if (id === 'add-modal') addStep(1);
+  }
+
+  function closeModals() {
+    document.querySelectorAll('.modal-backdrop').forEach((m) => m.classList.remove('open'));
+  }
+
+  function addStep(n) {
+    const headers = {
+      1: ['Tambah Saluran', 'Pilih jenis koneksi nomor WhatsApp Anda'],
+      2: ['WhatsApp Resmi (Meta Cloud API)', 'Masukkan kredensial dari Meta App Dashboard'],
+      3: ['Bawa Nomor Sendiri (QR Pairing)', 'Pindai kode QR dari aplikasi WhatsApp']
+    };
+    document.getElementById('add-modal-title').textContent = headers[n][0];
+    document.getElementById('add-modal-subtitle').textContent = headers[n][1];
+
+    [1, 2, 3].forEach((s) => {
+      document.getElementById('add-step-' + s).classList.toggle('hidden', s !== n);
+    });
+  }
+
+  // Collapsible webhook panel
+  let webhookOpen = true;
+  function toggleWebhook() {
+    webhookOpen = !webhookOpen;
+    document.getElementById('webhook-body').classList.toggle('hidden', !webhookOpen);
+    document.getElementById('webhook-toggle-label').textContent = webhookOpen ? 'Sembunyikan' : 'Tampilkan';
+    document.getElementById('webhook-chevron').style.transform = webhookOpen ? 'rotate(0deg)' : 'rotate(180deg)';
+  }
+
+  // Copy helper (iFrame-safe fallback + clipboard API)
+  function copyText(elementId, btn) {
+    const text = document.getElementById(elementId).textContent;
+    const tempInput = document.createElement('textarea');
+    tempInput.value = text;
+    document.body.appendChild(tempInput);
+    tempInput.select();
+    document.execCommand('copy');
+    document.body.removeChild(tempInput);
+
+    const original = btn.innerHTML;
+    btn.innerHTML = '<i class="ph-bold ph-check text-green-600 text-sm"></i><span class="text-green-600">Tersalin</span>';
+    showToast('Disalin ke clipboard');
+    setTimeout(() => { btn.innerHTML = original; }, 1800);
+  }
+
+  function toggleTest(id) {
+    document.getElementById(id).classList.toggle('hidden');
+  }
+
+  function sendTestMessage(inputId, drawerId) {
+    const val = document.getElementById(inputId).value.trim();
+    if (!val) {
+      showToast('Masukkan nomor tujuan terlebih dahulu');
+      return;
+    }
+    showToast('Pesan test dikirim ke ' + val);
+    document.getElementById(inputId).value = '';
+    document.getElementById(drawerId).classList.add('hidden');
+  }
+
+  // Contextual dropdown menu
+  function toggleMenu(id, e) {
+    e.stopPropagation();
+    const menu = document.getElementById(id);
+    const isHidden = menu.classList.contains('hidden');
+    closeDropdowns();
+    if (isHidden) menu.classList.remove('hidden');
+  }
+
+  function closeDropdowns() {
+    document.querySelectorAll('.dropdown-menu').forEach((m) => m.classList.add('hidden'));
+  }
+
+  // Filter & Search
+  let currentFilter = 'all';
+  let currentSearch = '';
+
+  function filterChannels(status, btn) {
+    currentFilter = status;
+    document.querySelectorAll('.tab-btn').forEach((b) => {
+      b.classList.remove('bg-white', 'text-slate-900', 'shadow-sm');
+      b.classList.add('text-slate-600');
+    });
+    btn.classList.add('bg-white', 'text-slate-900', 'shadow-sm');
+    btn.classList.remove('text-slate-600');
+    applyFilters();
+  }
+
+  function searchChannels(query) {
+    currentSearch = query.toLowerCase().trim();
+    applyFilters();
+  }
+
+  function applyFilters() {
+    const cards = document.querySelectorAll('.channel-card');
+    let visible = 0;
+    cards.forEach((card) => {
+      const status = card.getAttribute('data-status');
+      const search = card.getAttribute('data-search');
+      const matchStatus = currentFilter === 'all' || status === currentFilter;
+      const matchSearch = !currentSearch || search.includes(currentSearch);
+      if (matchStatus && matchSearch) {
+        card.classList.remove('hidden');
+        visible++;
+      } else {
+        card.classList.add('hidden');
+      }
+    });
+    document.getElementById('empty-state').classList.toggle('hidden', visible > 0);
+  }
+
+  let toastTimer;
+  function showToast(msg) {
+    const toast = document.getElementById('toast');
+    document.getElementById('toast-msg').textContent = msg;
+    toast.classList.remove('opacity-0', 'translate-y-3');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      toast.classList.add('opacity-0', 'translate-y-3');
+    }, 2400);
+  }
+
+  document.addEventListener('click', closeDropdowns);
+  document.querySelectorAll('.modal-backdrop').forEach((m) => {
+    m.addEventListener('click', (e) => { if (e.target === m) closeModals(); });
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeModals();
+      closeDropdowns();
+    }
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mockup: Saluran - Layout Baru</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<style>
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .modal-backdrop { background: rgba(15, 23, 42, 0.45); }
+</style>
+</head>
+<body class="bg-slate-100 text-slate-900">
+
+<div class="mx-auto max-w-4xl px-4 py-8">
+
+  <!-- ══ Header ══ -->
+  <div class="mb-6 flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <h1 class="text-2xl font-bold">Saluran</h1>
+      <p class="mt-1 text-sm text-slate-500">
+        Sambungkan satu atau lebih nomor WhatsApp. Setiap saluran punya percakapan dan agent sendiri.
+      </p>
+    </div>
+    <button onclick="openModal('add-modal')"
+      class="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-green-700">
+      <i class="ph ph-plus text-base"></i> Tambah Saluran
+    </button>
+  </div>
+
+  <!-- ══ Webhook panel (app-level, sekali untuk semua nomor) ══ -->
+  <div class="mb-6 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div class="mb-3 flex items-center gap-2">
+      <i class="ph ph-plugs-connected text-lg text-green-600"></i>
+      <h2 class="text-sm font-semibold">Setelan Webhook Meta</h2>
+      <span class="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500">sekali untuk semua nomor</span>
+    </div>
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div>
+        <p class="text-xs font-medium text-slate-500">Callback URL</p>
+        <div class="mt-1 flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+          <span class="truncate font-mono text-xs text-slate-700">https://csq-api.onrender.com/api/webhooks/whatsapp</span>
+          <button class="ml-auto shrink-0 text-slate-400 hover:text-slate-600" title="Salin"><i class="ph ph-copy"></i></button>
+        </div>
+      </div>
+      <div>
+        <p class="text-xs font-medium text-slate-500">Verify Token</p>
+        <div class="mt-1 flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+          <span class="truncate font-mono text-xs text-slate-700">csq-app-verify-token-nov18</span>
+          <button class="ml-auto shrink-0 text-slate-400 hover:text-slate-600" title="Salin"><i class="ph ph-copy"></i></button>
+        </div>
+      </div>
+    </div>
+    <p class="mt-3 text-xs text-slate-400">Tempel kedua nilai ini di Meta App Manager (WhatsApp &gt; Configuration). Tidak berubah saat menambah atau memutus saluran.</p>
+  </div>
+
+  <!-- ══ Channel list ══ -->
+  <h2 class="mb-3 text-sm font-semibold text-slate-700">Saluran Anda (2)</h2>
+
+  <!-- Card 1: connected Cloud API -->
+  <div class="mb-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm" id="card-1">
+    <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div class="flex items-center gap-3">
+        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+          <i class="ph ph-cloud-arrow-up text-xl"></i>
+        </div>
+        <div>
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="font-semibold">Sales Utama</span>
+            <span class="rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-semibold text-green-700">Terhubung</span>
+            <span class="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700">Resmi</span>
+          </div>
+          <p class="mt-0.5 text-xs text-slate-500">+62 812-9009-8999 &middot; ID 1277448755459529</p>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <button onclick="toggleTest('test-1')"
+          class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">
+          <i class="ph ph-paper-plane-tilt"></i> Kirim Test
+        </button>
+        <button onclick="openModal('edit-modal')"
+          class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">
+          <i class="ph ph-pencil-simple"></i> Edit Kredensial
+        </button>
+        <button onclick="openModal('disconnect-modal')"
+          class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">
+          <i class="ph ph-plugs"></i> Putuskan
+        </button>
+      </div>
+    </div>
+    <!-- inline test row (toggle) -->
+    <div id="test-1" class="mt-3 hidden">
+      <div class="flex items-center gap-2 border-t border-slate-100 pt-3">
+        <input placeholder="Nomor tujuan, mis. 6281290088999"
+          class="w-full max-w-xs rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs" />
+        <button class="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white">Kirim</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Card 2: disconnected Baileys -->
+  <div class="mb-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+      <div class="flex items-center gap-3">
+        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-green-50 text-green-600">
+          <i class="ph ph-whatsapp-logo text-xl"></i>
+        </div>
+        <div>
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="font-semibold">Support Pribadi</span>
+            <span class="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">Terputus</span>
+            <span class="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">Pribadi</span>
+          </div>
+          <p class="mt-0.5 text-xs text-slate-500">+62 857-1234-5678 &middot; QR pairing</p>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <button onclick="openModal('qr-modal')"
+          class="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700">
+          <i class="ph ph-qr-code"></i> Sambungkan
+        </button>
+        <button onclick="openModal('archive-modal')"
+          class="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50">
+          <i class="ph ph-archive"></i> Arsipkan
+        </button>
+        <button onclick="openModal('delete-modal')"
+          class="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50">
+          <i class="ph ph-trash"></i> Hapus
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <p class="mt-4 text-xs text-slate-400">
+    <i class="ph ph-info"></i>
+    Arsip menyembunyikan saluran tanpa menghapus data. Hapus menghapus saluran beserta seluruh percakapannya secara permanen.
+  </p>
+</div>
+
+<!-- ═══════════ Modals ═══════════ -->
+
+<!-- Tambah Saluran -->
+<div id="add-modal" class="modal-backdrop fixed inset-0 z-50 hidden items-center justify-center p-4">
+  <div class="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl">
+    <div class="mb-4 flex items-center justify-between">
+      <h3 class="text-lg font-semibold">Tambah Saluran</h3>
+      <button onclick="closeModals()" class="text-slate-400 hover:text-slate-600"><i class="ph ph-x text-lg"></i></button>
+    </div>
+
+    <!-- Step 1: provider choice -->
+    <div id="add-step-1" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <button onclick="addStep(2)" class="rounded-xl border-2 border-slate-200 p-5 text-left hover:border-green-500">
+        <div class="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+          <i class="ph ph-cloud-arrow-up text-xl"></i>
+        </div>
+        <p class="font-semibold">WhatsApp Resmi</p>
+        <p class="mt-1 text-xs text-slate-500">Via Meta Cloud API. Resmi, patuh ToS, cocok untuk nomor bisnis.</p>
+      </button>
+      <button onclick="addStep(3)" class="rounded-xl border-2 border-slate-200 p-5 text-left hover:border-green-500">
+        <div class="mb-2 flex h-10 w-10 items-center justify-center rounded-lg bg-green-50 text-green-600">
+          <i class="ph ph-whatsapp-logo text-xl"></i>
+        </div>
+        <p class="font-semibold">Bawa Nomor Sendiri</p>
+        <p class="mt-1 text-xs text-slate-500">Pindai QR dari aplikasi WhatsApp. Aktif dalam hitungan menit.</p>
+      </button>
+    </div>
+
+    <!-- Step 2: Cloud API form -->
+    <div id="add-step-2" class="hidden space-y-3">
+      <div>
+        <label class="text-xs font-medium text-slate-500">Nama saluran</label>
+        <input placeholder="mis. Sales Utama" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+      </div>
+      <div>
+        <label class="text-xs font-medium text-slate-500">Phone Number ID</label>
+        <input placeholder="103xxxxxxxxxx" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+      </div>
+      <div>
+        <label class="text-xs font-medium text-slate-500">Access Token</label>
+        <input type="password" placeholder="EAAG..." class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs font-medium text-slate-500">App Secret (opsional)</label>
+          <input type="password" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label class="text-xs font-medium text-slate-500">Agent</label>
+          <select class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
+            <option>Customer Service Agent</option>
+          </select>
+        </div>
+      </div>
+      <p class="rounded-lg bg-slate-50 p-2 text-xs text-slate-500">
+        <i class="ph ph-check-circle text-green-600"></i> Nomor diverifikasi ke Meta saat menyambungkan - ID yang salah langsung ditolak.
+      </p>
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="addStep(1)" class="rounded-lg border border-slate-200 px-4 py-2 text-sm">Kembali</button>
+        <button onclick="closeModals()" class="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white">Sambungkan</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Baileys QR -->
+    <div id="add-step-3" class="hidden space-y-3">
+      <div>
+        <label class="text-xs font-medium text-slate-500">Nama saluran</label>
+        <input placeholder="mis. Support Pribadi" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+      </div>
+      <div>
+        <label class="text-xs font-medium text-slate-500">Agent</label>
+        <select class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm">
+          <option>Customer Service Agent</option>
+        </select>
+      </div>
+      <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox" /> Saya menyetujui ketentuan layanan untuk nomor pribadi.
+      </label>
+      <p class="rounded-lg border border-amber-300 bg-amber-50 p-2 text-xs text-amber-700">
+        <i class="ph ph-warning"></i> Metode tidak resmi - nomor berisiko diblokir WhatsApp. Gunakan nomor bisnis khusus.
+      </p>
+      <div class="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+        <div class="flex h-28 w-28 items-center justify-center rounded-lg bg-white text-slate-300 shadow-inner">
+          <i class="ph ph-qr-code text-5xl"></i>
+        </div>
+        <p class="text-xs text-slate-500">Klik "Tampilkan QR", lalu pindai dari WhatsApp &gt; Tautkan perangkat. QR tampil di sini dan diperbarui otomatis.</p>
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="addStep(1)" class="rounded-lg border border-slate-200 px-4 py-2 text-sm">Kembali</button>
+        <button class="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white">Tampilkan QR</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Kredensial (modal, bukan di bawah halaman) -->
+<div id="edit-modal" class="modal-backdrop fixed inset-0 z-50 hidden items-center justify-center p-4">
+  <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+    <div class="mb-4 flex items-center justify-between">
+      <h3 class="text-lg font-semibold">Edit Kredensial - Sales Utama</h3>
+      <button onclick="closeModals()" class="text-slate-400 hover:text-slate-600"><i class="ph ph-x text-lg"></i></button>
+    </div>
+    <div class="space-y-3">
+      <div>
+        <label class="text-xs font-medium text-slate-500">Nama saluran</label>
+        <input value="Sales Utama" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+      </div>
+      <div>
+        <label class="text-xs font-medium text-slate-500">Phone Number ID</label>
+        <input value="1277448755459529" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+      </div>
+      <div>
+        <label class="text-xs font-medium text-slate-500">Access Token</label>
+        <input type="password" placeholder="Masukkan ulang token" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+      </div>
+      <div>
+        <label class="text-xs font-medium text-slate-500">App Secret (opsional)</label>
+        <input type="password" class="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
+      </div>
+      <p class="text-xs text-slate-400">Nomor diverifikasi ulang ke Meta saat disimpan.</p>
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="closeModals()" class="rounded-lg border border-slate-200 px-4 py-2 text-sm">Batal</button>
+        <button onclick="closeModals()" class="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white">Simpan</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- QR pairing (reconnect Baileys) -->
+<div id="qr-modal" class="modal-backdrop fixed inset-0 z-50 hidden items-center justify-center p-4">
+  <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+    <div class="mb-4 flex items-center justify-between">
+      <h3 class="text-lg font-semibold">Sambungkan - Support Pribadi</h3>
+      <button onclick="closeModals()" class="text-slate-400 hover:text-slate-600"><i class="ph ph-x text-lg"></i></button>
+    </div>
+    <div class="flex flex-col items-center gap-3">
+      <div class="flex h-44 w-44 items-center justify-center rounded-lg bg-slate-50 text-slate-300">
+        <i class="ph ph-qr-code" style="font-size: 72px;"></i>
+      </div>
+      <p class="text-center text-xs text-slate-500">Buka WhatsApp &gt; Tautkan perangkat, lalu pindai QR ini. Status diperbarui otomatis.</p>
+      <button class="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white">Tampilkan QR</button>
+    </div>
+  </div>
+</div>
+
+<!-- Hapus (confirm) -->
+<div id="delete-modal" class="modal-backdrop fixed inset-0 z-50 hidden items-center justify-center p-4">
+  <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+    <div class="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-600">
+      <i class="ph ph-warning text-2xl"></i>
+    </div>
+    <h3 class="text-lg font-semibold">Hapus saluran "Support Pribadi"?</h3>
+    <p class="mt-2 text-sm text-slate-500">
+      Semua percakapan, pesan, dan kampanye di saluran ini ikut terhapus <strong>permanen</strong> dan tidak bisa dikembalikan.
+      Jika hanya ingin menyembunyikannya tanpa menghapus data, gunakan <strong>Arsipkan</strong>.
+    </p>
+    <div class="mt-5 flex justify-end gap-2">
+      <button onclick="closeModals()" class="rounded-lg border border-slate-200 px-4 py-2 text-sm">Batal</button>
+      <button onclick="closeModals()" class="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">Ya, Hapus Permanen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Arsipkan (confirm ringan) -->
+<div id="archive-modal" class="modal-backdrop fixed inset-0 z-50 hidden items-center justify-center p-4">
+  <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+    <h3 class="text-lg font-semibold">Arsipkan "Support Pribadi"?</h3>
+    <p class="mt-2 text-sm text-slate-500">
+      Saluran disembunyikan dari daftar, data percakapan tetap tersimpan, dan kursi paket terbebaskan. Bisa dipulihkan oleh admin.
+    </p>
+    <div class="mt-5 flex justify-end gap-2">
+      <button onclick="closeModals()" class="rounded-lg border border-slate-200 px-4 py-2 text-sm">Batal</button>
+      <button onclick="closeModals()" class="rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white">Arsipkan</button>
+    </div>
+  </div>
+</div>
+
+<!-- Putuskan (confirm ringan) -->
+<div id="disconnect-modal" class="modal-backdrop fixed inset-0 z-50 hidden items-center justify-center p-4">
+  <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+    <h3 class="text-lg font-semibold">Putuskan "Sales Utama"?</h3>
+    <p class="mt-2 text-sm text-slate-500">
+      Saluran berhenti mengirim dan menerima pesan sampai disambungkan kembali. Percakapan tersimpan.
+    </p>
+    <div class="mt-5 flex justify-end gap-2">
+      <button onclick="closeModals()" class="rounded-lg border border-slate-200 px-4 py-2 text-sm">Batal</button>
+      <button onclick="closeModals()" class="rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-white">Putuskan</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  function openModal(id) {
+    closeModals();
+    const m = document.getElementById(id);
+    m.classList.remove("hidden");
+    m.classList.add("flex");
+    if (id === "add-modal") addStep(1);
+  }
+  function closeModals() {
+    document.querySelectorAll(".modal-backdrop").forEach((m) => {
+      m.classList.add("hidden");
+      m.classList.remove("flex");
+    });
+  }
+  function addStep(n) {
+    [1, 2, 3].forEach((s) => {
+      document.getElementById("add-step-" + s).classList.toggle("hidden", s !== n);
+    });
+  }
+  function toggleTest(id) {
+    document.getElementById(id).classList.toggle("hidden");
+  }
+  // click backdrop to close
+  document.querySelectorAll(".modal-backdrop").forEach((m) => {
+    m.addEventListener("click", (e) => { if (e.target === m) closeModals(); });
+  });
+</script>
+</body>
+</html>
