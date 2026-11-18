@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="id" class="antialiased">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Template Pesan — CSQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
+          mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        }
+      }
+    }
+  }
+</script>
+<style>
+  body {
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+
+  /* Subtle custom scrollbar */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+  ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+  .nav-item-active {
+    background-color: rgb(240 253 244);
+    color: rgb(21 128 61);
+    font-weight: 600;
+  }
+
+  /* Slide-over drawer transitions (no centered popups) */
+  .drawer-backdrop {
+    background: rgba(15, 23, 42, 0.35);
+    backdrop-filter: blur(1px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease-out;
+  }
+  .drawer-backdrop.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .drawer-panel {
+    transform: translateX(100%);
+    transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .drawer-backdrop.open .drawer-panel {
+    transform: translateX(0);
+  }
+
+  .tpl-input {
+    width: 100%;
+    border-radius: 0.5rem;
+    border: 1px solid rgb(226 232 240);
+    background: #fff;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    color: rgb(15 23 42);
+    transition: border-color 0.15s ease;
+  }
+  .tpl-input:focus {
+    border-color: rgb(148 163 184);
+    outline: none;
+  }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+<!-- ════════ Sidebar ════════ -->
+<aside id="sidebar" class="fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 -translate-x-full flex-col border-r border-slate-200 bg-white transition-transform duration-200 md:translate-x-0">
+  <div class="flex h-16 items-center justify-between border-b border-slate-100 px-6">
+    <div class="flex items-center gap-2.5">
+      <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-green-600 text-white shadow-xs">
+        <i class="ph-fill ph-chat-circle-dots text-xl"></i>
+      </div>
+      <span class="text-lg font-bold tracking-tight text-slate-900">CSQ</span>
+    </div>
+    <span class="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] font-medium text-slate-500">PRO</span>
+  </div>
+
+  <nav class="flex-1 space-y-5 overflow-y-auto px-3 py-4 text-[13px]">
+    <div>
+      <p class="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Utama</p>
+      <div class="space-y-0.5">
+        <a href="#ringkasan" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-chart-bar text-lg text-slate-400"></i>Ringkasan</a>
+        <a href="#percakapan" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-chat-circle-dots text-lg text-slate-400"></i>Percakapan</a>
+        <a href="#tiket" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-lifebuoy text-lg text-slate-400"></i>Tiket</a>
+        <a href="#kampanye" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-megaphone text-lg text-slate-400"></i>Kampanye</a>
+        <a href="#template" onclick="return false;" class="nav-item-active flex items-center gap-3 rounded-lg px-3 py-2"><i class="ph-fill ph-notepad text-lg text-green-600"></i>Template Pesan</a>
+        <a href="#saluran" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-whatsapp-logo text-lg text-slate-400"></i>Saluran</a>
+        <a href="#pipeline" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-kanban text-lg text-slate-400"></i>Manajemen Pipeline</a>
+        <a href="#kpi" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-target text-lg text-slate-400"></i>KPI</a>
+      </div>
+    </div>
+    <div>
+      <p class="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Data Bisnis</p>
+      <div class="space-y-0.5">
+        <a href="#produk" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-package text-lg text-slate-400"></i>Produk</a>
+        <a href="#inventaris" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-stack text-lg text-slate-400"></i>Inventaris</a>
+        <a href="#pesanan" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-shopping-cart text-lg text-slate-400"></i>Pesanan</a>
+        <a href="#kontak" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-address-book text-lg text-slate-400"></i>Kontak</a>
+        <a href="#tag" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-tag text-lg text-slate-400"></i>Tag</a>
+      </div>
+    </div>
+    <div>
+      <p class="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Pengetahuan</p>
+      <div class="space-y-0.5">
+        <a href="#pengetahuan" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-books text-lg text-slate-400"></i>Pengetahuan</a>
+        <a href="#memori" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-brain text-lg text-slate-400"></i>Memori</a>
+        <a href="#sumber-data" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-database text-lg text-slate-400"></i>Sumber Data</a>
+      </div>
+    </div>
+    <div>
+      <p class="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Agent</p>
+      <div class="space-y-0.5">
+        <a href="#agent" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-robot text-lg text-slate-400"></i>Agent</a>
+        <a href="#skenario" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-flow-arrow text-lg text-slate-400"></i>Skenario</a>
+        <a href="#approval" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-seal-check text-lg text-slate-400"></i>Approval</a>
+        <a href="#aktivitas" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-clock-counter-clockwise text-lg text-slate-400"></i>Aktivitas</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="space-y-0.5 border-t border-slate-200 p-3 text-[13px]">
+    <a href="#pengaturan" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-gear text-lg text-slate-400"></i>Pengaturan</a>
+    <a href="#tim" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-users text-lg text-slate-400"></i>Tim</a>
+    <a id="nav-plan" href="#paket" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-wallet text-lg text-slate-400"></i>Paket &amp; Kuota</a>
+  </div>
+</aside>
+
+<div id="nav-overlay" class="fixed inset-0 z-30 hidden bg-slate-900/40 backdrop-blur-[1px] md:hidden" onclick="toggleNav(false)"></div>
+
+<!-- ════════ Main Layout ════════ -->
+<div class="flex min-h-screen min-w-0 flex-col md:pl-64">
+
+  <!-- Sticky Global Top Bar -->
+  <header class="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white/90 px-4 backdrop-blur-md md:px-6">
+    <div class="flex items-center gap-3">
+      <button class="rounded-lg p-2 text-slate-600 hover:bg-slate-100 md:hidden" onclick="toggleNav(true)" aria-label="Buka menu">
+        <i class="ph ph-list text-xl"></i>
+      </button>
+      <div class="relative hidden w-72 sm:block lg:w-96">
+        <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+        <input type="text" placeholder="Cari atau ketik perintah…"
+          class="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-9 pr-12 text-xs text-slate-900 placeholder-slate-400 transition focus:border-slate-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-200/70" />
+        <kbd class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded border border-slate-200 bg-white px-1.5 py-0.5 font-mono text-[10px] text-slate-400">⌘K</kbd>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <!-- Demo Role Pill -->
+      <button onclick="switchRole()" title="Klik untuk ganti peran demo"
+        class="hidden items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-100 sm:inline-flex">
+        <span id="role-dot" class="h-1.5 w-1.5 rounded-full bg-green-600"></span>
+        <span>Mode: <strong id="role-pill-text" class="font-semibold text-slate-900">Owner</strong></span>
+        <i class="ph ph-swap text-slate-400"></i>
+      </button>
+
+      <button class="relative flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-800" aria-label="Notifikasi">
+        <i class="ph ph-bell text-xl"></i>
+        <span class="absolute right-1.5 top-1.5 h-2 w-2 rounded-full border-2 border-white bg-red-500"></span>
+      </button>
+
+      <div class="h-5 w-px bg-slate-200"></div>
+
+      <div class="relative">
+        <button id="avatar-btn" class="flex items-center gap-2 rounded-lg p-1 transition hover:bg-slate-100" onclick="toggleMenu()">
+          <div id="avatar-initial" class="flex h-8 w-8 items-center justify-center rounded-full bg-green-600 text-xs font-semibold text-white shadow-xs">B</div>
+          <div class="hidden text-left lg:block">
+            <p id="header-name" class="text-xs font-semibold leading-tight text-slate-900">Bu Ratih</p>
+            <p id="header-role" class="text-[11px] leading-tight text-slate-500">Owner</p>
+          </div>
+          <i class="ph ph-caret-down hidden text-xs text-slate-400 sm:block"></i>
+        </button>
+
+        <div id="avatar-menu" class="absolute right-0 top-12 z-50 hidden w-56 origin-top-right rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+          <div class="border-b border-slate-100 px-3 py-2">
+            <p id="menu-name" class="truncate text-sm font-semibold text-slate-900">Bu Ratih</p>
+            <p id="menu-role" class="text-xs text-slate-500">Owner</p>
+          </div>
+          <button onclick="switchRole()" class="mt-1 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50">
+            <i class="ph ph-swap text-base text-slate-500"></i>Ganti peran demo (Owner/Staf)
+          </button>
+          <button onclick="showToast('Sesi keluar (demo)'); toggleMenu();" class="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-red-600 hover:bg-red-50">
+            <i class="ph ph-sign-out text-base"></i>Keluar
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1">
+    <!-- Page Header -->
+    <div class="border-b border-slate-200 bg-white px-4 py-5 md:px-6">
+      <div class="mx-auto flex max-w-7xl flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <div>
+          <div class="flex items-center gap-2.5">
+            <h1 class="text-xl font-bold tracking-tight text-slate-900">Template Pesan</h1>
+            <span id="tpl-count-badge" class="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 font-mono text-xs font-medium text-slate-600 tabular-nums">3</span>
+          </div>
+          <p class="mt-1 max-w-2xl text-sm text-slate-500">
+            Kelola template pesan <strong>CSQ</strong> (teks bebas dalam window 24 jam) dan template <strong>Meta</strong> (wajib di-approve di Meta untuk pesan proaktif di luar window).
+          </p>
+        </div>
+
+        <button id="btn-add" onclick="openForm('new')"
+          class="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-green-600 px-3.5 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-green-700 active:scale-[0.99]">
+          <i class="ph-bold ph-plus text-sm"></i>
+          <span>Tambah Template</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="mx-auto max-w-7xl p-4 md:p-6">
+
+      <!-- Staff Read-only Notice -->
+      <div id="staff-notice" class="mb-5 hidden items-start gap-2.5 rounded-xl border border-slate-200 bg-white p-3.5 text-xs text-slate-600 shadow-xs">
+        <i class="ph-fill ph-lock-simple mt-0.5 shrink-0 text-base text-slate-400"></i>
+        <div>
+          <p class="font-semibold text-slate-800">Mode Baca Saja (Staf)</p>
+          <p class="mt-0.5 text-slate-500">Hanya akun dengan peran <strong>Owner</strong> yang dapat membuat, mengubah, atau menghapus template pesan.</p>
+        </div>
+      </div>
+
+      <!-- Summary Strip -->
+      <div class="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div class="rounded-xl border border-slate-200 bg-white px-4 py-3.5 shadow-xs">
+          <div class="flex items-center justify-between">
+            <p class="text-xs font-medium text-slate-500">Total Template</p>
+            <i class="ph ph-notepad text-slate-400"></i>
+          </div>
+          <p id="stat-total" class="mt-1.5 text-2xl font-bold text-slate-900 tabular-nums">3</p>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-white px-4 py-3.5 shadow-xs">
+          <div class="flex items-center justify-between">
+            <p class="text-xs font-medium text-slate-500">Template CSQ (24 Jam)</p>
+            <span class="rounded bg-green-50 px-1.5 py-0.5 text-[10px] font-semibold text-green-700">CSQ</span>
+          </div>
+          <p id="stat-csq" class="mt-1.5 text-2xl font-bold text-slate-900 tabular-nums">2</p>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-white px-4 py-3.5 shadow-xs">
+          <div class="flex items-center justify-between">
+            <p class="text-xs font-medium text-slate-500">Template Meta (Approved)</p>
+            <span class="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700">Meta</span>
+          </div>
+          <p id="stat-meta" class="mt-1.5 text-2xl font-bold text-slate-900 tabular-nums">1</p>
+        </div>
+      </div>
+
+      <!-- Filter Tabs & Search Toolbar -->
+      <div class="mb-5 flex flex-col justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3.5 shadow-xs sm:flex-row sm:items-center">
+        <div class="inline-flex rounded-lg border border-slate-200 bg-slate-100/80 p-0.5 text-xs font-medium">
+          <button onclick="setKindFilter('ALL', this)" class="kind-tab rounded-md bg-white px-3 py-1.5 text-slate-900 shadow-xs">Semua</button>
+          <button onclick="setKindFilter('CSQ', this)" class="kind-tab rounded-md px-3 py-1.5 text-slate-600 hover:text-slate-900">CSQ (Teks Bebas)</button>
+          <button onclick="setKindFilter('META', this)" class="kind-tab rounded-md px-3 py-1.5 text-slate-600 hover:text-slate-900">Meta (Approved)</button>
+        </div>
+
+        <div class="relative w-full sm:w-64">
+          <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400"></i>
+          <input id="tpl-search" oninput="render()" placeholder="Cari nama, key, atau isi..."
+            class="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-8 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:bg-white focus:outline-none" />
+        </div>
+      </div>
+
+      <!-- Empty State -->
+      <div id="empty-notice" class="hidden rounded-xl border border-dashed border-slate-300 bg-white py-14 text-center">
+        <div class="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+          <i class="ph ph-notepad text-xl"></i>
+        </div>
+        <p class="mt-3 text-sm font-semibold text-slate-900">Tidak ada template ditemukan</p>
+        <p class="mx-auto mt-1 max-w-md text-xs text-slate-500">
+          Tambahkan template CSQ untuk pesan otomatis, atau daftarkan nama template Meta yang sudah di-approve.
+        </p>
+      </div>
+
+      <!-- Template Cards Grid -->
+      <div id="grid" class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3"></div>
+    </div>
+  </main>
+</div>
+
+<!-- ════════ Slide-over Drawer: Tambah / Edit Template (No Popup) ════════ -->
+<div id="dlg-form" class="drawer-backdrop fixed inset-0 z-50 flex justify-end">
+  <div class="drawer-panel flex h-full w-full max-w-lg flex-col border-l border-slate-200 bg-white shadow-2xl">
+    <div class="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+      <div>
+        <h3 class="text-base font-semibold text-slate-900" id="dlg-title">Tambah Template</h3>
+        <p class="text-xs text-slate-500" id="dlg-subtitle">Konfigurasi template pesan CSQ atau Meta Cloud API</p>
+      </div>
+      <button type="button" onclick="closeForm()" class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+        <i class="ph ph-x text-base"></i>
+      </button>
+    </div>
+
+    <form class="flex flex-1 flex-col overflow-hidden" onsubmit="onSave(event)">
+      <div class="flex-1 space-y-4 overflow-y-auto p-6">
+        <p id="form-error" class="hidden rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-xs font-medium text-red-600"></p>
+
+        <!-- Jenis Selector -->
+        <div>
+          <label class="mb-1.5 block text-xs font-medium text-slate-700">Jenis Template</label>
+          <div class="grid grid-cols-2 gap-2.5">
+            <button type="button" id="kind-btn-csq" onclick="setKind('CSQ')"
+              class="flex flex-col items-start rounded-xl border-2 border-green-600 bg-green-50/40 p-3 text-left transition">
+              <div class="flex w-full items-center justify-between">
+                <span class="rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-semibold text-green-700">CSQ</span>
+                <i id="kind-check-csq" class="ph-fill ph-check-circle text-green-600"></i>
+              </div>
+              <p class="mt-2 text-xs font-semibold text-slate-900">Teks Bebas</p>
+              <p class="mt-0.5 text-[11px] text-slate-500">Dalam window 24 jam</p>
+            </button>
+
+            <button type="button" id="kind-btn-meta" onclick="setKind('META')"
+              class="flex flex-col items-start rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-slate-300">
+              <div class="flex w-full items-center justify-between">
+                <span class="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700">Meta</span>
+                <i id="kind-check-meta" class="ph-fill ph-check-circle hidden text-blue-600"></i>
+              </div>
+              <p class="mt-2 text-xs font-semibold text-slate-900">Template Meta</p>
+              <p class="mt-0.5 text-[11px] text-slate-500">Approved di luar 24 jam</p>
+            </button>
+          </div>
+        </div>
+
+        <!-- Fungsi Template -->
+        <div>
+          <label class="mb-1 block text-xs font-medium text-slate-700" for="tpl-key-option">Fungsi Template</label>
+          <select id="tpl-key-option" onchange="setKeyOption(this.value)" class="tpl-input text-xs"></select>
+          <p id="sys-desc" class="mt-1.5 hidden rounded-lg bg-slate-50 p-2 text-xs text-slate-500"></p>
+          <div id="custom-key-wrap" class="mt-2 hidden">
+            <label class="mb-1 block text-[11px] font-medium text-slate-500" for="tpl-custom-key">Identifier / Key Unik</label>
+            <input id="tpl-custom-key" oninput="customKey=this.value" placeholder="mis. promo_akhir_pekan" pattern="[a-z0-9_]+" title="huruf kecil, angka, underscore"
+              class="tpl-input font-mono text-xs" />
+          </div>
+        </div>
+
+        <!-- Nama Label -->
+        <div>
+          <label class="mb-1 block text-xs font-medium text-slate-700" for="tpl-label">Nama Tampilan</label>
+          <input id="tpl-label" placeholder="Mis. Pesan penutup sesi" required class="tpl-input" />
+        </div>
+
+        <!-- CSQ Body -->
+        <div id="field-csq">
+          <div class="mb-1 flex items-center justify-between">
+            <label class="block text-xs font-medium text-slate-700" for="tpl-body">Isi Pesan</label>
+            <span id="char-count" class="font-mono text-[11px] text-slate-400 tabular-nums">0 karakter</span>
+          </div>
+          <textarea id="tpl-body" rows="4" oninput="updateDrawerPreview()" placeholder="Teks pesan yang dikirim ke pelanggan…" required class="tpl-input resize-y"></textarea>
+        </div>
+
+        <!-- Meta Fields -->
+        <div id="field-meta" class="hidden grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div>
+            <label class="mb-1 block text-xs font-medium text-slate-700" for="tpl-meta-name">Nama Template Meta</label>
+            <input id="tpl-meta-name" oninput="updateDrawerPreview()" placeholder="mis. session_close_v1" required class="tpl-input font-mono text-xs" />
+          </div>
+          <div>
+            <label class="mb-1 block text-xs font-medium text-slate-700" for="tpl-meta-lang">Kode Bahasa</label>
+            <input id="tpl-meta-lang" oninput="updateDrawerPreview()" placeholder="id" class="tpl-input font-mono text-xs" />
+          </div>
+        </div>
+
+        <!-- Live Bubble Preview inside Drawer -->
+        <div class="overflow-hidden rounded-xl border border-slate-200 bg-slate-50/70">
+          <div class="flex items-center justify-between border-b border-slate-200/80 px-3.5 py-2 text-[11px] font-medium text-slate-500">
+            <span class="flex items-center gap-1.5"><i class="ph-fill ph-whatsapp-logo text-green-600"></i> Pratinjau Tampilan</span>
+            <span id="drawer-preview-badge" class="font-mono text-[10px] text-slate-400">CSQ</span>
+          </div>
+          <div class="p-3.5">
+            <div id="drawer-preview-box" class="ml-auto max-w-[90%] rounded-xl rounded-tr-xs border border-green-200 bg-green-50 p-3 text-xs leading-relaxed text-slate-800 shadow-xs">
+              Pratinjau isi template...
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/60 px-6 py-4">
+        <button type="button" onclick="closeForm()" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">Batal</button>
+        <button type="submit" class="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-green-700">
+          <i class="ph ph-check text-sm"></i> Simpan Template
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ════════ Slide-over Drawer: Konfirmasi Hapus (No Popup) ════════ -->
+<div id="dlg-del" class="drawer-backdrop fixed inset-0 z-50 flex justify-end">
+  <div class="drawer-panel flex h-full w-full max-w-md flex-col border-l border-slate-200 bg-white shadow-2xl">
+    <div class="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+      <h3 class="text-base font-semibold text-slate-900">Hapus Template</h3>
+      <button type="button" onclick="closeDlg('dlg-del')" class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+        <i class="ph ph-x text-base"></i>
+      </button>
+    </div>
+    <div class="flex-1 p-6">
+      <div class="flex h-11 w-11 items-center justify-center rounded-full bg-red-50 text-red-600">
+        <i class="ph ph-warning text-2xl"></i>
+      </div>
+      <h4 class="mt-4 text-sm font-semibold text-slate-900">Hapus template ini?</h4>
+      <p class="mt-2 text-sm leading-relaxed text-slate-600" id="del-desc"></p>
+      <div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+        Jika template ini dipakai oleh otomasi sistem atau kampanye aktif, sistem akan kembali ke pesan default.
+      </div>
+    </div>
+    <div class="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/60 px-6 py-4">
+      <button type="button" onclick="closeDlg('dlg-del')" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">Batal</button>
+      <button type="button" onclick="confirmDelete()" class="rounded-lg bg-red-600 px-4 py-2 text-xs font-semibold text-white hover:bg-red-700">Ya, Hapus</button>
+    </div>
+  </div>
+</div>
+
+<!-- Non-blocking Toast Notification -->
+<div id="toast" class="pointer-events-none fixed bottom-5 right-5 z-50 flex translate-y-3 items-center gap-2 rounded-lg bg-slate-900 px-3.5 py-2.5 text-xs font-medium text-white opacity-0 shadow-lg transition-all duration-200">
+  <i class="ph-fill ph-check-circle text-sm text-green-400"></i>
+  <span id="toast-msg">Berhasil</span>
+</div>
+
+<script>
+// ══════════ Demo Data ══════════
+var systemKeys = [
+  { key: "session_end", label: "Pesan penutup sesi (otomatis saat idle 1 jam)", description: "Dikirim otomatis saat percakapan idle 1 jam sejak pesan terakhir pelanggan." },
+  { key: "agent_fallback", label: "Fallback saat AI gangguan", description: "Menggantikan pesan default sistem saat AI mengalami gangguan dan tidak bisa membalas." },
+  { key: "window_greeting", label: "Sapaan pembuka window baru", description: "Sapaan saat pelanggan memulai kembali setelah sesi sebelumnya berakhir (opsional)." }
+];
+var templates = [
+  { id: "tp1", key: "session_end", label: "Pesan penutup sesi", kind: "CSQ", body: "Terima kasih sudah menghubungi Toko Kopi Nusantara. Sampai jumpa di pesan berikutnya!" },
+  { id: "tp2", key: "agent_fallback", label: "Fallback AI", kind: "CSQ", body: "Maaf, sistem kami sedang sibuk. Silakan ulangi pesan Anda sebentar lagi." },
+  { id: "tp3", key: "promo_diskon", label: "Promo Diskon", kind: "META", body: "", metaName: "promo_diskon_v1", metaLanguage: "id" }
+];
+var role = "OWNER";
+var isOwner = true;
+var kindFilter = "ALL";
+var delTargetId = null;
+
+// Form state
+var editingId = null;
+var formKind = "CSQ";
+var keyOption = "custom";
+var customKey = "";
+
+// ══════════ Helpers ══════════
+function keyToOption(key) {
+  return systemKeys.some(function (k) { return k.key === key; }) ? "sys:" + key : key || "custom";
+}
+function optionToKey(value) {
+  if (value === "custom") return customKey.trim();
+  return value.startsWith("sys:") ? value.slice(4) : value;
+}
+function esc(s) {
+  return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+}
+
+function setKindFilter(k, btn) {
+  kindFilter = k;
+  document.querySelectorAll(".kind-tab").forEach(function (b) {
+    b.classList.remove("bg-white", "text-slate-900", "shadow-xs");
+    b.classList.add("text-slate-600");
+  });
+  btn.classList.add("bg-white", "text-slate-900", "shadow-xs");
+  btn.classList.remove("text-slate-600");
+  render();
+}
+
+// ══════════ Render Cards ══════════
+function render() {
+  var q = (document.getElementById("tpl-search") ? document.getElementById("tpl-search").value : "").toLowerCase().trim();
+  var filtered = templates.filter(function (t) {
+    var okKind = kindFilter === "ALL" || t.kind === kindFilter;
+    var okQ = !q ||
+      t.label.toLowerCase().indexOf(q) > -1 ||
+      t.key.toLowerCase().indexOf(q) > -1 ||
+      (t.body || "").toLowerCase().indexOf(q) > -1 ||
+      (t.metaName || "").toLowerCase().indexOf(q) > -1;
+    return okKind && okQ;
+  });
+
+  // Update summary counters
+  document.getElementById("tpl-count-badge").textContent = templates.length;
+  document.getElementById("stat-total").textContent = templates.length;
+  document.getElementById("stat-csq").textContent = templates.filter(function (t) { return t.kind === "CSQ"; }).length;
+  document.getElementById("stat-meta").textContent = templates.filter(function (t) { return t.kind === "META"; }).length;
+
+  var grid = document.getElementById("grid");
+  document.getElementById("empty-notice").classList.toggle("hidden", filtered.length > 0);
+
+  grid.innerHTML = filtered.map(function (t) {
+    var sys = systemKeys.find(function (k) { return k.key === t.key; });
+    var isMeta = t.kind === "META";
+
+    var contentPreview = isMeta
+      ? '<div class="mb-4 flex flex-col justify-center rounded-lg border border-blue-100 bg-blue-50/50 p-3 text-xs">' +
+          '<div class="flex items-center justify-between">' +
+            '<span class="text-[11px] font-medium text-blue-700">Meta Template Name</span>' +
+            '<span class="rounded bg-white px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase text-blue-700 shadow-2xs">' + esc(t.metaLanguage || "id") + '</span>' +
+          '</div>' +
+          '<code class="mt-1 font-mono text-xs font-semibold text-slate-900">' + esc(t.metaName || "-") + '</code>' +
+        '</div>'
+      : '<div class="mb-4 flex-1 rounded-lg border border-slate-100 bg-slate-50/80 p-3">' +
+          '<p class="line-clamp-3 whitespace-pre-line text-xs leading-relaxed text-slate-600">' + esc(t.body) + '</p>' +
+        '</div>';
+
+    var actions = isOwner
+      ? '<div class="mt-auto flex items-center justify-between border-t border-slate-100 pt-3">' +
+          '<button onclick="copyTemplateContent(\'' + t.id + '\')" class="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900">' +
+            '<i class="ph ph-copy text-sm"></i> Salin' +
+          '</button>' +
+          '<div class="flex items-center gap-1.5">' +
+            '<button onclick="openForm(\'' + t.id + '\')" class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50">' +
+              '<i class="ph ph-pencil-simple text-slate-500"></i> Edit' +
+            '</button>' +
+            '<button onclick="askDelete(\'' + t.id + '\')" title="Hapus template" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600">' +
+              '<i class="ph ph-trash text-sm"></i>' +
+            '</button>' +
+          '</div>' +
+        '</div>'
+      : '<div class="mt-auto flex items-center justify-between border-t border-slate-100 pt-3">' +
+          '<button onclick="copyTemplateContent(\'' + t.id + '\')" class="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900">' +
+            '<i class="ph ph-copy text-sm"></i> Salin Isi' +
+          '</button>' +
+          '<span class="text-[11px] text-slate-400">Hanya baca</span>' +
+        '</div>';
+
+    return '<div class="flex flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-xs transition hover:border-slate-300">' +
+      '<div class="mb-3 flex items-start justify-between gap-2">' +
+        '<div class="min-w-0">' +
+          '<div class="flex items-center gap-1.5">' +
+            '<p class="truncate text-sm font-semibold text-slate-900">' + esc(t.label) + '</p>' +
+          '</div>' +
+          '<div class="mt-1 flex flex-wrap items-center gap-1.5">' +
+            '<code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] font-medium text-slate-600">' + esc(t.key) + '</code>' +
+            (sys ? '<span class="inline-flex items-center gap-0.5 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700"><i class="ph-fill ph-sparkle text-[10px]"></i> Sistem</span>' : '') +
+          '</div>' +
+        '</div>' +
+        '<span class="shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ' +
+          (isMeta ? "bg-blue-50 text-blue-700 border border-blue-200/70" : "bg-green-50 text-green-700 border border-green-200/70") + '">' +
+          (isMeta ? "Meta" : "CSQ") +
+        '</span>' +
+      '</div>' +
+      (sys ? '<p class="mb-3 text-xs leading-relaxed text-slate-500">' + esc(sys.description) + '</p>' : '') +
+      contentPreview +
+      actions +
+    '</div>';
+  }).join("");
+}
+
+function copyTemplateContent(id) {
+  var t = templates.find(function (x) { return x.id === id; });
+  if (!t) return;
+  var text = t.kind === "META" ? (t.metaName || "") : (t.body || "");
+  var temp = document.createElement("textarea");
+  temp.value = text;
+  document.body.appendChild(temp);
+  temp.select();
+  document.execCommand("copy");
+  document.body.removeChild(temp);
+  showToast((t.kind === "META" ? "Nama template Meta" : "Isi template") + " disalin");
+}
+
+// ══════════ Slide-over Form Drawer ══════════
+function openForm(idOrNew) {
+  hideError();
+  if (idOrNew === "new") {
+    editingId = null;
+    formKind = "CSQ";
+    keyOption = "custom";
+    customKey = "";
+    document.getElementById("dlg-title").textContent = "Tambah Template Baru";
+    document.getElementById("dlg-subtitle").textContent = "Buat template CSQ atau daftarkan template Meta";
+    document.getElementById("tpl-label").value = "";
+    document.getElementById("tpl-body").value = "";
+    document.getElementById("tpl-meta-name").value = "";
+    document.getElementById("tpl-meta-lang").value = "id";
+  } else {
+    var t = templates.find(function (x) { return x.id === idOrNew; });
+    editingId = t.id;
+    formKind = t.kind;
+    keyOption = keyToOption(t.key);
+    customKey = t.key;
+    document.getElementById("dlg-title").textContent = "Edit Template";
+    document.getElementById("dlg-subtitle").textContent = t.label;
+    document.getElementById("tpl-label").value = t.label;
+    document.getElementById("tpl-body").value = t.body || "";
+    document.getElementById("tpl-meta-name").value = t.metaName || "";
+    document.getElementById("tpl-meta-lang").value = t.metaLanguage || "id";
+  }
+  renderKeyOptions();
+  renderKindFields();
+  updateDrawerPreview();
+  openDlg("dlg-form");
+}
+
+function renderKeyOptions() {
+  var used = templates.filter(function (t) {
+    return t.kind === formKind && t.id !== editingId;
+  }).map(function (t) { return t.key; });
+  var sel = document.getElementById("tpl-key-option");
+  sel.innerHTML = systemKeys.map(function (k) {
+    return '<option value="sys:' + k.key + '" ' + (used.indexOf(k.key) > -1 ? "disabled" : "") + " " + (keyOption === "sys:" + k.key ? "selected" : "") + ">" + esc(k.label) + "</option>";
+  }).join("") + '<option value="custom" ' + (keyOption === "custom" ? "selected" : "") + ">Lainnya (buat fungsi sendiri)</option>";
+
+  var sys = systemKeys.find(function (k) { return "sys:" + k.key === keyOption; });
+  var desc = document.getElementById("sys-desc");
+  desc.textContent = sys ? sys.description : "";
+  desc.classList.toggle("hidden", !sys);
+  document.getElementById("custom-key-wrap").classList.toggle("hidden", keyOption !== "custom");
+  if (keyOption === "custom") document.getElementById("tpl-custom-key").value = customKey;
+}
+
+function setKeyOption(v) { keyOption = v; renderKeyOptions(); }
+
+function setKind(v) {
+  formKind = v;
+  renderKindFields();
+  renderKeyOptions();
+  updateDrawerPreview();
+}
+
+function renderKindFields() {
+  var isCsq = formKind === "CSQ";
+  document.getElementById("field-csq").classList.toggle("hidden", !isCsq);
+  document.getElementById("field-meta").classList.toggle("hidden", isCsq);
+  document.getElementById("tpl-body").required = isCsq;
+  document.getElementById("tpl-meta-name").required = !isCsq;
+
+  // Style kind cards
+  var btnCsq = document.getElementById("kind-btn-csq");
+  var btnMeta = document.getElementById("kind-btn-meta");
+  var chkCsq = document.getElementById("kind-check-csq");
+  var chkMeta = document.getElementById("kind-check-meta");
+
+  if (isCsq) {
+    btnCsq.className = "flex flex-col items-start rounded-xl border-2 border-green-600 bg-green-50/40 p-3 text-left transition";
+    btnMeta.className = "flex flex-col items-start rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-slate-300";
+    chkCsq.classList.remove("hidden");
+    chkMeta.classList.add("hidden");
+  } else {
+    btnMeta.className = "flex flex-col items-start rounded-xl border-2 border-blue-600 bg-blue-50/40 p-3 text-left transition";
+    btnCsq.className = "flex flex-col items-start rounded-xl border border-slate-200 bg-white p-3 text-left transition hover:border-slate-300";
+    chkMeta.classList.remove("hidden");
+    chkCsq.classList.add("hidden");
+  }
+}
+
+function updateDrawerPreview() {
+  var badge = document.getElementById("drawer-preview-badge");
+  var box = document.getElementById("drawer-preview-box");
+  var bodyVal = document.getElementById("tpl-body").value;
+  document.getElementById("char-count").textContent = bodyVal.length + " karakter";
+
+  if (formKind === "CSQ") {
+    badge.textContent = "CSQ • 24 Jam";
+    box.className = "ml-auto max-w-[90%] whitespace-pre-line rounded-xl rounded-tr-xs border border-green-200 bg-green-50 p-3 text-xs leading-relaxed text-slate-800 shadow-xs";
+    box.textContent = bodyVal.trim() || "Pratinjau isi pesan CSQ akan tampil di sini...";
+  } else {
+    var mName = document.getElementById("tpl-meta-name").value.trim() || "nama_template_meta";
+    var mLang = document.getElementById("tpl-meta-lang").value.trim() || "id";
+    badge.textContent = "Meta • " + mLang.toUpperCase();
+    box.className = "rounded-xl border border-blue-200 bg-blue-50/70 p-3 font-mono text-xs text-blue-900";
+    box.textContent = "Meta Template: " + mName + " [" + mLang + "]";
+  }
+}
+
+function onSave(e) {
+  e.preventDefault();
+  var key = optionToKey(keyOption);
+  if (!key) return showError("Key template wajib diisi.");
+  if (keyOption === "custom" && !/^[a-z0-9_]+$/.test(key)) return showError("Nama fungsi hanya boleh menggunakan huruf kecil, angka, dan underscore (_).");
+  var payload = {
+    key: key,
+    label: document.getElementById("tpl-label").value.trim(),
+    kind: formKind,
+    body: formKind === "CSQ" ? document.getElementById("tpl-body").value.trim() : "",
+    metaName: formKind === "META" ? document.getElementById("tpl-meta-name").value.trim() : undefined,
+    metaLanguage: formKind === "META" ? document.getElementById("tpl-meta-lang").value.trim() || "id" : undefined
+  };
+  var dup = templates.find(function (t) { return t.key === payload.key && t.kind === payload.kind && t.id !== editingId; });
+  if (editingId) {
+    var t = templates.find(function (x) { return x.id === editingId; });
+    Object.assign(t, payload);
+    showToast("Perubahan template disimpan");
+  } else {
+    if (dup) return showError("Template dengan fungsi dan jenis yang sama sudah ada.");
+    templates.unshift({ id: "tp" + Date.now(), ...payload });
+    showToast("Template baru ditambahkan");
+  }
+  closeForm();
+  render();
+}
+
+function askDelete(id) {
+  delTargetId = id;
+  var t = templates.find(function (x) { return x.id === id; });
+  document.getElementById("del-desc").textContent = 'Yakin ingin menghapus template "' + (t ? t.label : "") + '"?';
+  openDlg("dlg-del");
+}
+
+function confirmDelete() {
+  var t = templates.find(function (x) { return x.id === delTargetId; });
+  templates = templates.filter(function (x) { return x.id !== delTargetId; });
+  delTargetId = null;
+  closeDlg("dlg-del");
+  render();
+  showToast('Template "' + (t ? t.label : "") + '" dihapus');
+}
+
+function closeForm() { closeDlg("dlg-form"); }
+function showError(msg) { var el = document.getElementById("form-error"); el.textContent = msg; el.classList.remove("hidden"); }
+function hideError() { document.getElementById("form-error").classList.add("hidden"); }
+
+// ══════════ Drawer / Menu / Role Controls ══════════
+function openDlg(id) { document.getElementById(id).classList.add("open"); }
+function closeDlg(id) { document.getElementById(id).classList.remove("open"); }
+function closeAllDlgs() {
+  document.querySelectorAll(".drawer-backdrop").forEach(function (d) { d.classList.remove("open"); });
+}
+
+var toastTimer;
+function showToast(msg) {
+  var toast = document.getElementById("toast");
+  document.getElementById("toast-msg").textContent = msg;
+  toast.classList.remove("opacity-0", "translate-y-3");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () {
+    toast.classList.add("opacity-0", "translate-y-3");
+  }, 2400);
+}
+
+function toggleMenu() { document.getElementById("avatar-menu").classList.toggle("hidden"); }
+function toggleNav(open) {
+  document.getElementById("sidebar").classList.toggle("-translate-x-full", !open);
+  document.getElementById("nav-overlay").classList.toggle("hidden", !open);
+}
+
+function applyRole() {
+  isOwner = role === "OWNER";
+  document.getElementById("btn-add").style.display = isOwner ? "" : "none";
+  document.getElementById("nav-plan").style.display = isOwner ? "" : "none";
+
+  var staffNotice = document.getElementById("staff-notice");
+  if (!isOwner) {
+    staffNotice.classList.remove("hidden");
+    staffNotice.classList.add("flex");
+  } else {
+    staffNotice.classList.add("hidden");
+    staffNotice.classList.remove("flex");
+  }
+
+  document.getElementById("menu-role").textContent = isOwner ? "Owner" : "Staff";
+  document.getElementById("menu-name").textContent = isOwner ? "Bu Ratih" : "Dina (Staf)";
+  document.getElementById("header-role").textContent = isOwner ? "Owner" : "Staff";
+  document.getElementById("header-name").textContent = isOwner ? "Bu Ratih" : "Dina (Staf)";
+  document.getElementById("role-pill-text").textContent = isOwner ? "Owner" : "Staff";
+  document.getElementById("role-dot").className = isOwner
+    ? "h-1.5 w-1.5 rounded-full bg-green-600"
+    : "h-1.5 w-1.5 rounded-full bg-slate-400";
+  document.getElementById("avatar-initial").textContent = isOwner ? "B" : "D";
+  render();
+}
+
+function switchRole() {
+  role = role === "OWNER" ? "STAFF" : "OWNER";
+  applyRole();
+  document.getElementById("avatar-menu").classList.add("hidden");
+  showToast("Beralih ke mode " + (role === "OWNER" ? "Owner" : "Staff"));
+}
+
+document.addEventListener("mousedown", function (e) {
+  var menu = document.getElementById("avatar-menu");
+  var btn = document.getElementById("avatar-btn");
+  if (!menu.classList.contains("hidden") && !btn.contains(e.target) && !menu.contains(e.target)) {
+    menu.classList.add("hidden");
+  }
+});
+document.querySelectorAll(".drawer-backdrop").forEach(function (d) {
+  d.addEventListener("click", function (e) { if (e.target === d) closeAllDlgs(); });
+});
+document.addEventListener("keydown", function (e) {
+  if (e.key === "Escape") {
+    closeAllDlgs();
+    document.getElementById("avatar-menu").classList.add("hidden");
+  }
+});
+
+applyRole();
+</script>
+</body>
+</html>

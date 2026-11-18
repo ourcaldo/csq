@@ -8,18 +8,21 @@ import {
   CheckCircle,
   CloudArrowUp,
   Copy,
+  DeviceMobile,
   DotsThreeVertical,
   Info,
   MagnifyingGlass,
   PaperPlaneRight,
   PaperPlaneTilt,
-  PencilSimple,
   Plugs,
   Plus,
   QrCode,
   Robot,
+  ShieldCheck,
+  SlidersHorizontal,
   Trash,
   Warning,
+  WebhooksLogo,
   WhatsappLogo,
   X,
 } from "@phosphor-icons/react";
@@ -46,18 +49,17 @@ import {
 } from "@/components/dashboard/channels/types";
 import { cn } from "@csq/ui/lib/utils";
 
-// Channels page (PRD 15 multi-channel, layout redesign 2026-11-18 from the
-// owner's HTML reference docs/demo/saluran_pengaturan_kanal_whatsapp.html):
-// header with seat counter + Tambah button, collapsible app-level webhook
-// panel, filter tabs + search, compact channel cards with overflow menus,
-// and every form/confirm flow in animated modals - nothing renders at the
-// bottom of the page.
+// Channels page - redesign 2026-11-18 (docs/demo/new/gemini-code-...html):
+// breadcrumb header with seat counter, collapsible global webhook config,
+// 4 filter tabs (Semua/Terhubung/Terputus/Diarsipkan) + search, zinc-styled
+// channel cards with overflow menus, 3-step add wizard, and per-action
+// confirm modals. Every flow is a modal - nothing renders at page bottom.
 
 function errMsg(e: unknown, fallback: string): string {
   return e instanceof Error ? e.message : fallback;
 }
 
-type FilterTab = "all" | "connected" | "disconnected";
+type FilterTab = "all" | "connected" | "disconnected" | "archived";
 
 export default function SaluranPage({
   webhookUrl,
@@ -68,7 +70,7 @@ export default function SaluranPage({
   const entitlements = useEntitlements();
 
   const { data: channelsData, loading, error: fetchError, refresh } =
-    useApi<{ items: ChannelView[] }>("/api/dashboard/channels");
+    useApi<{ items: ChannelView[] }>("/api/dashboard/channels?includeArchived=1");
   const { data: agentsData } = useApi<{ items: AgentItem[] }>(
     "/api/dashboard/agents"
   );
@@ -89,12 +91,11 @@ export default function SaluranPage({
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [testOpen, setTestOpen] = useState<string | null>(null);
 
-  // ── Modal state: one of add | edit | qr | disconnect | archive | delete ──
+  // ── Modal state ──
   const [modal, setModal] = useState<
     "add" | "edit" | "qr" | "disconnect" | "archive" | "delete" | null
   >(null);
   const [addStep, setAddStep] = useState<1 | 2 | 3>(1);
-  const [adding, setAdding] = useState<Provider | null>(null);
   const [target, setTarget] = useState<ChannelView | null>(null);
 
   const [agentId, setAgentId] = useState("");
@@ -172,7 +173,7 @@ export default function SaluranPage({
           deadPolls.current = 0;
           setQr(null);
           setQrAt(null);
-          setModalError("Sesi QR berakhir. Klik Tampilkan QR untuk memulai ulang.");
+          setModalError("Sesi QR berakhir. Klik Generate Kode QR untuk memulai ulang.");
         }
       } catch {
         /* ignore transient poll errors */
@@ -192,7 +193,6 @@ export default function SaluranPage({
   function openAdd() {
     setModal("add");
     setAddStep(1);
-    setAdding(null);
     setTos(false);
     setByoLabel("");
     setCloudForm(EMPTY_CLOUD);
@@ -202,7 +202,6 @@ export default function SaluranPage({
   }
 
   function pickProvider(p: Provider) {
-    setAdding(p);
     setAddStep(p === "CLOUD_API" ? 2 : 3);
     setModalError(null);
   }
@@ -252,9 +251,8 @@ export default function SaluranPage({
         },
       });
       setModal(null);
-      setAdding(null);
       refresh();
-      showToast(modal === "edit" ? "Kredensial berhasil diperbarui." : "Saluran WhatsApp Resmi berhasil disambungkan.");
+      showToast(modal === "edit" ? "Perubahan konfigurasi disimpan." : "Saluran Meta Cloud API berhasil diverifikasi & terhubung.");
     } catch (e) {
       setModalError(errMsg(e, "Gagal menyambungkan."));
     } finally {
@@ -299,10 +297,10 @@ export default function SaluranPage({
     try {
       if (kind === "disconnect") {
         await apiSend(`/api/dashboard/channels/disconnect?id=${target.id}`, "POST");
-        showToast("Saluran diputuskan.");
+        showToast("Koneksi saluran diputuskan.");
       } else if (kind === "archive") {
         await apiSend(`/api/dashboard/channels/archive?id=${target.id}`, "POST");
-        showToast("Saluran diarsipkan. Data percakapan tetap tersimpan.");
+        showToast("Saluran dipindahkan ke arsip.");
       } else if (kind === "delete") {
         await apiSend(`/api/dashboard/channels/delete?id=${target.id}`, "POST");
         showToast("Saluran telah dihapus permanen.");
@@ -326,62 +324,70 @@ export default function SaluranPage({
     setTesting(id);
     try {
       await apiSend(`/api/dashboard/channels/test?id=${id}`, "POST", { to });
-      showToast(`Pesan test dikirim ke ${to}`);
+      showToast(`Pesan uji terkirim ke ${to}`);
       setTestTo((p) => ({ ...p, [id]: "" }));
       setTestOpen(null);
     } catch (e) {
-      showToast(errMsg(e, "Pesan test gagal terkirim."), "error");
+      showToast(errMsg(e, "Pesan uji gagal terkirim."), "error");
     } finally {
       setTesting(null);
     }
   }
 
   // ── Derived list state ──
-  const connectedCount = channels.filter((c) => c.status === "CONNECTED").length;
+  const archived = channels.filter((c) => c.archivedAt);
+  const live = channels.filter((c) => !c.archivedAt);
+  const connectedCount = live.filter((c) => c.status === "CONNECTED").length;
   const filtered = channels.filter((c) => {
-    const matchFilter =
-      filter === "all" ||
-      (filter === "connected" ? c.status === "CONNECTED" : c.status !== "CONNECTED");
+    if (c.archivedAt && filter !== "archived") return false;
+    if (filter === "connected") return c.status === "CONNECTED" && !c.archivedAt;
+    if (filter === "disconnected") return c.status !== "CONNECTED" && !c.archivedAt;
+    if (filter === "archived") return !!c.archivedAt;
+    return true;
+  }).filter((c) => {
     const q = search.toLowerCase().trim();
+    if (!q) return true;
     const haystack = `${c.label} ${c.phoneNumber ?? ""} ${c.externalId ?? ""}`.toLowerCase();
-    return matchFilter && (!q || haystack.includes(q));
+    return haystack.includes(q);
   });
 
   const seatLimit = entitlements?.channelLimit ?? null;
   const seatUsed = entitlements?.usage.channels ?? connectedCount;
 
   const addTitles: Record<1 | 2 | 3, [string, string]> = {
-    1: ["Tambah Saluran", "Pilih jenis koneksi nomor WhatsApp Anda"],
-    2: ["WhatsApp Resmi (Meta Cloud API)", "Masukkan kredensial dari Meta App Dashboard"],
-    3: ["Bawa Nomor Sendiri (QR Pairing)", "Pindai kode QR dari aplikasi WhatsApp"],
+    1: ["Tambah Saluran Baru", "Pilih metode koneksi nomor WhatsApp Anda"],
+    2: ["Konfigurasi WhatsApp Business API", "Kredensial divalidasi langsung ke server Meta Graph API"],
+    3: ["Tautkan Nomor via Kode QR", "Gunakan nomor WhatsApp reguler dengan perangkat tertaut"],
   };
 
   return (
     <DashboardShell
       title="Saluran"
-      description="Sambungkan satu atau lebih nomor WhatsApp. Setiap saluran punya percakapan dan agent tersendiri."
+      description="Kelola nomor WhatsApp bisnis maupun perangkat tertaut. Setiap saluran terisolasi dengan riwayat percakapan dan agent AI tersendiri."
       actions={
         <button
           onClick={openAdd}
-          disabled={!isOwner || activeAgents.length === 0}
-          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-green-700 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={!isOwner}
+          className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-zinc-900 px-3.5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <Plus size={14} weight="bold" />
+          <Plus size={16} />
           <span>Tambah Saluran</span>
         </button>
       }
       headerExtra={
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-xs text-slate-400">
-            <CaretRight size={10} className="text-slate-300" />
-            <span>Pengaturan kanal WhatsApp</span>
+          <div className="flex items-center gap-2 text-xs text-zinc-400">
+            <CaretRight size={10} className="text-zinc-300" />
+            <span>Pengaturan</span>
+            <CaretRight size={10} className="text-zinc-300" />
+            <span className="font-medium text-zinc-700">Saluran WhatsApp</span>
           </div>
           {seatLimit !== null && (
-            <div className="flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600">
+            <div className="hidden items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs font-medium text-zinc-600 sm:flex">
               <span
                 className={cn(
                   "h-1.5 w-1.5 rounded-full",
-                  seatUsed >= seatLimit ? "bg-amber-500" : "bg-green-600"
+                  seatUsed >= seatLimit ? "bg-amber-500" : "bg-emerald-500"
                 )}
               />
               <span className="tabular-nums">
@@ -404,55 +410,45 @@ export default function SaluranPage({
 
       {loading && <LoadingSkeleton rows={2} />}
 
-      {/* ══ Collapsible global webhook panel ══ */}
+      {/* ══ Collapsible Global Webhook Config ══ */}
       {!loading && (
-        <section className="mb-8 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <section className="mb-8 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
           <button
             onClick={() => setWebhookOpen((o) => !o)}
-            className="flex w-full items-center justify-between px-5 py-3.5 text-left transition hover:bg-slate-50/80"
+            className="flex w-full items-center justify-between px-5 py-3.5 text-left transition hover:bg-zinc-50/70"
           >
             <div className="flex items-center gap-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-green-50 text-green-600">
-                <Plugs size={18} />
+              <div className="flex h-7 w-7 items-center justify-center rounded-md border border-zinc-200 bg-zinc-50 text-zinc-600">
+                <WebhooksLogo size={16} />
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-sm font-semibold text-slate-900">
-                  Setelan Webhook Meta
-                </h2>
-                <span className="rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600">
-                  sekali untuk semua nomor
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-zinc-900">Konfigurasi Global Webhook Meta</span>
+                <span className="rounded border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[11px] font-medium text-zinc-500">
+                  Berlaku untuk semua nomor
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
-              <span className="hidden sm:inline">
-                {webhookOpen ? "Sembunyikan" : "Tampilkan"}
-              </span>
+            <div className="flex items-center gap-2 text-xs font-medium text-zinc-500">
+              <span>{webhookOpen ? "Sembunyikan" : "Tampilkan"}</span>
               <CaretUp
                 size={14}
-                className={cn(
-                  "transition-transform duration-200",
-                  !webhookOpen && "rotate-180"
-                )}
+                className={cn("transition-transform duration-200", !webhookOpen && "rotate-180")}
               />
             </div>
           </button>
 
           {webhookOpen && (
-            <div className="border-t border-slate-100 bg-slate-50/40 px-5 py-4">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <CopyField label="Callback URL" value={webhookUrl} />
-                <CopyField
-                  label="Verify Token"
-                  value={cloudVerifyToken ?? "-"}
-                  onCopied={() => showToast("Disalin ke clipboard")}
-                />
+            <div className="border-t border-zinc-100 bg-zinc-50/40 px-5 py-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <CopyField label="Callback URL" hint="HTTPS Endpoint" value={webhookUrl} />
+                <CopyField label="Verify Token" hint="Static Secret" value={cloudVerifyToken ?? "-"} />
               </div>
-              <p className="mt-3 flex items-start gap-1.5 text-xs text-slate-500">
-                <Info size={14} className="mt-0.5 shrink-0 text-slate-400" />
+              <p className="mt-3 flex items-center gap-1.5 text-xs text-zinc-500">
+                <Info size={14} className="text-zinc-400" />
                 <span>
-                  Tempel kedua nilai ini di <strong>Meta App Manager (WhatsApp &gt; Configuration)</strong>.
-                  Tidak berubah saat menambah atau memutus saluran.
+                  Masukkan kedua kredensial di atas pada{" "}
+                  <strong>Meta App Dashboard &rarr; WhatsApp &rarr; Configuration</strong>.
+                  Kredensial ini bersifat permanen dan tidak berubah saat menambah saluran baru.
                 </span>
               </p>
             </div>
@@ -460,15 +456,16 @@ export default function SaluranPage({
         </section>
       )}
 
-      {/* ══ Filter tabs & search ══ */}
+      {/* ══ Filter Tabs & Search ══ */}
       {!loading && channels.length > 0 && (
         <div className="mb-4 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
-          <div className="inline-flex rounded-lg border border-slate-200 bg-slate-200/60 p-0.5 text-xs font-medium">
+          <div className="inline-flex rounded-lg border border-zinc-200 bg-zinc-100/80 p-0.5 text-xs font-medium">
             {(
               [
                 ["all", "Semua", channels.length],
                 ["connected", "Terhubung", connectedCount],
-                ["disconnected", "Terputus", channels.length - connectedCount],
+                ["disconnected", "Terputus", live.length - connectedCount],
+                ["archived", "Diarsipkan", archived.length],
               ] as const
             ).map(([key, label, count]) => (
               <button
@@ -477,12 +474,12 @@ export default function SaluranPage({
                 className={cn(
                   "rounded-md px-3 py-1.5",
                   filter === key
-                    ? "bg-white text-slate-900 shadow-sm"
-                    : "text-slate-600 hover:text-slate-900"
+                    ? "bg-white text-zinc-900 shadow-xs"
+                    : "text-zinc-500 hover:text-zinc-900"
                 )}
               >
                 {label}{" "}
-                <span className="ml-1 tabular-nums text-slate-400">{count}</span>
+                <span className="ml-1 tabular-nums text-zinc-400">{count}</span>
               </button>
             ))}
           </div>
@@ -490,20 +487,20 @@ export default function SaluranPage({
           <div className="relative w-full sm:w-64">
             <MagnifyingGlass
               size={14}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400"
             />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Cari nama atau nomor..."
-              className="w-full rounded-lg border border-slate-200 bg-white py-1.5 pl-8 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none"
+              className="w-full rounded-lg border border-zinc-200 bg-white py-1.5 pl-8 pr-3 text-xs text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none"
             />
           </div>
         </div>
       )}
 
-      {/* ══ Channel list ══ */}
+      {/* ══ Channel List ══ */}
       {!loading && (
         <div className="space-y-3">
           {filtered.map((c) => (
@@ -529,47 +526,42 @@ export default function SaluranPage({
           ))}
 
           {filtered.length === 0 && channels.length > 0 && (
-            <div className="rounded-xl border border-dashed border-slate-300 bg-white py-12 text-center">
-              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+            <div className="rounded-xl border border-dashed border-zinc-300 bg-white py-12 text-center">
+              <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-zinc-100 text-zinc-400">
                 <WhatsappLogo size={20} />
               </div>
-              <p className="mt-3 text-sm font-semibold text-slate-900">
-                Tidak ada saluran ditemukan
-              </p>
-              <p className="mt-1 text-xs text-slate-500">
-                Coba ubah filter status atau kata kunci pencarian Anda.
-              </p>
+              <p className="mt-3 text-sm font-medium text-zinc-900">Tidak ada saluran ditemukan</p>
+              <p className="mt-1 text-xs text-zinc-500">Ubah filter status atau kata kunci pencarian Anda.</p>
             </div>
           )}
 
-          {channels.length === 0 && activeAgents.length === 0 && (
-            <div className="rounded-xl border border-dashed border-slate-300 bg-white py-12 text-center">
-              <p className="text-sm font-semibold text-slate-900">
-                Belum ada agent aktif
-              </p>
-              <p className="mt-1 text-xs text-slate-500">
-                Deploy sebuah agent di halaman Agent sebelum menyambungkan
-                saluran.
+          {channels.length === 0 && (
+            <div className="rounded-xl border border-dashed border-zinc-300 bg-white py-12 text-center">
+              <p className="text-sm font-semibold text-zinc-900">Belum ada agent aktif atau saluran</p>
+              <p className="mt-1 text-xs text-zinc-500">
+                Deploy sebuah agent di halaman Agent, lalu tambahkan saluran pertama Anda.
               </p>
             </div>
           )}
         </div>
       )}
 
+      {/* ══ Footer Note ══ */}
       {!loading && channels.length > 0 && (
-        <p className="mt-5 flex items-start gap-1.5 text-xs text-slate-400">
-          <Info size={14} className="mt-0.5 shrink-0" />
-          <span>
-            Arsip menyembunyikan saluran tanpa menghapus data. Hapus menghapus
-            saluran beserta seluruh percakapannya secara permanen.
-          </span>
-        </p>
+        <div className="mt-6 flex items-start gap-2 text-xs text-zinc-400">
+          <ShieldCheck size={16} className="mt-0.5 shrink-0" />
+          <p>
+            Mengarsipkan saluran akan membebaskan kuota kursi aktif Anda tanpa
+            menghapus riwayat percakapan. Penghapusan permanen tidak dapat
+            dibatalkan.
+          </p>
+        </div>
       )}
 
       {/* ═══════════ Modals ═══════════ */}
 
-      {/* Tambah Saluran (3-step) */}
-      <Modal open={modal === "add"} onClose={() => setModal(null)} maxWidth="max-w-2xl">
+      {/* Tambah Saluran (3-step wizard) */}
+      <Modal open={modal === "add"} onClose={() => setModal(null)} maxWidth="max-w-xl">
         <ModalHeader
           title={addTitles[addStep][0]}
           subtitle={addTitles[addStep][1]}
@@ -577,40 +569,42 @@ export default function SaluranPage({
         />
         <div className="p-6">
           {modalError && (
-            <p className="mb-4 rounded-lg border border-red-500/40 bg-red-500/10 p-2.5 text-xs text-red-700">
+            <p className="mb-4 rounded-lg border border-red-200 bg-red-50 p-2.5 text-xs text-red-600">
               {modalError}
             </p>
           )}
           {addStep === 1 && (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
               <ProviderCard
-                icon={<CloudArrowUp size={20} />}
-                iconCls="bg-blue-50 text-blue-600"
-                tag="Resmi"
-                tagCls="bg-blue-50 text-blue-700"
-                title="WhatsApp Resmi"
-                desc="Via Meta Cloud API. Resmi, patuh ToS, cocok untuk nomor bisnis."
-                disabled={!isOwner || activeAgents.length === 0}
+                icon={<CloudArrowUp size={18} />}
+                iconCls="border-blue-100 bg-blue-50 text-blue-600"
+                tag="Direkomendasikan"
+                tagCls="bg-emerald-50 text-emerald-700"
+                title="WhatsApp Business API"
+                desc="Integrasi resmi via Meta Cloud API. Stabil untuk volume pesan tinggi dan bebas risiko pemblokiran."
+                cta="Konfigurasi API"
+                disabled={!isOwner}
                 onClick={() => pickProvider("CLOUD_API")}
               />
               <ProviderCard
-                icon={<WhatsappLogo size={20} />}
-                iconCls="bg-green-50 text-green-600"
-                tag="QR Pairing"
-                tagCls="bg-slate-100 text-slate-600"
-                title="Bawa Nomor Sendiri"
-                desc="Pindai QR dari aplikasi WhatsApp. Aktif dalam hitungan menit."
-                disabled={!isOwner || activeAgents.length === 0}
+                icon={<QrCode size={18} />}
+                iconCls="border-zinc-200 bg-zinc-50 text-zinc-700"
+                tag="Instan"
+                tagCls="bg-zinc-100 text-zinc-600"
+                title="Tautkan Nomor (QR)"
+                desc="Gunakan nomor WhatsApp reguler atau Business yang sudah ada dengan memindai kode QR."
+                cta="Pindai QR"
+                disabled={!isOwner}
                 onClick={() => pickProvider("BAILEYS")}
               />
             </div>
           )}
 
           {addStep === 2 && (
-            <div className="space-y-3.5">
-              <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field
-                  label="Nama saluran"
+                  label="Nama Label Saluran"
                   value={cloudForm.label}
                   onChange={(v) => setCloud({ label: v })}
                   hint="mis. Sales Utama"
@@ -627,57 +621,55 @@ export default function SaluranPage({
                 label="Phone Number ID"
                 value={cloudForm.phoneNumberId}
                 onChange={(v) => setCloud({ phoneNumberId: v })}
-                hint="Contoh: 103xxxxxxxxxx"
+                hint="103xxxxxxxxxx"
                 disabled={!isOwner}
               />
               <Field
-                label="Access Token"
+                label="Permanent Access Token"
                 value={cloudForm.token}
                 onChange={(v) => setCloud({ token: v })}
-                hint="Token akses Meta Graph API, diawali EAAG..."
+                hint="EAAG..."
                 disabled={!isOwner}
                 type="password"
               />
               <Field
-                label="App Secret (opsional)"
+                label="App Secret"
                 value={cloudForm.appSecret}
                 onChange={(v) => setCloud({ appSecret: v })}
+                hint="Opsional (untuk validasi signature)"
                 disabled={!isOwner}
                 type="password"
               />
-              <p className="flex items-start gap-2 rounded-lg bg-slate-50 p-2.5 text-xs text-slate-600">
-                <CheckCircle size={14} weight="fill" className="mt-0.5 shrink-0 text-green-600" />
-                <span>
-                  Nomor diverifikasi ke Meta saat menyambungkan - ID yang salah
-                  langsung ditolak.
-                </span>
-              </p>
-              <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
+              <div className="flex items-start gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-600">
+                <CheckCircle size={14} weight="fill" className="mt-0.5 shrink-0 text-emerald-600" />
+                <span>Kredensial akan divalidasi langsung ke server Graph API Meta sebelum saluran diaktifkan.</span>
+              </div>
+              <div className="flex items-center justify-between border-t border-zinc-100 pt-4">
                 <button
                   onClick={() => setAddStep(1)}
-                  className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3.5 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
                 >
                   Kembali
                 </button>
                 <button
                   onClick={() => void connectCloud()}
                   disabled={connecting || !isOwner}
-                  className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+                  className="rounded-lg bg-zinc-900 px-4 py-2 text-xs font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
                 >
-                  {connecting ? "Menyambungkan..." : "Sambungkan"}
+                  {connecting ? "Memverifikasi..." : "Verifikasi & Sambungkan"}
                 </button>
               </div>
             </div>
           )}
 
           {addStep === 3 && (
-            <div className="space-y-3.5">
-              <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field
-                  label="Nama saluran"
+                  label="Nama Label Saluran"
                   value={byoLabel}
                   onChange={setByoLabel}
-                  hint="mis. Support Pribadi"
+                  hint="mis. Support Cabang"
                   disabled={!isOwner}
                 />
                 <AgentPicker
@@ -687,56 +679,60 @@ export default function SaluranPage({
                   disabled={!isOwner}
                 />
               </div>
-              <p className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-700">
-                <Warning size={14} weight="fill" className="mt-0.5 shrink-0" />
-                <span>
-                  Metode tidak resmi - nomor berisiko diblokir WhatsApp. Gunakan
-                  nomor bisnis khusus, bukan nomor pribadi utama Anda.
-                </span>
-              </p>
-              <div className="flex flex-col items-center gap-4 rounded-xl border border-slate-200 bg-slate-50 p-4 sm:flex-row">
-                <div className="flex h-28 w-28 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-300 shadow-inner">
-                  {qr ? (
-                    <QRCodeSVG value={qr} size={96} level="M" />
-                  ) : (
-                    <QrCode size={44} />
-                  )}
-                </div>
-                <p className="text-xs leading-relaxed text-slate-600">
-                  Klik <strong>&quot;Tampilkan QR&quot;</strong>, lalu pindai dari{" "}
-                  <strong>WhatsApp &gt; Tautkan perangkat</strong>. QR tampil di
-                  sini dan diperbarui otomatis.
-                  {qrStale && (
-                    <span className="mt-1 block text-amber-700">
-                      Scan belum terdeteksi setelah 1 menit. Coba lagi.
-                    </span>
-                  )}
+              <div className="flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50/70 p-3 text-xs text-amber-800">
+                <Warning size={16} weight="fill" className="mt-0.5 shrink-0 text-amber-600" />
+                <p>
+                  Metode perangkat tertaut menggunakan protokol non-resmi.
+                  Hindari pengiriman pesan massal (blast) agresif untuk
+                  mencegah pembatasan akun oleh WhatsApp.
                 </p>
               </div>
-              <label className="flex cursor-pointer items-center gap-2 text-xs text-slate-600">
+              <div className="flex flex-col items-center gap-4 rounded-xl border border-zinc-200 bg-zinc-50/60 p-4 sm:flex-row">
+                <div className="flex h-32 w-32 shrink-0 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-300 shadow-xs">
+                  {qr ? (
+                    <QRCodeSVG value={qr} size={110} level="M" />
+                  ) : (
+                    <QrCode size={56} />
+                  )}
+                </div>
+                <div className="space-y-1.5 text-xs text-zinc-600">
+                  <p className="font-semibold text-zinc-900">Langkah Pemindaian:</p>
+                  <ol className="list-decimal space-y-1 pl-4 text-zinc-500">
+                    <li>Klik tombol <strong>Generate Kode QR</strong> di bawah.</li>
+                    <li>Buka WhatsApp di ponsel &rarr; <strong>Perangkat Tertaut</strong>.</li>
+                    <li>Arahkan kamera ke layar; status akan aktif otomatis.</li>
+                  </ol>
+                  {qrStale && (
+                    <p className="text-amber-600">Scan belum terdeteksi setelah 1 menit. Coba lagi.</p>
+                  )}
+                </div>
+              </div>
+              <label className="flex items-start gap-2 text-xs text-zinc-600">
                 <input
                   type="checkbox"
                   checked={tos}
                   disabled={!isOwner}
                   onChange={(e) => setTos(e.target.checked)}
-                  className="h-4 w-4 rounded border-slate-300 accent-green-600"
+                  className="mt-0.5 h-4 w-4 rounded border-zinc-300 accent-zinc-900"
                 />
-                <span>Saya menyetujui ketentuan layanan untuk nomor pribadi.</span>
+                <span>
+                  Saya memahami risiko penggunaan metode perangkat tertaut dan
+                  menyetujui ketentuan layanan.
+                </span>
               </label>
-              <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
+              <div className="flex items-center justify-between border-t border-zinc-100 pt-4">
                 <button
                   onClick={() => setAddStep(1)}
-                  className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3.5 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
                 >
                   Kembali
                 </button>
                 <button
                   onClick={() => void connectByo()}
                   disabled={connecting || !isOwner || !tos}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+                  className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
                 >
-                  <QrCode size={14} />
-                  {connecting ? "Memuat..." : "Tampilkan QR"}
+                  {connecting ? "Membuat sesi..." : "Generate Kode QR"}
                 </button>
               </div>
             </div>
@@ -744,22 +740,22 @@ export default function SaluranPage({
         </div>
       </Modal>
 
-      {/* Edit Kredensial */}
+      {/* Konfigurasi / Edit */}
       <Modal open={modal === "edit"} onClose={() => setModal(null)} maxWidth="max-w-lg">
         <ModalHeader
-          title={`Edit Kredensial - ${target?.label ?? ""}`}
-          subtitle="Nomor diverifikasi ulang ke Meta saat disimpan."
+          title="Konfigurasi Saluran"
+          subtitle={`${target?.label ?? ""}${target?.phoneNumber ? ` (+${target.phoneNumber})` : ""}`}
           onClose={() => setModal(null)}
         />
-        <div className="space-y-3.5 p-6">
+        <div className="space-y-4 p-6">
           {modalError && (
-            <p className="rounded-lg border border-red-500/40 bg-red-500/10 p-2.5 text-xs text-red-700">
+            <p className="rounded-lg border border-red-200 bg-red-50 p-2.5 text-xs text-red-600">
               {modalError}
             </p>
           )}
-          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field
-              label="Nama saluran"
+              label="Nama Saluran"
               value={cloudForm.label}
               onChange={(v) => setCloud({ label: v })}
               disabled={!isOwner}
@@ -778,78 +774,74 @@ export default function SaluranPage({
             disabled={!isOwner}
           />
           <Field
-            label="Access Token"
+            label="Access Token Baru"
             value={cloudForm.token}
             onChange={(v) => setCloud({ token: v })}
-            hint="Masukkan ulang token akses Meta Graph API"
+            hint="Kosongkan jika tidak ingin mengubah token"
             disabled={!isOwner}
             type="password"
           />
           <Field
-            label="App Secret (opsional)"
+            label="App Secret"
             value={cloudForm.appSecret}
             onChange={(v) => setCloud({ appSecret: v })}
+            hint="Opsional"
             disabled={!isOwner}
             type="password"
           />
-          <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
+          <div className="flex justify-end gap-2 border-t border-zinc-100 pt-4">
             <button
               onClick={() => setModal(null)}
-              className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="rounded-lg border border-zinc-200 px-3.5 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
             >
               Batal
             </button>
             <button
               onClick={() => void connectCloud()}
               disabled={connecting || !isOwner}
-              className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+              className="rounded-lg bg-zinc-900 px-4 py-2 text-xs font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
             >
-              {connecting ? "Menyimpan..." : "Simpan"}
+              {connecting ? "Menyimpan..." : "Simpan Perubahan"}
             </button>
           </div>
         </div>
       </Modal>
 
-      {/* QR pairing (reconnect Baileys) */}
-      <Modal open={modal === "qr"} onClose={() => setModal(null)} maxWidth="max-w-md">
+      {/* QR Reconnect */}
+      <Modal open={modal === "qr"} onClose={() => setModal(null)} maxWidth="max-w-sm">
         <ModalHeader
-          title={`Sambungkan - ${target?.label ?? ""}`}
-          subtitle="Pindai QR dari aplikasi WhatsApp"
+          title="Tautkan Ulang Perangkat"
+          subtitle={`${target?.label ?? ""}${target?.phoneNumber ? ` (+${target.phoneNumber})` : ""}`}
           onClose={() => setModal(null)}
         />
-        <div className="flex flex-col items-center gap-4 p-6 text-center">
+        <div className="flex flex-col items-center p-6 text-center">
           {modalError && (
-            <p className="w-full rounded-lg border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-700">
+            <p className="mb-4 w-full rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-700">
               {modalError}
             </p>
           )}
-          <div className="flex h-44 w-44 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-300">
+          <div className="flex h-48 w-48 items-center justify-center rounded-2xl border border-zinc-200 bg-zinc-50 text-zinc-300">
             {qr ? (
-              <QRCodeSVG value={qr} size={160} level="M" />
+              <QRCodeSVG value={qr} size={170} level="M" />
             ) : (
-              <QrCode size={72} />
+              <QrCode size={64} />
             )}
           </div>
-          <p className="text-xs leading-relaxed text-slate-500">
-            Buka <strong>WhatsApp &gt; Tautkan perangkat</strong>, lalu pindai QR
-            ini. Status diperbarui otomatis.
-            {qrStale && (
-              <span className="mt-1 block text-amber-700">
-                Scan belum terdeteksi setelah 1 menit. Coba lagi.
-              </span>
-            )}
+          <p className="mt-4 text-xs leading-relaxed text-zinc-500">
+            Buka aplikasi WhatsApp di ponsel Anda, masuk ke{" "}
+            <strong>Perangkat Tertaut</strong>, lalu pindai kode QR di atas.
           </p>
           <button
             onClick={() => void connectByo()}
             disabled={connecting || !isOwner}
-            className="w-full rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+            className="mt-5 w-full rounded-lg bg-emerald-600 px-4 py-2 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
           >
-            {connecting ? "Memuat..." : "Tampilkan QR"}
+            {connecting ? "Memuat ulang..." : "Tampilkan Kode QR"}
           </button>
         </div>
       </Modal>
 
-      {/* Confirm dialogs: disconnect / archive / delete */}
+      {/* Confirm modals: delete / archive / disconnect */}
       <Modal
         open={modal === "disconnect" || modal === "archive" || modal === "delete"}
         onClose={() => setModal(null)}
@@ -857,41 +849,39 @@ export default function SaluranPage({
       >
         <div className="p-6">
           {modalError && (
-            <p className="mb-3 rounded-lg border border-red-500/40 bg-red-500/10 p-2.5 text-xs text-red-700">
+            <p className="mb-3 rounded-lg border border-red-200 bg-red-50 p-2.5 text-xs text-red-600">
               {modalError}
             </p>
           )}
           {modal === "delete" ? (
             <>
-              <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-red-50 text-red-600">
-                <Warning size={22} />
+              <div className="flex h-10 w-10 items-center justify-center rounded-full border border-red-100 bg-red-50 text-red-600">
+                <Warning size={20} />
               </div>
-              <h3 className="text-base font-semibold text-slate-900">
-                Hapus saluran &quot;{target?.label ?? ""}&quot;?
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-slate-500">
-                Semua percakapan, pesan, dan riwayat pengiriman di saluran ini
-                ikut terhapus <strong>permanen</strong> dan tidak bisa
-                dikembalikan. Jika hanya ingin menyembunyikannya tanpa
-                menghapus data, gunakan <strong>Arsipkan</strong>.
+              <h3 className="mt-4 text-base font-semibold text-zinc-900">Hapus Saluran Permanen?</h3>
+              <p className="mt-1.5 text-xs leading-relaxed text-zinc-500">
+                Seluruh riwayat percakapan, log pesan, dan kampanye pada saluran
+                ini akan dihapus <strong>secara permanen</strong> dan tidak dapat
+                dipulihkan. Gunakan fitur <strong>Arsipkan</strong> jika Anda
+                masih membutuhkan datanya.
               </p>
             </>
           ) : (
             <>
-              <h3 className="text-base font-semibold text-slate-900">
-                {modal === "disconnect" ? "Putuskan" : "Arsipkan"} &quot;{target?.label ?? ""}&quot;?
+              <h3 className="text-base font-semibold text-zinc-900">
+                {modal === "disconnect" ? "Putuskan Koneksi Saluran?" : "Arsipkan Saluran?"}
               </h3>
-              <p className="mt-2 text-sm leading-relaxed text-slate-500">
+              <p className="mt-1.5 text-xs leading-relaxed text-zinc-500">
                 {modal === "disconnect"
-                  ? "Saluran berhenti mengirim dan menerima pesan sampai disambungkan kembali. Percakapan tersimpan."
-                  : "Saluran disembunyikan dari daftar, data percakapan tetap tersimpan, dan kursi paket terbebaskan."}
+                  ? "Saluran akan berhenti mengirim maupun menerima pesan hingga Anda menyambungkannya kembali. Seluruh riwayat chat tetap tersimpan."
+                  : "Saluran akan dinonaktifkan dan disembunyikan dari daftar utama, namun seluruh data percakapan tetap aman tersimpan dan kuota kursi paket Anda akan dibebaskan."}
               </p>
             </>
           )}
           <div className="mt-6 flex justify-end gap-2">
             <button
               onClick={() => setModal(null)}
-              className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+              className="rounded-lg border border-zinc-200 px-3.5 py-2 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
             >
               Batal
             </button>
@@ -899,10 +889,10 @@ export default function SaluranPage({
               onClick={() => void confirmAction()}
               disabled={busy}
               className={cn(
-                "rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-50",
+                "rounded-lg px-3.5 py-2 text-xs font-medium text-white disabled:opacity-50",
                 modal === "delete"
                   ? "bg-red-600 hover:bg-red-700"
-                  : "bg-slate-800 hover:bg-slate-900"
+                  : "bg-zinc-900 hover:bg-zinc-800"
               )}
             >
               {busy
@@ -911,7 +901,7 @@ export default function SaluranPage({
                   ? "Ya, Hapus Permanen"
                   : modal === "disconnect"
                     ? "Putuskan"
-                    : "Arsipkan"}
+                    : "Arsipkan Saluran"}
             </button>
           </div>
         </div>
@@ -922,35 +912,35 @@ export default function SaluranPage({
   );
 }
 
-// ── Sub-components (local to the page redesign) ──
+// ── Sub-components ──
 
-function CopyField(props: { label: string; value: string; onCopied?: () => void }) {
+function CopyField(props: { label: string; hint: string; value: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <div>
       <div className="mb-1.5 flex items-center justify-between">
-        <label className="text-xs font-medium text-slate-600">{props.label}</label>
+        <label className="text-xs font-medium text-zinc-600">{props.label}</label>
+        <span className="text-[11px] text-zinc-400">{props.hint}</span>
       </div>
-      <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2 transition focus-within:border-slate-400">
-        <code className="truncate font-mono text-xs text-slate-700 select-all">
+      <div className="flex items-center justify-between rounded-lg border border-zinc-200 bg-white px-3 py-2 transition focus-within:border-zinc-400">
+        <code className="truncate font-mono text-xs text-zinc-700 select-all">
           {props.value}
         </code>
         <button
-          className="ml-2 inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
+          className="ml-2 inline-flex shrink-0 items-center gap-1 rounded px-2 py-1 text-xs font-medium text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
           onClick={() => {
             void navigator.clipboard.writeText(props.value).then(() => {
               setCopied(true);
-              props.onCopied?.();
               setTimeout(() => setCopied(false), 1800);
             });
           }}
         >
           {copied ? (
-            <CheckCircle size={14} weight="bold" className="text-green-600" />
+            <CheckCircle size={14} weight="bold" className="text-emerald-600" />
           ) : (
             <Copy size={14} />
           )}
-          <span className={copied ? "text-green-600" : ""}>
+          <span className={copied ? "text-emerald-600" : ""}>
             {copied ? "Tersalin" : "Salin"}
           </span>
         </button>
@@ -981,204 +971,227 @@ type ChannelCardProps = {
 function ChannelCard(props: ChannelCardProps) {
   const c = props.channel;
   const connected = c.status === "CONNECTED";
+  const archived = !!c.archivedAt;
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-300">
-      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-        {/* Left: identity & metadata */}
-        <div className="flex items-start gap-3.5">
-          <div
-            className={cn(
-              "relative mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg",
-              c.provider === "CLOUD_API"
-                ? "bg-blue-50 text-blue-600"
-                : "bg-green-50 text-green-600"
-            )}
-          >
-            {c.provider === "CLOUD_API" ? (
-              <CloudArrowUp size={20} />
-            ) : (
-              <WhatsappLogo size={20} />
-            )}
-            <span className="absolute -bottom-0.5 -right-0.5 flex h-3 w-3 items-center justify-center rounded-full bg-white">
-              <span
-                className={cn(
-                  "h-2 w-2 rounded-full",
-                  connected ? "bg-green-600" : "bg-slate-400"
-                )}
-              />
-            </span>
-          </div>
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm font-semibold text-slate-900">{c.label}</span>
-              <span
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold",
-                  connected
-                    ? "bg-green-100 text-green-700"
-                    : "bg-slate-100 text-slate-600"
-                )}
-              >
-                <span
-                  className={cn(
-                    "h-1.5 w-1.5 rounded-full",
-                    connected ? "bg-green-600" : "bg-slate-400"
-                  )}
-                />
-                {connected ? "Terhubung" : "Terputus"}
-              </span>
-              <span
-                className={cn(
-                  "rounded px-1.5 py-0.5 text-[11px] font-medium",
-                  c.provider === "CLOUD_API"
-                    ? "bg-blue-50 text-blue-700"
-                    : "bg-slate-100 text-slate-600"
-                )}
-              >
-                {c.provider === "CLOUD_API" ? "Resmi" : "Pribadi"}
-              </span>
-            </div>
-            <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-slate-500">
-              {c.phoneNumber && (
-                <span className="font-mono font-medium tabular-nums text-slate-700">
-                  +{c.phoneNumber.replace(/^\+/, "")}
+    <div
+      className={cn(
+        "rounded-xl border border-zinc-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition",
+        archived ? "opacity-70" : "hover:border-zinc-300"
+      )}
+    >
+      <div className="p-5">
+        <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
+          {/* Left: identity */}
+          <div className="flex items-start gap-3.5">
+            <div
+              className={cn(
+                "relative mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-zinc-200 bg-zinc-50",
+                archived ? "text-zinc-400" : connected ? "text-zinc-700" : "text-zinc-500"
+              )}
+            >
+              {c.provider === "CLOUD_API" ? (
+                <CloudArrowUp size={20} className="text-blue-600" />
+              ) : (
+                <DeviceMobile size={20} />
+              )}
+              {!archived && (
+                <span className="absolute -bottom-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-white">
+                  <span
+                    className={cn(
+                      "h-2 w-2 rounded-full",
+                      connected ? "bg-emerald-500" : "bg-amber-500"
+                    )}
+                  />
                 </span>
               )}
-              {c.externalId && (
-                <>
-                  <span className="text-slate-300">&bull;</span>
-                  <span className="font-mono text-[11px] tabular-nums text-slate-400">
-                    ID {c.externalId}
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-sm font-semibold text-zinc-900">{c.label}</h3>
+                {archived ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-200 bg-zinc-100 px-2 py-0.5 text-[11px] font-medium text-zinc-500">
+                    <Archive size={10} />
+                    Diarsipkan
                   </span>
-                </>
-              )}
-              {props.agentLabel && (
-                <>
-                  <span className="text-slate-300">&bull;</span>
-                  <span className="inline-flex items-center gap-1 text-slate-600">
-                    <Robot size={12} className="text-slate-400" />
-                    {props.agentLabel}
+                ) : connected ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    Terhubung
                   </span>
-                </>
-              )}
-              {!c.phoneNumber && !c.externalId && (
-                <span>{c.provider === "BAILEYS" ? "Belum pernah pairing" : "Belum terkonfigurasi"}</span>
-              )}
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                    Terputus
+                  </span>
+                )}
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-medium",
+                    c.provider === "CLOUD_API"
+                      ? "border-blue-200/80 bg-blue-50/70 text-blue-700"
+                      : "border-zinc-200 bg-zinc-100 text-zinc-600"
+                  )}
+                >
+                  {c.provider === "CLOUD_API" ? (
+                    <>
+                      <CheckCircle size={10} weight="fill" /> Meta Cloud API
+                    </>
+                  ) : (
+                    "Perangkat Tertaut"
+                  )}
+                </span>
+              </div>
+              <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
+                {c.phoneNumber && (
+                  <span className="font-mono font-medium tabular-nums text-zinc-700">
+                    +{c.phoneNumber.replace(/^\+/, "")}
+                  </span>
+                )}
+                {c.externalId && (
+                  <>
+                    <span className="text-zinc-300">&bull;</span>
+                    <span className="font-mono text-[11px] tabular-nums text-zinc-400">
+                      ID: {c.externalId}
+                    </span>
+                  </>
+                )}
+                {!archived && !connected && c.provider === "BAILEYS" && (
+                  <>
+                    <span className="text-zinc-300">&bull;</span>
+                    <span className="font-medium text-amber-600">
+                      Sesi QR berakhir, perlu tautkan ulang
+                    </span>
+                  </>
+                )}
+                {props.agentLabel && (
+                  <>
+                    <span className="text-zinc-300">&bull;</span>
+                    <span className="inline-flex items-center gap-1 text-zinc-600">
+                      <Robot size={12} className="text-zinc-400" />
+                      {props.agentLabel}
+                    </span>
+                  </>
+                )}
+                {!c.phoneNumber && !c.externalId && (
+                  <span>Belum pernah pairing</span>
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Right: primary actions + overflow menu */}
-        <div className="flex items-center gap-2 self-end md:self-center">
-          {connected ? (
-            <>
-              <button
-                onClick={props.onTest}
-                disabled={!props.isOwner}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
-              >
-                <PaperPlaneTilt size={13} className="text-slate-500" />
-                <span>Kirim Test</span>
-              </button>
-              {c.provider === "CLOUD_API" ? (
+          {/* Right: actions + overflow */}
+          {!archived && (
+            <div className="flex items-center gap-2 self-end lg:self-center">
+              {connected ? (
+                <>
+                  <button
+                    onClick={props.onTest}
+                    disabled={!props.isOwner}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 hover:text-zinc-900 disabled:opacity-50"
+                  >
+                    <PaperPlaneTilt size={14} className="text-zinc-500" />
+                    <span>Kirim Test</span>
+                  </button>
+                  <button
+                    onClick={props.onEdit}
+                    disabled={!props.isOwner}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 hover:text-zinc-900 disabled:opacity-50"
+                  >
+                    <SlidersHorizontal size={14} className="text-zinc-500" />
+                    <span>Konfigurasi</span>
+                  </button>
+                </>
+              ) : (
                 <button
-                  onClick={props.onEdit}
+                  onClick={props.onReconnect}
                   disabled={!props.isOwner}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white shadow-xs transition hover:bg-emerald-700 disabled:opacity-50"
                 >
-                  <PencilSimple size={13} className="text-slate-500" />
-                  <span>Edit Kredensial</span>
+                  <QrCode size={14} />
+                  <span>Tautkan Ulang</span>
                 </button>
-              ) : null}
-            </>
-          ) : (
-            <button
-              onClick={props.onReconnect}
-              disabled={!props.isOwner}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-green-700 disabled:opacity-50"
-            >
-              <QrCode size={13} />
-              <span>{c.provider === "BAILEYS" ? "Sambungkan" : "Sambungkan"}</span>
-            </button>
+              )}
+
+              <div className="relative">
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    props.onToggleMenu();
+                  }}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-500 transition hover:bg-zinc-50 hover:text-zinc-900"
+                  aria-label="Opsi lainnya"
+                  disabled={!props.isOwner}
+                >
+                  <DotsThreeVertical size={16} />
+                </button>
+                {props.menuOpen && (
+                  <div className="absolute right-0 z-20 mt-1.5 w-48 origin-top-right rounded-xl border border-zinc-200 bg-white p-1 shadow-lg">
+                    {connected && (
+                      <button
+                        onClick={props.onDisconnect}
+                        className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+                      >
+                        <Plugs size={14} className="text-zinc-500" /> Putuskan Koneksi
+                      </button>
+                    )}
+                    <button
+                      onClick={props.onArchive}
+                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+                    >
+                      <Archive size={14} className="text-zinc-500" /> Arsipkan Saluran
+                    </button>
+                    <div className="my-1 border-t border-zinc-100" />
+                    <button
+                      onClick={props.onDelete}
+                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-red-600 hover:bg-red-50"
+                    >
+                      <Trash size={14} /> Hapus Permanen
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           )}
 
-          {/* Overflow dropdown */}
-          <div className="relative">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                props.onToggleMenu();
-              }}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-50 hover:text-slate-900"
-              aria-label="Opsi saluran"
-              disabled={!props.isOwner}
-            >
-              <DotsThreeVertical size={16} />
-            </button>
-            {props.menuOpen && (
-              <div className="absolute right-0 z-20 mt-1.5 w-44 origin-top-right rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
-                {connected && (
-                  <button
-                    onClick={props.onDisconnect}
-                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50"
-                  >
-                    <Plugs size={14} className="text-slate-500" /> Putuskan
-                  </button>
-                )}
+          {/* Archived rows get restore affordance via the same menu-less design: no actions per template */}
+        </div>
+
+        {/* Inline test drawer */}
+        {props.testOpen && connected && (
+          <div className="mt-4 border-t border-zinc-100 pt-4">
+            <div className="flex flex-col justify-between gap-3 rounded-lg border border-zinc-200/80 bg-zinc-50/70 p-3 sm:flex-row sm:items-center">
+              <div className="flex flex-1 items-center gap-2">
+                <span className="shrink-0 text-xs font-medium text-zinc-600">
+                  Kirim pesan uji ke:
+                </span>
+                <input
+                  type="tel"
+                  value={props.testValue}
+                  onChange={(e) => props.onTestValue(e.target.value)}
+                  placeholder="6281290088999"
+                  className="w-full max-w-xs rounded-md border border-zinc-200 bg-white px-2.5 py-1.5 font-mono text-xs text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-400 focus:outline-none"
+                />
+              </div>
+              <div className="flex items-center gap-2">
                 <button
-                  onClick={props.onArchive}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50"
+                  onClick={props.onTest}
+                  className="rounded-md px-2.5 py-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-800"
                 >
-                  <Archive size={14} className="text-slate-500" /> Arsipkan
+                  Batal
                 </button>
-                <div className="my-1 border-t border-slate-100" />
                 <button
-                  onClick={props.onDelete}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-red-600 hover:bg-red-50"
+                  onClick={props.onSendTest}
+                  disabled={props.testing}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-emerald-700 disabled:opacity-50"
                 >
-                  <Trash size={14} /> Hapus Permanen
+                  <PaperPlaneRight size={13} />
+                  {props.testing ? "Mengirim..." : "Kirim Sekarang"}
                 </button>
               </div>
-            )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
-
-      {/* Inline test row */}
-      {props.testOpen && connected && (
-        <div className="mt-4 border-t border-slate-100 pt-3.5">
-          <div className="flex flex-col justify-between gap-2.5 rounded-lg border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center">
-            <div className="flex flex-1 items-center gap-2.5">
-              <span className="shrink-0 text-xs font-medium text-slate-600">
-                Nomor tujuan:
-              </span>
-              <input
-                type="tel"
-                value={props.testValue}
-                onChange={(e) => props.onTestValue(e.target.value)}
-                placeholder="mis. 6281290088999"
-                className="w-full max-w-xs rounded-lg border border-slate-200 bg-white px-3 py-1.5 font-mono text-xs text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none"
-              />
-            </div>
-            <div className="flex items-center justify-end gap-2">
-              <button
-                onClick={props.onTest}
-                className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-500 hover:text-slate-800"
-              >
-                Batal
-              </button>
-              <button
-                onClick={props.onSendTest}
-                disabled={props.testing}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-50"
-              >
-                <PaperPlaneRight size={13} />
-                {props.testing ? "Mengirim..." : "Kirim"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -1190,6 +1203,7 @@ function ProviderCard(props: {
   tagCls: string;
   title: string;
   desc: string;
+  cta: string;
   disabled?: boolean;
   onClick: () => void;
 }) {
@@ -1197,40 +1211,32 @@ function ProviderCard(props: {
     <button
       onClick={props.onClick}
       disabled={props.disabled}
-      className="group flex flex-col justify-between rounded-xl border-2 border-slate-200 p-5 text-left transition hover:border-green-500 hover:bg-slate-50/40 disabled:cursor-not-allowed disabled:opacity-50"
+      className="group flex flex-col justify-between rounded-xl border border-zinc-200 bg-white p-4 text-left transition hover:border-zinc-900 hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
     >
       <div>
         <div className="mb-3 flex items-center justify-between">
           <div
             className={cn(
-              "flex h-10 w-10 items-center justify-center rounded-lg",
+              "flex h-9 w-9 items-center justify-center rounded-lg border",
               props.iconCls
             )}
           >
             {props.icon}
           </div>
-          <span
-            className={cn(
-              "rounded px-2 py-0.5 text-[10px] font-semibold",
-              props.tagCls
-            )}
-          >
+          <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-semibold", props.tagCls)}>
             {props.tag}
           </span>
         </div>
-        <p className="font-semibold text-slate-900">{props.title}</p>
-        <p className="mt-1 text-xs leading-relaxed text-slate-500">{props.desc}</p>
+        <p className="text-sm font-semibold text-zinc-900">{props.title}</p>
+        <p className="mt-1 text-xs leading-relaxed text-zinc-500">{props.desc}</p>
       </div>
-      <div className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-green-600">
-        <span>Lanjutkan</span>
+      <div className="mt-4 flex items-center gap-1 text-xs font-medium text-zinc-900 transition-transform group-hover:translate-x-0.5">
+        <span>{props.cta}</span>
       </div>
     </button>
   );
 }
 
-// Animated modal shell matching the reference: backdrop blur + fade, panel
-// scale-in. Escape and backdrop click close (handled by the page-level
-// listener + onClose).
 function Modal(props: {
   open: boolean;
   onClose: () => void;
@@ -1240,20 +1246,20 @@ function Modal(props: {
   if (!props.open) return null;
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/45 p-4 opacity-100 backdrop-blur-[2px]"
-      style={{ animation: "fadeIn 0.16s ease-out" }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/40 p-4 backdrop-blur-[2px]"
+      style={{ animation: "saluranFadeIn 0.15s ease-out" }}
       onClick={(e) => {
         if (e.target === e.currentTarget) props.onClose();
       }}
     >
-      <style>{`@keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
-@keyframes panelIn { from { transform: scale(0.97) translateY(6px) } to { transform: scale(1) translateY(0) } }`}</style>
+      <style>{`@keyframes saluranFadeIn { from { opacity: 0 } to { opacity: 1 } }
+@keyframes saluranPanelIn { from { transform: scale(0.97) translateY(4px) } to { transform: scale(1) translateY(0) } }`}</style>
       <div
         className={cn(
-          "modal-panel w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl",
+          "w-full overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl",
           props.maxWidth ?? "max-w-lg"
         )}
-        style={{ animation: "panelIn 0.18s cubic-bezier(0.16, 1, 0.3, 1)" }}
+        style={{ animation: "saluranPanelIn 0.15s cubic-bezier(0.16, 1, 0.3, 1)" }}
       >
         {props.children}
       </div>
@@ -1267,16 +1273,14 @@ function ModalHeader(props: {
   onClose: () => void;
 }) {
   return (
-    <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+    <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4">
       <div>
-        <h3 className="text-base font-semibold text-slate-900">{props.title}</h3>
-        {props.subtitle && (
-          <p className="text-xs text-slate-500">{props.subtitle}</p>
-        )}
+        <h3 className="text-base font-semibold text-zinc-900">{props.title}</h3>
+        {props.subtitle && <p className="text-xs text-zinc-500">{props.subtitle}</p>}
       </div>
       <button
         onClick={props.onClose}
-        className="flex h-7 w-7 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+        className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
         aria-label="Tutup"
       >
         <X size={16} />
@@ -1293,8 +1297,6 @@ type SaluranProps = {
 export const getServerSideProps: GetServerSideProps<SaluranProps> = withAuth<
   SaluranProps
 >(async (ctx) => {
-  // Webhook URL shown in the UI: the webhook lives in apps/api (Phase 7), so
-  // its URL comes from API_URL; the request-origin fallback only serves dev.
   const apiBase = (process.env.API_URL ?? "").replace(/\/$/, "");
   const fallback = (
     process.env.NEXTAUTH_URL ?? `https://${ctx.req.headers.host}`
@@ -1305,11 +1307,9 @@ export const getServerSideProps: GetServerSideProps<SaluranProps> = withAuth<
   // service). The legacy per-channel token is the transition fallback shown
   // when env is unset.
   const session = await getSSRSession(ctx);
-  let cloudVerifyToken: string | null =
-    process.env.WHATSAPP_VERIFY_TOKEN ?? null;
+  let cloudVerifyToken: string | null = process.env.WHATSAPP_VERIFY_TOKEN ?? null;
   if (session?.user.tenantId && !cloudVerifyToken) {
     const tenantId = session.user.tenantId;
-    // RLS context (PRD 16 SEC-1): the Channel read below is this tenant's.
     await withTenantContext(tenantId, async () => {
       const existing = await prisma.channel.findFirst({
         where: { tenantId, provider: "CLOUD_API" },

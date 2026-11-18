@@ -89,9 +89,11 @@ export default async function handler(
 
   return withTenantContext(tenantId, async () => {
     // Archived channels are hidden from the working list (PRD 15); data
-    // stays queryable everywhere else.
+    // stays queryable everywhere else. ?includeArchived=1 returns them too
+    // (the Diarsipkan tab) - with their archivedAt timestamp for the UI.
+    const includeArchived = _req.query.includeArchived === "1";
     const channels = await prisma.channel.findMany({
-      where: { tenantId, archivedAt: null },
+      where: { tenantId, ...(includeArchived ? {} : { archivedAt: null }) },
       orderBy: { createdAt: "asc" },
     });
 

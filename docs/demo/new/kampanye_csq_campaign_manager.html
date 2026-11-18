@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="id" class="antialiased">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Kampanye — CSQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
+          mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        }
+      }
+    }
+  }
+</script>
+<style>
+  body {
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+
+  /* Subtle custom scrollbar */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+  ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+  .nav-item-active {
+    background-color: rgb(240 253 244);
+    color: rgb(21 128 61);
+    font-weight: 600;
+  }
+
+  /* Slide-over drawer transitions (no centered popups) */
+  .drawer-backdrop {
+    background: rgba(15, 23, 42, 0.35);
+    backdrop-filter: blur(1px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease-out;
+  }
+  .drawer-backdrop.open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .drawer-panel {
+    transform: translateX(100%);
+    transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .drawer-backdrop.open .drawer-panel {
+    transform: translateX(0);
+  }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+<!-- ════════ Sidebar ════════ -->
+<aside id="sidebar" class="fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 -translate-x-full flex-col border-r border-slate-200 bg-white transition-transform duration-200 md:translate-x-0">
+  <div class="flex h-16 items-center justify-between border-b border-slate-100 px-6">
+    <div class="flex items-center gap-2.5">
+      <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-green-600 text-white shadow-xs">
+        <i class="ph-fill ph-chat-circle-dots text-xl"></i>
+      </div>
+      <span class="text-lg font-bold tracking-tight text-slate-900">CSQ</span>
+    </div>
+    <span class="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] font-medium text-slate-500">PRO</span>
+  </div>
+
+  <nav class="flex-1 space-y-5 overflow-y-auto px-3 py-4 text-[13px]">
+    <div>
+      <p class="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Utama</p>
+      <div class="space-y-0.5">
+        <a href="#ringkasan" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-chart-bar text-lg text-slate-400"></i>Ringkasan</a>
+        <a href="#percakapan" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-chat-circle-dots text-lg text-slate-400"></i>Percakapan</a>
+        <a href="#tiket" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-lifebuoy text-lg text-slate-400"></i>Tiket</a>
+        <a href="#kampanye" onclick="return false;" class="nav-item-active flex items-center gap-3 rounded-lg px-3 py-2"><i class="ph-fill ph-megaphone text-lg text-green-600"></i>Kampanye</a>
+        <a href="#template" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-notepad text-lg text-slate-400"></i>Template Pesan</a>
+        <a href="#saluran" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-whatsapp-logo text-lg text-slate-400"></i>Saluran</a>
+        <a href="#pipeline" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-kanban text-lg text-slate-400"></i>Manajemen Pipeline</a>
+        <a href="#kpi" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-target text-lg text-slate-400"></i>KPI</a>
+      </div>
+    </div>
+    <div>
+      <p class="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Data Bisnis</p>
+      <div class="space-y-0.5">
+        <a href="#produk" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-package text-lg text-slate-400"></i>Produk</a>
+        <a href="#inventaris" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-stack text-lg text-slate-400"></i>Inventaris</a>
+        <a href="#pesanan" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-shopping-cart text-lg text-slate-400"></i>Pesanan</a>
+        <a href="#kontak" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-address-book text-lg text-slate-400"></i>Kontak</a>
+        <a href="#tag" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-tag text-lg text-slate-400"></i>Tag</a>
+      </div>
+    </div>
+    <div>
+      <p class="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Pengetahuan</p>
+      <div class="space-y-0.5">
+        <a href="#pengetahuan" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-books text-lg text-slate-400"></i>Pengetahuan</a>
+        <a href="#memori" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-brain text-lg text-slate-400"></i>Memori</a>
+        <a href="#sumber-data" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-database text-lg text-slate-400"></i>Sumber Data</a>
+      </div>
+    </div>
+    <div>
+      <p class="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Agent</p>
+      <div class="space-y-0.5">
+        <a href="#agent" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-robot text-lg text-slate-400"></i>Agent</a>
+        <a href="#skenario" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-flow-arrow text-lg text-slate-400"></i>Skenario</a>
+        <a href="#approval" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-seal-check text-lg text-slate-400"></i>Approval</a>
+        <a href="#aktivitas" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-clock-counter-clockwise text-lg text-slate-400"></i>Aktivitas</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="space-y-0.5 border-t border-slate-200 p-3 text-[13px]">
+    <a href="#pengaturan" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-gear text-lg text-slate-400"></i>Pengaturan</a>
+    <a href="#tim" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-users text-lg text-slate-400"></i>Tim</a>
+    <a id="nav-plan" href="#paket" onclick="return false;" class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-wallet text-lg text-slate-400"></i>Paket &amp; Kuota</a>
+  </div>
+</aside>
+
+<div id="nav-overlay" class="fixed inset-0 z-30 hidden bg-slate-900/40 backdrop-blur-[1px] md:hidden" onclick="toggleNav(false)"></div>
+
+<!-- ════════ Main Layout ════════ -->
+<div class="flex min-h-screen min-w-0 flex-col md:pl-64">
+
+  <!-- Sticky Top Bar -->
+  <header class="sticky top-0 z-20 flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white/90 px-4 backdrop-blur-md md:px-6">
+    <div class="flex items-center gap-3">
+      <button class="rounded-lg p-2 text-slate-600 hover:bg-slate-100 md:hidden" onclick="toggleNav(true)" aria-label="Buka menu">
+        <i class="ph ph-list text-xl"></i>
+      </button>
+      <div class="relative hidden w-72 sm:block lg:w-96">
+        <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+        <input type="text" placeholder="Cari atau ketik perintah…"
+          class="w-full rounded-lg border border-slate-200 bg-slate-50 py-1.5 pl-9 pr-12 text-xs text-slate-900 placeholder-slate-400 transition focus:border-slate-300 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-200/70" />
+        <kbd class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded border border-slate-200 bg-white px-1.5 py-0.5 font-mono text-[10px] text-slate-400">⌘K</kbd>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <!-- Demo Role Pill -->
+      <button onclick="switchRole()" title="Klik untuk ganti peran demo"
+        class="hidden items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 transition hover:border-slate-300 hover:bg-slate-100 sm:inline-flex">
+        <span id="role-dot" class="h-1.5 w-1.5 rounded-full bg-green-600"></span>
+        <span>Mode: <strong id="role-pill-text" class="font-semibold text-slate-900">Owner</strong></span>
+        <i class="ph ph-swap text-slate-400"></i>
+      </button>
+
+      <button class="relative flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-800" aria-label="Notifikasi">
+        <i class="ph ph-bell text-xl"></i>
+        <span class="absolute right-1.5 top-1.5 h-2 w-2 rounded-full border-2 border-white bg-red-500"></span>
+      </button>
+
+      <div class="h-5 w-px bg-slate-200"></div>
+
+      <div class="relative">
+        <button id="avatar-btn" class="flex items-center gap-2 rounded-lg p-1 transition hover:bg-slate-100" onclick="toggleMenu()">
+          <div id="avatar-initial" class="flex h-8 w-8 items-center justify-center rounded-full bg-green-600 text-xs font-semibold text-white shadow-xs">B</div>
+          <div class="hidden text-left lg:block">
+            <p id="header-name" class="text-xs font-semibold leading-tight text-slate-900">Bu Ratih</p>
+            <p id="header-role" class="text-[11px] leading-tight text-slate-500">Owner</p>
+          </div>
+          <i class="ph ph-caret-down hidden text-xs text-slate-400 sm:block"></i>
+        </button>
+
+        <div id="avatar-menu" class="absolute right-0 top-12 z-50 hidden w-56 origin-top-right rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+          <div class="border-b border-slate-100 px-3 py-2">
+            <p id="menu-name" class="truncate text-sm font-semibold text-slate-900">Bu Ratih</p>
+            <p id="menu-role" class="text-xs text-slate-500">Owner</p>
+          </div>
+          <button onclick="switchRole()" class="mt-1 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50">
+            <i class="ph ph-swap text-base text-slate-500"></i>Ganti peran demo (Owner/Staf)
+          </button>
+          <button onclick="showToast('Sesi keluar (demo)'); toggleMenu();" class="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-red-600 hover:bg-red-50">
+            <i class="ph ph-sign-out text-base"></i>Keluar
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1">
+
+    <!-- ════════════════ VIEW 1: DAFTAR KAMPANYE ════════════════ -->
+    <div id="view-list">
+      <div class="border-b border-slate-200 bg-white px-4 py-5 md:px-6">
+        <div class="mx-auto flex max-w-7xl flex-col justify-between gap-4 sm:flex-row sm:items-center">
+          <div>
+            <div class="flex items-center gap-2.5">
+              <h1 class="text-xl font-bold tracking-tight text-slate-900">Kampanye</h1>
+              <span id="header-count" class="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 font-mono text-xs font-medium text-slate-600 tabular-nums">4</span>
+            </div>
+            <p class="mt-1 text-sm text-slate-500">Kirim pesan promosi ke banyak kontak sekaligus, dengan jadwal dan tempo yang terkontrol.</p>
+          </div>
+          <button id="btn-new" onclick="openWizard(null)"
+            class="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-green-600 px-3.5 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-green-700 active:scale-[0.99]">
+            <i class="ph-bold ph-plus text-sm"></i>
+            <span>Kampanye Baru</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="mx-auto max-w-7xl p-4 md:p-6">
+        <!-- Permission Notice -->
+        <div id="no-perm" class="mb-5 hidden items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs text-amber-800">
+          <i class="ph-fill ph-warning mt-0.5 shrink-0 text-base text-amber-600"></i>
+          <div>
+            <p class="font-semibold">Akses Terbatas (Mode Staf)</p>
+            <p class="mt-0.5 text-amber-700">Anda tidak memiliki izin mengelola kampanye. Minta owner mengaktifkan <strong>"Boleh jalankan kampanye"</strong> di halaman Tim.</p>
+          </div>
+        </div>
+
+        <!-- Summary Metrics -->
+        <div class="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div class="rounded-xl border border-slate-200 bg-white px-4 py-3.5 shadow-xs">
+            <div class="flex items-center justify-between">
+              <p class="text-xs font-medium text-slate-500">Total Kampanye</p>
+              <i class="ph ph-megaphone text-slate-400"></i>
+            </div>
+            <p id="stat-total" class="mt-1.5 text-2xl font-bold text-slate-900 tabular-nums">0</p>
+          </div>
+          <div class="rounded-xl border border-slate-200 bg-white px-4 py-3.5 shadow-xs">
+            <div class="flex items-center justify-between">
+              <p class="text-xs font-medium text-slate-500">Sedang Aktif</p>
+              <span class="h-2 w-2 rounded-full bg-green-600"></span>
+            </div>
+            <p id="stat-active" class="mt-1.5 text-2xl font-bold text-green-700 tabular-nums">0</p>
+          </div>
+          <div class="rounded-xl border border-slate-200 bg-white px-4 py-3.5 shadow-xs">
+            <div class="flex items-center justify-between">
+              <p class="text-xs font-medium text-slate-500">Terkirim Bulan Ini</p>
+              <i class="ph ph-paper-plane-tilt text-slate-400"></i>
+            </div>
+            <p id="stat-sent" class="mt-1.5 text-2xl font-bold text-slate-900 tabular-nums">0</p>
+          </div>
+        </div>
+
+        <!-- Unified Table Card -->
+        <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          <!-- Filter Tabs & Search -->
+          <div class="flex flex-col justify-between gap-3 border-b border-slate-200 bg-slate-50/50 p-4 sm:flex-row sm:items-center">
+            <div class="inline-flex rounded-lg border border-slate-200 bg-slate-200/60 p-0.5 text-xs font-medium">
+              <button onclick="setStatusFilter('ALL', this)" class="status-tab rounded-md bg-white px-3 py-1.5 text-slate-900 shadow-xs">Semua</button>
+              <button onclick="setStatusFilter('ACTIVE', this)" class="status-tab rounded-md px-3 py-1.5 text-slate-600 hover:text-slate-900">Aktif</button>
+              <button onclick="setStatusFilter('PAUSED', this)" class="status-tab rounded-md px-3 py-1.5 text-slate-600 hover:text-slate-900">Dijeda</button>
+              <button onclick="setStatusFilter('DRAFT', this)" class="status-tab rounded-md px-3 py-1.5 text-slate-600 hover:text-slate-900">Draf</button>
+            </div>
+            <div class="relative w-full sm:w-64">
+              <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400"></i>
+              <input id="cmp-search" oninput="renderList()" placeholder="Cari nama kampanye..."
+                class="w-full rounded-lg border border-slate-200 bg-white py-1.5 pl-8 pr-3 text-xs text-slate-900 placeholder:text-slate-400 focus:border-slate-400 focus:outline-none" />
+            </div>
+          </div>
+
+          <!-- Table -->
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+              <thead>
+                <tr class="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                  <th class="px-4 py-3">Kampanye &amp; Saluran</th>
+                  <th class="hidden px-4 py-3 md:table-cell">Penerima</th>
+                  <th class="hidden px-4 py-3 lg:table-cell">Jadwal</th>
+                  <th class="hidden px-4 py-3 xl:table-cell">Kirim Berikutnya</th>
+                  <th class="px-4 py-3">Status</th>
+                  <th id="th-actions" class="px-4 py-3 text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="tbody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════ VIEW 2: WIZARD (BUAT / EDIT KAMPANYE) ════════════════ -->
+    <div id="view-wizard" class="hidden">
+      <div class="border-b border-slate-200 bg-white px-4 py-5 md:px-6">
+        <div class="mx-auto flex max-w-7xl flex-col justify-between gap-4 sm:flex-row sm:items-center">
+          <div class="flex items-center gap-3">
+            <button type="button" onclick="backToList()"
+              class="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
+              title="Kembali ke daftar">
+              <i class="ph ph-arrow-left text-base"></i>
+            </button>
+            <div>
+              <h1 id="wizard-title" class="text-xl font-bold tracking-tight text-slate-900">Kampanye Baru</h1>
+              <p id="wizard-desc" class="mt-0.5 text-xs text-slate-500">Atur saluran, penerima, pesan, dan jadwal dalam satu halaman.</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button type="button" onclick="backToList()"
+              class="rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
+              Batal
+            </button>
+            <button type="button" onclick="document.getElementById('wizard-submit-hidden').click()" id="wizard-save"
+              class="rounded-lg bg-green-600 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-green-700">
+              Simpan Kampanye
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <form class="mx-auto max-w-7xl p-4 md:p-6" onsubmit="saveWizard(event)">
+        <p id="wizard-err" class="mb-4 hidden rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-medium text-red-600"></p>
+
+        <div class="grid grid-cols-1 gap-6 lg:grid-cols-12">
+          <!-- Left Column: 4-Step Configuration Form -->
+          <div class="lg:col-span-8">
+            <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+              <div class="flex flex-col gap-8" id="wizard-form"></div>
+            </div>
+          </div>
+
+          <!-- Right Column: Sticky Live WhatsApp Preview & Delivery Estimate -->
+          <div class="lg:col-span-4">
+            <div class="sticky top-24 space-y-4">
+              <!-- Live WhatsApp Message Bubble Preview -->
+              <div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+                <div class="flex items-center justify-between border-b border-slate-100 bg-slate-50/70 px-4 py-3">
+                  <div class="flex items-center gap-2">
+                    <i class="ph-fill ph-whatsapp-logo text-base text-green-600"></i>
+                    <span class="text-xs font-semibold text-slate-900">Pratinjau Pesan</span>
+                  </div>
+                  <span id="preview-channel-badge" class="rounded bg-slate-200/70 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">Belum pilih saluran</span>
+                </div>
+                <div class="bg-slate-100/80 p-4">
+                  <div class="ml-auto max-w-[90%] rounded-xl rounded-tr-xs border border-green-200/80 bg-green-50 p-3 shadow-xs">
+                    <div id="preview-images" class="mb-2 hidden grid-cols-2 gap-1.5"></div>
+                    <p id="preview-text" class="whitespace-pre-wrap text-xs leading-relaxed text-slate-800">Isi pesan kampanye akan tampil di sini...</p>
+                    <div class="mt-1.5 flex items-center justify-end gap-1 text-[10px] text-slate-400">
+                      <span id="preview-clock">09:00</span>
+                      <i class="ph-bold ph-checks text-blue-500"></i>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Ringkasan Estimasi Pengiriman -->
+              <div id="preview-summary-card" class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"></div>
+            </div>
+          </div>
+        </div>
+
+        <button id="wizard-submit-hidden" type="submit" class="hidden"></button>
+      </form>
+    </div>
+
+  </main>
+</div>
+
+<!-- ════════ Slide-over Drawer: Riwayat Kirim (No Popup) ════════ -->
+<div id="dlg-runs" class="drawer-backdrop fixed inset-0 z-50 flex justify-end">
+  <div class="drawer-panel flex h-full w-full max-w-lg flex-col border-l border-slate-200 bg-white shadow-2xl">
+    <div class="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+      <div>
+        <h3 class="text-base font-semibold text-slate-900" id="runs-title">Riwayat Pengiriman</h3>
+        <p class="text-xs text-slate-500" id="runs-subtitle">Log eksekusi dan status pesan per kontak</p>
+      </div>
+      <button type="button" onclick="closeDlg('dlg-runs')" class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+        <i class="ph ph-x text-base"></i>
+      </button>
+    </div>
+    <div class="flex-1 space-y-3 overflow-y-auto p-6" id="runs-body"></div>
+    <div class="flex justify-end border-t border-slate-100 bg-slate-50/60 px-6 py-4">
+      <button type="button" onclick="closeDlg('dlg-runs')" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ Slide-over Drawer: Konfirmasi Hapus (No Popup) ════════ -->
+<div id="dlg-del" class="drawer-backdrop fixed inset-0 z-50 flex justify-end">
+  <div class="drawer-panel flex h-full w-full max-w-md flex-col border-l border-slate-200 bg-white shadow-2xl">
+    <div class="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+      <h3 class="text-base font-semibold text-slate-900">Hapus Kampanye</h3>
+      <button type="button" onclick="closeDlg('dlg-del')" class="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+        <i class="ph ph-x text-base"></i>
+      </button>
+    </div>
+    <div class="flex-1 p-6">
+      <div class="flex h-11 w-11 items-center justify-center rounded-full bg-red-50 text-red-600">
+        <i class="ph ph-warning text-2xl"></i>
+      </div>
+      <h4 class="mt-4 text-sm font-semibold text-slate-900">Konfirmasi Penghapusan</h4>
+      <p class="mt-2 text-sm leading-relaxed text-slate-600" id="del-desc"></p>
+      <div class="mt-4 rounded-lg border border-red-100 bg-red-50/60 p-3 text-xs text-red-700">
+        Tindakan ini permanen. Seluruh jadwal aktif dan riwayat pengiriman kampanye ini akan dihapus.
+      </div>
+    </div>
+    <div class="flex items-center justify-end gap-2 border-t border-slate-100 bg-slate-50/60 px-6 py-4">
+      <button type="button" onclick="closeDlg('dlg-del')" class="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">Batal</button>
+      <button type="button" onclick="confirmDelete()" class="rounded-lg bg-red-600 px-4 py-2 text-xs font-semibold text-white hover:bg-red-700">Ya, Hapus Permanen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Non-blocking Toast Notification -->
+<div id="toast" class="pointer-events-none fixed bottom-5 right-5 z-50 flex translate-y-3 items-center gap-2 rounded-lg bg-slate-900 px-3.5 py-2.5 text-xs font-medium text-white opacity-0 shadow-lg transition-all duration-200">
+  <i class="ph-fill ph-check-circle text-sm text-green-400"></i>
+  <span id="toast-msg">Berhasil</span>
+</div>
+
+<script>
+// ══════════ Demo Data ══════════
+var WEEKDAYS = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+var role = "OWNER";
+var canManage = true;
+var statusFilter = "ALL";
+
+var channels = [
+  { id: "ch1", provider: "CLOUD_API", label: "Toko Utama", phoneNumber: "6281290088999" },
+  { id: "ch2", provider: "BAILEYS", label: "WA Pribadi", phoneNumber: "6285712345678" }
+];
+var categories = [
+  { id: "k1", name: "Pelanggan Baru" },
+  { id: "k2", name: "Langganan" },
+  { id: "k3", name: "Korporat" }
+];
+var tags = [
+  { id: "t1", name: "VIP" },
+  { id: "t2", name: "Follow-up" },
+  { id: "t3", name: "Reseller" }
+];
+var contacts = [
+  { id: "c01", name: "Siti Rahmawati", phone: "628123456789", catIds: ["k2"], tagIds: ["t1", "t3"] },
+  { id: "c02", name: "Budi Santoso", phone: "628129998887", catIds: ["k1"], tagIds: ["t1"] },
+  { id: "c03", name: "Dewi Lestari", phone: "6281377712345", catIds: ["k2", "k3"], tagIds: ["t2"] },
+  { id: "c04", name: "Agus Wijaya", phone: "6281222003333", catIds: ["k1"], tagIds: [] },
+  { id: "c05", name: "Rina Marlina", phone: "6289655501122", catIds: ["k2"], tagIds: ["t1", "t2"] },
+  { id: "c06", name: "Hendra Gunawan", phone: "6287812300999", catIds: ["k3"], tagIds: ["t3"] },
+  { id: "c07", name: "Maya Puspita", phone: "6285644332211", catIds: ["k3"], tagIds: ["t2"] },
+  { id: "c08", name: "Rudi Hartono", phone: "6281255500111", catIds: [], tagIds: [] },
+  { id: "c09", name: "Lina Kartika", phone: "6281900004444", catIds: ["k1"], tagIds: ["t1"] },
+  { id: "c10", name: "Fajar Nugroho", phone: "6289755512340", catIds: ["k2"], tagIds: [] },
+  { id: "c11", name: "Tuti Handayani", phone: "6281355507788", catIds: [], tagIds: ["t3"] },
+  { id: "c12", name: "Pak Warto", phone: "6285744400112", catIds: ["k1"], tagIds: ["t3"] }
+];
+var templates = [
+  { id: "tp1", key: "promo_diskon", label: "Promo Diskon", kind: "META", body: "Promo {nama}! Diskon {diskon}% sampai akhir pekan ini." },
+  { id: "tp2", key: "ucapan_idul", label: "Ucapan Idul Fitri", kind: "CSQ", body: "Selamat Hari Raya Idul Fitri, mohon maaf lahir dan batin!" }
+];
+
+var campaigns = [
+  { id: "cmp1", name: "Promo Akhir Pekan", channelId: "ch1", audience: "ALL", categoryIds: [], tagIds: [], contactIds: [], templateKey: "promo_diskon", body: "Kopi pilihan diskon 20% hanya hari Sabtu-Minggu!", images: [], scheduleKind: "WEEKLY", cfg: { time: "09:00", dayOfWeek: 6 }, delaySeconds: 30, status: "ACTIVE", nextRunAt: "2026-11-21T09:00" },
+  { id: "cmp2", name: "Info Menu Baru", channelId: "ch1", audience: "CATEGORY", categoryIds: ["k2"], tagIds: [], contactIds: [], templateKey: "", body: "Ada menu baru: Kopi Susu Gula Aren. Cek di toko kami!", images: [], scheduleKind: "ONCE", cfg: { startAt: "2026-11-20T10:00" }, delaySeconds: 60, status: "DRAFT", nextRunAt: "2026-11-20T10:00" },
+  { id: "cmp3", name: "Follow-up Reseller", channelId: "ch2", audience: "TAGS", categoryIds: [], tagIds: ["t3"], contactIds: [], templateKey: "", body: "Stok kopi baru datang. Mau restock?", images: [], scheduleKind: "INTERVAL", cfg: { time: "08:00", everyDays: 14 }, delaySeconds: 20, status: "PAUSED", nextRunAt: "2026-11-25T08:00" },
+  { id: "cmp4", name: "Katalog Bulanan Korporat", channelId: "ch2", audience: "MANUAL", categoryIds: [], tagIds: [], contactIds: ["c03", "c06", "c07"], templateKey: "", body: "Katalog harga korporat bulan ini terlampir.", images: [], scheduleKind: "MONTHLY", cfg: { time: "10:00", dayOfMonth: 1 }, delaySeconds: 45, status: "PAUSED", nextRunAt: "2026-12-01T10:00" }
+];
+var runsByCampaign = {
+  cmp1: [
+    { id: "r1", startedAt: "2026-11-14T09:00", finishedAt: "2026-11-14T09:06", counts: { total: 12, sent: 10, failed: 1, skipped: 1 }, messages: [
+      { phone: "628123456789", status: "SENT" }, { phone: "628129998887", status: "SENT" },
+      { phone: "6281377712345", status: "SENT" }, { phone: "6281222003333", status: "SENT" },
+      { phone: "6289655501122", status: "SENT" }, { phone: "6287812300999", status: "SENT" },
+      { phone: "6285644332211", status: "FAILED", reason: "nomor tidak terdaftar WhatsApp" },
+      { phone: "6281255500111", status: "SENT" }, { phone: "6281900004444", status: "SENT" },
+      { phone: "6289755512340", status: "SENT" }, { phone: "6281355507788", status: "SKIPPED", reason: "di luar jendela 24 jam" },
+      { phone: "6285744400112", status: "SENT" }
+    ] },
+    { id: "r2", startedAt: "2026-11-07T09:00", finishedAt: "2026-11-07T09:06", counts: { total: 12, sent: 12, failed: 0, skipped: 0 }, messages: [] }
+  ],
+  cmp3: [
+    { id: "r3", startedAt: "2026-11-11T08:00", finishedAt: "2026-11-11T08:01", counts: { total: 3, sent: 3, failed: 0, skipped: 0 }, messages: [
+      { phone: "628123456789", status: "SENT" }, { phone: "6287812300999", status: "SENT" }, { phone: "6285744400112", status: "SENT" }
+    ] }
+  ]
+};
+var delTarget = null;
+var activeRunsCampaignId = null;
+
+// ══════════ Format Helpers ══════════
+function formatDateTime(iso) {
+  if (!iso) return "—";
+  var d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return d.toLocaleString("id-ID", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+function audienceLabel(c) {
+  if (c.audience === "ALL") return "Semua kontak (" + contacts.length + ")";
+  if (c.audience === "MANUAL") return c.contactIds.length + " kontak terpilih";
+  if (c.audience === "CATEGORY") {
+    var names = c.categoryIds.map(function (id) { var x = categories.find(function (k) { return k.id === id; }); return x ? x.name : ""; }).filter(Boolean);
+    return "Kategori: " + (names.join(", ") || "-");
+  }
+  var tnames = c.tagIds.map(function (id) { var x = tags.find(function (t) { return t.id === id; }); return x ? x.name : ""; }).filter(Boolean);
+  return "Tag: " + (tnames.join(", ") || "-");
+}
+function scheduleLabel(c) {
+  switch (c.scheduleKind) {
+    case "ONCE": return "Sekali • " + formatDateTime(c.cfg.startAt);
+    case "DAILY": return "Setiap hari • " + c.cfg.time;
+    case "WEEKLY": return "Setiap " + WEEKDAYS[c.cfg.dayOfWeek ?? 0] + " • " + c.cfg.time;
+    case "MONTHLY": return "Tgl " + c.cfg.dayOfMonth + " tiap bulan • " + c.cfg.time;
+    case "INTERVAL": return "Tiap " + c.cfg.everyDays + " hari • " + c.cfg.time;
+  }
+}
+
+// ══════════ Render Daftar ══════════
+function badge(status) {
+  if (status === "ACTIVE") {
+    return '<span class="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-2.5 py-0.5 text-[11px] font-semibold text-green-700">' +
+      '<span class="h-1.5 w-1.5 rounded-full bg-green-600"></span>Aktif</span>';
+  }
+  if (status === "PAUSED") {
+    return '<span class="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700">' +
+      '<span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>Dijeda</span>';
+  }
+  return '<span class="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">' +
+    '<span class="h-1.5 w-1.5 rounded-full bg-slate-400"></span>Draf</span>';
+}
+
+function setStatusFilter(st, btn) {
+  statusFilter = st;
+  document.querySelectorAll(".status-tab").forEach(function (b) {
+    b.classList.remove("bg-white", "text-slate-900", "shadow-xs");
+    b.classList.add("text-slate-600");
+  });
+  btn.classList.add("bg-white", "text-slate-900", "shadow-xs");
+  btn.classList.remove("text-slate-600");
+  renderList();
+}
+
+function renderList() {
+  var q = (document.getElementById("cmp-search") ? document.getElementById("cmp-search").value : "").toLowerCase().trim();
+  var filtered = campaigns.filter(function (c) {
+    var okSt = statusFilter === "ALL" || c.status === statusFilter;
+    var okQ = !q || c.name.toLowerCase().indexOf(q) > -1;
+    return okSt && okQ;
+  });
+
+  var tb = document.getElementById("tbody");
+  if (filtered.length === 0) {
+    tb.innerHTML =
+      '<tr><td colspan="6" class="px-4 py-14 text-center">' +
+      '<div class="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-400"><i class="ph ph-megaphone text-xl"></i></div>' +
+      '<p class="mt-3 text-sm font-semibold text-slate-900">Tidak ada kampanye</p>' +
+      '<p class="mt-1 text-xs text-slate-500">Buat kampanye baru atau ubah filter status di atas.</p>' +
+      "</td></tr>";
+  } else {
+    tb.innerHTML = filtered.map(function (c) {
+      var ch = channels.find(function (x) { return x.id === c.channelId; });
+      var chBadge = ch
+        ? '<span class="inline-flex items-center gap-1 text-xs text-slate-500">' +
+            (ch.provider === "CLOUD_API"
+              ? '<i class="ph ph-cloud-check text-blue-600"></i>'
+              : '<i class="ph ph-whatsapp-logo text-green-600"></i>') +
+            esc(ch.label) +
+          '</span>'
+        : '<span class="text-xs text-slate-400">Tanpa saluran</span>';
+
+      var actions = "";
+      if (canManage) {
+        actions = '<button onclick="openRuns(\'' + c.id + '\')" class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"><i class="ph ph-clock-counter-clockwise text-slate-500"></i> Riwayat</button>';
+        if (c.status === "DRAFT" || c.status === "PAUSED") {
+          actions +=
+            '<button onclick="openWizard(\'' + c.id + '\')" class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"><i class="ph ph-pencil-simple text-slate-500"></i> Edit</button>' +
+            '<button onclick="activate(\'' + c.id + '\')" class="inline-flex items-center gap-1 rounded-lg bg-green-600 px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-green-700"><i class="ph-fill ph-play text-[10px]"></i> Aktifkan</button>' +
+            '<button onclick="askDelete(\'' + c.id + '\')" title="Hapus kampanye" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"><i class="ph ph-trash text-sm"></i></button>';
+        } else if (c.status === "ACTIVE") {
+          actions += '<button onclick="pause(\'' + c.id + '\')" class="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-700 transition hover:bg-amber-100"><i class="ph-fill ph-pause text-[10px]"></i> Jeda</button>';
+        }
+      }
+
+      return '<tr class="transition-colors hover:bg-slate-50/80">' +
+        '<td class="px-4 py-3.5">' +
+          '<p class="text-sm font-semibold text-slate-900">' + esc(c.name) + '</p>' +
+          '<div class="mt-0.5 flex items-center gap-2">' + chBadge + '</div>' +
+        '</td>' +
+        '<td class="hidden px-4 py-3.5 text-xs font-medium text-slate-700 md:table-cell">' + audienceLabel(c) + '</td>' +
+        '<td class="hidden px-4 py-3.5 text-xs text-slate-500 lg:table-cell">' + scheduleLabel(c) + '</td>' +
+        '<td class="hidden px-4 py-3.5 font-mono text-xs text-slate-500 tabular-nums xl:table-cell">' + formatDateTime(c.nextRunAt) + '</td>' +
+        '<td class="px-4 py-3.5">' + badge(c.status) + '</td>' +
+        '<td class="px-4 py-3.5 text-right"><div class="inline-flex flex-wrap items-center justify-end gap-1.5">' + actions + '</div></td>' +
+      '</tr>';
+    }).join("");
+  }
+
+  document.getElementById("header-count").textContent = campaigns.length;
+  document.getElementById("stat-total").textContent = campaigns.length;
+  document.getElementById("stat-active").textContent = campaigns.filter(function (c) { return c.status === "ACTIVE"; }).length;
+  var sent = 0;
+  Object.keys(runsByCampaign).forEach(function (k) {
+    runsByCampaign[k].forEach(function (r) { sent += r.counts.sent; });
+  });
+  document.getElementById("stat-sent").textContent = sent;
+}
+
+// ══════════ Aksi Daftar ══════════
+function activate(id) {
+  var c = campaigns.find(function (x) { return x.id === id; });
+  c.status = "ACTIVE";
+  renderList();
+  showToast('Kampanye "' + c.name + '" diaktifkan');
+}
+function pause(id) {
+  var c = campaigns.find(function (x) { return x.id === id; });
+  c.status = "PAUSED";
+  renderList();
+  showToast('Kampanye "' + c.name + '" dijeda');
+}
+function askDelete(id) {
+  delTarget = id;
+  var c = campaigns.find(function (x) { return x.id === id; });
+  document.getElementById("del-desc").textContent = 'Yakin ingin menghapus kampanye "' + c.name + '"? Riwayat kirimnya ikut terhapus.';
+  openDlg("dlg-del");
+}
+function confirmDelete() {
+  var c = campaigns.find(function (x) { return x.id === delTarget; });
+  delete runsByCampaign[delTarget];
+  campaigns = campaigns.filter(function (x) { return x.id !== delTarget; });
+  delTarget = null;
+  closeDlg("dlg-del");
+  renderList();
+  showToast('Kampanye "' + (c ? c.name : "") + '" dihapus');
+}
+
+// ══════════ Riwayat Kirim (Slide-over Drawer) ══════════
+var runsOpenDetail = null;
+function openRuns(id) {
+  activeRunsCampaignId = id;
+  var c = campaigns.find(function (x) { return x.id === id; });
+  runsOpenDetail = null;
+  document.getElementById("runs-title").textContent = "Riwayat — " + c.name;
+  renderRuns(id);
+  openDlg("dlg-runs");
+}
+function renderRuns(id) {
+  var runs = runsByCampaign[id] || [];
+  var body = document.getElementById("runs-body");
+  if (runs.length === 0) {
+    body.innerHTML =
+      '<div class="flex flex-col items-center justify-center py-14 text-center">' +
+      '<div class="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-400"><i class="ph ph-clock-counter-clockwise text-xl"></i></div>' +
+      '<p class="mt-3 text-sm font-semibold text-slate-900">Belum pernah kirim</p>' +
+      '<p class="mt-1 text-xs text-slate-500">Log pengiriman akan tampil di sini setelah kampanye berjalan.</p>' +
+      '</div>';
+    return;
+  }
+  body.innerHTML = runs.map(function (r) {
+    var open = runsOpenDetail === r.id;
+    var msgs = "";
+    if (open) {
+      var list = (r.messages || []).map(function (m) {
+        var cls = m.status === "SENT" ? "text-green-600" : m.status === "FAILED" ? "text-red-600" : m.status === "SKIPPED" ? "text-amber-600" : "text-slate-500";
+        var lbl = m.status === "PENDING" ? "menunggu" : m.status === "SENT" ? "terkirim" : m.status === "FAILED" ? "gagal" : "dilewati";
+        return '<div class="flex items-center justify-between border-b border-slate-100 px-3 py-2 text-xs last:border-b-0">' +
+          '<span class="font-mono text-slate-700">+' + m.phone + '</span>' +
+          '<span class="font-medium ' + cls + '">' + lbl + (m.reason ? " (" + m.reason + ")" : "") + '</span></div>';
+      }).join("");
+      msgs = '<div class="mt-3 max-h-56 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/50">' +
+        (list || '<p class="p-3 text-xs text-slate-500">Tidak ada rincian pesan.</p>') + "</div>";
+    }
+    return '<div class="rounded-xl border border-slate-200 bg-white p-4 shadow-xs">' +
+      '<div class="flex items-start justify-between gap-2">' +
+        '<div>' +
+          '<p class="text-sm font-semibold text-slate-900">' + formatDateTime(r.startedAt) + '</p>' +
+          '<p class="mt-0.5 text-xs text-slate-500">' + (r.finishedAt ? "Selesai " + formatDateTime(r.finishedAt) : "Sedang berjalan") + '</p>' +
+          '<div class="mt-2.5 flex flex-wrap gap-1.5 text-[11px] font-medium tabular-nums">' +
+            '<span class="rounded bg-slate-100 px-2 py-0.5 text-slate-700">Total: ' + r.counts.total + '</span>' +
+            '<span class="rounded bg-green-100 px-2 py-0.5 text-green-700">Terkirim: ' + r.counts.sent + '</span>' +
+            (r.counts.failed > 0 ? '<span class="rounded bg-red-100 px-2 py-0.5 text-red-700">Gagal: ' + r.counts.failed + '</span>' : '') +
+            (r.counts.skipped > 0 ? '<span class="rounded bg-amber-100 px-2 py-0.5 text-amber-700">Dilewati: ' + r.counts.skipped + '</span>' : '') +
+          '</div>' +
+        '</div>' +
+        '<button type="button" onclick="toggleRunDetail(\'' + r.id + '\')" class="shrink-0 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">' + (open ? "Tutup" : "Detail") + '</button>' +
+      '</div>' +
+      msgs + '</div>';
+  }).join("");
+}
+function toggleRunDetail(rid) {
+  runsOpenDetail = runsOpenDetail === rid ? null : rid;
+  if (activeRunsCampaignId) renderRuns(activeRunsCampaignId);
+}
+
+// ══════════ Wizard Builder ══════════
+var wiz = null;
+var editId = null;
+
+function openWizard(id) {
+  editId = id;
+  var c = id ? campaigns.find(function (x) { return x.id === id; }) : null;
+  document.getElementById("wizard-title").textContent = c ? "Edit Kampanye" : "Kampanye Baru";
+  document.getElementById("wizard-desc").textContent = c ? c.name : "Atur saluran, penerima, pesan, dan jadwal dalam satu halaman.";
+  document.getElementById("wizard-err").classList.add("hidden");
+  document.getElementById("wizard-save").textContent = c ? "Simpan Perubahan" : "Simpan Kampanye";
+  wiz = {
+    name: c ? c.name : "",
+    channelId: c ? c.channelId : "",
+    audience: c ? c.audience : "ALL",
+    categoryIds: c ? c.categoryIds.slice() : [],
+    tagIds: c ? c.tagIds.slice() : [],
+    contactIds: c ? c.contactIds.slice() : [],
+    templateKey: c ? c.templateKey : "",
+    body: c ? c.body : "",
+    images: c ? c.images.slice() : [],
+    scheduleKind: c ? c.scheduleKind : "ONCE",
+    onceAt: c && c.cfg.startAt ? c.cfg.startAt : "",
+    time: c && c.cfg.time ? c.cfg.time : "09:00",
+    dayOfWeek: c && c.cfg.dayOfWeek != null ? c.cfg.dayOfWeek : 1,
+    dayOfMonth: c && c.cfg.dayOfMonth != null ? c.cfg.dayOfMonth : 1,
+    everyDays: c && c.cfg.everyDays != null ? c.cfg.everyDays : 7,
+    delaySeconds: c ? c.delaySeconds : 30
+  };
+  renderWizard();
+  document.getElementById("view-list").classList.add("hidden");
+  document.getElementById("view-wizard").classList.remove("hidden");
+}
+function backToList() {
+  document.getElementById("view-wizard").classList.add("hidden");
+  document.getElementById("view-list").classList.remove("hidden");
+}
+
+function section(n, title, inner) {
+  return '<section class="flex flex-col gap-4">' +
+    '<div class="flex items-center gap-3">' +
+    '<span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-600 text-xs font-semibold text-white">' + n + '</span>' +
+    '<h3 class="shrink-0 text-sm font-semibold text-slate-900">' + title + '</h3>' +
+    '<span class="h-px flex-1 border-t border-dashed border-slate-200"></span></div>' +
+    inner + '</section>';
+}
+var field = function (id, label, input) {
+  return '<div class="flex flex-col gap-1.5"><label class="text-xs font-medium text-slate-700">' + label + '</label>' + input + '</div>';
+};
+var inputCls = 'class="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-slate-400 focus:outline-none"';
+
+function previewAudience() {
+  if (wiz.audience === "ALL") return { total: contacts.length, byCat: [] };
+  var rows = contacts;
+  if (wiz.audience === "CATEGORY") rows = contacts.filter(function (c) { return c.catIds.some(function (k) { return wiz.categoryIds.indexOf(k) > -1; }); });
+  if (wiz.audience === "TAGS") rows = contacts.filter(function (c) { return c.tagIds.some(function (t) { return wiz.tagIds.indexOf(t) > -1; }); });
+  if (wiz.audience === "MANUAL") rows = contacts.filter(function (c) { return wiz.contactIds.indexOf(c.id) > -1; });
+  var byCat = wiz.audience === "CATEGORY" ? wiz.categoryIds.map(function (k) {
+    var cat = categories.find(function (x) { return x.id === k; });
+    return { name: cat ? cat.name : k, count: contacts.filter(function (c) { return c.catIds.indexOf(k) > -1; }).length };
+  }) : [];
+  return { total: rows.length, byCat: byCat };
+}
+
+function updateLivePreview() {
+  var ch = channels.find(function (x) { return x.id === wiz.channelId; });
+  document.getElementById("preview-channel-badge").textContent = ch ? ch.label : "Belum pilih saluran";
+
+  var txt = wiz.body.trim();
+  if (!txt && wiz.templateKey) {
+    var tpl = templates.find(function (t) { return t.key === wiz.templateKey; });
+    txt = tpl ? tpl.body : "";
+  }
+  var pText = document.getElementById("preview-text");
+  if (txt) {
+    pText.textContent = txt;
+    pText.classList.remove("italic", "text-slate-400");
+    pText.classList.add("text-slate-800");
+  } else {
+    pText.textContent = "Isi pesan kampanye akan tampil di sini...";
+    pText.classList.add("italic", "text-slate-400");
+    pText.classList.remove("text-slate-800");
+  }
+
+  var pImg = document.getElementById("preview-images");
+  if (wiz.images.length > 0) {
+    pImg.classList.remove("hidden");
+    pImg.classList.add("grid");
+    pImg.innerHTML = wiz.images.map(function (img) {
+      return '<img src="' + img.url + '" alt="" class="h-20 w-full rounded-lg object-cover border border-green-200/60" />';
+    }).join("");
+  } else {
+    pImg.classList.add("hidden");
+    pImg.classList.remove("grid");
+  }
+
+  document.getElementById("preview-clock").textContent = wiz.scheduleKind === "ONCE" && wiz.onceAt
+    ? wiz.onceAt.slice(11, 16) || "09:00"
+    : wiz.time || "09:00";
+
+  var preview = previewAudience();
+  var estMinutes = Math.max(1, Math.round((preview.total * wiz.delaySeconds) / 60));
+  document.getElementById("preview-summary-card").innerHTML =
+    '<p class="text-xs font-semibold text-slate-900">Ringkasan Eksekusi</p>' +
+    '<div class="mt-3 space-y-2 text-xs">' +
+      '<div class="flex justify-between"><span class="text-slate-500">Estimasi Penerima</span><span class="font-semibold text-slate-900 tabular-nums">' + preview.total + ' kontak</span></div>' +
+      '<div class="flex justify-between"><span class="text-slate-500">Jeda Antar Pesan</span><span class="font-mono text-slate-700 tabular-nums">' + wiz.delaySeconds + ' detik</span></div>' +
+      '<div class="flex justify-between"><span class="text-slate-500">Estimasi Durasi</span><span class="font-semibold text-slate-900 tabular-nums">&plusmn; ' + estMinutes + ' menit</span></div>' +
+    '</div>';
+}
+
+function renderWizard() {
+  var preview = previewAudience();
+  var estimate = preview.total;
+  var ch = channels.find(function (x) { return x.id === wiz.channelId; });
+  var isCloud = ch && ch.provider === "CLOUD_API";
+
+  // ── 1. Dasar ──
+  var s1 = '<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">' +
+    field("", "Nama kampanye", '<input id="w-name" required placeholder="mis. Promo Akhir Pekan" value="' + esc(wiz.name) + '" ' + inputCls + ' />') +
+    '<div class="flex flex-col gap-1.5"><label class="text-xs font-medium text-slate-700">Saluran kirim</label>' +
+    '<select id="w-channel" onchange="wiz.channelId=this.value;renderWizard()" ' + inputCls + '>' +
+    '<option value="">Pilih saluran...</option>' +
+    channels.map(function (c) {
+      var label = (c.provider === "CLOUD_API" ? "[Resmi] " : "[Pribadi] ") + c.label + " (+" + c.phoneNumber + ")";
+      return '<option value="' + c.id + '" ' + (wiz.channelId === c.id ? "selected" : "") + '>' + label + '</option>';
+    }).join("") + '</select></div></div>' +
+    (isCloud ? '<p class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-800"><i class="ph-fill ph-warning mr-1 text-amber-600"></i>Di saluran resmi (Cloud API), pesan bebas hanya sampai ke pelanggan yang chat &lt;24 jam terakhir; sisanya dilewati (tercatat). Untuk menjangkau semua, gunakan template yang sudah disetujui Meta.</p>' : "");
+
+  // ── 2. Penerima ──
+  var s2 = '<div class="flex flex-col gap-4">' +
+    field("", "Target Penerima", '<select onchange="wiz.audience=this.value;renderWizard()" ' + inputCls + '>' +
+      '<option value="ALL" ' + (wiz.audience === "ALL" ? "selected" : "") + '>Semua kontak (' + contacts.length + ')</option>' +
+      '<option value="CATEGORY" ' + (wiz.audience === "CATEGORY" ? "selected" : "") + '>Per kategori</option>' +
+      '<option value="TAGS" ' + (wiz.audience === "TAGS" ? "selected" : "") + '>Per tag</option>' +
+      '<option value="MANUAL" ' + (wiz.audience === "MANUAL" ? "selected" : "") + '>Pilih manual</option></select>');
+  if (wiz.audience === "CATEGORY") {
+    s2 += '<div class="flex flex-col gap-1.5"><label class="text-xs font-medium text-slate-700">Pilih Kategori</label><div class="max-h-36 overflow-y-auto rounded-lg border border-slate-200 p-2 space-y-1">' +
+      categories.map(function (c) {
+        return '<label class="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-xs hover:bg-slate-50"><input type="checkbox" ' + (wiz.categoryIds.indexOf(c.id) > -1 ? "checked" : "") + ' onchange="toggleWiz(\'categoryIds\',\'' + c.id + '\')" class="h-3.5 w-3.5 rounded border-slate-300 text-green-600">' + c.name + '</label>';
+      }).join("") + '</div></div>';
+  }
+  if (wiz.audience === "TAGS") {
+    s2 += '<div class="flex flex-col gap-1.5"><label class="text-xs font-medium text-slate-700">Pilih Tag</label><div class="max-h-36 overflow-y-auto rounded-lg border border-slate-200 p-2 space-y-1">' +
+      tags.map(function (t) {
+        return '<label class="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-xs hover:bg-slate-50"><input type="checkbox" ' + (wiz.tagIds.indexOf(t.id) > -1 ? "checked" : "") + ' onchange="toggleWiz(\'tagIds\',\'' + t.id + '\')" class="h-3.5 w-3.5 rounded border-slate-300 text-green-600">' + t.name + '</label>';
+      }).join("") + '</div></div>';
+  }
+  if (wiz.audience === "MANUAL") {
+    s2 += '<div class="flex flex-col gap-1.5"><label class="text-xs font-medium text-slate-700">Pilih Kontak (' + contacts.length + ' terdaftar)</label><div class="max-h-44 overflow-y-auto rounded-lg border border-slate-200 p-2 space-y-1">' +
+      contacts.map(function (c) {
+        return '<label class="flex cursor-pointer items-center justify-between rounded px-1.5 py-1 text-xs hover:bg-slate-50"><span class="flex items-center gap-2"><input type="checkbox" ' + (wiz.contactIds.indexOf(c.id) > -1 ? "checked" : "") + ' onchange="toggleWiz(\'contactIds\',\'' + c.id + '\')" class="h-3.5 w-3.5 rounded border-slate-300 text-green-600">' + (c.name || "Tanpa Nama") + '</span><span class="font-mono text-[11px] text-slate-400">+' + c.phone + '</span></label>';
+      }).join("") + '</div></div>';
+  }
+  if (wiz.audience === "CATEGORY" && preview.byCat.length > 0) {
+    s2 += '<div class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600"><p class="mb-1.5 font-semibold text-slate-700">Rincian per kategori:</p>' +
+      preview.byCat.map(function (c) { return '<p class="flex justify-between py-0.5"><span>' + c.name + '</span><span class="font-semibold tabular-nums">' + c.count + ' kontak</span></p>'; }).join("") + '</div>';
+  }
+  if (estimate > 250) {
+    s2 += '<p class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">Perhatian: audiens di atas 250 penerima. Batas awal pengiriman template Meta adalah 250 penerima unik per 24 jam di luar jendela chat.</p>';
+  }
+  if (isCloud) {
+    s2 += '<p class="rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-700"><i class="ph-fill ph-info mr-1"></i>Di saluran resmi (Cloud API), setiap pesan terkirim dikenakan biaya per pesan oleh Meta sesuai tarif pasar.</p>';
+  }
+  s2 += '</div>';
+
+  // ── 3. Pesan ──
+  var isMetaTpl = templates.some(function (t) { return t.key === wiz.templateKey && t.kind === "META"; });
+  var s3 = '<div class="flex flex-col gap-4">' +
+    field("", "Dari template (opsional)", '<select onchange="selectTemplate(this.value)" ' + inputCls + '>' +
+      '<option value="">Tulis pesan baru...</option>' +
+      templates.map(function (t) {
+        return '<option value="' + t.key + '" ' + (wiz.templateKey === t.key ? "selected" : "") + '>' + t.label + ' (' + (t.kind === "META" ? "Template Meta" : "Template CSQ") + ')</option>';
+      }).join("") + '</select>' +
+      (isMetaTpl ? '<p class="rounded-lg border border-blue-200 bg-blue-50 p-2.5 text-xs text-blue-700">Template Meta dipilih — teks di bawah tetap wajib (dipakai di saluran Baileys dan pratinjau); pelanggan di luar jendela 24 jam menerima template Meta tersebut.</p>' : "")) +
+    field("", "Isi pesan", '<textarea id="w-body" rows="4" placeholder="Tulis isi pesan kampanye..." ' + inputCls + '>' + esc(wiz.body) + '</textarea>' +
+      '<span class="text-[11px] text-slate-400">Jika kampanye memakai tepat satu gambar, teks ini dikirim sebagai keterangan (caption) gambar.</span>') +
+    '<div class="flex flex-col gap-1.5"><label class="text-xs font-medium text-slate-700">Lampiran Gambar (maks 4, 5 MB per gambar)</label>' +
+    '<input type="file" accept="image/jpeg,image/png,image/webp" multiple onchange="uploadImages(this)" class="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700 file:mr-3 file:rounded-md file:border-0 file:bg-white file:px-2.5 file:py-1 file:text-xs file:font-semibold file:text-slate-700 file:shadow-xs" />' +
+    (wiz.images.length > 0 ? '<div class="mt-1 flex flex-wrap gap-2">' + wiz.images.map(function (img, i) {
+      return '<div class="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-1.5"><img src="' + img.url + '" alt="" class="h-10 w-10 rounded object-cover"><button type="button" onclick="wiz.images.splice(' + i + ',1);renderWizard()" class="px-1.5 text-xs font-medium text-red-600 hover:underline">Hapus</button></div>';
+    }).join("") + '</div>' : "") +
+    '</div></div>';
+
+  // ── 4. Jadwal ──
+  var s4 = '<div class="grid grid-cols-1 gap-4 sm:grid-cols-2">' +
+    field("", "Frekuensi Jadwal", '<select onchange="wiz.scheduleKind=this.value;renderWizard()" ' + inputCls + '>' +
+      '<option value="ONCE" ' + (wiz.scheduleKind === "ONCE" ? "selected" : "") + '>Sekali, di waktu tertentu</option>' +
+      '<option value="DAILY" ' + (wiz.scheduleKind === "DAILY" ? "selected" : "") + '>Setiap hari</option>' +
+      '<option value="WEEKLY" ' + (wiz.scheduleKind === "WEEKLY" ? "selected" : "") + '>Setiap minggu</option>' +
+      '<option value="MONTHLY" ' + (wiz.scheduleKind === "MONTHLY" ? "selected" : "") + '>Setiap bulan</option>' +
+      '<option value="INTERVAL" ' + (wiz.scheduleKind === "INTERVAL" ? "selected" : "") + '>Setiap N hari</option></select>');
+
+  if (wiz.scheduleKind === "ONCE") {
+    s4 += field("", "Waktu kirim", '<div class="flex flex-col gap-2"><input id="w-once" type="datetime-local" required value="' + wiz.onceAt + '" ' + inputCls + ' />' +
+      '<button type="button" onclick="instantSend()" class="self-start rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100">Setel kirim sekarang (&plusmn; 2 menit)</button></div>');
+  } else {
+    s4 += field("", "Jam kirim (WIB)", '<input id="w-time" type="time" required value="' + wiz.time + '" ' + inputCls + ' />');
+  }
+
+  if (wiz.scheduleKind === "WEEKLY") {
+    s4 += field("", "Hari", '<select onchange="wiz.dayOfWeek=Number(this.value)" ' + inputCls + '>' +
+      WEEKDAYS.map(function (d, i) { return '<option value="' + i + '" ' + (wiz.dayOfWeek === i ? "selected" : "") + '>' + d + '</option>'; }).join("") + '</select>');
+  }
+  if (wiz.scheduleKind === "MONTHLY") {
+    s4 += field("", "Tanggal setiap bulan", '<input type="number" min="1" max="31" required value="' + wiz.dayOfMonth + '" onchange="wiz.dayOfMonth=Number(this.value)" ' + inputCls + ' />');
+  }
+  if (wiz.scheduleKind === "INTERVAL") {
+    s4 += field("", "Setiap berapa hari", '<input type="number" min="1" max="365" required value="' + wiz.everyDays + '" onchange="wiz.everyDays=Number(this.value)" ' + inputCls + ' />');
+  }
+  s4 += field("", "Jeda antar kontak (detik)", '<input id="w-delay" type="number" min="10" max="3600" required value="' + wiz.delaySeconds + '" ' + inputCls + ' />');
+  s4 += '</div>';
+
+  document.getElementById("wizard-form").innerHTML =
+    section(1, "Dasar & Saluran", s1) + section(2, "Target Penerima", s2) + section(3, "Konten Pesan", s3) + section(4, "Jadwal & Tempo", s4);
+
+  // Wire live input listeners
+  var elName = document.getElementById("w-name");
+  elName.addEventListener("input", function () { wiz.name = elName.value; });
+  var elBody = document.getElementById("w-body");
+  elBody.addEventListener("input", function () { wiz.body = elBody.value; updateLivePreview(); });
+  var elOnce = document.getElementById("w-once");
+  if (elOnce) elOnce.addEventListener("input", function () { wiz.onceAt = elOnce.value; updateLivePreview(); });
+  var elTime = document.getElementById("w-time");
+  if (elTime) elTime.addEventListener("input", function () { wiz.time = elTime.value; updateLivePreview(); });
+  var elDelay = document.getElementById("w-delay");
+  elDelay.addEventListener("input", function () { wiz.delaySeconds = Number(elDelay.value); updateLivePreview(); });
+
+  updateLivePreview();
+}
+
+function selectTemplate(key) {
+  wiz.templateKey = key;
+  if (key && !wiz.body.trim()) {
+    var tpl = templates.find(function (t) { return t.key === key; });
+    if (tpl) wiz.body = tpl.body;
+  }
+  renderWizard();
+}
+
+function esc(s) {
+  return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+}
+function toggleWiz(listName, id) {
+  var l = wiz[listName];
+  var i = l.indexOf(id);
+  if (i > -1) l.splice(i, 1); else l.push(id);
+  renderWizard();
+}
+function instantSend() {
+  var d = new Date(Date.now() + 2 * 60 * 1000);
+  var pad = function (n) { return String(n).padStart(2, "0"); };
+  wiz.onceAt = d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + "T" + pad(d.getHours()) + ":" + pad(d.getMinutes());
+  renderWizard();
+  showToast("Jadwal diatur 2 menit dari sekarang");
+}
+function uploadImages(input) {
+  var files = Array.from(input.files || []);
+  if (wiz.images.length + files.length > 4) return wizFail("Maksimal 4 gambar per kampanye.");
+  for (var i = 0; i < files.length; i++) {
+    if (files[i].size > 5 * 1024 * 1024) return wizFail("Gambar maksimal 5 MB.");
+    wiz.images.push({ id: "img" + Date.now() + i, url: URL.createObjectURL(files[i]) });
+  }
+  renderWizard();
+}
+function wizFail(msg) {
+  var el = document.getElementById("wizard-err");
+  el.textContent = msg;
+  el.classList.remove("hidden");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function saveWizard(e) {
+  e.preventDefault();
+  if (!wiz.name.trim()) return wizFail("Nama kampanye wajib diisi.");
+  if (!wiz.channelId) return wizFail("Saluran kirim wajib dipilih.");
+  if (wiz.audience === "CATEGORY" && wiz.categoryIds.length === 0) return wizFail("Pilih minimal satu kategori.");
+  if (wiz.audience === "TAGS" && wiz.tagIds.length === 0) return wizFail("Pilih minimal satu tag.");
+  if (wiz.audience === "MANUAL" && wiz.contactIds.length === 0) return wizFail("Pilih minimal satu kontak.");
+  if (!wiz.templateKey && !wiz.body.trim()) return wizFail("Isi pesan wajib diisi (atau pilih template).");
+  if (wiz.scheduleKind === "ONCE" && !wiz.onceAt) return wizFail("Waktu kirim wajib diisi.");
+
+  var cfg = {};
+  if (wiz.scheduleKind === "ONCE") cfg.startAt = wiz.onceAt;
+  else if (wiz.scheduleKind === "WEEKLY") cfg = { time: wiz.time, dayOfWeek: wiz.dayOfWeek };
+  else if (wiz.scheduleKind === "MONTHLY") cfg = { time: wiz.time, dayOfMonth: wiz.dayOfMonth };
+  else if (wiz.scheduleKind === "INTERVAL") cfg = { time: wiz.time, everyDays: wiz.everyDays };
+  else cfg = { time: wiz.time };
+
+  if (editId) {
+    var c = campaigns.find(function (x) { return x.id === editId; });
+    Object.assign(c, {
+      name: wiz.name, channelId: wiz.channelId, audience: wiz.audience,
+      categoryIds: wiz.categoryIds.slice(), tagIds: wiz.tagIds.slice(), contactIds: wiz.contactIds.slice(),
+      templateKey: wiz.templateKey, body: wiz.body, images: wiz.images.slice(),
+      scheduleKind: wiz.scheduleKind, cfg: cfg, delaySeconds: wiz.delaySeconds
+    });
+    showToast("Perubahan kampanye disimpan");
+  } else {
+    campaigns.unshift({
+      id: "cmp" + Date.now(), name: wiz.name, channelId: wiz.channelId, audience: wiz.audience,
+      categoryIds: wiz.categoryIds.slice(), tagIds: wiz.tagIds.slice(), contactIds: wiz.contactIds.slice(),
+      templateKey: wiz.templateKey, body: wiz.body, images: wiz.images.slice(),
+      scheduleKind: wiz.scheduleKind, cfg: cfg, delaySeconds: wiz.delaySeconds,
+      status: "DRAFT", nextRunAt: wiz.scheduleKind === "ONCE" ? wiz.onceAt : null
+    });
+    showToast("Kampanye baru disimpan sebagai draf");
+  }
+  backToList();
+  renderList();
+}
+
+// ══════════ Slide-over Drawer & Navigation Controls ══════════
+function openDlg(id) { document.getElementById(id).classList.add("open"); }
+function closeDlg(id) { document.getElementById(id).classList.remove("open"); }
+function closeAllDlgs() {
+  document.querySelectorAll(".drawer-backdrop").forEach(function (d) { d.classList.remove("open"); });
+}
+
+var toastTimer;
+function showToast(msg) {
+  var toast = document.getElementById("toast");
+  document.getElementById("toast-msg").textContent = msg;
+  toast.classList.remove("opacity-0", "translate-y-3");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () {
+    toast.classList.add("opacity-0", "translate-y-3");
+  }, 2400);
+}
+
+function toggleMenu() { document.getElementById("avatar-menu").classList.toggle("hidden"); }
+function toggleNav(open) {
+  document.getElementById("sidebar").classList.toggle("-translate-x-full", !open);
+  document.getElementById("nav-overlay").classList.toggle("hidden", !open);
+}
+function applyRole() {
+  canManage = role === "OWNER";
+  var noPerm = document.getElementById("no-perm");
+  if (!canManage) {
+    noPerm.classList.remove("hidden");
+    noPerm.classList.add("flex");
+  } else {
+    noPerm.classList.add("hidden");
+    noPerm.classList.remove("flex");
+  }
+  document.getElementById("btn-new").style.display = canManage ? "" : "none";
+  document.getElementById("nav-plan").style.display = canManage ? "" : "none";
+  document.getElementById("menu-role").textContent = canManage ? "Owner" : "Staff";
+  document.getElementById("menu-name").textContent = canManage ? "Bu Ratih" : "Dina (Staf)";
+  document.getElementById("header-role").textContent = canManage ? "Owner" : "Staff";
+  document.getElementById("header-name").textContent = canManage ? "Bu Ratih" : "Dina (Staf)";
+  document.getElementById("role-pill-text").textContent = canManage ? "Owner" : "Staff";
+  document.getElementById("role-dot").className = canManage
+    ? "h-1.5 w-1.5 rounded-full bg-green-600"
+    : "h-1.5 w-1.5 rounded-full bg-slate-400";
+  document.getElementById("avatar-initial").textContent = canManage ? "B" : "D";
+  renderList();
+}
+function switchRole() {
+  role = role === "OWNER" ? "STAFF" : "OWNER";
+  applyRole();
+  document.getElementById("avatar-menu").classList.add("hidden");
+  showToast("Beralih ke mode " + (role === "OWNER" ? "Owner" : "Staff"));
+}
+
+document.addEventListener("mousedown", function (e) {
+  var menu = document.getElementById("avatar-menu");
+  var btn = document.getElementById("avatar-btn");
+  if (!menu.classList.contains("hidden") && !btn.contains(e.target) && !menu.contains(e.target)) {
+    menu.classList.add("hidden");
+  }
+});
+document.querySelectorAll(".drawer-backdrop").forEach(function (d) {
+  d.addEventListener("click", function (e) { if (e.target === d) closeAllDlgs(); });
+});
+document.addEventListener("keydown", function (e) {
+  if (e.key === "Escape") {
+    closeAllDlgs();
+    document.getElementById("avatar-menu").classList.add("hidden");
+  }
+});
+
+applyRole();
+</script>
+</body>
+</html>
