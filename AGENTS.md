@@ -212,23 +212,30 @@ Write the **least code that fully solves the task**. Boring beats clever.
   10-40 minutes and hang. The flow for any code change:
   1. Make the change locally, run `npx tsc --noEmit -p apps/dashboard`
      and `npm run lint` locally (both are fast and reliable).
-  2. Build and test in a Daytona sandbox, NOT on the local machine:
-     - CLI: `%USERPROFILE%\bin\daytona-v0.exe` (v0.x; binary lives in
-       `%USERPROFILE%\bin`, auth in `%APPDATA%\daytona\config.json`).
-     - Create: `daytona-v0 create --name <name> --snapshot daytona-large`
-       (the default snapshot is capped at 1GB RAM and OOM-kills tsc;
-       daytona-large gives 8GB).
-     - Clone the `monorepo` branch and `npm ci` inside the sandbox
-       (takes ~40s; then `npm run db:generate -w packages/core`).
-     - Full build: `npx next build --experimental-build-mode compile
-       --no-lint` in apps/dashboard. The default build OOM-kills in the
-       sandbox because Next.js sizes its page-data worker pool by the
-       host's visible CPU count (48), not the allocation. Compile mode
-       still type-checks (already run separately), compiles all routes,
-       and this app's routes are all dynamic, so nothing real is skipped.
-       Always also run lint + tsc separately (compile mode skips the
-       in-build lint/typecheck pass).
-     - Encoding check: `node scripts/check-encoding.mjs`.
+  2. Build and test in a Daytona sandbox, NOT on the local machine.
+     Two Daytona platforms exist - prefer daytona.com (v2), with
+     daytona.io (v0) as legacy fallback:
+     - **daytona.com (v2) - PREFERRED.** API `api.daytona.com`, docs
+       at `https://www.daytona.com/docs` (append `.md` to any page for
+       Markdown). Linux sandboxes take up to 16 cores / 32GiB RAM /
+       256GiB disk per sandbox - a full default `next build` fits
+       comfortably. Create with explicit resources, e.g.
+       `daytona sandbox create --memory 16384 --disk 20480`
+       (MiB). CLI installed via the v2 installer (`irm` script from
+       the docs install page); commands: `daytona sandbox
+       create/list/delete` + toolbox exec for running commands.
+     - **daytona.io (v0) - LEGACY fallback.** CLI
+       `%USERPROFILE%\bin\daytona-v0.exe` (auth in
+       `%APPDATA%\daytona\config.json`). Per-sandbox caps by snapshot:
+       default 1GB (OOM-kills tsc), `daytona-large` 8GB. The default
+       `next build` still OOM-kills there (Next.js sizes its
+       page-data worker pool by the host's visible CPU count - 48 -
+       not the allocation), so on v0 use
+       `npx next build --experimental-build-mode compile --no-lint`
+       and run lint + tsc separately.
+     - Either way: clone the `monorepo` branch, `npm ci`, then
+       `npm run db:generate -w packages/core`, lint, tsc, build, and
+       `node scripts/check-encoding.mjs`.
   3. Only after all checks are green in Daytona: commit, push to
      `monorepo`, let Render build and deploy, and verify on the live
      Render service. Do NOT run `next build` locally unless Daytona is
