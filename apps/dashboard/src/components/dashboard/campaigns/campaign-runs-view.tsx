@@ -2,19 +2,14 @@
 // docs/demo/kampanye_csq_demo_interaktif.html: "halaman penuh, tanpa pop-up
 // & tanpa collapse"). One card per run: Sesi #, started/finished, count
 // chips, and the per-recipient table (Nomor Tujuan, Kontak, Status,
-// Keterangan). Loads its own data: run list on mount, then each run's
-// per-recipient log lazily on expand.
+// Keterangan) ALWAYS VISIBLE - no expand, no collapse. Loads the run list
+// and every run's recipient log on mount.
 import { useEffect, useState } from "react";
-import {
-  ArrowLeft,
-  ClockCounterClockwise,
-} from "@phosphor-icons/react";
+import { ClockCounterClockwise } from "@phosphor-icons/react";
 import type { CampaignRunRow } from "@csq/core/types/campaign";
 import { apiFetch } from "@/lib/api-client";
 import { formatDateTime } from "./format";
 import { cn } from "@csq/ui/lib/utils";
-
-type RunWithMessages = CampaignRunRow & { messages?: never };
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, string> = {
@@ -51,25 +46,38 @@ function CountChip(props: { label: string; value: number | undefined; cls: strin
 
 export function CampaignRunsView(props: {
   campaignId: string;
-  campaignName: string;
-  subtitle: string;
   onBack: () => void;
 }) {
   const [runs, setRuns] = useState<CampaignRunRow[] | null>(null);
+  const [details, setDetails] = useState<Record<string, CampaignRunRow>>({});
   const [error, setError] = useState<string | null>(null);
-  // Per-run recipient logs, loaded lazily on expand.
-  const [openRunId, setOpenRunId] = useState<string | null>(null);
-  const [runDetails, setRunDetails] = useState<Record<string, CampaignRunRow>>({});
 
+  // Load the run list, then every run's recipient log - all upfront, so the
+  // page renders fully expanded (no collapse, owner request 2026-11-19).
   useEffect(() => {
     let cancelled = false;
     setRuns(null);
+    setDetails({});
     setError(null);
-    apiFetch<{ runs: RunWithMessages[] }>(
+    apiFetch<{ runs: CampaignRunRow[] }>(
       `/api/dashboard/campaigns/${props.campaignId}/runs`
     )
-      .then((data) => {
-        if (!cancelled) setRuns(data.runs);
+      .then(async (data) => {
+        if (cancelled) return;
+        setRuns(data.runs);
+        const entries = await Promise.all(
+          data.runs.map(async (r) => {
+            try {
+              const detail = await apiFetch<{ run: CampaignRunRow }>(
+                `/api/dashboard/campaigns/${props.campaignId}/runs?runId=${r.id}&pageSize=500`
+              );
+              return [r.id, detail.run] as const;
+            } catch {
+              return [r.id, r] as const;
+            }
+          })
+        );
+        if (!cancelled) setDetails(Object.fromEntries(entries));
       })
       .catch((err: unknown) => {
         if (!cancelled) {
@@ -81,24 +89,6 @@ export function CampaignRunsView(props: {
       cancelled = true;
     };
   }, [props.campaignId]);
-
-  async function toggleDetail(runId: string) {
-    if (openRunId === runId) {
-      setOpenRunId(null);
-      return;
-    }
-    setOpenRunId(runId);
-    if (!runDetails[runId]) {
-      try {
-        const data = await apiFetch<{ run: CampaignRunRow }>(
-          `/api/dashboard/campaigns/${props.campaignId}/runs?runId=${runId}&pageSize=500`
-        );
-        setRunDetails((prev) => ({ ...prev, [runId]: data.run }));
-      } catch {
-        // Keep the card open without a table on failure.
-      }
-    }
-  }
 
   return (
     <div className="space-y-6">
@@ -121,8 +111,8 @@ export function CampaignRunsView(props: {
       )}
 
       {runs?.map((r, idx) => {
-        const open = openRunId === r.id;
-        const detail = runDetails[r.id];
+        const detail = details[r.id];
+        const messages = detail?.messages;
         return (
           <section
             key={r.id}
@@ -149,78 +139,56 @@ export function CampaignRunsView(props: {
                 <CountChip label="Terkirim" value={r.counts?.sent} cls="border-green-200 bg-green-50 text-green-700" />
                 <CountChip label="Gagal" value={r.counts?.failed} cls="border-red-200 bg-red-50 text-red-700" />
                 <CountChip label="Dilewati" value={r.counts?.skipped} cls="border-amber-200 bg-amber-50 text-amber-700" />
-                <button
-                  onClick={() => void toggleDetail(r.id)}
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"
-                >
-                  {open ? "Tutup" : "Detail"}
-                </button>
               </div>
             </div>
 
-            {open && (
-              <>
-                {!detail && (
-                  <div className="border-t border-slate-200 bg-slate-50/50 px-5 py-4 text-xs text-slate-500">
-                    Memuat log per nomor...
-                  </div>
-                )}
-                {detail && (detail.messages?.length ?? 0) === 0 && (
-                  <div className="border-t border-slate-200 bg-slate-50/50 px-5 py-4 text-xs text-slate-500">
-                    Detail log pesan per nomor tidak tersedia untuk sesi kirim ini
-                    (seluruh {detail.counts?.sent ?? 0} pesan tercatat terkirim).
-                  </div>
-                )}
-                {detail && (detail.messages?.length ?? 0) > 0 && (
-                  <div className="overflow-x-auto border-t border-slate-200">
-                    <table className="w-full text-left text-sm">
-                      <thead>
-                        <tr className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                          <th className="px-4 py-2.5">Nomor Tujuan</th>
-                          <th className="px-4 py-2.5">Kontak</th>
-                          <th className="px-4 py-2.5">Status</th>
-                          <th className="px-4 py-2.5">Keterangan</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {detail.messages?.map((m) => (
-                          <tr
-                            key={m.id}
-                            className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/70"
-                          >
-                            <td className="px-4 py-2.5 font-mono text-xs text-slate-800">
-                              {m.phone}
-                            </td>
-                            <td className="px-4 py-2.5 text-xs text-slate-600">
-                              {m.contactName ?? <span className="text-slate-400">-</span>}
-                            </td>
-                            <td className="px-4 py-2.5">
-                              <StatusBadge status={m.status} />
-                            </td>
-                            <td className="px-4 py-2.5 text-xs text-slate-500">
-                              {m.reason ?? <span className="text-slate-300">-</span>}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </>
+            {messages === undefined ? (
+              <div className="border-t border-slate-200 bg-slate-50/50 px-5 py-4 text-xs text-slate-500">
+                Memuat log per nomor...
+              </div>
+            ) : (messages.length ?? 0) === 0 ? (
+              <div className="border-t border-slate-200 bg-slate-50/50 px-5 py-4 text-xs text-slate-500">
+                Detail log pesan per nomor tidak tersedia untuk sesi kirim ini
+                (seluruh {r.counts?.sent ?? 0} pesan tercatat terkirim).
+              </div>
+            ) : (
+              <div className="overflow-x-auto border-t border-slate-200">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                      <th className="px-4 py-2.5">Nomor Tujuan</th>
+                      <th className="px-4 py-2.5">Kontak</th>
+                      <th className="px-4 py-2.5">Status</th>
+                      <th className="px-4 py-2.5">Keterangan</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {messages.map((m) => (
+                      <tr
+                        key={m.id}
+                        className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/70"
+                      >
+                        <td className="px-4 py-2.5 font-mono text-xs text-slate-800">
+                          {m.phone}
+                        </td>
+                        <td className="px-4 py-2.5 text-xs text-slate-600">
+                          {m.contactName ?? <span className="text-slate-400">-</span>}
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <StatusBadge status={m.status} />
+                        </td>
+                        <td className="px-4 py-2.5 text-xs text-slate-500">
+                          {m.reason ?? <span className="text-slate-300">-</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </section>
         );
       })}
-
-      <div>
-        <button
-          type="button"
-          onClick={props.onBack}
-          className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-        >
-          <ArrowLeft size={15} /> Kembali ke Daftar
-        </button>
-      </div>
     </div>
   );
 }

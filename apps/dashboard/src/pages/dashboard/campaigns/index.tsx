@@ -20,7 +20,6 @@ import { Button } from "@csq/ui/components/ui/button";
 import { cn } from "@csq/ui/lib/utils";
 import { CampaignTable } from "@/components/dashboard/campaigns/campaign-table";
 import { CampaignRunsView } from "@/components/dashboard/campaigns/campaign-runs-view";
-import { audienceLabel, scheduleLabel } from "@/components/dashboard/campaigns/format";
 
 type FilterTab = "ALL" | "ACTIVE" | "PAUSED" | "DRAFT";
 
@@ -145,8 +144,6 @@ export default function CampaignsPage() {
         </div>
         <CampaignRunsView
           campaignId={runsFor.id}
-          campaignName={runsFor.name}
-          subtitle={`${audienceLabel(runsFor)} - ${scheduleLabel(runsFor)}`}
           onBack={() => setRunsFor(null)}
         />
       </DashboardShell>
