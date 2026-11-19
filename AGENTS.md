@@ -215,15 +215,21 @@ Write the **least code that fully solves the task**. Boring beats clever.
   2. Build and test in a Daytona sandbox, NOT on the local machine.
      Two Daytona platforms exist - prefer daytona.com (v2), with
      daytona.io (v0) as legacy fallback:
-     - **daytona.com (v2) - PREFERRED.** API `api.daytona.com`, docs
-       at `https://www.daytona.com/docs` (append `.md` to any page for
-       Markdown). Linux sandboxes take up to 16 cores / 32GiB RAM /
-       256GiB disk per sandbox - a full default `next build` fits
-       comfortably. Create with explicit resources, e.g.
-       `daytona sandbox create --memory 16384 --disk 20480`
-       (MiB). CLI installed via the v2 installer (`irm` script from
-       the docs install page); commands: `daytona sandbox
-       create/list/delete` + toolbox exec for running commands.
+     - **daytona.com (v2) - PREFERRED, validated 2026-11-19.** CLI at
+       `%LOCALAPPDATA%\Daytona\bin\daytona.exe` (installed, logged in,
+       API `api.daytona.com`). Docs at `https://www.daytona.com/docs`
+       (append `.md` for Markdown). Linux sandboxes take up to 16
+       cores / 32GiB RAM / 256GiB disk - the FULL DEFAULT `next build`
+       passes (validated: static pages generated, BUILD_ID written,
+       no OOM, ~1 min). The default sandbox image has NO Node - always
+       create with the prebuilt Node image:
+       `daytona sandbox create --name csq-build --image csq-node
+       --memory 16384 --disk 20480` (MiB; csq-node = node:22-bookworm,
+       already imported in the account). Then
+       `daytona sandbox exec <id> -- sh -c "<cmd>"` for every step.
+       Login: `daytona login --api-key <v2 key>` falls back to device
+       flow from a non-TTY shell - the owner confirms the code at
+       auth.daytona.io/device.
      - **daytona.io (v0) - LEGACY fallback.** CLI
        `%USERPROFILE%\bin\daytona-v0.exe` (auth in
        `%APPDATA%\daytona\config.json`). Per-sandbox caps by snapshot:
