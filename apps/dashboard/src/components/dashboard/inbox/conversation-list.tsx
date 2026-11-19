@@ -54,7 +54,8 @@ function rowsEqual(a: ConversationRowProps, b: ConversationRowProps): boolean {
     a.conversation.updatedAt === b.conversation.updatedAt &&
     a.conversation.unreadCount === b.conversation.unreadCount &&
     a.conversation.channel.provider === b.conversation.channel.provider &&
-    a.conversation.channel.label === b.conversation.channel.label
+    a.conversation.channel.label === b.conversation.channel.label &&
+    a.conversation.avatarUrl === b.conversation.avatarUrl
   );
 }
 
@@ -87,9 +88,19 @@ const ConversationRow = memo(function ConversationRow({
       )}
     >
       <div className="relative shrink-0">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-600">
-          {initials(name)}
-        </div>
+        {c.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={c.avatarUrl}
+            alt=""
+            className="h-12 w-12 rounded-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-600">
+            {initials(name)}
+          </div>
+        )}
         <div className="absolute bottom-0 right-0 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-green-500 text-white">
           <WhatsappLogo size={11} weight="fill" />
         </div>

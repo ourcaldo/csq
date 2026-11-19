@@ -33,6 +33,8 @@ type DisplayItem = Item & {
   // (WhatsApp-style unread badge). 0 when the user is caught up. Never counts
   // the user's own or the AI's outbound replies.
   unreadCount: number;
+  // PRD 27: contact profile photo URL (media service), null when absent.
+  avatarUrl: string | null;
 };
 type ListResult = {
   items: DisplayItem[];
@@ -140,6 +142,9 @@ export default async function handler(
       );
 
       // Resolve LID → real phone number for display + attach the last message + stage.
+      // PRD 27: avatarUrl from the contact's stored MediaAsset (media service
+      // origin) - raw media ids never reach the client.
+      const mediaBase = (process.env.API_URL ?? "").replace(/\/$/, "");
       const itemsWithDisplay: DisplayItem[] = await Promise.all(
         items.map(async (item) => {
           let customerPhoneDisplay = item.customerPhone;
@@ -158,12 +163,17 @@ export default async function handler(
               }
             : null;
           const stage = item.deal?.stage ?? null;
+          const avatarUrl =
+            mediaBase && item.contact?.avatarMediaId
+              ? `${mediaBase}/api/media/${item.contact.avatarMediaId}`
+              : null;
           return {
             ...rest,
             stage,
             customerPhoneDisplay,
             lastMessage,
             unreadCount: unreadCounts.get(item.id) ?? 0,
+            avatarUrl,
           };
         })
       );

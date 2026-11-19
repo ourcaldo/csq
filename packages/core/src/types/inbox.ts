@@ -72,6 +72,9 @@ export type ConversationListItem = {
   // INBOUND messages after this user's last-read watermark (WhatsApp-style
   // unread badge); 0 when caught up.
   unreadCount: number;
+  // PRD 27: contact WhatsApp profile photo (media service URL), null when
+  // the contact has none stored - the UI falls back to initials.
+  avatarUrl: string | null;
   createdAt: string;
   updatedAt: string;
   contact: Contact | null;

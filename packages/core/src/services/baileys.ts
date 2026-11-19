@@ -96,6 +96,73 @@ type SocketEntry = {
 };
 const sockets = new Map<string, SocketEntry>();
 
+// PRD 27: fetch and store a contact's WhatsApp profile photo (Baileys
+// only - Cloud API has no per-recipient photo fetch). Called from the
+// worker's inbound path; never blocks ingest - all errors swallowed.
+// One fetch per contact ever: skipped when avatarMediaId is already set
+// or a previous fetch found no photo (privacy-hidden = terminal state).
+const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
+const avatarFailedPhones = new Set<string>();
+
+export async function fetchContactAvatar(params: {
+  channelId: string;
+  tenantId: string;
+  phone: string;
+}): Promise<void> {
+  const entry = sockets.get(params.channelId);
+  if (!entry?.open) return;
+  try {
+    const existing = await prisma.contact.findUnique({
+      where: { tenantId_phone: { tenantId: params.tenantId, phone: params.phone } },
+      select: { avatarMediaId: true },
+    });
+    if (!existing || existing.avatarMediaId) return;
+    if (avatarFailedPhones.has(`${params.tenantId}:${params.phone}`)) return;
+
+    const url = await entry.sock.profilePictureUrl(
+      toJid(params.phone),
+      "image"
+    );
+    if (!url) {
+      // Photo hidden by privacy or never set: terminal, do not retry-storm.
+      avatarFailedPhones.add(`${params.tenantId}:${params.phone}`);
+      return;
+    }
+    const res = await fetch(url);
+    if (!res.ok) {
+      avatarFailedPhones.add(`${params.tenantId}:${params.phone}`);
+      return;
+    }
+    const bytes = Buffer.from(await res.arrayBuffer());
+    if (bytes.length === 0 || bytes.length > AVATAR_MAX_BYTES) {
+      avatarFailedPhones.add(`${params.tenantId}:${params.phone}`);
+      return;
+    }
+    const asset = await prisma.mediaAsset.create({
+      data: {
+        tenantId: params.tenantId,
+        mimeType: res.headers.get("content-type")?.split(";")[0] ?? "image/jpeg",
+        byteSize: bytes.length,
+        data: bytes,
+      },
+    });
+    await prisma.contact.update({
+      where: { tenantId_phone: { tenantId: params.tenantId, phone: params.phone } },
+      data: { avatarMediaId: asset.id },
+    });
+    console.log(
+      `[baileys:${params.channelId}] avatar stored for ${params.phone}`
+    );
+  } catch (err: unknown) {
+    // Swallow: a photo failure must never block message ingest.
+    avatarFailedPhones.add(`${params.tenantId}:${params.phone}`);
+    console.error(
+      `[baileys:${params.channelId}] avatar fetch failed for ${params.phone}:`,
+      err
+    );
+  }
+}
+
 // PRD 15 runtime: per-instance safety cap on concurrent Baileys sockets
 // (memory guard; the plan limit is the commercial cap, this is the physical
 // one). Env-tunable for bigger workers; 512MB Render instances keep 5.
@@ -540,6 +607,13 @@ async function connectBaileysChannelInner(
           });
           // Redelivery of a waMessageId we already stored: no second turn.
           if (recorded.duplicate) return;
+          // PRD 27: backfill the contact's WhatsApp profile photo on their
+          // first inbound (fire-and-forget; no-op when already stored).
+          void fetchContactAvatar({
+            channelId: channel.id,
+            tenantId,
+            phone: from,
+          });
           // Reload the channel so the agent loop sees fresh status/agentId.
           const fresh = await prisma.channel.findUnique({ where: { id: channel.id } });
           if (!fresh) return;

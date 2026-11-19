@@ -36,6 +36,8 @@ type ChatPanelProps = {
   /** Channel identity for the header badge (PRD 15). */
   channelLabel: string | null;
   channelNumber: string | null;
+  /** PRD 27: contact WhatsApp profile photo URL, null when absent. */
+  avatarUrl: string | null;
   aiActive: boolean; // an AI agent is assigned (not handed to a human)
   humanTakenOver: boolean; // a human staff member has taken over
   /** Origin that serves /api/media (the api service in the monorepo split). */
@@ -62,12 +64,14 @@ function MessageBubble({
   readByAgent,
   mediaBase,
   customerInitial,
+  avatarUrl,
   myUserId,
 }: {
   m: Message;
   readByAgent: boolean;
   mediaBase: string;
   customerInitial: string;
+  avatarUrl: string | null;
   // Current session user - a staff reply shows its author's name only to
   // OTHER staff (owner request 2026-11-15).
   myUserId: string | null;
@@ -94,11 +98,21 @@ function MessageBubble({
   if (inbound) {
     return (
       <div className="my-1 flex max-w-[80%] items-end gap-2">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
-          {/* Customer avatar: stable per conversation (contact-name or phone
-              initial) - never the first letter of whatever they sent. */}
-          {customerInitial}
-        </div>
+        {avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={avatarUrl}
+            alt=""
+            className="h-8 w-8 shrink-0 rounded-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">
+            {/* Customer avatar: stable per conversation (contact-name or phone
+                initial) - never the first letter of whatever they sent. */}
+            {customerInitial}
+          </div>
+        )}
         <div>
           <div className={cn("msg-received", bodyClass)}>
             {/* Inbound media (customer photos): render the real image with the
@@ -227,7 +241,7 @@ function TypingIndicator({ label }: { label: string }) {
   );
 }
 
-export function ChatPanel({ conversationId, customerName, customerPhone, channelLabel, channelNumber, aiActive, humanTakenOver, mediaBase, onBack, onOpenDetails, onRead }: ChatPanelProps) {
+export function ChatPanel({ conversationId, customerName, customerPhone, channelLabel, channelNumber, avatarUrl, aiActive, humanTakenOver, mediaBase, onBack, onOpenDetails, onRead }: ChatPanelProps) {
   const { data: session } = useSession();
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -555,6 +569,7 @@ export function ChatPanel({ conversationId, customerName, customerPhone, channel
               m={m}
               mediaBase={mediaBase}
               customerInitial={customerInitial}
+              avatarUrl={avatarUrl}
               myUserId={session?.user?.id ?? null}
               readByAgent={
                 m.direction === "INBOUND" &&

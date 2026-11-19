@@ -1037,6 +1037,9 @@ model Contact {
   // e.g. "Placement Test" (PRD 24 explicit source), an API key name, or
   // "Input Manual". First real origin sticks; an explicit API source updates it.
   source    String?
+  // PRD 27: WhatsApp profile photo fetched by the worker (Baileys only),
+  // stored as MediaAsset bytes because WhatsApp CDN URLs expire.
+  avatarMediaId String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -1044,6 +1047,7 @@ model Contact {
   conversations  Conversation[]
   categories     ContactCategory[]
   tags           ContactTag[]
+  avatar         MediaAsset?        @relation("ContactAvatar", fields: [avatarMediaId], references: [id], onDelete: SetNull)
 
   @@unique([tenantId, phone])
   @@index([tenantId])
@@ -1327,6 +1331,7 @@ model MediaAsset {
   createdAt DateTime @default(now())
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contactAvatars Contact[] @relation("ContactAvatar")
 
   @@index([tenantId, createdAt])
 }

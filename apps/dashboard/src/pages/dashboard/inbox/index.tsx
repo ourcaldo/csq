@@ -250,6 +250,7 @@ export default function InboxPage({ apiMediaBase }: InboxPageProps) {
             customerPhone={selected.customerPhoneDisplay}
             channelLabel={selected.channel.label || null}
             channelNumber={selected.channel.phoneNumber}
+            avatarUrl={selected.avatarUrl}
             aiActive={!selected.assignee && !!selected.assignedAgent}
             humanTakenOver={!!selected.assignee}
             mediaBase={apiMediaBase}

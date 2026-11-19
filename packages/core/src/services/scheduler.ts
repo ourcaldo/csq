@@ -13,7 +13,7 @@ import { readSheet } from "@csq/core/services/sheets";
 import { sheetsSourceConfigSchema } from "@csq/core/types/sheets";
 import { getGoogleCreds } from "@csq/core/lib/google-connect";
 import { replaceSourceRows } from "@csq/core/lib/source-rows";
-import { startBaileysChannels, startBaileysHeartbeat } from "@csq/core/services/baileys";
+import { startBaileysChannels, startBaileysHeartbeat, fetchContactAvatar } from "@csq/core/services/baileys";
 import {
   registerScenarioEngine,
   resumePausedRuns,
@@ -100,6 +100,75 @@ export function startScheduler(): void {
   };
   cron.schedule("10 17 * * *", kpiTick);
   kpiTick();
+  // PRD 27 avatar backfill: every 6 hours, bounded at 50 contacts per run
+  // (WhatsApp rate-limit guard), for avatarless contacts on a Baileys
+  // channel. New inbound messages fetch their avatar immediately; this
+  // sweep covers the outbound-first backlog. The worker is the only
+  // socket owner, so it only produces photos while it runs.
+  cron.schedule("20 */6 * * *", () => {
+    void withSystemLock("avatar-backfill", 600, backfillContactAvatars)
+      .then((n) => {
+        if (n && n > 0) console.log(`[scheduler] avatar backfill: stored ${n}`);
+      })
+      .catch((err: unknown) => {
+        console.error("[scheduler] avatar backfill threw:", err);
+      });
+  });
+}
+
+const AVATAR_BACKFILL_BATCH = 50;
+
+async function backfillContactAvatars(): Promise<number> {
+  // Avatarless contacts whose latest conversation is on a connected
+  // Baileys channel. Uses the conversation's channelId: the socket that
+  // must fetch the photo belongs to that channel.
+  const rows = await withSystemContext(async () =>
+    prisma.contact.findMany({
+      where: {
+        avatarMediaId: null,
+        conversations: {
+          some: {
+            channel: { provider: "BAILEYS", status: "CONNECTED" },
+          },
+        },
+      },
+      select: {
+        id: true,
+        tenantId: true,
+        phone: true,
+        conversations: {
+          orderBy: { lastMessageAt: "desc" },
+          take: 1,
+          select: { channelId: true },
+        },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: AVATAR_BACKFILL_BATCH,
+    })
+  );
+  let stored = 0;
+  for (const row of rows) {
+    const channelId = row.conversations[0]?.channelId;
+    if (!channelId) continue;
+    const before = await prisma.contact.findUnique({
+      where: { id: row.id },
+      select: { avatarMediaId: true },
+    });
+    if (!before || before.avatarMediaId) continue;
+    await withTenantContext(row.tenantId, () =>
+      fetchContactAvatar({
+        channelId,
+        tenantId: row.tenantId,
+        phone: row.phone,
+      })
+    );
+    const after = await prisma.contact.findUnique({
+      where: { id: row.id },
+      select: { avatarMediaId: true },
+    });
+    if (after?.avatarMediaId) stored += 1;
+  }
+  return stored;
 }
 
 // The once-a-minute scenario work, extracted so the system lock can wrap the

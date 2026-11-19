@@ -38,6 +38,8 @@ const PAGE_SIZE = 10;
 type ContactRow = Contact & {
   categories?: { categoryId: string; category: Category }[];
   tags?: { tagId: string; tag: Tag }[];
+  // PRD 27: WhatsApp profile photo URL, null when absent.
+  avatarUrl?: string | null;
 };
 
 function fileToBase64(file: File): Promise<string> {
@@ -412,16 +414,26 @@ export default function ContactsPage() {
                   <tr key={c.id} className="group transition-colors hover:bg-slate-50/80">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <div
-                          className={cn(
-                            "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-semibold",
-                            c.name
-                              ? "border-green-200/70 bg-green-50 text-green-700"
-                              : "border-slate-200 bg-slate-100 text-slate-500"
-                          )}
-                        >
-                          {initials(c.name)}
-                        </div>
+                        {c.avatarUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={c.avatarUrl}
+                            alt=""
+                            className="h-8 w-8 shrink-0 rounded-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div
+                            className={cn(
+                              "flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-semibold",
+                              c.name
+                                ? "border-green-200/70 bg-green-50 text-green-700"
+                                : "border-slate-200 bg-slate-100 text-slate-500"
+                            )}
+                          >
+                            {initials(c.name)}
+                          </div>
+                        )}
                         <div className="min-w-0">
                           <p className={cn("truncate text-sm font-medium", c.name ? "text-slate-900" : "italic text-slate-400")}>
                             {c.name ?? "Tanpa Nama"}

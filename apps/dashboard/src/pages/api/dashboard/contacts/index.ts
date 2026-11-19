@@ -42,7 +42,11 @@ async function attachTaxonomies(
   }
 }
 
-type ContactWithDisplay = Contact & { phoneDisplay: string };
+type ContactWithDisplay = Contact & {
+  phoneDisplay: string;
+  // PRD 27: WhatsApp profile photo (media service URL), null when absent.
+  avatarUrl: string | null;
+};
 type ListResult = {
   items: ContactWithDisplay[];
   total: number;
@@ -95,7 +99,9 @@ export default async function handler(
         prisma.contact.count({ where }),
       ]);
 
-      // Resolve LID → real phone number for display.
+      // Resolve LID → real phone number for display. PRD 27: avatarUrl from
+      // the stored MediaAsset via the media service origin.
+      const mediaBase = (process.env.API_URL ?? "").replace(/\/$/, "");
       const items: ContactWithDisplay[] = await Promise.all(
         rows.map(async (c) => {
           let phoneDisplay = c.phone;
@@ -113,7 +119,11 @@ export default async function handler(
           // Strip the nested conversations from the response (categories/tags stay -
           // the UI renders the classification chips from them).
           const { conversations: _drop, ...rest } = c;
-          return { ...rest, phoneDisplay };
+          const avatarUrl =
+            mediaBase && c.avatarMediaId
+              ? `${mediaBase}/api/media/${c.avatarMediaId}`
+              : null;
+          return { ...rest, phoneDisplay, avatarUrl };
         })
       );
 

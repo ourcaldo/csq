@@ -377,9 +377,18 @@ export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMob
     <>
       {/* Contact card */}
       <div className="mb-6 text-center">
-        <div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-green-50 text-green-600">
-          <WhatsappLogo size={36} weight="fill" />
-        </div>
+        {conversation.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={conversation.avatarUrl}
+            alt=""
+            className="mx-auto mb-3 h-20 w-20 rounded-full object-cover"
+          />
+        ) : (
+          <div className="mx-auto mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-green-50 text-green-600">
+            <WhatsappLogo size={36} weight="fill" />
+          </div>
+        )}
         {editing ? (
           <div className="space-y-3 text-left">
             <input
