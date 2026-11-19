@@ -115,20 +115,26 @@ export default function CampaignsPage() {
   // ── Riwayat sub-view ──
   if (runsFor) {
     return (
-      <DashboardShell
-        title={`Riwayat - ${runsFor.name}`}
-        description="Log lengkap setiap eksekusi pengiriman kampanye beserta status per nomor tujuan."
-        headerExtra={
-          <button
-            type="button"
-            onClick={() => setRunsFor(null)}
-            className="inline-flex items-center gap-1.5 text-sm text-slate-600 transition-colors hover:text-slate-900"
-          >
-            <ArrowLeft size={14} className="text-slate-400" />
-            Kembali ke daftar kampanye
-          </button>
-        }
-      >
+      <DashboardShell title={`Riwayat - ${runsFor.name}`}>
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-xs text-slate-500">
+              <button
+                type="button"
+                onClick={() => setRunsFor(null)}
+                className="inline-flex items-center gap-1 hover:text-slate-800"
+              >
+                <ArrowLeft size={13} /> Kampanye
+              </button>
+              <span>/</span>
+              <span>Riwayat Kirim</span>
+            </div>
+            <h1 className="mt-2 text-xl font-bold text-slate-900">Riwayat - {runsFor.name}</h1>
+            <p className="mt-1 text-sm text-slate-500">
+              Log lengkap setiap eksekusi pengiriman kampanye beserta status per nomor tujuan.
+            </p>
+          </div>
+        </div>
         <CampaignRunsView
           campaignId={runsFor.id}
           onBack={() => setRunsFor(null)}
