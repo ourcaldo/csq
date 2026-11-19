@@ -2,7 +2,7 @@
 // Owns the messages fetch for the selected conversation. Distinguishes customer
 // (received), AI (blue), human reply (green sent), and private note (amber)
 // bubbles. Composer has Reply / Private Note quick actions.
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, KeyboardEvent } from "react";
 import {
   PaperPlaneRight,
@@ -10,7 +10,6 @@ import {
   Paperclip,
   NotePencil,
   Lightning,
-  FileText,
   Robot,
   Code,
   DotsThreeVertical,
@@ -27,7 +26,6 @@ import type { MessageTemplate } from "@csq/core/lib/message-templates";
 import { useSession } from "next-auth/react";
 import { LoadingSkeleton } from "@/components/dashboard/loading-skeleton";
 import { EmptyState } from "@/components/dashboard/empty-state";
-import { Dialog } from "@csq/ui/components/ui/dialog";
 
 type ChatPanelProps = {
   conversationId: string;
@@ -250,15 +248,18 @@ export function ChatPanel({ conversationId, customerName, customerPhone, channel
   const [mode, setMode] = useState<ComposerMode>("reply");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
-  const [templateOpen, setTemplateOpen] = useState(false);
-  const [templateId, setTemplateId] = useState("");
-  const [templates, setTemplates] = useState<MessageTemplate[] | null>(null);
-  const [templateLang, setTemplateLang] = useState("id");
-  const [templateSending, setTemplateSending] = useState(false);
-  const [templateError, setTemplateError] = useState<string | null>(null);
   const [fileSending, setFileSending] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // Slash-command template picker (owner request 2026-11-19): typing "/" in
+  // the composer opens an inline autocomplete above the input - arrow keys
+  // navigate, Enter/click selects. Replaces the template popup dialog.
+  const [slashIndex, setSlashIndex] = useState(0);
+  const [templateLang, setTemplateLang] = useState("id");
+  const [templates, setTemplates] = useState<MessageTemplate[] | null>(null);
+  const [templateSending, setTemplateSending] = useState(false);
+  const [templateError, setTemplateError] = useState<string | null>(null);
   // First render of a conversation's messages vs a silent background refresh.
   const hadMessagesRef = useRef(false);
   // Last server-side message id we rendered; a silent refresh that grows the
@@ -405,6 +406,32 @@ export function ChatPanel({ conversationId, customerName, customerPhone, channel
   }
 
   function onKey(e: KeyboardEvent<HTMLTextAreaElement>) {
+    // Slash-command picker: arrows navigate, Enter selects, Escape closes
+    // (clears the "/" query by blanking the draft's command part).
+    if (slashOpen) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSlashIndex((i) => (i + 1) % slashMatches.length);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSlashIndex((i) => (i - 1 + slashMatches.length) % slashMatches.length);
+        return;
+      }
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        chooseTemplate(slashMatches[Math.min(slashIndex, slashMatches.length - 1)]);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setDraft("");
+        setSlashIndex(0);
+        return;
+      }
+      return;
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       send();
@@ -450,20 +477,49 @@ export function ChatPanel({ conversationId, customerName, customerPhone, channel
     }
   }
 
-  // Template dialog: list the tenant's saved templates (Pengaturan Template
-  // Pesan) once, on first open (owner request 2026-11-18 - the old dialog
-  // made the operator hand-type a Meta-approved name).
+  // Slash-command autocomplete: active when the draft starts with "/" (reply
+  // mode only). The query is the text after the slash; matching is
+  // case-insensitive over label + key. CSQ templates fill the input; META
+  // templates are sent via the template endpoint (they cannot go as free
+  // text). Templates load once on mount.
   useEffect(() => {
-    if (!templateOpen || templates !== null) return;
+    if (templates !== null) return;
     void apiFetch<{ items: MessageTemplate[] }>("/api/dashboard/templates")
       .then((data) => setTemplates(data.items))
       .catch(() => setTemplates([]));
-  }, [templateOpen, templates]);
+  }, [templates]);
 
-  const selectedTemplate = (templates ?? []).find((t) => t.id === templateId) ?? null;
+  const slashQuery =
+    mode === "reply" && draft.startsWith("/") ? draft.slice(1).toLowerCase() : null;
+  const slashMatches = useMemo(() => {
+    const list = templates ?? [];
+    if (slashQuery === null) return [];
+    return list.filter(
+      (t) =>
+        t.label.toLowerCase().includes(slashQuery) || t.key.toLowerCase().includes(slashQuery)
+    );
+  }, [templates, slashQuery]);
+  const slashOpen = slashQuery !== null && slashMatches.length > 0;
+  const activeTemplate = slashOpen ? slashMatches[Math.min(slashIndex, slashMatches.length - 1)] : null;
 
-  async function sendTemplate() {
-    if (!selectedTemplate || templateSending) return;
+  function chooseTemplate(t: MessageTemplate) {
+    setTemplateError(null);
+    if (t.kind === "CSQ") {
+      // Free-text template: drop the body into the input for editing, then
+      // send with Enter as usual.
+      setDraft(t.body);
+      setSlashIndex(0);
+      textareaRef.current?.focus();
+    } else {
+      // Meta-approved template: cannot be sent as free text - send directly.
+      void sendTemplate(t);
+      setDraft("");
+      setSlashIndex(0);
+    }
+  }
+
+  async function sendTemplate(selectedTemplate: MessageTemplate) {
+    if (templateSending) return;
     setTemplateSending(true);
     setTemplateError(null);
     try {
@@ -486,8 +542,6 @@ export function ChatPanel({ conversationId, customerName, customerPhone, channel
               }
             );
       setMessages((prev) => [...(prev ?? []), created]);
-      setTemplateOpen(false);
-      setTemplateId("");
     } catch (err) {
       setTemplateError(err instanceof Error ? err.message : "Gagal mengirim template.");
     } finally {
@@ -596,6 +650,58 @@ export function ChatPanel({ conversationId, customerName, customerPhone, channel
       {/* Composer */}
       <div className="shrink-0 border-t border-slate-100 bg-white p-4">
         {sendError && <p className="mb-2 text-xs text-red-600">{sendError}</p>}
+        {templateError && <p className="mb-2 text-xs text-red-600">{templateError}</p>}
+
+        {/* Slash-command template picker: inline above the input (owner
+            request 2026-11-19 - no popup). Arrow keys + Enter or click. */}
+        {slashOpen && (
+          <div className="mb-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+            <p className="border-b border-slate-100 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              Template - {slashMatches.length} cocok
+            </p>
+            <div className="max-h-52 overflow-y-auto">
+              {slashMatches.map((t, i) => (
+                <button
+                  key={t.id}
+                  onMouseEnter={() => setSlashIndex(i)}
+                  onClick={() => chooseTemplate(t)}
+                  className={cn(
+                    "flex w-full items-start justify-between gap-3 px-3 py-2 text-left transition-colors",
+                    i === Math.min(slashIndex, slashMatches.length - 1)
+                      ? "bg-green-50"
+                      : "hover:bg-slate-50"
+                  )}
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <p className="truncate text-sm font-medium text-slate-900">{t.label}</p>
+                      <span
+                        className={cn(
+                          "shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold",
+                          t.kind === "META" ? "bg-blue-50 text-blue-700" : "bg-green-100 text-green-700"
+                        )}
+                      >
+                        {t.kind === "META" ? "Meta" : "CSQ"}
+                      </span>
+                    </div>
+                    {t.kind === "CSQ" ? (
+                      <p className="mt-0.5 truncate text-xs text-slate-500">{t.body}</p>
+                    ) : (
+                      <p className="mt-0.5 truncate font-mono text-xs text-slate-500">
+                        {t.metaName} ({t.metaLanguage ?? "id"}) - kirim di luar 24 jam
+                      </p>
+                    )}
+                  </div>
+                  {i === Math.min(slashIndex, slashMatches.length - 1) && (
+                    <kbd className="mt-1 shrink-0 rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] text-slate-400">
+                      Enter
+                    </kbd>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Quick actions */}
         <div className="mb-3 flex gap-2">
@@ -621,12 +727,9 @@ export function ChatPanel({ conversationId, customerName, customerPhone, channel
           >
             <NotePencil size={14} /> Catatan Tim
           </button>
-          <button
-            onClick={() => { setTemplateOpen(true); setTemplateError(null); }}
-            className="flex items-center gap-1 rounded-md bg-slate-100 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-200"
-          >
-            <FileText size={14} /> Template
-          </button>
+          <span className="self-center text-[11px] text-slate-400">
+            Ketik <kbd className="rounded border border-slate-200 bg-slate-50 px-1 font-mono">/</kbd> untuk template
+          </span>
         </div>
 
         {/* Input */}
@@ -642,14 +745,18 @@ export function ChatPanel({ conversationId, customerName, customerPhone, channel
             <Smiley size={20} />
           </button>
           <textarea
+            ref={textareaRef}
             rows={1}
             value={draft}
-            onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setDraft(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLTextAreaElement>) => {
+              setDraft(e.target.value);
+              setSlashIndex(0);
+            }}
             onKeyDown={onKey}
             placeholder={
               mode === "note"
                 ? "Tulis catatan internal untuk tim…"
-                : `Balas ke ${customerPhone}…`
+                : `Balas ke ${customerPhone}… (ketik / untuk template)`
             }
             className="max-h-32 w-full resize-none border-none bg-transparent py-2 text-sm text-slate-700 outline-none placeholder-slate-400 focus:outline-none focus:ring-0"
           />
@@ -687,67 +794,6 @@ export function ChatPanel({ conversationId, customerName, customerPhone, channel
           </div>
         </div>
       </div>
-
-      {/* Template send dialog - pick from the tenant's saved templates.
-          CSQ kind sends the saved body as a normal reply (24h window);
-          META kind sends the pre-approved template (works outside 24h). */}
-      <Dialog
-        open={templateOpen}
-        onClose={() => setTemplateOpen(false)}
-        title="Kirim Template"
-        description="Pilih template dari daftar Template Pesan Anda."
-      >
-        {templateError && <p className="mb-2 text-xs text-red-600">{templateError}</p>}
-        <div className="space-y-3">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Template</label>
-            {templates === null ? (
-              <p className="text-sm text-slate-400">Memuat daftar template…</p>
-            ) : templates.length === 0 ? (
-              <p className="text-sm text-slate-500">
-                Belum ada template. Buat dulu di menu Template Pesan.
-              </p>
-            ) : (
-              <select
-                value={templateId}
-                onChange={(e: ChangeEvent<HTMLSelectElement>) => setTemplateId(e.target.value)}
-                className="w-full rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200"
-              >
-                <option value="">Pilih template…</option>
-                {templates.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.label} ({t.kind === "CSQ" ? "teks bebas" : "Meta"})
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-          {selectedTemplate && (
-            <p className="rounded-md bg-slate-50 p-2 text-xs text-slate-600">
-              {selectedTemplate.kind === "CSQ"
-                ? selectedTemplate.body
-                : `Template Meta "${selectedTemplate.metaName}" (${
-                    selectedTemplate.metaLanguage ?? "id"
-                  }) - dikirim di luar jendela 24 jam.`}
-            </p>
-          )}
-          <div className="flex justify-end gap-2">
-            <button
-              onClick={() => setTemplateOpen(false)}
-              className="rounded-md px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100"
-            >
-              Batal
-            </button>
-            <button
-              onClick={sendTemplate}
-              disabled={templateSending || !selectedTemplate}
-              className="rounded-md bg-slate-900 px-3 py-1.5 text-sm text-white hover:bg-slate-800 disabled:opacity-50"
-            >
-              {templateSending ? "Mengirim…" : "Kirim Template"}
-            </button>
-          </div>
-        </div>
-      </Dialog>
     </div>
   );
 }
