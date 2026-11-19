@@ -6,12 +6,15 @@
 // order: X-Real-IP (set by our edge), then the LAST XFF element (the hop our
 // proxy added), then "unknown" (shared bucket - fail closed, never spoofable
 // into unlimited fresh buckets).
+// Accepts the structural subset NextAuth passes to authorize() as well as
+// full NextApiRequest.
 import type { NextApiRequest } from "next";
+type IpHeaders = { headers?: Record<string, unknown> | undefined };
 
-export function clientIp(req: NextApiRequest): string {
-  const realIp = req.headers["x-real-ip"];
+export function clientIp(req: IpHeaders): string {
+  const realIp = req.headers?.["x-real-ip"];
   if (typeof realIp === "string" && realIp) return realIp.trim();
-  const xff = req.headers["x-forwarded-for"];
+  const xff = req.headers?.["x-forwarded-for"];
   const raw = Array.isArray(xff) ? xff[0] : xff;
   if (typeof raw === "string" && raw) {
     const hops = raw.split(",").map((h) => h.trim()).filter(Boolean);

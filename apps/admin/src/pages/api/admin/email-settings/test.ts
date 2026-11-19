@@ -58,8 +58,13 @@ export default async function handler(
       });
       return res.status(200).json(apiOk({ sent: true, to: parsed.data.to, messageId: info.messageId }));
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to send the test email.";
-      return res.status(400).json(apiError("VALIDATION_ERROR", `Test email failed: ${message}`));
+      // Audit run-2 (smtp-ssrf-transport-time): generic message only - the
+      // raw transport error (connect banners, ECONNREFUSED vs timeout) is a
+      // port-scan oracle. Same pattern as the dashboard test route.
+      console.error("[admin email test] send failed:", err);
+      return res
+        .status(400)
+        .json(apiError("VALIDATION_ERROR", "Test email failed - periksa konfigurasi SMTP platform dan coba lagi."));
     }
   });
 }

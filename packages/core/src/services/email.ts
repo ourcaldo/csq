@@ -2,6 +2,7 @@ import { z } from "zod";
 import nodemailer from "nodemailer";
 import {
   emailProviderSchema,
+  assertPublicSmtpHost,
   type EmailProviderConfig,
 } from "@csq/core/lib/email-config";
 
@@ -89,6 +90,10 @@ async function sendViaSmtp(
   config: Extract<EmailProviderConfig, { type: "SMTP" }>,
   input: { to: string; subject: string; text: string }
 ): Promise<{ messageId: string }> {
+  // Audit run-2 (smtp-ssrf-transport-time): validate at the SINK, not just at
+  // the dashboard save route - covers platform (admin-set) configs,
+  // pre-remediation stored rows, and the save-vs-dial DNS rebinding window.
+  await assertPublicSmtpHost(config.host);
   const info = await smtpTransporter(config).sendMail({
     from: config.from,
     to: input.to,

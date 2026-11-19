@@ -198,6 +198,25 @@ export default async function handler(
       }
     }
 
+    // Document filename (audit run-2, messages.ts-decode-after-send-integrity):
+    // computed BEFORE the send - decodeURIComponent throws on malformed
+    // percent-encoding, and doing it after delivery left a sent message with
+    // no Message row and no audit entry. try/catch + 120-char clamp (the
+    // api-contract cap the URL-basename fallback used to bypass).
+    const docFilename =
+      mediaId && media?.kind === "document"
+        ? (() => {
+            const explicit = media.filename?.trim();
+            if (explicit) return explicit.slice(0, 120);
+            try {
+              const base = decodeURIComponent(media.url.split("/").pop() ?? "").split("?")[0];
+              return (base || "dokumen").slice(0, 120);
+            } catch {
+              return "dokumen";
+            }
+          })()
+        : undefined;
+
     // Web processes hold no socket: the send goes through the worker outbox
     // (same queue as every dashboard reply) with a bounded await.
     const outboxId = await enqueueOutbound({
@@ -206,8 +225,8 @@ export default async function handler(
       to,
       ...(text ? { body: text } : {}),
       ...(mediaId ? { mediaId } : {}),
-      ...(mediaId && media?.kind === "document" && media.filename
-        ? { filename: media.filename }
+      ...(mediaId && media?.kind === "document" && docFilename
+        ? { filename: docFilename }
         : {}),
       source: "REPLY",
     });
@@ -222,13 +241,7 @@ export default async function handler(
     // and labelled as an API send so the inbox shows its origin. The
     // filename rides along for document sends - without it the inbox renders
     // the file as a broken image card (PRD 24 amendment, owner bug report
-    // 2026-11-19); fall back to the URL's basename when the caller omitted it.
-    const docFilename =
-      mediaId && media?.kind === "document"
-        ? (media.filename?.trim() ||
-           decodeURIComponent(media.url.split("/").pop() ?? "").split("?")[0] ||
-           "dokumen")
-        : undefined;
+    // 2026-11-19).
     const message = await recordOutboundMessage({
       tenantId: auth.tenantId,
       conversationId: conversation.id,

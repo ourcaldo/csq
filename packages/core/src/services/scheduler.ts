@@ -150,23 +150,29 @@ async function backfillContactAvatars(): Promise<number> {
   for (const row of rows) {
     const channelId = row.conversations[0]?.channelId;
     if (!channelId) continue;
-    const before = await prisma.contact.findUnique({
-      where: { id: row.id },
-      select: { avatarMediaId: true },
-    });
-    if (!before || before.avatarMediaId) continue;
-    await withTenantContext(row.tenantId, () =>
-      fetchContactAvatar({
+    // Audit run-2 functional bug: these probes ran OUTSIDE any ALS context,
+    // so under the fail-closed RLS policy they returned zero rows and the
+    // whole sweep was a silent no-op. They now run inside the tenant context.
+    // (fetchContactAvatar itself re-checks avatarMediaId, but the "after"
+    // probe is what counts the stored result.)
+    const result = await withTenantContext(row.tenantId, async () => {
+      const before = await prisma.contact.findUnique({
+        where: { id: row.id },
+        select: { avatarMediaId: true },
+      });
+      if (!before || before.avatarMediaId) return false;
+      await fetchContactAvatar({
         channelId,
         tenantId: row.tenantId,
         phone: row.phone,
-      })
-    );
-    const after = await prisma.contact.findUnique({
-      where: { id: row.id },
-      select: { avatarMediaId: true },
+      });
+      const after = await prisma.contact.findUnique({
+        where: { id: row.id },
+        select: { avatarMediaId: true },
+      });
+      return !!after?.avatarMediaId;
     });
-    if (after?.avatarMediaId) stored += 1;
+    if (result) stored += 1;
   }
   return stored;
 }

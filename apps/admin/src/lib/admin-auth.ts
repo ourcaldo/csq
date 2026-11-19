@@ -9,6 +9,7 @@ import prisma from "@csq/core/lib/db";
 import { withSystemContext } from "@csq/core/lib/tenant-context";
 import { hashPassword, verifyPassword } from "@csq/core/lib/password";
 import { checkRateLimit } from "@csq/core/lib/rate-limit";
+import { clientIp } from "@csq/core/lib/client-ip";
 import { apiError, type ApiResponse } from "@csq/core/types/api";
 
 // The admin auth realm (PRD 13). Everything mirrors the tenant realm's
@@ -46,10 +47,12 @@ export const adminAuthOptions: NextAuthOptions = {
       },
       async authorize(credentials, req) {
         // SEC-5 (PRD 16): per-IP rate limit on the operator login.
-        const ipRaw = req?.headers?.["x-forwarded-for"];
-        const ip = ((Array.isArray(ipRaw) ? ipRaw[0] : ipRaw) ?? "unknown")
-          .split(",")[0]
-          .trim();
+        // Audit run-2 finding #2 (admin.auth.xff-ratelimit-bypass): the
+        // FIRST XFF element is client-controlled on append-style proxies
+        // (Render) - keying on it lets one header rotation mint a fresh
+        // bucket. Use clientIp (X-Real-IP -> LAST XFF -> unknown), the
+        // run-1 fix already shipped for the api realm.
+        const ip = clientIp(req);
         if (!checkRateLimit(`admin-auth:${ip}`, 10, 60_000)) return null;
 
         const parsed = signInSchema.safeParse({

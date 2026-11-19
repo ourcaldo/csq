@@ -11,8 +11,10 @@ import { UserRole } from "@prisma/client";
 import { z } from "zod";
 import prisma from "@csq/core/lib/db";
 import { withSystemContext } from "@csq/core/lib/tenant-context";
-import { verifyPassword } from "@csq/core/lib/password";
+import { verifyPassword, hashPassword } from "@csq/core/lib/password";
 import { getTenantEntitlements } from "@csq/core/lib/entitlements";
+import { checkRateLimit } from "@csq/core/lib/rate-limit";
+import { clientIp } from "@csq/core/lib/client-ip";
 import type { PlanFeature } from "@csq/core/types/entitlements";
 
 // Sign-in input validation (matches the register schema's shape). Applied at
@@ -31,7 +33,13 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
+        // Audit run-2 finding #1 (dashboard-auth.no-throttle): brute-force
+        // throttle on the tenant login, mirroring the admin and api realms.
+        // clientIp (X-Real-IP -> LAST XFF -> unknown) - never the first XFF
+        // element, which the client controls on append-style proxies (Render).
+        const ip = clientIp(req);
+        if (!checkRateLimit(`dash-auth:${ip}`, 10, 60_000)) return null;
         // The email lookup happens before the tenant is known, so it runs in
         // the bypass context (PRD 16 SEC-1); everything after sign-in is
         // tenant-scoped via the request wrappers.
@@ -44,7 +52,11 @@ export const authOptions: NextAuthOptions = {
           const { email, password } = parsed.data;
 
           const user = await prisma.user.findUnique({ where: { email } });
-          if (!user) return null;
+          const ok = await verifyPassword(
+            password,
+            user?.passwordHash ?? (await hashPassword(password))
+          );
+          if (!user || !ok) return null;
 
           // Phase 2 (PRD 13) + SEC-4 (PRD 16): a suspended tenant's users CAN
           // authenticate (the credentials are valid), but every SSR page
@@ -52,9 +64,6 @@ export const authOptions: NextAuthOptions = {
           // dashboard is fully locked. Keeping the sign-in itself working
           // gives them the clear suspended message instead of a misleading
           // "wrong password".
-
-          const ok = await verifyPassword(password, user.passwordHash);
-          if (!ok) return null;
 
           return {
             id: user.id,
