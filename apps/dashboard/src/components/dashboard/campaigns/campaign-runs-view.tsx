@@ -36,14 +36,6 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function CountChip(props: { label: string; value: number | undefined; cls: string }) {
-  return (
-    <span className={cn("rounded-md border px-2.5 py-1 font-medium", props.cls)}>
-      {props.label}: <strong>{props.value ?? 0}</strong>
-    </span>
-  );
-}
-
 export function CampaignRunsView(props: {
   campaignId: string;
   onBack: () => void;
@@ -118,27 +110,33 @@ export function CampaignRunsView(props: {
             key={r.id}
             className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
           >
-            <div className="flex flex-wrap items-center justify-between gap-4 px-5 py-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="rounded bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
-                    Sesi #{runs.length - idx}
-                  </span>
-                  <h2 className="text-base font-semibold text-slate-900">
-                    {formatDateTime(r.startedAt)}
-                  </h2>
-                </div>
-                <p className="mt-1 text-xs text-slate-500">
-                  {r.finishedAt
-                    ? `Selesai pada ${formatDateTime(r.finishedAt)}`
-                    : "Sedang berjalan"}
-                </p>
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-slate-100 bg-slate-50/60 px-5 py-3">
+              <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                <span className="rounded bg-slate-200/70 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">
+                  Sesi #{runs.length - idx}
+                </span>
+                <span className="font-semibold text-slate-900">{formatDateTime(r.startedAt)}</span>
+                <span className="text-xs text-slate-400">
+                  {r.finishedAt ? `selesai ${formatDateTime(r.finishedAt)}` : "sedang berjalan"}
+                </span>
               </div>
-              <div className="flex flex-wrap items-center gap-2 text-xs">
-                <CountChip label="Total" value={r.counts?.total} cls="border-slate-200 bg-slate-50 text-slate-700" />
-                <CountChip label="Terkirim" value={r.counts?.sent} cls="border-green-200 bg-green-50 text-green-700" />
-                <CountChip label="Gagal" value={r.counts?.failed} cls="border-red-200 bg-red-50 text-red-700" />
-                <CountChip label="Dilewati" value={r.counts?.skipped} cls="border-amber-200 bg-amber-50 text-amber-700" />
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+                <span className="rounded-full bg-green-50 px-2 py-0.5 font-medium text-green-700">
+                  {r.counts?.sent ?? 0} terkirim
+                </span>
+                {(r.counts?.failed ?? 0) > 0 && (
+                  <span className="rounded-full bg-red-50 px-2 py-0.5 font-medium text-red-700">
+                    {r.counts?.failed} gagal
+                  </span>
+                )}
+                {(r.counts?.skipped ?? 0) > 0 && (
+                  <span className="rounded-full bg-amber-50 px-2 py-0.5 font-medium text-amber-700">
+                    {r.counts?.skipped} dilewati
+                  </span>
+                )}
+                <span className="text-slate-400">
+                  dari {r.counts?.total ?? 0} kontak
+                </span>
               </div>
             </div>
 
@@ -156,8 +154,8 @@ export function CampaignRunsView(props: {
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr className="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                      <th className="px-4 py-2.5">Nomor Tujuan</th>
                       <th className="px-4 py-2.5">Kontak</th>
+                      <th className="px-4 py-2.5">Nomor Tujuan</th>
                       <th className="px-4 py-2.5">Status</th>
                       <th className="px-4 py-2.5">Keterangan</th>
                     </tr>
@@ -168,11 +166,11 @@ export function CampaignRunsView(props: {
                         key={m.id}
                         className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/70"
                       >
-                        <td className="px-4 py-2.5 font-mono text-xs text-slate-800">
-                          {m.phone}
+                        <td className="px-4 py-2.5 text-xs font-medium text-slate-800">
+                          {m.contactName ?? <span className="font-normal text-slate-400">-</span>}
                         </td>
-                        <td className="px-4 py-2.5 text-xs text-slate-600">
-                          {m.contactName ?? <span className="text-slate-400">-</span>}
+                        <td className="px-4 py-2.5 font-mono text-xs text-slate-600">
+                          {m.phone}
                         </td>
                         <td className="px-4 py-2.5">
                           <StatusBadge status={m.status} />
