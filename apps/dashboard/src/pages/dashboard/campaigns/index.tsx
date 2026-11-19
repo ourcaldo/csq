@@ -7,7 +7,7 @@ import { useMemo, useState } from "react";
 import type { GetServerSideProps } from "next";
 import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
-import { MagnifyingGlass, Megaphone, PaperPlaneTilt } from "@phosphor-icons/react";
+import { ArrowLeft, MagnifyingGlass, Megaphone, PaperPlaneTilt } from "@phosphor-icons/react";
 import { withFeature } from "@csq/core/lib/auth";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
