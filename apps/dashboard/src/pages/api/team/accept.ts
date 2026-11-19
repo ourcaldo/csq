@@ -4,7 +4,7 @@ import { z } from "zod";
 import prisma from "@csq/core/lib/db";
 import { hashPassword } from "@csq/core/lib/password";
 import { logHuman } from "@csq/core/lib/audit";
-import { withSystemContext } from "@csq/core/lib/tenant-context";
+import { withSystemContext, withSystemTransaction } from "@csq/core/lib/tenant-context";
 import { respondError, strQuery } from "@csq/core/lib/queries";
 import { getTenantEntitlements } from "@csq/core/lib/entitlements";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
@@ -83,18 +83,56 @@ export default async function handler(
     // pending invites, and this public route ran with no entitlements check
     // at all. The invite stays burnable if rejected, so a stale over-limit
     // invite does not lock the owner out of anything but seat creation.
+    // Audit run-2 (invite-accept-stafflimit-toctou): the count-then-create
+    // was non-atomic - concurrent accepts all read the same stale count.
+    // Now one transaction with a tenant advisory lock serializes the seat
+    // check + create, so the limit holds under concurrency.
     const entitlements = await getTenantEntitlements(invite.tenantId);
     if (entitlements.staffLimit !== null && invite.role === "STAFF") {
-      const staff = await prisma.user.count({
-        where: { tenantId: invite.tenantId, role: "STAFF" },
+      const staffLimit = entitlements.staffLimit;
+      const tenantLockKey = (BigInt(
+        // Stable 63-bit key from the tenant UUID (fnv-ish fold of both halves).
+        BigInt(`0x${invite.tenantId.replace(/-/g, "").slice(0, 16)}`)
+      ) &
+        BigInt("0x7fffffffffffffff")) as bigint;
+      const user = await withSystemTransaction(async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(${tenantLockKey})`;
+        const staff = await tx.user.count({
+          where: { tenantId: invite.tenantId, role: "STAFF" },
+        });
+        if (staff >= staffLimit) {
+          return null;
+        }
+        return tx.user.create({
+          data: {
+            email: invite.email,
+            name: parsed.data.name ?? null,
+            passwordHash: await hashPassword(parsed.data.password),
+            role: invite.role,
+            tenantId: invite.tenantId,
+          },
+        });
       });
-      if (staff >= entitlements.staffLimit) {
+      if (!user) {
         return respondError(
           res,
           "PERMISSION_DENIED",
           `Kuota staf paket sudah penuh (${entitlements.staffLimit}). Hubungi owner.`
         );
       }
+      await prisma.teamInvite.update({
+        where: { id: invite.id },
+        data: { acceptedAt: new Date() },
+      });
+      await logHuman({
+        tenantId: invite.tenantId,
+        action: "user.invite_accepted",
+        entityType: "User",
+        entityId: user.id,
+        beforeValue: { inviteId: invite.id, email: invite.email, acceptedAt: null },
+        afterValue: { inviteId: invite.id, userId: user.id, role: user.role },
+      });
+      return res.status(201).json(apiOk({ userId: user.id }));
     }
 
     const user = await prisma.user.create({

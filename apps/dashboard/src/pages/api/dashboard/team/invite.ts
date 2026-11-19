@@ -5,7 +5,7 @@ import { getAuthSession, requireRole } from "@csq/core/lib/auth";
 import { getTenantEntitlements } from "@csq/core/lib/entitlements";
 import prisma from "@csq/core/lib/db";
 import { logHuman } from "@csq/core/lib/audit";
-import { withTenantContext } from "@csq/core/lib/tenant-context";
+import { withTenantContext, withSystemTransaction } from "@csq/core/lib/tenant-context";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { resolveEmailProvider } from "@csq/core/lib/email-config";
 import { sendEmailWithProvider } from "@csq/core/services/email";
@@ -75,39 +75,66 @@ export default async function handler(
       return respondError(res, "VALIDATION_ERROR", "Email sudah terdaftar.");
     }
 
+    const token = randomBytes(32).toString("hex");
+
     // Plan staff seats (PRD 13). Owner is not a seat; only STAFF users count.
     // Pending unexpired invites count too (audit run-1,
     // invite-accept-staff-limit-bypass): counting only accepted users let an
     // owner stockpile unlimited invites while under the limit, and accept
     // never re-checked - the seat is consumed at accept time.
+    // Audit run-2 (invite-accept-stafflimit-toctou): count+create wrapped in
+    // one transaction with the tenant advisory lock so concurrent invites
+    // cannot each pass on the same stale count (stockpile window).
     const entitlements = await getTenantEntitlements(tenantId);
+    let invite: { id: string; expiresAt: Date };
     if (entitlements.staffLimit !== null) {
-      const [staff, pending] = await Promise.all([
-        prisma.user.count({ where: { tenantId, role: "STAFF" } }),
-        prisma.teamInvite.count({
-          where: { tenantId, acceptedAt: null, expiresAt: { gt: new Date() } },
-        }),
-      ]);
-      if (staff + pending >= entitlements.staffLimit) {
+      const staffLimit = entitlements.staffLimit;
+      const tenantLockKey = (BigInt(
+        BigInt(`0x${tenantId.replace(/-/g, "").slice(0, 16)}`)
+      ) &
+        BigInt("0x7fffffffffffffff")) as bigint;
+      const inviteRow = await withSystemTransaction(async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(${tenantLockKey})`;
+        const [staff, pending] = await Promise.all([
+          tx.user.count({ where: { tenantId, role: "STAFF" } }),
+          tx.teamInvite.count({
+            where: { tenantId, acceptedAt: null, expiresAt: { gt: new Date() } },
+          }),
+        ]);
+        if (staff + pending >= staffLimit) {
+          return null;
+        }
+        return tx.teamInvite.create({
+          data: {
+            tenantId,
+            email,
+            role: "STAFF",
+            tokenHash: hashToken(token),
+            expiresAt: new Date(Date.now() + INVITE_TTL_MS),
+            invitedById: session.user.id,
+          },
+        });
+      });
+      if (!inviteRow) {
         return respondError(
           res,
           "PERMISSION_DENIED",
           `Paket ${entitlements.planName ?? "tenant"} hanya mendukung ${entitlements.staffLimit} staf.`
         );
       }
+      invite = inviteRow;
+    } else {
+      invite = await prisma.teamInvite.create({
+        data: {
+          tenantId,
+          email,
+          role: "STAFF",
+          tokenHash: hashToken(token),
+          expiresAt: new Date(Date.now() + INVITE_TTL_MS),
+          invitedById: session.user.id,
+        },
+      });
     }
-
-    const token = randomBytes(32).toString("hex");
-    const invite = await prisma.teamInvite.create({
-      data: {
-        tenantId,
-        email,
-        role: "STAFF",
-        tokenHash: hashToken(token),
-        expiresAt: new Date(Date.now() + INVITE_TTL_MS),
-        invitedById: session.user.id,
-      },
-    });
 
     const inviteLink = `${process.env.NEXTAUTH_URL ?? ""}/accept-invite?token=${token}`;
 

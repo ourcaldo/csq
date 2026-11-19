@@ -142,9 +142,10 @@ export default async function handler(
       );
 
       // Resolve LID → real phone number for display + attach the last message + stage.
-      // PRD 27: avatarUrl from the contact's stored MediaAsset (media service
-      // origin) - raw media ids never reach the client.
-      const mediaBase = (process.env.API_URL ?? "").replace(/\/$/, "");
+      // PRD 27 + audit run-2 (avatar PII): avatarUrl points at the SESSION-
+      // AUTHENTICATED BFF route (same origin, tenantId enforced) - never the
+      // public UUID-only media route, which stays reserved for Meta-fetchable
+      // promo assets.
       const itemsWithDisplay: DisplayItem[] = await Promise.all(
         items.map(async (item) => {
           let customerPhoneDisplay = item.customerPhone;
@@ -164,8 +165,8 @@ export default async function handler(
             : null;
           const stage = item.deal?.stage ?? null;
           const avatarUrl =
-            mediaBase && item.contact?.avatarMediaId
-              ? `${mediaBase}/api/media/${item.contact.avatarMediaId}`
+            item.contact?.avatarMediaId
+              ? `/api/dashboard/media/${item.contact.avatarMediaId}`
               : null;
           return {
             ...rest,

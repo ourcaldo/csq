@@ -99,9 +99,9 @@ export default async function handler(
         prisma.contact.count({ where }),
       ]);
 
-      // Resolve LID → real phone number for display. PRD 27: avatarUrl from
-      // the stored MediaAsset via the media service origin.
-      const mediaBase = (process.env.API_URL ?? "").replace(/\/$/, "");
+      // Resolve LID → real phone number for display. PRD 27 + audit run-2:
+      // avatarUrl points at the SESSION-AUTHENTICATED BFF route (tenantId
+      // enforced), not the public media route.
       const items: ContactWithDisplay[] = await Promise.all(
         rows.map(async (c) => {
           let phoneDisplay = c.phone;
@@ -119,10 +119,9 @@ export default async function handler(
           // Strip the nested conversations from the response (categories/tags stay -
           // the UI renders the classification chips from them).
           const { conversations: _drop, ...rest } = c;
-          const avatarUrl =
-            mediaBase && c.avatarMediaId
-              ? `${mediaBase}/api/media/${c.avatarMediaId}`
-              : null;
+          const avatarUrl = c.avatarMediaId
+            ? `/api/dashboard/media/${c.avatarMediaId}`
+            : null;
           return { ...rest, phoneDisplay, avatarUrl };
         })
       );
