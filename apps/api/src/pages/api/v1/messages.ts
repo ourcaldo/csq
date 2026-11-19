@@ -219,7 +219,16 @@ export default async function handler(
     }
 
     // Record exactly like a dashboard reply, minus the takeover (PRD 24) -
-    // and labelled as an API send so the inbox shows its origin.
+    // and labelled as an API send so the inbox shows its origin. The
+    // filename rides along for document sends - without it the inbox renders
+    // the file as a broken image card (PRD 24 amendment, owner bug report
+    // 2026-11-19); fall back to the URL's basename when the caller omitted it.
+    const docFilename =
+      mediaId && media?.kind === "document"
+        ? (media.filename?.trim() ||
+           decodeURIComponent(media.url.split("/").pop() ?? "").split("?")[0] ||
+           "dokumen")
+        : undefined;
     const message = await recordOutboundMessage({
       tenantId: auth.tenantId,
       conversationId: conversation.id,
@@ -227,7 +236,9 @@ export default async function handler(
       ...(auth.kind === "JWT_USER" ? { senderUserId: auth.userId } : {}),
       body: text ?? "",
       waMessageId: sendResult.waMessageId ?? undefined,
-      ...(mediaId ? { kind: "MEDIA" as const, mediaId } : {}),
+      ...(mediaId
+        ? { kind: "MEDIA" as const, mediaId, ...(docFilename ? { filename: docFilename } : {}) }
+        : {}),
     });
 
     await prisma.conversation.update({
