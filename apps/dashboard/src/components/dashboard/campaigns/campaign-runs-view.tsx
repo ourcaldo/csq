@@ -112,7 +112,7 @@ export function CampaignRunsView(props: {
           >
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-slate-100 bg-slate-50/60 px-5 py-3">
               <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-                <span className="rounded bg-slate-200/70 px-1.5 py-0.5 text-[11px] font-semibold text-slate-600">
+                <span className="rounded bg-green-100 px-1.5 py-0.5 text-[11px] font-semibold text-green-800">
                   Sesi #{runs.length - idx}
                 </span>
                 <span className="font-semibold text-slate-900">{formatDateTime(r.startedAt)}</span>
