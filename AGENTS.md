@@ -202,10 +202,11 @@ Write the **least code that fully solves the task**. Boring beats clever.
   and three lines of English, nothing else. If any part of a draft reply
   is not English, delete that part entirely rather than fixing it.
 - **DAYTONA SANDBOX HYGIENE (owner directive 2026-11-19).** When builds or
-  tests run in a Daytona sandbox, the sandbox MUST be stopped or deleted
-  when the work is done - never leave it running behind the session.
-  Sandboxes bill while running. Check `daytona-v0 list` at the end of any
-  task that used one and stop/delete everything no longer needed.
+  tests run in a Daytona sandbox, the sandbox MUST be DELETED when the
+  work is done - never leave it running, stopped, or paused behind the
+  session. Stopped sandboxes still occupy disk quota and can be forgotten.
+  Check `daytona-v0 list` at the end of any task that used one and
+  delete everything no longer needed.
 - **BUILD-AND-TEST FLOW: DAYTONA FIRST, RENDER SECOND (owner directive
   2026-11-19).** Local Windows builds are the last resort - they take
   10-40 minutes and hang. The flow for any code change:
@@ -233,8 +234,7 @@ Write the **least code that fully solves the task**. Boring beats clever.
      Render service. Do NOT run `next build` locally unless Daytona is
      unavailable - if forced, run it in the foreground and never leave
      it backgrounded.
-  4. When done, stop or delete the sandbox (see DAYTONA SANDBOX
-     HYGIENE above).
+  4. When done, DELETE the sandbox (see DAYTONA SANDBOX HYGIENE above).
 
 ### After Code Changes - Build + Verify
 - After changes to app code (NOT docs/config-only):
