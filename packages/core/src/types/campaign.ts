@@ -99,6 +99,9 @@ export type CampaignMessageRow = {
   scheduledFor: string;
   sentAt: string | null;
   reason: string | null;
+  // Contact display name resolved from the phone (owner request 2026-11-19:
+  // the riwayat shows name + number). Null when no contact matches.
+  contactName: string | null;
 };
 
 export type CampaignRunRow = {

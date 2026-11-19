@@ -63,6 +63,17 @@ export default async function handler(
         skip,
         take,
       });
+      // Contact names for the per-recipient log (owner request 2026-11-19:
+      // the riwayat must show the name, not only the number). One lookup for
+      // the whole page - contacts are keyed by phone.
+      const phones = [...new Set(messages.map((m) => m.phone.split("@")[0]))];
+      const contacts = phones.length
+        ? await prisma.contact.findMany({
+            where: { tenantId, phone: { in: phones } },
+            select: { phone: true, name: true },
+          })
+        : [];
+      const nameByPhone = new Map(contacts.map((c) => [c.phone, c.name]));
       return res.status(200).json(
         apiOk({
           run: {
@@ -77,6 +88,7 @@ export default async function handler(
               scheduledFor: m.scheduledFor.toISOString(),
               sentAt: m.sentAt?.toISOString() ?? null,
               reason: m.reason,
+              contactName: nameByPhone.get(m.phone.split("@")[0]) ?? null,
             })),
           },
         })

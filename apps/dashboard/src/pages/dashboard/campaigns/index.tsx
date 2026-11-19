@@ -7,20 +7,20 @@ import { useMemo, useState } from "react";
 import type { GetServerSideProps } from "next";
 import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
-import { MagnifyingGlass, Megaphone, PaperPlaneTilt } from "@phosphor-icons/react";
+import { ArrowLeft, MagnifyingGlass, Megaphone, PaperPlaneTilt } from "@phosphor-icons/react";
 import { withFeature } from "@csq/core/lib/auth";
-import { apiFetch, apiSend } from "@/lib/api-client";
+import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
 import type {
   CampaignRow,
-  CampaignRunRow,
 } from "@csq/core/types/campaign";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import { Button } from "@csq/ui/components/ui/button";
 import { cn } from "@csq/ui/lib/utils";
 import { CampaignTable } from "@/components/dashboard/campaigns/campaign-table";
-import { CampaignRunsDialog } from "@/components/dashboard/campaigns/campaign-runs-dialog";
+import { CampaignRunsView } from "@/components/dashboard/campaigns/campaign-runs-view";
+import { audienceLabel, scheduleLabel } from "@/components/dashboard/campaigns/format";
 
 type FilterTab = "ALL" | "ACTIVE" | "PAUSED" | "DRAFT";
 
@@ -67,10 +67,8 @@ export default function CampaignsPage() {
 
   const [pageError, setPageError] = useState<string | null>(null);
 
-  // Run history dialog
+  // Riwayat sub-view (owner request 2026-11-19: full page, no popup).
   const [runsFor, setRunsFor] = useState<CampaignRow | null>(null);
-  const [runs, setRuns] = useState<CampaignRunRow[] | null>(null);
-  const [runDetail, setRunDetail] = useState<CampaignRunRow | null>(null);
 
   // Delete confirm
   const [toDelete, setToDelete] = useState<CampaignRow | null>(null);
@@ -111,30 +109,48 @@ export default function CampaignsPage() {
     }
   }
 
-  async function openRuns(c: CampaignRow) {
+  function openRuns(c: CampaignRow) {
     setRunsFor(c);
-    setRuns(null);
-    setRunDetail(null);
-    try {
-      const data = await apiFetch<{ runs: CampaignRunRow[] }>(
-        `/api/dashboard/campaigns/${c.id}/runs`
-      );
-      setRuns(data.runs);
-    } catch {
-      setRuns([]);
-    }
   }
 
-  async function openRunDetail(runId: string) {
-    if (!runsFor) return;
-    try {
-      const data = await apiFetch<{ run: CampaignRunRow }>(
-        `/api/dashboard/campaigns/${runsFor.id}/runs?runId=${runId}&pageSize=200`
-      );
-      setRunDetail(data.run);
-    } catch {
-      setRunDetail(null);
-    }
+  // ── Riwayat sub-view ──
+  if (runsFor) {
+    return (
+      <DashboardShell title={`Riwayat - ${runsFor.name}`}>
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-xs text-slate-500">
+              <button
+                type="button"
+                onClick={() => setRunsFor(null)}
+                className="inline-flex items-center gap-1 hover:text-slate-800"
+              >
+                <ArrowLeft size={13} /> Kampanye
+              </button>
+              <span>/</span>
+              <span>Riwayat Kirim</span>
+            </div>
+            <h1 className="mt-1 text-xl font-bold text-slate-900">Riwayat - {runsFor.name}</h1>
+            <p className="mt-0.5 text-sm text-slate-500">
+              Log lengkap setiap eksekusi pengiriman kampanye beserta status per nomor tujuan.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setRunsFor(null)}
+            className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            <ArrowLeft size={15} /> Kembali ke Daftar
+          </button>
+        </div>
+        <CampaignRunsView
+          campaignId={runsFor.id}
+          campaignName={runsFor.name}
+          subtitle={`${audienceLabel(runsFor)} - ${scheduleLabel(runsFor)}`}
+          onBack={() => setRunsFor(null)}
+        />
+      </DashboardShell>
+    );
   }
 
   return (
@@ -251,17 +267,6 @@ export default function CampaignsPage() {
         onActivate={onActivate}
         onPause={onPause}
         onDelete={setToDelete}
-      />
-
-      <CampaignRunsDialog
-        open={runsFor !== null}
-        title={`Riwayat - ${runsFor?.name ?? ""}`}
-        runs={runs}
-        runDetail={runDetail}
-        onClose={() => setRunsFor(null)}
-        onToggleDetail={(id) =>
-          runDetail?.id === id ? setRunDetail(null) : openRunDetail(id)
-        }
       />
 
       <ConfirmDialog
