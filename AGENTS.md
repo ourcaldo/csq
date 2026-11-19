@@ -201,6 +201,40 @@ Write the **least code that fully solves the task**. Boring beats clever.
   language drift happens. If a status report needs a table, use the table
   and three lines of English, nothing else. If any part of a draft reply
   is not English, delete that part entirely rather than fixing it.
+- **DAYTONA SANDBOX HYGIENE (owner directive 2026-11-19).** When builds or
+  tests run in a Daytona sandbox, the sandbox MUST be stopped or deleted
+  when the work is done - never leave it running behind the session.
+  Sandboxes bill while running. Check `daytona-v0 list` at the end of any
+  task that used one and stop/delete everything no longer needed.
+- **BUILD-AND-TEST FLOW: DAYTONA FIRST, RENDER SECOND (owner directive
+  2026-11-19).** Local Windows builds are the last resort - they take
+  10-40 minutes and hang. The flow for any code change:
+  1. Make the change locally, run `npx tsc --noEmit -p apps/dashboard`
+     and `npm run lint` locally (both are fast and reliable).
+  2. Build and test in a Daytona sandbox, NOT on the local machine:
+     - CLI: `%USERPROFILE%\bin\daytona-v0.exe` (v0.x; binary lives in
+       `%USERPROFILE%\bin`, auth in `%APPDATA%\daytona\config.json`).
+     - Create: `daytona-v0 create --name <name> --snapshot daytona-large`
+       (the default snapshot is capped at 1GB RAM and OOM-kills tsc;
+       daytona-large gives 8GB).
+     - Clone the `monorepo` branch and `npm ci` inside the sandbox
+       (takes ~40s; then `npm run db:generate -w packages/core`).
+     - Full build: `npx next build --experimental-build-mode compile
+       --no-lint` in apps/dashboard. The default build OOM-kills in the
+       sandbox because Next.js sizes its page-data worker pool by the
+       host's visible CPU count (48), not the allocation. Compile mode
+       still type-checks (already run separately), compiles all routes,
+       and this app's routes are all dynamic, so nothing real is skipped.
+       Always also run lint + tsc separately (compile mode skips the
+       in-build lint/typecheck pass).
+     - Encoding check: `node scripts/check-encoding.mjs`.
+  3. Only after all checks are green in Daytona: commit, push to
+     `monorepo`, let Render build and deploy, and verify on the live
+     Render service. Do NOT run `next build` locally unless Daytona is
+     unavailable - if forced, run it in the foreground and never leave
+     it backgrounded.
+  4. When done, stop or delete the sandbox (see DAYTONA SANDBOX
+     HYGIENE above).
 
 ### After Code Changes - Build + Verify
 - After changes to app code (NOT docs/config-only):
