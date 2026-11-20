@@ -37,6 +37,14 @@ type ChannelSummary = {
   phoneNumber: string | null;
 };
 
+// Team member shape for the staff filter (from /api/dashboard/team).
+type TeamMember = {
+  id: string;
+  email: string;
+  name: string | null;
+  role: "OWNER" | "STAFF";
+};
+
 type InboxPageProps = {
   apiMediaBase: string;
 };
@@ -52,6 +60,9 @@ export default function InboxPage({ apiMediaBase }: InboxPageProps) {
   const [tagId, setTagId] = useState("");
   // PRD 15: channel filter ("Semua saluran" + each channel).
   const [channelId, setChannelId] = useState("");
+  // Staff (assignee) filter: the API already accepts assigneeUserId; this
+  // exposes it in the toolbar.
+  const [assigneeUserId, setAssigneeUserId] = useState("");
   // Filter (Faders) button: the status/tag toolbar starts hidden; the button
   // reveals it (owner request 2026-11-18).
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -77,7 +88,8 @@ export default function InboxPage({ apiMediaBase }: InboxPageProps) {
     `/api/dashboard/inbox/conversations?pageSize=100` +
     (status ? `&status=${status}` : "") +
     (tagId ? `&tagId=${tagId}` : "") +
-    (channelId ? `&channelId=${channelId}` : "");
+    (channelId ? `&channelId=${channelId}` : "") +
+    (assigneeUserId ? `&assigneeUserId=${assigneeUserId}` : "");
   const { data, loading, error, refresh } = usePolledApi<ListResult<ConversationListItem>>(
     conversationsUrl,
     8000
@@ -86,6 +98,12 @@ export default function InboxPage({ apiMediaBase }: InboxPageProps) {
   // Tenant tags for the tag filter dropdown.
   const { data: tagsData } = useApi<ListResult<Tag>>(`/api/dashboard/tags?pageSize=100`);
   const tags = tagsData?.items ?? [];
+
+  // Tenant team members for the staff filter dropdown.
+  const { data: teamData } = useApi<{ items: TeamMember[] }>(
+    "/api/dashboard/team?pageSize=100"
+  );
+  const members = teamData?.items ?? [];
 
   // Tenant channels for the channel filter dropdown (PRD 15).
   const { data: channelsData } = useApi<{ items: ChannelSummary[] }>(
@@ -208,6 +226,19 @@ export default function InboxPage({ apiMediaBase }: InboxPageProps) {
             </option>
           ))}
         </Select>
+        <Select
+          value={assigneeUserId}
+          onChange={(e: ChangeEvent<HTMLSelectElement>) => setAssigneeUserId(e.target.value)}
+          className="h-8 w-auto text-xs"
+          aria-label="Filter staf"
+        >
+          <option value="">Semua staf</option>
+          {members.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.name ?? m.email}
+            </option>
+          ))}
+        </Select>
         <Button
           variant="ghost"
           className="h-8 text-xs"
@@ -215,6 +246,7 @@ export default function InboxPage({ apiMediaBase }: InboxPageProps) {
             setStatus("");
             setTagId("");
             setChannelId("");
+            setAssigneeUserId("");
           }}
         >
           Reset
