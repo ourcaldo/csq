@@ -186,17 +186,20 @@ export function DashboardShell({ title, description, actions, headerExtra, flush
           noindex; the title prop becomes the browser-tab title ("… - CSQ"). */}
       <Seo title={title} description={description} path={router.pathname} noindex />
       {/* Sidebar (PRD 28 Part E: collapsible - w-64 expanded, w-16 icon rail
-          collapsed; persisted per browser via localStorage). */}
+          collapsed; persisted per browser via localStorage). Width animates
+          smoothly; the expand/collapse control lives on the logo area in BOTH
+          states (owner request 2026-11-21: hover the logo when collapsed to
+          reveal it). */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex shrink-0 flex-col border-r border-slate-200 bg-white transition-all md:translate-x-0",
+          "group fixed inset-y-0 left-0 z-40 flex shrink-0 flex-col overflow-hidden border-r border-slate-200 bg-white transition-[width] duration-300 ease-in-out md:translate-x-0",
           collapsed ? "w-16" : "w-64",
           navOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
         {/* Logo + collapse toggle */}
         <div className={cn(
-          "flex h-16 items-center gap-2 border-b border-slate-100",
+          "flex h-16 shrink-0 items-center gap-2 border-b border-slate-100",
           collapsed ? "justify-center px-2" : "px-6"
         )}>
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-green-600 text-white">
@@ -211,6 +214,19 @@ export function DashboardShell({ title, description, actions, headerExtra, flush
               className="ml-auto rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
             >
               <SidebarSimple size={16} />
+            </button>
+          )}
+          {/* Collapsed: hover the logo area and the expand button fades in.
+              It stays clickable (not pointer-events-none) so it also works
+              on touch. */}
+          {collapsed && (
+            <button
+              onClick={toggleCollapsed}
+              aria-label="Lebarkan sidebar"
+              title="Lebarkan sidebar"
+              className="absolute right-0 flex h-8 w-8 items-center justify-center rounded-lg bg-green-600 text-white opacity-0 shadow-sm transition-opacity duration-200 group-hover:opacity-100"
+            >
+              <SidebarSimple size={16} className="rotate-180" />
             </button>
           )}
         </div>
@@ -239,8 +255,19 @@ export function DashboardShell({ title, description, actions, headerExtra, flush
                         : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                     )}
                   >
-                    <span className="text-slate-500">{item.icon}</span>
-                    {!collapsed && item.label}
+                    <span className="shrink-0 text-slate-500">{item.icon}</span>
+                    {/* Label fades with the width transition; overflow-hidden
+                        on the aside clips it - no pop in/out. w-0/opacity-0
+                        in rail mode so the icon stays centered. */}
+                    <span
+                      className={cn(
+                        "truncate whitespace-nowrap transition-all duration-200",
+                        collapsed ? "w-0 opacity-0" : "w-auto opacity-100"
+                      )}
+                      aria-hidden={collapsed}
+                    >
+                      {item.label}
+                    </span>
                   </Link>
                 ))}
               </div>
@@ -264,20 +291,20 @@ export function DashboardShell({ title, description, actions, headerExtra, flush
                   : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
               )}
             >
-              <span className="text-slate-500">{item.icon}</span>
-              {!collapsed && item.label}
+              <span className="shrink-0 text-slate-500">{item.icon}</span>
+              <span
+                className={cn(
+                  "truncate whitespace-nowrap transition-all duration-200",
+                  collapsed ? "w-0 opacity-0" : "w-auto opacity-100"
+                )}
+                aria-hidden={collapsed}
+              >
+                {item.label}
+              </span>
             </Link>
           ))}
-          {collapsed && (
-            <button
-              onClick={toggleCollapsed}
-              aria-label="Lebarkan sidebar"
-              title="Lebarkan sidebar"
-              className="flex w-full items-center justify-center rounded-lg px-0 py-2 text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"
-            >
-              <SidebarSimple size={16} className="rotate-180 text-slate-500" />
-            </button>
-          )}
+          {/* The bottom expand toggle is redundant with the logo-area one -
+              removed so the rail stays clean. */}
         </div>
       </aside>
 
@@ -289,8 +316,12 @@ export function DashboardShell({ title, description, actions, headerExtra, flush
         />
       )}
 
-      {/* Main */}
-      <div className={cn("flex min-w-0 flex-1 flex-col", collapsed ? "md:pl-16" : "md:pl-64")}>
+      {/* Main - the content offset animates in lockstep with the sidebar
+          width transition so the layout glides instead of snapping. */}
+      <div className={cn(
+        "flex min-w-0 flex-1 flex-col transition-[padding] duration-300 ease-in-out",
+        collapsed ? "md:pl-16" : "md:pl-64"
+      )}>
         <header className="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 md:px-6">
           <button
             className="rounded-md p-2 text-slate-600 hover:bg-slate-100 md:hidden"
