@@ -107,8 +107,6 @@ const NAV_GROUPS: NavGroup[] = [
 
 const NAV_BOTTOM: NavItem[] = [
   { href: "/dashboard/pengaturan/umum", label: "Pengaturan", icon: <Gear size={18} /> },
-  { href: "/dashboard/pengaturan/tim", label: "Tim", icon: <Users size={18} /> },
-  { href: "/dashboard/pengaturan/paket", label: "Paket & Kuota", icon: <Wallet size={18} />, ownerOnly: true },
 ];
 
 type DashboardShellProps = {
