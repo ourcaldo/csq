@@ -6,12 +6,16 @@ import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 
 // Tenant info for the dashboard. Read-only; any authenticated tenant user may
-// view.
+// view. Includes the PRD 28 general-settings fields (legalName/timezone/
+// currency) stored in Tenant.settings.
 
 export type TenantInfo = {
   id: string;
   name: string;
   slug: string;
+  legalName: string | null;
+  timezone: string | null;
+  currency: string | null;
 };
 
 export default async function handler(
@@ -32,10 +36,21 @@ export default async function handler(
         id: true,
         name: true,
         slug: true,
+        settings: true,
       },
     });
     if (!tenant) return respondError(res, "NOT_FOUND", "Tenant tidak ditemukan.");
 
-    return res.status(200).json(apiOk(tenant));
+    const s = (tenant.settings as Record<string, unknown> | null) ?? {};
+    return res.status(200).json(
+      apiOk({
+        id: tenant.id,
+        name: tenant.name,
+        slug: tenant.slug,
+        legalName: typeof s.legalName === "string" ? s.legalName : null,
+        timezone: typeof s.timezone === "string" ? s.timezone : null,
+        currency: typeof s.currency === "string" ? s.currency : null,
+      })
+    );
   });
 }

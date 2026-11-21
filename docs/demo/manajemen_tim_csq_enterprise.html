@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="id" class="antialiased">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Manajemen Tim — CSQ Enterprise</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+          mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        },
+      }
+    }
+  }
+</script>
+<style>
+  body { font-feature-settings: "cv02", "cv03", "cv04", "cv11"; }
+  .nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.45rem 0.75rem;
+    border-radius: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: rgb(71 85 105);
+    transition: background-color 0.12s ease, color 0.12s ease;
+  }
+  .nav-link:hover {
+    background-color: rgb(248 250 252);
+    color: rgb(15 23 42);
+  }
+  .nav-link.active {
+    background-color: rgb(240 253 244);
+    color: rgb(21 128 61);
+    font-weight: 600;
+  }
+  .tab-btn {
+    position: relative;
+    padding: 0.65rem 0.25rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: rgb(100 116 139);
+    transition: color 0.15s ease;
+  }
+  .tab-btn:hover { color: rgb(15 23 42); }
+  .tab-btn.active {
+    color: rgb(15 23 42);
+    font-weight: 600;
+  }
+  .tab-btn.active::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    background-color: rgb(22 163 74);
+  }
+  .modal-backdrop { background: rgba(15, 23, 42, 0.45); backdrop-filter: blur(2px); }
+</style>
+</head>
+<body class="bg-white text-slate-900 selection:bg-emerald-100 selection:text-emerald-950">
+
+<!-- ══════════ Mobile Overlay ══════════ -->
+<div id="mobile-overlay" onclick="toggleSidebar(false)" class="modal-backdrop fixed inset-0 z-30 hidden md:hidden"></div>
+
+<!-- ══════════ Application Sidebar ══════════ -->
+<aside id="app-sidebar" class="fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 -translate-x-full flex-col border-r border-slate-200 bg-white transition-transform duration-200 md:translate-x-0">
+  <div class="flex h-14 items-center justify-between border-b border-slate-100 px-5">
+    <div class="flex items-center gap-2.5">
+      <div class="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-600 text-white">
+        <i class="ph-fill ph-chat-circle-dots text-base"></i>
+      </div>
+      <span class="text-lg font-bold tracking-tight text-slate-900">CSQ</span>
+    </div>
+    <button onclick="toggleSidebar(false)" aria-label="Tutup menu" class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 md:hidden">
+      <i class="ph ph-x text-base"></i>
+    </button>
+  </div>
+
+  <nav class="flex-1 space-y-5 overflow-y-auto px-3 py-4">
+    <div>
+      <p class="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Utama</p>
+      <div class="space-y-0.5">
+        <a href="#ringkasan" onclick="return false" class="nav-link"><i class="ph ph-chart-bar text-base text-slate-400"></i>Ringkasan</a>
+        <a href="#percakapan" onclick="return false" class="nav-link"><i class="ph ph-chat-circle-dots text-base text-slate-400"></i>Percakapan</a>
+        <a href="#tiket" onclick="return false" class="nav-link"><i class="ph ph-lifebuoy text-base text-slate-400"></i>Tiket</a>
+        <a href="#kampanye" onclick="return false" class="nav-link"><i class="ph ph-megaphone text-base text-slate-400"></i>Kampanye</a>
+        <a href="#saluran" onclick="return false" class="nav-link"><i class="ph ph-whatsapp-logo text-base text-slate-400"></i>Saluran</a>
+      </div>
+    </div>
+
+    <div>
+      <p class="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Data Bisnis</p>
+      <div class="space-y-0.5">
+        <a href="#produk" onclick="return false" class="nav-link"><i class="ph ph-package text-base text-slate-400"></i>Produk</a>
+        <a href="#inventaris" onclick="return false" class="nav-link"><i class="ph ph-stack text-base text-slate-400"></i>Inventaris</a>
+        <a href="#pesanan" onclick="return false" class="nav-link"><i class="ph ph-shopping-cart text-base text-slate-400"></i>Pesanan</a>
+        <a href="#kontak" onclick="return false" class="nav-link"><i class="ph ph-address-book text-base text-slate-400"></i>Kontak</a>
+        <a href="#tag" onclick="return false" class="nav-link"><i class="ph ph-tag text-base text-slate-400"></i>Tag</a>
+      </div>
+    </div>
+
+    <div>
+      <p class="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Pengetahuan &amp; Agent</p>
+      <div class="space-y-0.5">
+        <a href="#pengetahuan" onclick="return false" class="nav-link"><i class="ph ph-books text-base text-slate-400"></i>Pengetahuan</a>
+        <a href="#memori" onclick="return false" class="nav-link"><i class="ph ph-brain text-base text-slate-400"></i>Memori</a>
+        <a href="#sumber" onclick="return false" class="nav-link"><i class="ph ph-database text-base text-slate-400"></i>Sumber Data</a>
+        <a href="#agent" onclick="return false" class="nav-link"><i class="ph ph-robot text-base text-slate-400"></i>Agent</a>
+        <a href="#skenario" onclick="return false" class="nav-link"><i class="ph ph-flow-arrow text-base text-slate-400"></i>Skenario</a>
+        <a href="#approval" onclick="return false" class="nav-link"><i class="ph ph-seal-check text-base text-slate-400"></i>Approval</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="space-y-0.5 border-t border-slate-200 p-3">
+    <a href="#pengaturan" onclick="return false" class="nav-link"><i class="ph ph-gear text-base text-slate-400"></i>Pengaturan</a>
+    <a href="#tim" onclick="return false" class="nav-link active"><i class="ph ph-users text-base text-emerald-600"></i>Tim</a>
+    <a href="#kuota" onclick="return false" class="nav-link"><i class="ph ph-wallet text-base text-slate-400"></i>Paket &amp; Kuota</a>
+  </div>
+</aside>
+
+<!-- ══════════ Main Workspace ══════════ -->
+<div class="flex min-h-screen min-w-0 flex-col md:pl-64">
+
+  <!-- Top Utility Header -->
+  <header class="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur-xs md:px-8">
+    <div class="flex items-center gap-3">
+      <button onclick="toggleSidebar(true)" aria-label="Buka menu" class="rounded p-1.5 text-slate-600 hover:bg-slate-100 md:hidden">
+        <i class="ph ph-list text-lg"></i>
+      </button>
+      <div class="relative hidden sm:block">
+        <i class="ph ph-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400"></i>
+        <input id="global-cmd" type="text" placeholder="Cari atau ketik perintah… (⌘K)" class="h-8 w-64 rounded-md border border-slate-200 bg-slate-50 pl-8 pr-3 text-xs text-slate-900 placeholder-slate-400 transition focus:w-80 focus:border-slate-300 focus:bg-white focus:outline-none" />
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <!-- Quota Pill -->
+      <div class="hidden items-center gap-2 rounded-full border border-slate-200 bg-slate-50/70 px-3 py-1 text-xs sm:inline-flex">
+        <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+        <span class="text-slate-500">Kuota</span>
+        <span class="font-mono font-semibold text-slate-900">50%</span>
+      </div>
+      <button aria-label="Notifikasi" class="relative rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800">
+        <i class="ph ph-bell text-lg"></i>
+      </button>
+      <div class="h-4 w-px bg-slate-200"></div>
+      <div class="flex items-center gap-2">
+        <div class="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-600 text-xs font-semibold text-white">T</div>
+        <div class="hidden text-left lg:block">
+          <p class="text-xs font-semibold leading-none text-slate-900">Titik Nol English Course</p>
+          <p class="mt-0.5 font-mono text-[10px] leading-none text-slate-400">Owner</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Left-Aligned Enterprise Page Canvas -->
+  <main class="flex-1 px-4 py-7 md:px-8">
+    <div class="w-full max-w-6xl">
+
+      <!-- Page Header & Primary Action -->
+      <div class="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <div class="flex items-center gap-2.5">
+            <h1 class="text-xl font-semibold tracking-tight text-slate-900">Tim &amp; Hak Akses</h1>
+            <span class="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 font-mono text-[11px] font-medium text-slate-600">Enterprise RBAC</span>
+          </div>
+          <p class="mt-1 text-xs text-slate-500">Kelola anggota organisasi, peran operasional, serta izin eksekusi kampanye pada dashboard.</p>
+        </div>
+
+        <button type="button" id="btn-toggle-invite" onclick="toggleInviteDrawer()" class="inline-flex h-9 items-center gap-2 rounded-md bg-emerald-600 px-3.5 text-xs font-semibold text-white transition hover:bg-emerald-700">
+          <i class="ph ph-user-plus text-sm"></i>
+          <span>Undang Staff</span>
+        </button>
+      </div>
+
+      <!-- Inline Expandable Invitation Composer (No Pop-up Modal) -->
+      <div id="invite-panel" class="mt-6 hidden border-y border-slate-200 bg-slate-50/70 py-5 px-4 sm:px-5">
+        <form onsubmit="submitInvitation(event)" class="space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-900">Kirim Undangan Anggota Baru</h2>
+              <p class="mt-0.5 text-xs text-slate-500">Tautan undangan berlaku selama 7 hari dan dikirimkan langsung ke email penerima.</p>
+            </div>
+            <button type="button" onclick="toggleInviteDrawer(false)" class="rounded p-1 text-slate-400 hover:bg-slate-200/70 hover:text-slate-700" aria-label="Tutup panel undangan">
+              <i class="ph ph-x text-base"></i>
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 gap-3.5 md:grid-cols-12 md:items-end">
+            <div class="md:col-span-5">
+              <label for="invite-email" class="block text-xs font-medium text-slate-700">Alamat Email Kerja</label>
+              <input id="invite-email" type="email" required placeholder="nama@perusahaan.com" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15" />
+            </div>
+
+            <div class="md:col-span-3">
+              <label for="invite-role" class="block text-xs font-medium text-slate-700">Peran Organisasi</label>
+              <select id="invite-role" onchange="onInviteRoleChange()" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15">
+                <option value="STAFF" selected>Staff (Agen Operasional)</option>
+                <option value="OWNER">Owner (Akses Penuh)</option>
+              </select>
+            </div>
+
+            <div class="md:col-span-4">
+              <label class="flex h-9 cursor-pointer items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700">
+                <input id="invite-campaign-perm" type="checkbox" class="h-3.5 w-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-600" />
+                <span class="truncate font-medium">Boleh jalankan kampanye</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-end gap-2 pt-1">
+            <button type="button" onclick="toggleInviteDrawer(false)" class="rounded-md border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+              Batal
+            </button>
+            <button type="submit" class="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">
+              <i class="ph ph-paper-plane-tilt text-xs"></i>Kirim Undangan
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Compact Operational Telemetry Strip (Flat Hairline Grid) -->
+      <div class="mt-6 grid grid-cols-2 border-y border-slate-200 sm:grid-cols-4 sm:divide-x sm:divide-slate-200">
+        <div class="py-3.5 pr-4">
+          <p class="text-[11px] font-medium text-slate-400">Total Anggota Aktif</p>
+          <p id="kpi-members" class="mt-1 font-mono text-lg font-semibold text-slate-900">2</p>
+        </div>
+        <div class="py-3.5 sm:px-5">
+          <p class="text-[11px] font-medium text-slate-400">Owner / Admin</p>
+          <p id="kpi-owners" class="mt-1 font-mono text-lg font-semibold text-slate-900">1</p>
+        </div>
+        <div class="border-t border-slate-200 py-3.5 pr-4 sm:border-t-0 sm:px-5">
+          <p class="text-[11px] font-medium text-slate-400">Akses Kampanye</p>
+          <p id="kpi-campaign-access" class="mt-1 font-mono text-lg font-semibold text-emerald-700">1</p>
+        </div>
+        <div class="border-t border-slate-200 py-3.5 sm:border-t-0 sm:pl-5">
+          <p class="text-[11px] font-medium text-slate-400">Undangan Tertunda</p>
+          <p id="kpi-pending" class="mt-1 font-mono text-lg font-semibold text-slate-900">0</p>
+        </div>
+      </div>
+
+      <!-- Sub-Navigation Tabs -->
+      <div class="mt-6 flex items-center justify-between border-b border-slate-200">
+        <div class="flex gap-6">
+          <button type="button" data-tab="members" onclick="switchTab('members')" class="tab-btn active">
+            Anggota Aktif <span id="tab-count-members" class="ml-1 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-600">2</span>
+          </button>
+          <button type="button" data-tab="invites" onclick="switchTab('invites')" class="tab-btn">
+            Riwayat Undangan <span id="tab-count-invites" class="ml-1 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-600">1</span>
+          </button>
+          <button type="button" data-tab="roles" onclick="switchTab('roles')" class="tab-btn">
+            Matriks Peran &amp; Izin
+          </button>
+        </div>
+
+        <!-- Filter Input -->
+        <div id="filter-wrap" class="hidden pb-1.5 sm:block">
+          <div class="relative">
+            <i class="ph ph-funnel absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400"></i>
+            <input id="member-search" type="text" oninput="renderAll()" placeholder="Filter nama atau email…" class="h-7 w-52 rounded border border-slate-200 bg-slate-50 pl-7 pr-2.5 text-xs text-slate-800 placeholder-slate-400 focus:border-slate-300 focus:bg-white focus:outline-none" />
+          </div>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <!-- TAB 1: ANGGOTA AKTIF                                               -->
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <section id="panel-members" class="tab-panel pt-2">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead>
+              <tr class="border-b border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                <th class="py-3 pr-4">Anggota</th>
+                <th class="px-4 py-3">Peran</th>
+                <th class="hidden px-4 py-3 md:table-cell">Bergabung</th>
+                <th class="px-4 py-3">Izin Kampanye</th>
+                <th class="py-3 pl-4 text-right">Tindakan</th>
+              </tr>
+            </thead>
+            <tbody id="members-tbody" class="divide-y divide-slate-200 border-b border-slate-200"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <!-- TAB 2: UNDANGAN TIM                                                -->
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <section id="panel-invites" class="tab-panel hidden pt-2">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead>
+              <tr class="border-b border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                <th class="py-3 pr-4">Email Penerima</th>
+                <th class="px-4 py-3">Peran Ditawarkan</th>
+                <th class="px-4 py-3">Status</th>
+                <th class="hidden px-4 py-3 sm:table-cell">Dikirim</th>
+                <th class="hidden px-4 py-3 md:table-cell">Berlaku Sampai</th>
+                <th class="py-3 pl-4 text-right">Tindakan</th>
+              </tr>
+            </thead>
+            <tbody id="invites-tbody" class="divide-y divide-slate-200 border-b border-slate-200"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <!-- TAB 3: MATRIKS PERAN & IZIN (ENTERPRISE RBAC REFERENCE)            -->
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <section id="panel-roles" class="tab-panel hidden pt-6">
+        <div class="mb-4">
+          <h2 class="text-sm font-semibold text-slate-900">Matriks Hak Akses Bawaan</h2>
+          <p class="mt-0.5 text-xs text-slate-500">Perbandingan kapabilitas antara peran Owner dan Staff di seluruh modul CSQ.</p>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead>
+              <tr class="border-b border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                <th class="py-3 pr-4">Modul &amp; Kapabilitas</th>
+                <th class="w-40 px-4 py-3">Owner</th>
+                <th class="w-48 px-4 py-3">Staff</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200 border-b border-slate-200 text-slate-700">
+              <tr>
+                <td class="py-3 pr-4 font-medium text-slate-900">Percakapan, Tiket &amp; Kontak Pelanggan</td>
+                <td class="px-4 py-3 font-mono text-emerald-700">Akses Penuh</td>
+                <td class="px-4 py-3 font-mono text-emerald-700">Akses Penuh</td>
+              </tr>
+              <tr>
+                <td class="py-3 pr-4 font-medium text-slate-900">Eksekusi &amp; Penjadwalan Kampanye Broadcast</td>
+                <td class="px-4 py-3 font-mono text-emerald-700">Selalu Diizinkan</td>
+                <td class="px-4 py-3 font-mono text-amber-700">Opsional (Per Anggota)</td>
+              </tr>
+              <tr>
+                <td class="py-3 pr-4 font-medium text-slate-900">Konfigurasi Agent AI, Memori &amp; Sumber Data</td>
+                <td class="px-4 py-3 font-mono text-emerald-700">Akses Penuh</td>
+                <td class="px-4 py-3 font-mono text-slate-500">Baca Saja</td>
+              </tr>
+              <tr>
+                <td class="py-3 pr-4 font-medium text-slate-900">Manajemen Tim, Kunci API &amp; Billing Kuota</td>
+                <td class="px-4 py-3 font-mono text-emerald-700">Akses Penuh</td>
+                <td class="px-4 py-3 font-mono text-slate-400">Tidak Diizinkan</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<!-- ══════════ Confirmation Dialog (Remove Member / Revoke Invite) ══════════ -->
+<div id="confirm-modal" class="modal-backdrop fixed inset-0 z-50 hidden items-center justify-center p-4">
+  <div class="w-full max-w-md overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl">
+    <div class="border-b border-slate-100 px-5 py-3.5">
+      <h3 id="confirm-title" class="text-sm font-semibold text-slate-900">Konfirmasi Tindakan</h3>
+    </div>
+    <p id="confirm-message" class="px-5 py-4 text-xs leading-relaxed text-slate-600"></p>
+    <div class="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-5 py-3">
+      <button type="button" onclick="closeConfirm()" class="rounded-md border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Batal</button>
+      <button type="button" id="confirm-submit-btn" onclick="executeConfirm()" class="rounded-md bg-red-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-red-700">Hapus Akses</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ Non-blocking Toast ══════════ -->
+<div id="toast" class="pointer-events-none fixed bottom-5 right-5 z-50 flex translate-y-4 items-center gap-2 rounded-md bg-slate-900 px-3.5 py-2.5 text-xs font-medium text-white opacity-0 shadow-lg transition-all duration-200">
+  <i class="ph-fill ph-check-circle text-sm text-emerald-400"></i>
+  <span id="toast-msg">Tersimpan</span>
+</div>
+
+<script>
+// ══════════ State Data (Sesuai domain data CSQ) ══════════
+let members = [
+  {
+    id: "m_1",
+    initials: "TN",
+    name: "Titik Nol English Course",
+    email: "titiknolenglish@gmail.com",
+    isSelf: true,
+    role: "OWNER",
+    joinedAt: "11 Nov 2026",
+    canRunCampaigns: true
+  },
+  {
+    id: "m_2",
+    initials: "AD",
+    name: "Aldo Dwi Kristian",
+    email: "aldodkris.tnec@gmail.com",
+    isSelf: false,
+    role: "STAFF",
+    joinedAt: "21 Nov 2026",
+    canRunCampaigns: false
+  }
+];
+
+let invitations = [
+  {
+    id: "inv_1",
+    email: "aldodkris.tnec@gmail.com",
+    role: "STAFF",
+    status: "ACCEPTED",
+    sentAt: "21 Nov 2026",
+    expiresAt: "28 Nov 2026"
+  }
+];
+
+let pendingAction = null;
+
+// ══════════ Navigation & Layout Controls ══════════
+function toggleSidebar(open) {
+  document.getElementById("app-sidebar").classList.toggle("-translate-x-full", !open);
+  document.getElementById("mobile-overlay").classList.toggle("hidden", !open);
+}
+
+function toggleInviteDrawer(forceState) {
+  const panel = document.getElementById("invite-panel");
+  const shouldOpen = typeof forceState === "boolean" ? forceState : panel.classList.contains("hidden");
+  panel.classList.toggle("hidden", !shouldOpen);
+  if (shouldOpen) {
+    document.getElementById("invite-email").focus();
+  }
+}
+
+function onInviteRoleChange() {
+  const role = document.getElementById("invite-role").value;
+  const permBox = document.getElementById("invite-campaign-perm");
+  if (role === "OWNER") {
+    permBox.checked = true;
+    permBox.disabled = true;
+  } else {
+    permBox.checked = false;
+    permBox.disabled = false;
+  }
+}
+
+function switchTab(tabKey) {
+  document.querySelectorAll(".tab-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.tab === tabKey);
+  });
+  document.querySelectorAll(".tab-panel").forEach((panel) => {
+    panel.classList.toggle("hidden", panel.id !== "panel-" + tabKey);
+  });
+  document.getElementById("filter-wrap").classList.toggle("invisible", tabKey === "roles");
+}
+
+// ══════════ Toast & Clipboard ══════════
+let toastTimer = null;
+function showToast(message) {
+  const el = document.getElementById("toast");
+  document.getElementById("toast-msg").textContent = message;
+  el.classList.remove("opacity-0", "translate-y-4");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.add("opacity-0", "translate-y-4"), 2600);
+}
+
+function copyInviteLink(email) {
+  const link = `https://app.csq.id/invite/accept?email=${encodeURIComponent(email)}`;
+  const ta = document.createElement("textarea");
+  ta.value = link;
+  ta.style.position = "fixed";
+  ta.style.opacity = "0";
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    document.execCommand("copy");
+    showToast("Tautan undangan disalin");
+  } catch (e) {
+    showToast("Gagal menyalin tautan");
+  }
+  document.body.removeChild(ta);
+}
+
+// ══════════ Render Telemetry & Tables ══════════
+function renderAll() {
+  const query = (document.getElementById("member-search").value || "").trim().toLowerCase();
+
+  // Telemetry metrics
+  const ownersCount = members.filter((m) => m.role === "OWNER").length;
+  const campaignAccessCount = members.filter((m) => m.role === "OWNER" || m.canRunCampaigns).length;
+  const pendingCount = invitations.filter((i) => i.status === "PENDING").length;
+
+  document.getElementById("kpi-members").textContent = members.length;
+  document.getElementById("kpi-owners").textContent = ownersCount;
+  document.getElementById("kpi-campaign-access").textContent = campaignAccessCount;
+  document.getElementById("kpi-pending").textContent = pendingCount;
+
+  document.getElementById("tab-count-members").textContent = members.length;
+  document.getElementById("tab-count-invites").textContent = invitations.length;
+
+  // Render Members Table
+  const filteredMembers = members.filter((m) =>
+    !query || m.name.toLowerCase().includes(query) || m.email.toLowerCase().includes(query)
+  );
+
+  const mTbody = document.getElementById("members-tbody");
+  if (filteredMembers.length === 0) {
+    mTbody.innerHTML = `<tr><td colspan="5" class="py-10 text-center text-xs text-slate-400">Tidak ada anggota yang cocok dengan filter "${query}".</td></tr>`;
+  } else {
+    mTbody.innerHTML = filteredMembers.map((m) => {
+      const isOwner = m.role === "OWNER";
+      const avatarStyle = isOwner
+        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+        : "bg-slate-100 text-slate-700 border-slate-200";
+
+      const campaignCell = isOwner
+        ? `<span class="inline-flex items-center gap-1.5 font-mono text-xs text-slate-500">
+             <i class="ph-fill ph-check-circle text-emerald-600"></i>Selalu (Owner)
+           </span>`
+        : `<label class="inline-flex cursor-pointer items-center gap-2 text-xs text-slate-700">
+             <input type="checkbox" ${m.canRunCampaigns ? "checked" : ""} onchange="toggleCampaignPerm('${m.id}', this.checked)" class="h-3.5 w-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-600" />
+             <span>Boleh jalankan kampanye</span>
+           </label>`;
+
+      const actionCell = m.isSelf
+        ? `<span class="font-mono text-[11px] text-slate-400">Sesi Aktif</span>`
+        : `<button type="button" onclick="askRemoveMember('${m.id}')" class="rounded px-2.5 py-1 text-xs font-medium text-red-600 transition hover:bg-red-50">
+             Keluarkan
+           </button>`;
+
+      return `
+        <tr class="hover:bg-slate-50/80">
+          <td class="py-3.5 pr-4">
+            <div class="flex items-center gap-3">
+              <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-semibold ${avatarStyle}">
+                ${m.initials}
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="truncate text-xs font-semibold text-slate-900">${m.name}</span>
+                  ${m.isSelf ? '<span class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] font-medium text-slate-600">Anda</span>' : ''}
+                </div>
+                <p class="truncate font-mono text-[11px] text-slate-500">${m.email}</p>
+              </div>
+            </div>
+          </td>
+          <td class="px-4 py-3.5">
+            <select onchange="changeMemberRole('${m.id}', this.value)" ${m.isSelf && ownersCount === 1 ? "disabled" : ""} class="h-8 rounded-md border border-slate-300 bg-white px-2.5 text-xs font-medium text-slate-800 disabled:bg-slate-50 disabled:text-slate-500 focus:border-emerald-600 focus:outline-none">
+              <option value="OWNER" ${m.role === "OWNER" ? "selected" : ""}>Owner</option>
+              <option value="STAFF" ${m.role === "STAFF" ? "selected" : ""}>Staff</option>
+            </select>
+          </td>
+          <td class="hidden px-4 py-3.5 font-mono text-xs text-slate-500 md:table-cell">${m.joinedAt}</td>
+          <td class="px-4 py-3.5">${campaignCell}</td>
+          <td class="py-3.5 pl-4 text-right">${actionCell}</td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  // Render Invitations Table
+  const filteredInvites = invitations.filter((inv) =>
+    !query || inv.email.toLowerCase().includes(query)
+  );
+
+  const iTbody = document.getElementById("invites-tbody");
+  if (filteredInvites.length === 0) {
+    iTbody.innerHTML = `<tr><td colspan="6" class="py-10 text-center text-xs text-slate-400">Tidak ada riwayat undangan yang ditemukan.</td></tr>`;
+  } else {
+    iTbody.innerHTML = filteredInvites.map((inv) => {
+      let statusHtml = "";
+      if (inv.status === "ACCEPTED") {
+        statusHtml = `<span class="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700"><span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>Diterima</span>`;
+      } else if (inv.status === "PENDING") {
+        statusHtml = `<span class="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700"><span class="h-1.5 w-1.5 rounded-full bg-amber-400"></span>Menunggu</span>`;
+      } else {
+        statusHtml = `<span class="inline-flex items-center gap-1.5 text-xs text-slate-400"><span class="h-1.5 w-1.5 rounded-full bg-slate-300"></span>Dibatalkan</span>`;
+      }
+
+      const actionsHtml = inv.status === "PENDING"
+        ? `<div class="inline-flex items-center gap-3">
+             <button type="button" onclick="copyInviteLink('${inv.email}')" class="text-xs font-medium text-slate-600 hover:text-slate-900">Salin Tautan</button>
+             <button type="button" onclick="askRevokeInvite('${inv.id}')" class="text-xs font-medium text-red-600 hover:underline">Batalkan</button>
+           </div>`
+        : `<span class="text-xs text-slate-300">—</span>`;
+
+      return `
+        <tr class="hover:bg-slate-50/80">
+          <td class="py-3.5 pr-4 font-mono text-xs font-medium text-slate-900">${inv.email}</td>
+          <td class="px-4 py-3.5 text-xs text-slate-600">${inv.role === "OWNER" ? "Owner" : "Staff"}</td>
+          <td class="px-4 py-3.5">${statusHtml}</td>
+          <td class="hidden px-4 py-3.5 font-mono text-xs text-slate-500 sm:table-cell">${inv.sentAt}</td>
+          <td class="hidden px-4 py-3.5 font-mono text-xs text-slate-500 md:table-cell">${inv.expiresAt}</td>
+          <td class="py-3.5 pl-4 text-right">${actionsHtml}</td>
+        </tr>
+      `;
+    }).join("");
+  }
+}
+
+// ══════════ Member & Invite Mutations ══════════
+function changeMemberRole(memberId, newRole) {
+  const target = members.find((m) => m.id === memberId);
+  if (!target) return;
+
+  if (target.role === "OWNER" && newRole !== "OWNER") {
+    const ownerTotal = members.filter((m) => m.role === "OWNER").length;
+    if (ownerTotal <= 1) {
+      showToast("Minimal harus terdapat 1 Owner aktif");
+      renderAll();
+      return;
+    }
+  }
+
+  target.role = newRole;
+  if (newRole === "OWNER") target.canRunCampaigns = true;
+  renderAll();
+  showToast(`Peran ${target.name} diubah menjadi ${newRole === "OWNER" ? "Owner" : "Staff"}`);
+}
+
+function toggleCampaignPerm(memberId, checked) {
+  const target = members.find((m) => m.id === memberId);
+  if (!target) return;
+  target.canRunCampaigns = checked;
+  renderAll();
+  showToast(checked ? `Izin kampanye diberikan kepada ${target.name}` : `Izin kampanye dicabut dari ${target.name}`);
+}
+
+function submitInvitation(e) {
+  e.preventDefault();
+  const emailInput = document.getElementById("invite-email");
+  const email = emailInput.value.trim().toLowerCase();
+  const role = document.getElementById("invite-role").value;
+
+  if (!email) return;
+
+  invitations.unshift({
+    id: "inv_" + Date.now(),
+    email,
+    role,
+    status: "PENDING",
+    sentAt: "21 Nov 2026",
+    expiresAt: "28 Nov 2026"
+  });
+
+  emailInput.value = "";
+  toggleInviteDrawer(false);
+  switchTab("invites");
+  renderAll();
+  showToast(`Undangan terkirim ke ${email}`);
+}
+
+// ══════════ Confirmation Dialog Logic ══════════
+function askRemoveMember(memberId) {
+  const target = members.find((m) => m.id === memberId);
+  if (!target) return;
+  pendingAction = { type: "REMOVE_MEMBER", id: memberId };
+  document.getElementById("confirm-title").textContent = "Keluarkan Anggota dari Organisasi";
+  document.getElementById("confirm-message").innerHTML =
+    `Apakah Anda yakin ingin mencabut seluruh akses dashboard untuk <strong>${target.name}</strong> (<code class="font-mono text-xs">${target.email}</code>)? Sesi aktif pengguna akan langsung dihentikan.`;
+  document.getElementById("confirm-submit-btn").textContent = "Keluarkan Anggota";
+  openConfirm();
+}
+
+function askRevokeInvite(inviteId) {
+  const inv = invitations.find((i) => i.id === inviteId);
+  if (!inv) return;
+  pendingAction = { type: "REVOKE_INVITE", id: inviteId };
+  document.getElementById("confirm-title").textContent = "Batalkan Undangan Tim";
+  document.getElementById("confirm-message").innerHTML =
+    `Tautan undangan yang dikirim ke <code class="font-mono text-xs">${inv.email}</code> akan langsung dinonaktifkan dan tidak dapat digunakan lagi.`;
+  document.getElementById("confirm-submit-btn").textContent = "Batalkan Undangan";
+  openConfirm();
+}
+
+function openConfirm() {
+  const modal = document.getElementById("confirm-modal");
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+}
+
+function closeConfirm() {
+  pendingAction = null;
+  const modal = document.getElementById("confirm-modal");
+  modal.classList.add("hidden");
+  modal.classList.remove("flex");
+}
+
+function executeConfirm() {
+  if (!pendingAction) return;
+  if (pendingAction.type === "REMOVE_MEMBER") {
+    const removed = members.find((m) => m.id === pendingAction.id);
+    members = members.filter((m) => m.id !== pendingAction.id);
+    showToast(`${removed ? removed.name : "Anggota"} dikeluarkan dari tim`);
+  } else if (pendingAction.type === "REVOKE_INVITE") {
+    const inv = invitations.find((i) => i.id === pendingAction.id);
+    if (inv) inv.status = "REVOKED";
+    showToast("Undangan telah dibatalkan");
+  }
+  closeConfirm();
+  renderAll();
+}
+
+// ══════════ Initialize ══════════
+renderAll();
+</script>
+</body>
+</html>

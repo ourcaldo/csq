@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="id" class="antialiased">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pengaturan — CSQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+      }
+    }
+  }
+</script>
+<style>
+  body { font-feature-settings: "cv02", "cv03", "cv04", "cv11"; }
+  .nav-item-active { background-color: rgb(240 253 244); color: rgb(21 128 61); font-weight: 600; }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+<!-- ══════════ Sidebar (referensi app asli) ══════════ -->
+<aside class="fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 flex-col border-r border-slate-200 bg-white">
+  <div class="flex h-16 items-center gap-2 border-b border-slate-100 px-6">
+    <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-green-600 text-white">
+      <i class="ph-fill ph-chat-circle-dots text-xl"></i>
+    </div>
+    <span class="text-xl font-bold tracking-tight text-slate-900">CSQ</span>
+    <button aria-label="Sempitkan sidebar" title="Sempitkan sidebar" class="ml-auto rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">
+      <i class="ph ph-sidebar-simple text-base"></i>
+    </button>
+  </div>
+  <nav class="flex-1 space-y-4 overflow-y-auto px-3 py-4 text-[13px]">
+    <div>
+      <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Utama</p>
+      <div class="space-y-0.5">
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-chart-bar text-lg text-slate-400"></i>Ringkasan</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-chat-circle-dots text-lg text-slate-400"></i>Percakapan</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-lifebuoy text-lg text-slate-400"></i>Tiket</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-megaphone text-lg text-slate-400"></i>Kampanye</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-notepad text-lg text-slate-400"></i>Template Pesan</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-whatsapp-logo text-lg text-slate-400"></i>Saluran</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-kanban text-lg text-slate-400"></i>Manajemen Pipeline</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-target text-lg text-slate-400"></i>KPI</a>
+      </div>
+    </div>
+    <div>
+      <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Data Bisnis</p>
+      <div class="space-y-0.5">
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-package text-lg text-slate-400"></i>Produk</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-stack text-lg text-slate-400"></i>Inventaris</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-shopping-cart text-lg text-slate-400"></i>Pesanan</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-address-book text-lg text-slate-400"></i>Kontak</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-tag text-lg text-slate-400"></i>Tag</a>
+      </div>
+    </div>
+    <div>
+      <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Pengetahuan</p>
+      <div class="space-y-0.5">
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-books text-lg text-slate-400"></i>Pengetahuan</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-brain text-lg text-slate-400"></i>Memori</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-database text-lg text-slate-400"></i>Sumber Data</a>
+      </div>
+    </div>
+    <div>
+      <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Agent</p>
+      <div class="space-y-0.5">
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-robot text-lg text-slate-400"></i>Agent</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-flow-arrow text-lg text-slate-400"></i>Skenario</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-seal-check text-lg text-slate-400"></i>Approval</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-clock-counter-clockwise text-lg text-slate-400"></i>Aktivitas</a>
+      </div>
+    </div>
+  </nav>
+  <div class="space-y-0.5 border-t border-slate-200 p-3 text-[13px]">
+    <a class="nav-item-active flex items-center gap-3 rounded-lg px-3 py-2"><i class="ph ph-gear text-lg text-green-600"></i>Pengaturan</a>
+    <a class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-users text-lg text-slate-400"></i>Tim</a>
+    <a class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-wallet text-lg text-slate-400"></i>Paket &amp; Kuota</a>
+  </div>
+</aside>
+
+<!-- ══════════ Main ══════════ -->
+<div class="flex min-h-screen min-w-0 flex-col md:pl-64">
+
+  <!-- Top bar -->
+  <header class="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 md:px-6">
+    <div class="flex items-center gap-3">
+      <div class="hidden w-72 sm:block lg:w-96">
+        <div class="relative">
+          <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+          <input type="text" placeholder="Cari atau ketik perintah…" class="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-12 text-xs text-slate-900 placeholder-slate-400 focus:border-slate-300 focus:bg-white focus:outline-none" />
+          <kbd class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded border border-slate-200 bg-white px-1.5 py-0.5 font-mono text-[10px] text-slate-400">⌘K</kbd>
+        </div>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <div class="hidden items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 sm:inline-flex">
+        <i class="ph-fill ph-shield-check text-green-600"></i><span>Akses Owner</span>
+      </div>
+      <button class="relative flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-800" aria-label="Notifikasi">
+        <i class="ph ph-bell text-xl"></i>
+        <span class="absolute right-1.5 top-1.5 h-2 w-2 rounded-full border-2 border-white bg-red-500"></span>
+      </button>
+      <div class="h-5 w-px bg-slate-200"></div>
+      <div class="flex items-center gap-2 rounded-lg p-1 transition hover:bg-slate-100">
+        <div class="flex h-8 w-8 items-center justify-center rounded-full bg-green-600 text-xs font-semibold text-white shadow-xs">B</div>
+        <div class="hidden text-left lg:block">
+          <p class="text-xs font-semibold leading-tight text-slate-900">Bu Ratih</p>
+          <p class="text-[11px] leading-tight text-slate-500">Owner</p>
+        </div>
+        <i class="ph ph-caret-down hidden text-xs text-slate-400 sm:block"></i>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1">
+    <!-- Page header -->
+    <div class="border-b border-slate-200 bg-white px-4 py-5 md:px-6">
+      <div class="mx-auto max-w-3xl">
+        <h1 class="text-xl font-bold text-slate-900">Pengaturan</h1>
+        <p class="mt-0.5 text-sm text-slate-500">Atur prioritas sumber data dan informasi usaha.</p>
+      </div>
+    </div>
+
+    <div class="mx-auto max-w-3xl space-y-6 p-4 md:p-6">
+
+      <!-- ═══ 1. Prioritas Sumber Data ═══ -->
+      <section class="rounded-lg border border-slate-200 bg-white p-4 md:p-6">
+        <div class="flex items-start justify-between gap-4">
+          <div class="flex items-start gap-3">
+            <span class="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+              <i class="ph ph-arrows-clockwise text-xl"></i>
+            </span>
+            <div>
+              <h2 class="text-base font-semibold text-slate-900">Prioritas Sumber Data</h2>
+              <p class="mt-0.5 text-sm text-slate-500">
+                Urutan sumber yang dipakai agent saat mencari data bisnis.
+                Sumber paling atas dipakai lebih dulu.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <hr class="my-4 border-slate-200" />
+
+        <ol class="space-y-2">
+          <li class="flex items-center gap-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+            <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-700">1</span>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2">
+                <span class="rounded-md border border-slate-200 px-2 py-0.5 text-xs font-medium">Excel</span>
+              </div>
+              <p class="mt-1 text-xs text-slate-500">File Excel/CSV yang diunggah dan diparse.</p>
+            </div>
+            <div class="flex shrink-0 gap-1">
+              <button class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-100 disabled:pointer-events-none disabled:opacity-50" disabled aria-label="Naikkan Excel"><i class="ph ph-arrow-up text-base"></i></button>
+              <button onclick="moveDown(this)" class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-100" aria-label="Turunkan Excel"><i class="ph ph-arrow-down text-base"></i></button>
+            </div>
+          </li>
+          <li class="flex items-center gap-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+            <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-700">2</span>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2">
+                <span class="rounded-md border border-slate-200 px-2 py-0.5 text-xs font-medium">Google Sheets</span>
+              </div>
+              <p class="mt-1 text-xs text-slate-500">Google Sheets yang disinkronkan via OAuth.</p>
+            </div>
+            <div class="flex shrink-0 gap-1">
+              <button onclick="moveUp(this)" class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-100" aria-label="Naikkan Google Sheets"><i class="ph ph-arrow-up text-base"></i></button>
+              <button onclick="moveDown(this)" class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-100" aria-label="Turunkan Google Sheets"><i class="ph ph-arrow-down text-base"></i></button>
+            </div>
+          </li>
+          <li class="flex items-center gap-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+            <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-700">3</span>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2">
+                <span class="rounded-md border border-slate-200 px-2 py-0.5 text-xs font-medium">Manual</span>
+              </div>
+              <p class="mt-1 text-xs text-slate-500">Entri data yang diketik langsung di dashboard.</p>
+            </div>
+            <div class="flex shrink-0 gap-1">
+              <button onclick="moveUp(this)" class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-100" aria-label="Naikkan Manual"><i class="ph ph-arrow-up text-base"></i></button>
+              <button class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-100 disabled:pointer-events-none disabled:opacity-50" disabled aria-label="Turunkan Manual"><i class="ph ph-arrow-down text-base"></i></button>
+            </div>
+          </li>
+        </ol>
+
+        <div class="mt-4 flex justify-end gap-2">
+          <button onclick="resetOrder()" class="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-100"><i class="ph ph-arrows-clockwise text-base"></i>Batal</button>
+          <button onclick="saveOrder()" id="btn-save" disabled class="inline-flex items-center gap-2 rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-slate-800 disabled:pointer-events-none disabled:opacity-50"><i class="ph ph-floppy-disk text-base"></i>Simpan Urutan</button>
+        </div>
+      </section>
+
+      <!-- ═══ 2. Email ═══ -->
+      <section class="rounded-lg border border-slate-200 bg-white p-4 md:p-6">
+        <div class="flex items-start justify-between gap-4">
+          <div class="flex items-start gap-3">
+            <span class="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-100 text-cyan-700">
+              <i class="ph ph-envelope-simple text-xl"></i>
+            </span>
+            <div>
+              <h2 class="text-base font-semibold text-slate-900">Email</h2>
+              <p class="mt-0.5 text-sm text-slate-500">
+                Integrasi email usaha Anda untuk modul Email pada Skenario -
+                kirim konfirmasi pesanan dan follow-up ke email pelanggan.
+                Gunakan SMTP Anda sendiri atau Resend.
+              </p>
+            </div>
+          </div>
+          <span id="email-badge" class="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs font-medium text-slate-600">Belum diatur</span>
+        </div>
+
+        <hr class="my-4 border-slate-200" />
+
+        <div class="mb-4 flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700">
+          <i class="ph ph-envelope-simple mt-0.5 shrink-0 text-lg"></i>
+          <span>Anda belum mengatur SMTP sendiri - email Anda saat ini terkirim memakai SMTP platform yang dikonfigurasi admin.</span>
+        </div>
+
+        <div class="space-y-3">
+          <div>
+            <label for="email-provider" class="mb-1 block text-xs font-medium text-slate-700">Penyedia</label>
+            <select id="email-provider" onchange="onProviderChange()" class="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-200">
+              <option value="SMTP">SMTP (server email Anda sendiri)</option>
+              <option value="RESEND">Resend (API key)</option>
+            </select>
+          </div>
+
+          <div>
+            <label for="email-from" class="mb-1 block text-xs font-medium text-slate-700">Alamat Pengirim</label>
+            <input id="email-from" type="text" placeholder="Toko Kopi Nusantara &lt;no-reply@tokokopi.id&gt;" class="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-200" />
+            <p class="mt-1 text-[11px] text-slate-400">Untuk Resend, gunakan domain yang sudah diverifikasi di akun Resend Anda.</p>
+          </div>
+
+          <div id="smtp-fields" class="space-y-3">
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div class="sm:col-span-2">
+                <label for="email-host" class="mb-1 block text-xs font-medium text-slate-700">Host SMTP</label>
+                <input id="email-host" type="text" placeholder="smtp.gmail.com" class="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-200" />
+              </div>
+              <div>
+                <label for="email-port" class="mb-1 block text-xs font-medium text-slate-700">Port</label>
+                <input id="email-port" type="number" value="587" class="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-200" />
+              </div>
+            </div>
+            <div>
+              <label for="email-secure" class="mb-1 block text-xs font-medium text-slate-700">Keamanan</label>
+              <select id="email-secure" class="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-200">
+                <option value="false">STARTTLS (587)</option>
+                <option value="true">SSL/TLS implisit (465)</option>
+              </select>
+            </div>
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label for="email-username" class="mb-1 block text-xs font-medium text-slate-700">Username</label>
+                <input id="email-username" type="text" autocomplete="off" class="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-200" />
+              </div>
+              <div>
+                <label for="email-password" class="mb-1 block text-xs font-medium text-slate-700">Password</label>
+                <input id="email-password" type="password" autocomplete="new-password" class="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-200" />
+              </div>
+            </div>
+          </div>
+
+          <div id="resend-fields" class="hidden">
+            <label for="email-apikey" class="mb-1 block text-xs font-medium text-slate-700">API Key Resend</label>
+            <input id="email-apikey" type="password" autocomplete="new-password" placeholder="re_…" class="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-200" />
+            <p class="mt-1 text-[11px] text-slate-400">Buat API key di dashboard Resend (resend.com/api-keys).</p>
+          </div>
+
+          <div class="flex flex-wrap justify-end gap-2 pt-2">
+            <button onclick="saveEmail()" class="inline-flex items-center gap-2 rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-slate-800"><i class="ph ph-floppy-disk text-base"></i>Simpan</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ 3. Penutupan Sesi Otomatis ═══ -->
+      <section class="rounded-lg border border-slate-200 bg-white p-4 md:p-6">
+        <div class="flex items-start justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <span class="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-600">
+              <i class="ph ph-timer text-lg"></i>
+            </span>
+            <div>
+              <p class="text-sm font-semibold text-slate-900">Penutupan Sesi Otomatis</p>
+              <p class="text-sm text-slate-500">
+                Chat ditutup otomatis bila pelanggan tidak membalas balasan agen dalam jendela waktu di bawah ini.
+              </p>
+            </div>
+          </div>
+          <span id="ac-badge" class="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs font-medium text-slate-600">Nonaktif</span>
+        </div>
+
+        <hr class="my-4 border-slate-200" />
+
+        <form onsubmit="return saveAutoClose(event)" class="max-w-xl space-y-4">
+          <label class="flex cursor-pointer items-start gap-3">
+            <input id="ac-enabled" type="checkbox" onchange="onAcToggle()" class="mt-1 h-4 w-4" />
+            <span>
+              <span class="block text-sm font-medium text-slate-700">Tutup sesi otomatis</span>
+              <span class="block text-xs text-slate-500">
+                Saat aktif: balasan agen tidak dijawab pelanggan selama jendela waktu akan
+                dikirim pesan penutup, sesi ditandai selesai, dan status chat menjadi
+                Selesai. Chat pelanggan yang belum dijawab agen TIDAK pernah ditutup
+                otomatis.
+              </span>
+            </span>
+          </label>
+
+          <div>
+            <label for="idle-minutes" class="mb-1 block text-xs font-medium text-slate-700">Jendela waktu (menit)</label>
+            <input id="idle-minutes" type="number" min="15" max="1440" value="60" disabled placeholder="60" class="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+            <p class="mt-1 text-xs text-slate-500">
+              15 sampai 1440 menit. Default 60 menit. Pesan pelanggan berikutnya membuka kembali chat secara otomatis.
+            </p>
+          </div>
+
+          <div>
+            <button type="submit" class="inline-flex items-center rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-slate-800">Simpan Pengaturan</button>
+          </div>
+        </form>
+      </section>
+
+      <!-- ═══ 4. Kunci API ═══ -->
+      <section class="rounded-lg border border-slate-200 bg-white p-4 md:p-6">
+        <hr class="mb-4 border-slate-200" />
+
+        <div class="flex items-start justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <span class="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-600">
+              <i class="ph ph-key text-lg"></i>
+            </span>
+            <div>
+              <p class="text-sm font-semibold text-slate-900">Kunci API</p>
+              <p class="text-sm text-slate-500">Kunci untuk akses programatik ke API CSQ, dipakai sebagai Bearer token.</p>
+            </div>
+          </div>
+          <a href="https://csq-docs.onrender.com" target="_blank" rel="noreferrer" class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-900">
+            Dokumentasi API <i class="ph ph-arrow-square-out text-xs"></i>
+          </a>
+        </div>
+
+        <div class="mt-4 flex flex-wrap items-end gap-2">
+          <div class="min-w-56 flex-1">
+            <label for="apikey-name" class="mb-1 block text-xs font-medium text-slate-700">Nama kunci</label>
+            <input id="apikey-name" type="text" maxlength="64" placeholder="mis. Integrasi Toko Online" class="flex h-9 w-full rounded-md border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-200" />
+          </div>
+          <button onclick="mintKey()" class="inline-flex items-center rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-slate-800">Buat Kunci</button>
+        </div>
+
+        <div id="minted-banner" class="mt-4 hidden rounded-lg border border-amber-300 bg-amber-50 p-4">
+          <div class="flex items-start gap-2 text-sm text-amber-800">
+            <i class="ph ph-warning-circle mt-0.5 shrink-0 text-base"></i>
+            <span id="minted-msg"></span>
+          </div>
+          <div class="mt-2 flex flex-wrap items-center gap-2">
+            <code id="minted-token" class="flex-1 overflow-x-auto whitespace-nowrap rounded-md border border-amber-200 bg-white px-3 py-2 font-mono text-xs text-slate-800"></code>
+            <button onclick="copyToken()" class="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium">Salin</button>
+            <button onclick="hideMinted()" class="rounded-md px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100">Sembunyikan</button>
+          </div>
+        </div>
+
+        <div class="mt-4 overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500">
+                <th class="py-2 pr-4 font-medium">Nama</th>
+                <th class="py-2 pr-4 font-medium">Prefix</th>
+                <th class="py-2 pr-4 font-medium">Dibuat</th>
+                <th class="py-2 pr-4 font-medium">Terakhir dipakai</th>
+                <th class="py-2 pr-4 font-medium">Status</th>
+                <th class="py-2"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="border-b border-slate-100">
+                <td class="py-2 pr-4 font-medium text-slate-900">Integrasi Toko Online</td>
+                <td class="py-2 pr-4 font-mono text-xs text-slate-500">csq_a1b2…</td>
+                <td class="py-2 pr-4 text-xs text-slate-500">18 Nov 2026</td>
+                <td class="py-2 pr-4 text-xs text-slate-500">20 Nov 2026</td>
+                <td class="py-2 pr-4">
+                  <span class="rounded-full border border-green-200 bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700">Aktif</span>
+                </td>
+                <td class="py-2 text-right">
+                  <button onclick="revokeKey(this)" class="h-8 rounded-md px-3 text-xs text-red-600 transition hover:bg-red-50 hover:text-red-700">Cabut</button>
+                </td>
+              </tr>
+              <tr class="border-b border-slate-100">
+                <td class="py-2 pr-4 font-medium text-slate-900">Webhook Lama</td>
+                <td class="py-2 pr-4 font-mono text-xs text-slate-500">csq_f9e8…</td>
+                <td class="py-2 pr-4 text-xs text-slate-500">2 Nov 2026</td>
+                <td class="py-2 pr-4 text-xs text-slate-500">-</td>
+                <td class="py-2 pr-4">
+                  <span class="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs font-medium text-slate-600">Dicabut</span>
+                </td>
+                <td class="py-2"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ═══ 5. Profil Usaha ═══ -->
+      <section class="rounded-lg border border-slate-200 bg-white p-4 md:p-6">
+        <div class="flex items-start gap-3">
+          <span class="mt-0.5 flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
+            <i class="ph ph-storefront text-xl"></i>
+          </span>
+          <div>
+            <h2 class="text-base font-semibold text-slate-900">Profil Usaha</h2>
+            <p class="mt-0.5 text-sm text-slate-500">
+              Informasi dasar usaha Anda. Pengelolaan profil penuh akan hadir kemudian.
+            </p>
+          </div>
+        </div>
+
+        <hr class="my-4 border-slate-200" />
+
+        <dl class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">Nama Usaha</dt>
+            <dd class="mt-1 text-sm text-slate-900">Bu Ratih</dd>
+          </div>
+          <div>
+            <dt class="text-xs font-medium uppercase tracking-wide text-slate-400">Kontak Pemilik</dt>
+            <dd class="mt-1 text-sm text-slate-900">ratih@tokokopi.id</dd>
+          </div>
+        </dl>
+
+        <p class="mt-4 flex items-center gap-1.5 text-xs text-slate-400">
+          <i class="ph ph-gear text-sm"></i>
+          Pengaturan tambahan akan ditambahkan di iterasi berikutnya.
+        </p>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<script>
+// ══════════ Prioritas sumber (reorder demo) ══════════
+const ORDER = ["EXCEL", "GOOGLE_SHEETS", "MANUAL"];
+const LABEL = { MANUAL: "Manual", EXCEL: "Excel", GOOGLE_SHEETS: "Google Sheets" };
+const DESC = {
+  MANUAL: "Entri data yang diketik langsung di dashboard.",
+  EXCEL: "File Excel/CSV yang diunggah dan diparse.",
+  GOOGLE_SHEETS: "Google Sheets yang disinkronkan via OAuth.",
+};
+let order = ORDER.slice();
+function renderOrder() {
+  const ol = document.getElementById("order-list");
+  ol.innerHTML = order.map((t, i) => `
+    <li class="flex items-center gap-3 rounded-md border border-slate-200 bg-slate-50 p-3">
+      <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-semibold text-slate-700">${i + 1}</span>
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2"><span class="rounded-md border border-slate-200 px-2 py-0.5 text-xs font-medium">${LABEL[t]}</span></div>
+        <p class="mt-1 text-xs text-slate-500">${DESC[t]}</p>
+      </div>
+      <div class="flex shrink-0 gap-1">
+        <button ${i === 0 ? "disabled" : ""} onclick="moveUp(this)" aria-label="Naikkan ${LABEL[t]}" class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-100 disabled:pointer-events-none disabled:opacity-50"><i class="ph ph-arrow-up text-base"></i></button>
+        <button ${i === order.length - 1 ? "disabled" : ""} onclick="moveDown(this)" aria-label="Turunkan ${LABEL[t]}" class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-100 disabled:pointer-events-none disabled:opacity-50"><i class="ph ph-arrow-down text-base"></i></button>
+      </div>
+    </li>`).join("");
+}
+function moveUp(btn) { const i = order.indexOf(btn.closest("li").querySelector("span.text-xs.font-medium").textContent); /* demo: swap via index */ }
+// Simpler demo logic: operate on rendered positions directly.
+function swapRows(btn, dir) {
+  const li = btn.closest("li");
+  const lis = [...document.getElementById("order-list").children];
+  const i = lis.indexOf(li);
+  const j = i + dir;
+  if (j < 0 || j >= lis.length) return;
+  lis[j].before(...(dir < 0 ? [li] : []) ) || lis[j].after(...(dir > 0 ? [li] : []));
+  if (dir < 0) li.parentElement.insertBefore(li, lis[j]);
+  else li.parentElement.insertBefore(lis[j], li);
+  renumber();
+  document.getElementById("btn-save").disabled = false;
+}
+function renumber() {
+  [...document.getElementById("order-list").children].forEach((li, i) => {
+    li.querySelector("span.flex.h-7").textContent = i + 1;
+    const up = li.querySelectorAll("button")[0];
+    const down = li.querySelectorAll("button")[1];
+    up.disabled = i === 0;
+    down.disabled = i === [...document.getElementById("order-list").children].length - 1;
+  });
+}
+// Bind the buttons with the simple swap approach.
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest("button[aria-label^='Naikkan'], button[aria-label^='Turunkan']");
+  if (!btn || btn.disabled) return;
+  swapRows(btn, btn.getAttribute("aria-label").startsWith("Naikkan") ? -1 : 1);
+});
+function resetOrder() { location.reload(); }
+function saveOrder() {
+  const btn = document.getElementById("btn-save");
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ph ph-floppy-disk text-base"></i>Menyimpan…';
+  setTimeout(() => { btn.innerHTML = '<i class="ph ph-check-circle text-base"></i>Tersimpan'; }, 600);
+}
+
+// ══════════ Email ══════════
+function onProviderChange() {
+  const v = document.getElementById("email-provider").value;
+  document.getElementById("smtp-fields").classList.toggle("hidden", v !== "SMTP");
+  document.getElementById("resend-fields").classList.toggle("hidden", v === "SMTP");
+}
+function saveEmail() {
+  const badge = document.getElementById("email-badge");
+  badge.textContent = "Terhubung";
+  badge.className = "shrink-0 rounded-full border border-green-200 bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700";
+}
+
+// ══════════ Auto close ══════════
+function onAcToggle() {
+  const enabled = document.getElementById("ac-enabled").checked;
+  document.getElementById("idle-minutes").disabled = !enabled;
+  const badge = document.getElementById("ac-badge");
+  badge.textContent = enabled ? "Aktif" : "Nonaktif";
+  badge.className = enabled
+    ? "shrink-0 rounded-full border border-green-200 bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700"
+    : "shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-xs font-medium text-slate-600";
+}
+function saveAutoClose(e) { e.preventDefault(); return false; }
+
+// ══════════ API keys ══════════
+function mintKey() {
+  const name = document.getElementById("apikey-name").value.trim();
+  if (!name) return;
+  const token = "csq_" + Array.from({length: 56}, () => "0123456789abcdef"[Math.floor(Math.random() * 16)]).join("");
+  document.getElementById("minted-token").textContent = token;
+  document.getElementById("minted-msg").innerHTML = `Token untuk <strong>${name}</strong> hanya ditampilkan sekali. Salin dan simpan sekarang - setelah ini tidak bisa dilihat lagi.`;
+  document.getElementById("minted-banner").classList.remove("hidden");
+  document.getElementById("apikey-name").value = "";
+}
+function copyToken() { void navigator.clipboard.writeText(document.getElementById("minted-token").textContent); }
+function hideMinted() { document.getElementById("minted-banner").classList.add("hidden"); }
+function revokeKey(btn) { if (confirm("Cabut kunci ini? Akses API yang memakainya langsung ditolak.")) btn.closest("tr").querySelector("td:nth-child(5) span").textContent = "Dicabut"; }
+
+// Boot
+document.getElementById("order-list") && (() => {
+  // Wrap the static <ol> contents with id for the reorder demo.
+  const ol = document.querySelector("ol.space-y-2");
+  ol.id = "order-list";
+})();
+renumber();
+</script>
+</body>
+</html>

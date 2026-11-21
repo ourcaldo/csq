@@ -1,0 +1,977 @@
+<!DOCTYPE html>
+<html lang="id" class="antialiased">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Pengaturan Organisasi — CSQ Enterprise</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+          mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        },
+      }
+    }
+  }
+</script>
+<style>
+  body { font-feature-settings: "cv02", "cv03", "cv04", "cv11"; }
+  .settings-nav-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0.45rem 0.65rem;
+    border-radius: 0.375rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: rgb(71 85 105);
+    transition: background-color 0.12s ease, color 0.12s ease;
+  }
+  .settings-nav-item:hover {
+    background-color: rgb(241 245 249);
+    color: rgb(15 23 42);
+  }
+  .settings-nav-item.active {
+    background-color: rgb(241 245 249);
+    color: rgb(15 23 42);
+    font-weight: 600;
+  }
+  .modal-backdrop { background: rgba(15, 23, 42, 0.45); backdrop-filter: blur(2px); }
+  .drag-target { border-top: 2px solid rgb(22 163 74) !important; background-color: rgb(240 253 244 / 0.5) !important; }
+</style>
+</head>
+<body class="bg-white text-slate-900 selection:bg-emerald-100 selection:text-emerald-950">
+
+<!-- ══════════ Mobile Overlay ══════════ -->
+<div id="mobile-overlay" onclick="toggleDrawer(false)" class="modal-backdrop fixed inset-0 z-30 hidden md:hidden"></div>
+
+<!-- ══════════ Dedicated Settings Sidebar (Linear / Clerk / Stripe Pattern) ══════════ -->
+<aside id="settings-drawer" class="fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 -translate-x-full flex-col border-r border-slate-200 bg-slate-50/80 transition-transform duration-200 md:translate-x-0">
+  <!-- Exit Settings Mode -->
+  <div class="flex h-14 items-center justify-between border-b border-slate-200/80 px-4">
+    <a href="#back" onclick="showToast('Kembali ke Dashboard Utama'); return false;" class="group inline-flex items-center gap-2 rounded-md px-2 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-200/60 hover:text-slate-900">
+      <i class="ph ph-arrow-left text-sm text-slate-400 transition-transform group-hover:-translate-x-0.5 group-hover:text-slate-700"></i>
+      <span>Kembali ke Aplikasi</span>
+    </a>
+    <button onclick="toggleDrawer(false)" aria-label="Tutup navigasi" class="rounded p-1 text-slate-400 hover:bg-slate-200/60 hover:text-slate-700 md:hidden">
+      <i class="ph ph-x text-base"></i>
+    </button>
+  </div>
+
+  <!-- Organization Context Selector -->
+  <div class="border-b border-slate-200/80 px-4 py-3.5">
+    <div class="flex items-center gap-2.5">
+      <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-slate-900 text-xs font-bold text-white">TK</div>
+      <div class="min-w-0 flex-1">
+        <p class="truncate text-xs font-semibold text-slate-900">Toko Kopi Nusantara</p>
+        <div class="flex items-center gap-1.5">
+          <span class="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+          <span class="font-mono text-[10px] text-slate-500">Enterprise • Production</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Categorized Enterprise Navigation -->
+  <nav aria-label="Navigasi Pengaturan" class="flex-1 space-y-5 overflow-y-auto px-3 py-4">
+    <div>
+      <p class="px-2.5 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Organisasi</p>
+      <div class="space-y-0.5">
+        <button type="button" data-section="general" onclick="navigateSection('general')" class="settings-nav-item active">
+          <span class="flex items-center gap-2.5"><i class="ph ph-buildings text-base text-slate-500"></i>Umum &amp; Identitas</span>
+        </button>
+        <button type="button" data-section="datasource" onclick="navigateSection('datasource')" class="settings-nav-item">
+          <span class="flex items-center gap-2.5"><i class="ph ph-stack text-base text-slate-500"></i>Hierarki Sumber Data</span>
+          <span class="font-mono text-[10px] text-slate-400">3</span>
+        </button>
+      </div>
+    </div>
+
+    <div>
+      <p class="px-2.5 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Komunikasi &amp; SLA</p>
+      <div class="space-y-0.5">
+        <button type="button" data-section="email" onclick="navigateSection('email')" class="settings-nav-item">
+          <span class="flex items-center gap-2.5"><i class="ph ph-envelope-simple text-base text-slate-500"></i>Gateway Email</span>
+          <span id="nav-email-status" class="h-1.5 w-1.5 rounded-full bg-amber-400" title="Menggunakan SMTP Default"></span>
+        </button>
+        <button type="button" data-section="autoclose" onclick="navigateSection('autoclose')" class="settings-nav-item">
+          <span class="flex items-center gap-2.5"><i class="ph ph-timer text-base text-slate-500"></i>Penutupan Sesi</span>
+          <span id="nav-ac-status" class="font-mono text-[10px] text-slate-400">OFF</span>
+        </button>
+      </div>
+    </div>
+
+    <div>
+      <p class="px-2.5 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Keamanan &amp; Developer</p>
+      <div class="space-y-0.5">
+        <button type="button" data-section="apikeys" onclick="navigateSection('apikeys')" class="settings-nav-item">
+          <span class="flex items-center gap-2.5"><i class="ph ph-key text-base text-slate-500"></i>Kunci API</span>
+          <span id="nav-keys-count" class="rounded bg-slate-200/80 px-1.5 py-0.2 font-mono text-[10px] font-semibold text-slate-700">1</span>
+        </button>
+        <button type="button" data-section="audit" onclick="navigateSection('audit')" class="settings-nav-item">
+          <span class="flex items-center gap-2.5"><i class="ph ph-shield-check text-base text-slate-500"></i>Log Audit</span>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Operator Footer -->
+  <div class="border-t border-slate-200/80 p-3.5">
+    <div class="flex items-center justify-between gap-2">
+      <div class="flex min-w-0 items-center gap-2.5">
+        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xs font-semibold text-white">B</div>
+        <div class="min-w-0">
+          <p class="truncate text-xs font-medium text-slate-900">Bu Ratih</p>
+          <p class="truncate text-[11px] text-slate-500">Owner • ratih@tokokopi.id</p>
+        </div>
+      </div>
+      <span class="rounded border border-slate-200 bg-white px-1.5 py-0.5 font-mono text-[10px] text-slate-500">2FA</span>
+    </div>
+  </div>
+</aside>
+
+<!-- ══════════ Main Workspace Canvas ══════════ -->
+<div class="flex min-h-screen min-w-0 flex-col md:pl-64">
+
+  <!-- Minimalist Sticky Top Bar -->
+  <header class="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur-xs md:px-8">
+    <div class="flex items-center gap-2.5 text-xs">
+      <button onclick="toggleDrawer(true)" aria-label="Buka navigasi" class="rounded p-1.5 text-slate-600 hover:bg-slate-100 md:hidden">
+        <i class="ph ph-list text-lg"></i>
+      </button>
+      <span class="text-slate-400">Pengaturan</span>
+      <span class="text-slate-300">/</span>
+      <span id="breadcrumb-current" class="font-semibold text-slate-900">Umum &amp; Identitas</span>
+    </div>
+
+    <div class="flex items-center gap-2.5">
+      <!-- Quick Jump Search -->
+      <div class="relative hidden sm:block">
+        <i class="ph ph-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400"></i>
+        <input id="quick-jump" type="text" placeholder="Cari pengaturan… (⌘K)" oninput="handleQuickJump(this.value)" class="h-8 w-56 rounded-md border border-slate-200 bg-slate-50 pl-8 pr-3 text-xs text-slate-900 placeholder-slate-400 transition focus:w-72 focus:border-slate-300 focus:bg-white focus:outline-none" />
+      </div>
+      <a href="https://csq-docs.onrender.com" target="_blank" rel="noreferrer" class="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900">
+        <i class="ph ph-book-open text-sm"></i>
+        <span class="hidden md:inline">Dokumentasi</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- Main Content Body (Full-width left-aligned rows, zero decorative cards) -->
+  <main class="flex-1 px-4 py-8 md:px-8">
+    <div class="w-full max-w-5xl">
+
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <!-- SECTION 1: UMUM & IDENTITAS                                        -->
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <section id="sec-general" class="settings-section">
+        <div class="border-b border-slate-200 pb-5">
+          <h1 class="text-lg font-semibold tracking-tight text-slate-900">Umum &amp; Identitas Organisasi</h1>
+          <p class="mt-1 text-xs text-slate-500">Kelola profil resmi perusahaan, kontak penanggung jawab, dan standar lokal untuk seluruh aktivitas workspace.</p>
+        </div>
+
+        <form onsubmit="saveGeneralSettings(event)" class="divide-y divide-slate-200">
+          <!-- Row 1 -->
+          <div class="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
+            <div class="md:col-span-4">
+              <label for="org-name" class="text-xs font-semibold text-slate-900">Nama Usaha &amp; Entitas</label>
+              <p class="mt-1 text-xs leading-relaxed text-slate-500">Ditampilkan pada header email otomatis, faktur, dan identitas Agent AI.</p>
+            </div>
+            <div class="space-y-3.5 md:col-span-8">
+              <div>
+                <label for="org-name" class="block text-xs font-medium text-slate-700">Nama Tampilan Usaha</label>
+                <input id="org-name" type="text" required value="Toko Kopi Nusantara" class="mt-1.5 h-9 w-full max-w-md rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15" />
+              </div>
+              <div>
+                <label for="org-legal" class="block text-xs font-medium text-slate-700">Nama Badan Hukum <span class="font-normal text-slate-400">(Opsional)</span></label>
+                <input id="org-legal" type="text" value="PT Kopi Nusantara Sejahtera" class="mt-1.5 h-9 w-full max-w-md rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Row 2 -->
+          <div class="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
+            <div class="md:col-span-4">
+              <label for="org-owner" class="text-xs font-semibold text-slate-900">Kontak Pemilik &amp; Administrasi</label>
+              <p class="mt-1 text-xs leading-relaxed text-slate-500">Alamat email utama untuk notifikasi sistem, kuota, dan peringatan keamanan.</p>
+            </div>
+            <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-2 md:col-span-8">
+              <div>
+                <label for="org-owner" class="block text-xs font-medium text-slate-700">Nama Penanggung Jawab</label>
+                <input id="org-owner" type="text" required value="Bu Ratih" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15" />
+              </div>
+              <div>
+                <label for="org-email" class="block text-xs font-medium text-slate-700">Email Administrasi</label>
+                <input id="org-email" type="email" required value="ratih@tokokopi.id" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Row 3 -->
+          <div class="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
+            <div class="md:col-span-4">
+              <label for="org-tz" class="text-xs font-semibold text-slate-900">Standar Regional</label>
+              <p class="mt-1 text-xs leading-relaxed text-slate-500">Menentukan acuan waktu eksekusi kampanye terjadwal dan format nominal harga.</p>
+            </div>
+            <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-2 md:col-span-8">
+              <div>
+                <label for="org-tz" class="block text-xs font-medium text-slate-700">Zona Waktu Operasional</label>
+                <select id="org-tz" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15">
+                  <option value="Asia/Jakarta" selected>Asia/Jakarta (WIB / UTC+07:00)</option>
+                  <option value="Asia/Makassar">Asia/Makassar (WITA / UTC+08:00)</option>
+                  <option value="Asia/Jayapura">Asia/Jayapura (WIT / UTC+09:00)</option>
+                </select>
+              </div>
+              <div>
+                <label for="org-currency" class="block text-xs font-medium text-slate-700">Mata Uang Utama</label>
+                <select id="org-currency" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15">
+                  <option value="IDR" selected>IDR — Rupiah Indonesia (Rp)</option>
+                  <option value="USD">USD — US Dollar ($)</option>
+                  <option value="SGD">SGD — Singapore Dollar (S$)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Row 4: Technical Identifiers (Read-Only) -->
+          <div class="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
+            <div class="md:col-span-4">
+              <span class="text-xs font-semibold text-slate-900">Metadata Workspace</span>
+              <p class="mt-1 text-xs leading-relaxed text-slate-500">Pengenal unik tenant untuk keperluan integrasi API dan dukungan teknis.</p>
+            </div>
+            <div class="md:col-span-8">
+              <dl class="grid grid-cols-1 gap-4 border-y border-slate-200 py-3.5 sm:grid-cols-3">
+                <div>
+                  <dt class="text-[11px] font-medium text-slate-400">Workspace ID</dt>
+                  <dd class="mt-1 flex items-center gap-1.5 font-mono text-xs text-slate-900">
+                    <span>ws_89a2c4f019b</span>
+                    <button type="button" onclick="copyText('ws_89a2c4f019b', 'Workspace ID disalin')" class="text-slate-400 hover:text-slate-800" title="Salin ID"><i class="ph ph-copy text-xs"></i></button>
+                  </dd>
+                </div>
+                <div>
+                  <dt class="text-[11px] font-medium text-slate-400">Region Infrastruktur</dt>
+                  <dd class="mt-1 font-mono text-xs text-slate-900">ap-southeast-3 (CGK)</dd>
+                </div>
+                <div>
+                  <dt class="text-[11px] font-medium text-slate-400">Enkripsi Data</dt>
+                  <dd class="mt-1 font-mono text-xs text-emerald-700">AES-256-GCM • Aktif</dd>
+                </div>
+              </dl>
+            </div>
+          </div>
+
+          <!-- Sticky-style Action Footer -->
+          <div class="flex items-center justify-end gap-2.5 pt-5">
+            <button type="submit" class="rounded-md bg-emerald-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700">
+              Simpan Perubahan
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <!-- SECTION 2: HIERARKI SUMBER DATA                                    -->
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <section id="sec-datasource" class="settings-section hidden">
+        <div class="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-5">
+          <div>
+            <h1 class="text-lg font-semibold tracking-tight text-slate-900">Hierarki Prioritas Sumber Data</h1>
+            <p class="mt-1 text-xs text-slate-500">Tentukan urutan resolusi data saat Agent AI melakukan lookup produk, harga, atau stok. Sumber urutan pertama menjadi acuan utama.</p>
+          </div>
+          <span id="order-unsaved-pill" class="hidden rounded bg-amber-50 px-2 py-1 font-mono text-[11px] font-medium text-amber-700">Perubahan belum disimpan</span>
+        </div>
+
+        <div class="py-6">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+              <thead>
+                <tr class="border-b border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  <th class="w-20 pb-2.5">Prioritas</th>
+                  <th class="pb-2.5">Sumber Data</th>
+                  <th class="hidden pb-2.5 sm:table-cell">Mekanisme Sinkronisasi</th>
+                  <th class="hidden pb-2.5 md:table-cell">Status</th>
+                  <th class="w-24 pb-2.5 text-right">Urutan</th>
+                </tr>
+              </thead>
+              <tbody id="datasource-tbody" class="divide-y divide-slate-200 border-b border-slate-200"></tbody>
+            </table>
+          </div>
+
+          <p class="mt-3 text-xs text-slate-500">Tip: Anda dapat menyeret baris (drag &amp; drop) atau menggunakan tombol panah di kolom kanan untuk mengubah prioritas.</p>
+
+          <div class="mt-6 flex items-center justify-end gap-2.5 border-t border-slate-200 pt-5">
+            <button type="button" id="btn-reset-order" onclick="resetOrder()" disabled class="rounded-md border border-slate-300 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:pointer-events-none disabled:opacity-40">
+              Batalkan Perubahan
+            </button>
+            <button type="button" id="btn-save-order" onclick="saveOrder()" disabled class="rounded-md bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:pointer-events-none disabled:opacity-40">
+              Simpan Urutan Prioritas
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <!-- SECTION 3: GATEWAY EMAIL                                           -->
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <section id="sec-email" class="settings-section hidden">
+        <div class="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-5">
+          <div>
+            <h1 class="text-lg font-semibold tracking-tight text-slate-900">Gateway Pengiriman Email</h1>
+            <p class="mt-1 text-xs text-slate-500">Konfigurasi server keluar untuk modul aksi Email pada Skenario otomatis (konfirmasi pesanan, faktur, dan follow-up).</p>
+          </div>
+          <span id="email-status-label" class="inline-flex items-center gap-1.5 font-mono text-xs text-slate-600">
+            <span class="h-2 w-2 rounded-full bg-amber-400"></span>Relay Bawaan Platform
+          </span>
+        </div>
+
+        <form onsubmit="saveEmailSettings(event)" class="divide-y divide-slate-200">
+          <!-- Provider Selection -->
+          <div class="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
+            <div class="md:col-span-4">
+              <span class="text-xs font-semibold text-slate-900">Protokol &amp; Penyedia</span>
+              <p class="mt-1 text-xs leading-relaxed text-slate-500">Pilih server SMTP internal perusahaan atau layanan API transaksional Resend.</p>
+            </div>
+            <div class="space-y-4 md:col-span-8">
+              <div class="inline-flex rounded-md border border-slate-300 bg-slate-50 p-0.5">
+                <button type="button" data-provider="SMTP" onclick="switchEmailProvider('SMTP')" class="email-provider-btn rounded bg-white px-4 py-1.5 text-xs font-semibold text-slate-900 shadow-2xs">
+                  Custom SMTP
+                </button>
+                <button type="button" data-provider="RESEND" onclick="switchEmailProvider('RESEND')" class="email-provider-btn rounded px-4 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900">
+                  Resend API
+                </button>
+              </div>
+
+              <div>
+                <label for="email-from" class="block text-xs font-medium text-slate-700">Identitas Pengirim (From Header)</label>
+                <input id="email-from" type="text" required value="Toko Kopi Nusantara <no-reply@tokokopi.id>" class="mt-1.5 h-9 w-full max-w-md rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15" />
+                <p class="mt-1 text-[11px] text-slate-400">Pastikan domain pengirim memiliki catatan SPF dan DKIM yang valid.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Credentials -->
+          <div class="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
+            <div class="md:col-span-4">
+              <span class="text-xs font-semibold text-slate-900">Kredensial Server</span>
+              <p class="mt-1 text-xs leading-relaxed text-slate-500">Kredensial disimpan terenkripsi menggunakan vault kunci workspace.</p>
+            </div>
+
+            <div class="md:col-span-8">
+              <!-- SMTP Form -->
+              <div id="email-smtp-group" class="max-w-md space-y-3.5">
+                <div class="grid grid-cols-3 gap-3">
+                  <div class="col-span-2">
+                    <label for="smtp-host" class="block text-xs font-medium text-slate-700">Host SMTP</label>
+                    <input id="smtp-host" type="text" placeholder="smtp.gmail.com" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 font-mono text-xs focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15" />
+                  </div>
+                  <div>
+                    <label for="smtp-port" class="block text-xs font-medium text-slate-700">Port</label>
+                    <input id="smtp-port" type="number" value="587" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 font-mono text-xs focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15" />
+                  </div>
+                </div>
+
+                <div>
+                  <label for="smtp-tls" class="block text-xs font-medium text-slate-700">Mode Keamanan Transport</label>
+                  <select id="smtp-tls" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-xs focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15">
+                    <option value="starttls">STARTTLS (Direkomendasikan — Port 587)</option>
+                    <option value="ssl">SSL / TLS Implisit (Port 465)</option>
+                  </select>
+                </div>
+
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label for="smtp-user" class="block text-xs font-medium text-slate-700">Username</label>
+                    <input id="smtp-user" type="text" autocomplete="off" placeholder="no-reply@tokokopi.id" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-xs focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15" />
+                  </div>
+                  <div>
+                    <label for="smtp-pass" class="block text-xs font-medium text-slate-700">Password / App Password</label>
+                    <input id="smtp-pass" type="password" autocomplete="new-password" placeholder="••••••••••••••••" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-xs focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Resend Form -->
+              <div id="email-resend-group" class="hidden max-w-md space-y-2">
+                <label for="resend-key" class="block text-xs font-medium text-slate-700">Resend API Key</label>
+                <input id="resend-key" type="password" autocomplete="new-password" placeholder="re_live_••••••••••••••••••••••••" class="h-9 w-full rounded-md border border-slate-300 bg-white px-3 font-mono text-xs focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15" />
+                <p class="text-[11px] text-slate-400">Dapatkan API key dengan izin <code class="font-mono text-slate-600">Sending access</code> dari dashboard Resend.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center justify-end gap-2.5 pt-5">
+            <button type="button" onclick="sendTestEmail()" class="rounded-md border border-slate-300 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
+              Kirim Email Pengujian
+            </button>
+            <button type="submit" class="rounded-md bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700">
+              Simpan Gateway Email
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <!-- SECTION 4: PENUTUPAN SESI OTOMATIS                                 -->
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <section id="sec-autoclose" class="settings-section hidden">
+        <div class="border-b border-slate-200 pb-5">
+          <h1 class="text-lg font-semibold tracking-tight text-slate-900">Kebijakan Penutupan Sesi Otomatis</h1>
+          <p class="mt-1 text-xs text-slate-500">Atur siklus hidup percakapan pelanggan untuk menjaga akurasi metrik SLA dan antrean agen.</p>
+        </div>
+
+        <form onsubmit="saveAutoCloseSettings(event)" class="divide-y divide-slate-200">
+          <div class="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
+            <div class="md:col-span-4">
+              <span class="text-xs font-semibold text-slate-900">Status Otomasi</span>
+              <p class="mt-1 text-xs leading-relaxed text-slate-500">Hanya berlaku untuk percakapan yang balasan terakhirnya berasal dari agen.</p>
+            </div>
+            <div class="md:col-span-8">
+              <label class="flex cursor-pointer items-start gap-3">
+                <input id="ac-toggle" type="checkbox" onchange="toggleAutoCloseState()" class="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-600" />
+                <div class="text-xs">
+                  <span class="font-semibold text-slate-900">Aktifkan penutupan sesi otomatis saat pelanggan tidak merespons</span>
+                  <p class="mt-1 leading-relaxed text-slate-500">
+                    Sistem akan mengirimkan pesan penutup standar dan menandai status tiket menjadi <strong>Selesai</strong>. Percakapan yang belum pernah dibalas oleh agen <strong>tidak akan pernah</strong> ditutup otomatis.
+                  </p>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
+            <div class="md:col-span-4">
+              <label for="ac-minutes" class="text-xs font-semibold text-slate-900">Jendela Inaktivitas</label>
+              <p class="mt-1 text-xs leading-relaxed text-slate-500">Durasi tunggu sejak pesan terakhir agen terkirim (15–1.440 menit).</p>
+            </div>
+            <div class="md:col-span-8">
+              <div class="flex flex-wrap items-center gap-2">
+                <input id="ac-minutes" type="number" min="15" max="1440" value="60" disabled class="h-9 w-28 rounded-md border border-slate-300 bg-white px-3 font-mono text-sm disabled:bg-slate-50 disabled:text-slate-400 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15" />
+                <span class="text-xs text-slate-500">menit</span>
+                <div class="ml-2 flex gap-1">
+                  <button type="button" onclick="applyPreset(30)" disabled class="ac-preset rounded border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-40">30m</button>
+                  <button type="button" onclick="applyPreset(60)" disabled class="ac-preset rounded border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-40">1 jam</button>
+                  <button type="button" onclick="applyPreset(240)" disabled class="ac-preset rounded border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-40">4 jam</button>
+                  <button type="button" onclick="applyPreset(1440)" disabled class="ac-preset rounded border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-40">24 jam</button>
+                </div>
+              </div>
+              <p class="mt-2 text-xs text-slate-400">Jika pelanggan kembali mengirim pesan setelah sesi ditutup, percakapan akan otomatis dibuka kembali.</p>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-end pt-5">
+            <button type="submit" class="rounded-md bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700">
+              Simpan Kebijakan
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <!-- SECTION 5: KUNCI API                                               -->
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <section id="sec-apikeys" class="settings-section hidden">
+        <div class="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-5">
+          <div>
+            <h1 class="text-lg font-semibold tracking-tight text-slate-900">Kunci Akses API</h1>
+            <p class="mt-1 text-xs text-slate-500">Kelola token autentikasi Bearer untuk integrasi sistem eksternal (ERP, POS, atau webhook kustom) dengan REST API CSQ.</p>
+          </div>
+          <a href="https://csq-docs.onrender.com" target="_blank" rel="noreferrer" class="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:underline">
+            <span>Referensi API v1</span><i class="ph ph-arrow-up-right text-xs"></i>
+          </a>
+        </div>
+
+        <!-- Token Creation Bar -->
+        <form onsubmit="createApiKey(event)" class="flex flex-col gap-2.5 border-b border-slate-200 py-5 sm:flex-row sm:items-center">
+          <input id="new-key-label" type="text" maxlength="64" required placeholder="Label kunci baru (contoh: Sinkronisasi POS Kasir)" class="h-9 max-w-sm flex-1 rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15" />
+          <button type="submit" class="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-md bg-emerald-600 px-4 text-xs font-semibold text-white hover:bg-emerald-700">
+            <i class="ph ph-plus text-sm"></i>Terbitkan Kunci Baru
+          </button>
+        </form>
+
+        <!-- One-time Secret Banner -->
+        <div id="secret-reveal-box" class="mt-5 hidden border-l-2 border-amber-500 bg-amber-50/70 py-3 pl-4 pr-3">
+          <div class="flex items-start justify-between gap-2">
+            <p id="secret-reveal-title" class="text-xs font-medium text-amber-900"></p>
+            <button type="button" onclick="dismissSecretBox()" class="text-amber-700 hover:text-amber-950"><i class="ph ph-x text-sm"></i></button>
+          </div>
+          <div class="mt-2 flex flex-wrap items-center gap-2">
+            <code id="secret-reveal-value" class="flex-1 overflow-x-auto whitespace-nowrap rounded border border-amber-200 bg-white px-2.5 py-1.5 font-mono text-xs text-slate-900 select-all"></code>
+            <button type="button" onclick="copyText(document.getElementById('secret-reveal-value').textContent, 'Secret token disalin')" class="rounded border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-800 hover:bg-slate-50">
+              Salin Token
+            </button>
+          </div>
+        </div>
+
+        <!-- Keys Ledger Table -->
+        <div class="mt-6 overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead>
+              <tr class="border-b border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                <th class="pb-2.5 pr-4">Label Kunci</th>
+                <th class="px-4 pb-2.5">Prefix</th>
+                <th class="px-4 pb-2.5">Diterbitkan</th>
+                <th class="px-4 pb-2.5">Aktivitas Terakhir</th>
+                <th class="px-4 pb-2.5">Status</th>
+                <th class="pb-2.5 pl-4 text-right">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="keys-table-body" class="divide-y divide-slate-200 border-b border-slate-200"></tbody>
+          </table>
+        </div>
+
+        <!-- Developer Integration Snippet -->
+        <div class="mt-8">
+          <div class="mb-2 flex items-center justify-between text-xs">
+            <span class="font-semibold text-slate-800">Contoh Autentikasi Request</span>
+            <button type="button" onclick="copyText(document.getElementById('curl-example').textContent, 'Perintah cURL disalin')" class="inline-flex items-center gap-1 text-slate-500 hover:text-slate-900">
+              <i class="ph ph-copy text-xs"></i>Salin cURL
+            </button>
+          </div>
+          <pre id="curl-example" class="overflow-x-auto rounded-md bg-slate-900 p-4 font-mono text-xs leading-relaxed text-slate-200">curl -X GET "https://api.csq.id/v1/contacts" \
+  -H "Authorization: Bearer csq_a1b2••••••••••••••••" \
+  -H "Accept: application/json"</pre>
+        </div>
+      </section>
+
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <!-- SECTION 6: LOG AUDIT KEAMANAN                                      -->
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <section id="sec-audit" class="settings-section hidden">
+        <div class="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-5">
+          <div>
+            <h1 class="text-lg font-semibold tracking-tight text-slate-900">Log Audit Pengaturan</h1>
+            <p class="mt-1 text-xs text-slate-500">Jejak perubahan konfigurasi workspace yang tidak dapat diubah untuk keperluan kepatuhan dan keamanan internal.</p>
+          </div>
+          <button type="button" onclick="showToast('Log audit diekspor ke CSV')" class="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+            <i class="ph ph-download-simple text-sm"></i>Ekspor CSV
+          </button>
+        </div>
+
+        <div class="mt-5 overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead>
+              <tr class="border-b border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                <th class="pb-2.5 pr-4">Waktu (WIB)</th>
+                <th class="px-4 pb-2.5">Aktor</th>
+                <th class="px-4 pb-2.5">Peristiwa</th>
+                <th class="pb-2.5 pl-4 text-right">Alamat IP</th>
+              </tr>
+            </thead>
+            <tbody id="audit-tbody" class="divide-y divide-slate-200 border-b border-slate-200"></tbody>
+          </table>
+        </div>
+      </section>
+
+    </div>
+  </main>
+</div>
+
+<!-- ══════════ Confirmation Modal (Revoke API Key) ══════════ -->
+<div id="modal-revoke" class="modal-backdrop fixed inset-0 z-50 hidden items-center justify-center p-4">
+  <div class="w-full max-w-md overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl">
+    <div class="border-b border-slate-100 px-5 py-3.5">
+      <h3 class="text-sm font-semibold text-slate-900">Cabut Kunci Akses API</h3>
+    </div>
+    <p id="modal-revoke-text" class="px-5 py-4 text-xs leading-relaxed text-slate-600"></p>
+    <div class="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-5 py-3">
+      <button type="button" onclick="closeRevokeModal()" class="rounded-md border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Batal</button>
+      <button type="button" onclick="confirmRevoke()" class="rounded-md bg-red-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-red-700">Cabut Sekarang</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ Non-blocking Toast ══════════ -->
+<div id="toast" class="pointer-events-none fixed bottom-5 right-5 z-50 flex translate-y-4 items-center gap-2 rounded-md bg-slate-900 px-3.5 py-2.5 text-xs font-medium text-white opacity-0 shadow-lg transition-all duration-200">
+  <i class="ph-fill ph-check-circle text-sm text-emerald-400"></i>
+  <span id="toast-text">Tersimpan</span>
+</div>
+
+<script>
+// ══════════ State & Audit Trail ══════════
+const SECTION_LABELS = {
+  general: "Umum & Identitas",
+  datasource: "Hierarki Sumber Data",
+  email: "Gateway Email",
+  autoclose: "Penutupan Sesi",
+  apikeys: "Kunci API",
+  audit: "Log Audit"
+};
+
+let auditLogs = [
+  { time: "21 Nov 2026, 20:14", actor: "Bu Ratih (Owner)", event: "Memperbarui identitas usaha Toko Kopi Nusantara", ip: "182.253.142.19" },
+  { time: "18 Nov 2026, 14:32", actor: "Bu Ratih (Owner)", event: "Menerbitkan kunci API Integrasi Toko Online (csq_a1b2…)", ip: "182.253.142.19" },
+  { time: "12 Nov 2026, 09:05", actor: "Bu Ratih (Owner)", event: "Menetapkan prioritas sumber data: Excel → Google Sheets → Manual", ip: "114.124.210.88" },
+  { time: "02 Nov 2026, 16:48", actor: "Bu Ratih (Owner)", event: "Mencabut kunci API Webhook Lama (csq_f9e8…)", ip: "114.124.210.88" }
+];
+
+function recordAudit(eventText) {
+  const now = new Date();
+  const formatted = now.toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" }) +
+    ", " + now.toTimeString().slice(0, 5);
+  auditLogs.unshift({
+    time: formatted,
+    actor: "Bu Ratih (Owner)",
+    event: eventText,
+    ip: "182.253.142.19"
+  });
+  renderAuditLogs();
+}
+
+function renderAuditLogs() {
+  const tbody = document.getElementById("audit-tbody");
+  tbody.innerHTML = auditLogs.map((row) => `
+    <tr class="hover:bg-slate-50/80">
+      <td class="py-3 pr-4 font-mono text-slate-500 whitespace-nowrap">${row.time}</td>
+      <td class="px-4 py-3 font-medium text-slate-800 whitespace-nowrap">${row.actor}</td>
+      <td class="px-4 py-3 text-slate-700">${row.event}</td>
+      <td class="py-3 pl-4 text-right font-mono text-slate-400 whitespace-nowrap">${row.ip}</td>
+    </tr>
+  `).join("");
+}
+
+// ══════════ Navigation & Shortcuts ══════════
+function navigateSection(key) {
+  document.querySelectorAll(".settings-section").forEach((sec) => {
+    sec.classList.toggle("hidden", sec.id !== "sec-" + key);
+  });
+  document.querySelectorAll(".settings-nav-item").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.section === key);
+  });
+  document.getElementById("breadcrumb-current").textContent = SECTION_LABELS[key] || "Pengaturan";
+  toggleDrawer(false);
+}
+
+function toggleDrawer(open) {
+  document.getElementById("settings-drawer").classList.toggle("-translate-x-full", !open);
+  document.getElementById("mobile-overlay").classList.toggle("hidden", !open);
+}
+
+function handleQuickJump(val) {
+  const q = val.trim().toLowerCase();
+  if (!q) return;
+  if (q.includes("sumber") || q.includes("excel") || q.includes("sheet")) navigateSection("datasource");
+  else if (q.includes("email") || q.includes("smtp") || q.includes("resend")) navigateSection("email");
+  else if (q.includes("sesi") || q.includes("sla") || q.includes("tutup")) navigateSection("autoclose");
+  else if (q.includes("api") || q.includes("token") || q.includes("kunci")) navigateSection("apikeys");
+  else if (q.includes("audit") || q.includes("log") || q.includes("ip")) navigateSection("audit");
+  else if (q.includes("umum") || q.includes("usaha") || q.includes("zona")) navigateSection("general");
+}
+
+document.addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+    e.preventDefault();
+    document.getElementById("quick-jump").focus();
+  }
+});
+
+// ══════════ Toast & Clipboard ══════════
+let toastTimer = null;
+function showToast(msg) {
+  const el = document.getElementById("toast");
+  document.getElementById("toast-text").textContent = msg;
+  el.classList.remove("opacity-0", "translate-y-4");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.add("opacity-0", "translate-y-4"), 2600);
+}
+
+function copyText(text, label) {
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.position = "fixed";
+  ta.style.opacity = "0";
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    document.execCommand("copy");
+    showToast(label || "Disalin ke clipboard");
+  } catch (err) {
+    showToast("Gagal menyalin teks");
+  }
+  document.body.removeChild(ta);
+}
+
+// ══════════ 1. General Settings ══════════
+function saveGeneralSettings(e) {
+  e.preventDefault();
+  const name = document.getElementById("org-name").value.trim();
+  recordAudit(`Memperbarui informasi umum organisasi (${name})`);
+  showToast("Pengaturan umum berhasil disimpan");
+}
+
+// ══════════ 2. Data Source Priority ══════════
+const DEFAULT_SOURCES = ["EXCEL", "GOOGLE_SHEETS", "MANUAL"];
+const SOURCE_CATALOG = {
+  EXCEL: {
+    name: "Excel / CSV Upload",
+    sync: "Parsing file terjadwal / unggah manual",
+    status: "Aktif • 1.240 baris"
+  },
+  GOOGLE_SHEETS: {
+    name: "Google Sheets OAuth",
+    sync: "Sinkronisasi otomatis setiap 15 menit",
+    status: "Terhubung"
+  },
+  MANUAL: {
+    name: "Database Entri Manual",
+    sync: "Real-time via Dashboard Produk & Inventaris",
+    status: "Aktif"
+  }
+};
+
+let persistedOrder = DEFAULT_SOURCES.slice();
+let workingOrder = DEFAULT_SOURCES.slice();
+let dragIndex = null;
+
+function renderDataSources() {
+  const tbody = document.getElementById("datasource-tbody");
+  const dirty = JSON.stringify(workingOrder) !== JSON.stringify(persistedOrder);
+
+  document.getElementById("btn-save-order").disabled = !dirty;
+  document.getElementById("btn-reset-order").disabled = !dirty;
+  document.getElementById("order-unsaved-pill").classList.toggle("hidden", !dirty);
+
+  tbody.innerHTML = workingOrder.map((key, idx) => {
+    const item = SOURCE_CATALOG[key];
+    return `
+      <tr draggable="true"
+          ondragstart="handleDragStart(event, ${idx})"
+          ondragover="handleDragOver(event)"
+          ondragleave="handleDragLeave(event)"
+          ondrop="handleDrop(event, ${idx})"
+          class="group cursor-grab hover:bg-slate-50/90 active:cursor-grabbing">
+        <td class="py-3.5 font-mono text-xs font-semibold text-slate-500">
+          <div class="flex items-center gap-2">
+            <i class="ph ph-dots-six-vertical text-slate-300 group-hover:text-slate-600"></i>
+            <span class="${idx === 0 ? 'text-emerald-700' : ''}">0${idx + 1}</span>
+          </div>
+        </td>
+        <td class="py-3.5 font-medium text-slate-900">
+          ${item.name}
+          ${idx === 0 ? '<span class="ml-2 rounded bg-emerald-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-emerald-700">PRIMARY</span>' : ''}
+        </td>
+        <td class="hidden py-3.5 text-xs text-slate-500 sm:table-cell">${item.sync}</td>
+        <td class="hidden py-3.5 font-mono text-xs text-slate-600 md:table-cell">${item.status}</td>
+        <td class="py-3.5 text-right">
+          <div class="inline-flex gap-1">
+            <button type="button" onclick="shiftSource(${idx}, -1)" ${idx === 0 ? "disabled" : ""} aria-label="Naikkan" class="inline-flex h-7 w-7 items-center justify-center rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:pointer-events-none disabled:opacity-30">
+              <i class="ph ph-arrow-up text-xs"></i>
+            </button>
+            <button type="button" onclick="shiftSource(${idx}, 1)" ${idx === workingOrder.length - 1 ? "disabled" : ""} aria-label="Turunkan" class="inline-flex h-7 w-7 items-center justify-center rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:pointer-events-none disabled:opacity-30">
+              <i class="ph ph-arrow-down text-xs"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function shiftSource(idx, delta) {
+  const target = idx + delta;
+  if (target < 0 || target >= workingOrder.length) return;
+  const [moved] = workingOrder.splice(idx, 1);
+  workingOrder.splice(target, 0, moved);
+  renderDataSources();
+}
+
+function handleDragStart(e, idx) {
+  dragIndex = idx;
+  e.dataTransfer.effectAllowed = "move";
+}
+
+function handleDragOver(e) {
+  e.preventDefault();
+  e.currentTarget.classList.add("drag-target");
+}
+
+function handleDragLeave(e) {
+  e.currentTarget.classList.remove("drag-target");
+}
+
+function handleDrop(e, targetIdx) {
+  e.preventDefault();
+  e.currentTarget.classList.remove("drag-target");
+  if (dragIndex === null || dragIndex === targetIdx) return;
+  const [moved] = workingOrder.splice(dragIndex, 1);
+  workingOrder.splice(targetIdx, 0, moved);
+  dragIndex = null;
+  renderDataSources();
+}
+
+function resetOrder() {
+  workingOrder = persistedOrder.slice();
+  renderDataSources();
+  showToast("Perubahan urutan dibatalkan");
+}
+
+function saveOrder() {
+  persistedOrder = workingOrder.slice();
+  renderDataSources();
+  const summary = persistedOrder.map((k) => SOURCE_CATALOG[k].name).join(" → ");
+  recordAudit(`Mengubah urutan prioritas sumber data: ${summary}`);
+  showToast("Hierarki sumber data disimpan");
+}
+
+// ══════════ 3. Email Gateway ══════════
+let activeEmailProvider = "SMTP";
+
+function switchEmailProvider(provider) {
+  activeEmailProvider = provider;
+  document.querySelectorAll(".email-provider-btn").forEach((btn) => {
+    const isSelected = btn.dataset.provider === provider;
+    btn.classList.toggle("bg-white", isSelected);
+    btn.classList.toggle("font-semibold", isSelected);
+    btn.classList.toggle("text-slate-900", isSelected);
+    btn.classList.toggle("shadow-2xs", isSelected);
+    btn.classList.toggle("font-medium", !isSelected);
+    btn.classList.toggle("text-slate-600", !isSelected);
+  });
+  document.getElementById("email-smtp-group").classList.toggle("hidden", provider !== "SMTP");
+  document.getElementById("email-resend-group").classList.toggle("hidden", provider !== "RESEND");
+}
+
+function saveEmailSettings(e) {
+  e.preventDefault();
+  document.getElementById("email-status-label").innerHTML =
+    `<span class="h-2 w-2 rounded-full bg-emerald-500"></span>Terhubung (${activeEmailProvider})`;
+  document.getElementById("nav-email-status").className = "h-1.5 w-1.5 rounded-full bg-emerald-500";
+  recordAudit(`Mengonfigurasi gateway email (${activeEmailProvider})`);
+  showToast(`Konfigurasi ${activeEmailProvider} disimpan`);
+}
+
+function sendTestEmail() {
+  showToast("Email uji dikirim ke ratih@tokokopi.id");
+}
+
+// ══════════ 4. Auto Close Policy ══════════
+function toggleAutoCloseState() {
+  const enabled = document.getElementById("ac-toggle").checked;
+  document.getElementById("ac-minutes").disabled = !enabled;
+  document.querySelectorAll(".ac-preset").forEach((btn) => { btn.disabled = !enabled; });
+
+  const navStatus = document.getElementById("nav-ac-status");
+  navStatus.textContent = enabled ? "ON" : "OFF";
+  navStatus.className = enabled ? "font-mono text-[10px] font-semibold text-emerald-600" : "font-mono text-[10px] text-slate-400";
+}
+
+function applyPreset(mins) {
+  document.getElementById("ac-minutes").value = mins;
+}
+
+function saveAutoCloseSettings(e) {
+  e.preventDefault();
+  const enabled = document.getElementById("ac-toggle").checked;
+  const mins = document.getElementById("ac-minutes").value;
+  recordAudit(enabled ? `Mengaktifkan penutupan sesi otomatis (${mins} menit)` : "Menonaktifkan penutupan sesi otomatis");
+  showToast("Kebijakan penutupan sesi disimpan");
+}
+
+// ══════════ 5. API Keys ══════════
+let apiKeysList = [
+  { id: "k_1", label: "Integrasi Toko Online", prefix: "csq_a1b2…", issued: "18 Nov 2026", lastUsed: "21 Nov 2026", active: true },
+  { id: "k_2", label: "Webhook Lama", prefix: "csq_f9e8…", issued: "02 Nov 2026", lastUsed: "—", active: false }
+];
+let pendingRevokeId = null;
+
+function renderKeysTable() {
+  const tbody = document.getElementById("keys-table-body");
+  const activeTotal = apiKeysList.filter((k) => k.active).length;
+  document.getElementById("nav-keys-count").textContent = activeTotal;
+
+  tbody.innerHTML = apiKeysList.map((k) => `
+    <tr class="hover:bg-slate-50/80">
+      <td class="py-3 pr-4 font-medium text-slate-900">${k.label}</td>
+      <td class="px-4 py-3 font-mono text-xs text-slate-500">${k.prefix}</td>
+      <td class="px-4 py-3 text-xs text-slate-500">${k.issued}</td>
+      <td class="px-4 py-3 text-xs text-slate-500">${k.lastUsed}</td>
+      <td class="px-4 py-3">
+        ${k.active
+          ? '<span class="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700"><span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>Aktif</span>'
+          : '<span class="inline-flex items-center gap-1.5 text-xs text-slate-400"><span class="h-1.5 w-1.5 rounded-full bg-slate-300"></span>Dicabut</span>'}
+      </td>
+      <td class="py-3 pl-4 text-right">
+        ${k.active
+          ? `<button type="button" onclick="openRevokeModal('${k.id}')" class="text-xs font-medium text-red-600 hover:underline">Cabut</button>`
+          : '<span class="text-xs text-slate-300">—</span>'}
+      </td>
+    </tr>
+  `).join("");
+}
+
+function createApiKey(e) {
+  e.preventDefault();
+  const input = document.getElementById("new-key-label");
+  const label = input.value.trim();
+  if (!label) return;
+
+  const randomHex = Array.from({ length: 48 }, () => "0123456789abcdef"[Math.floor(Math.random() * 16)]).join("");
+  const fullToken = "csq_" + randomHex;
+  const prefix = fullToken.slice(0, 8) + "…";
+
+  apiKeysList.unshift({
+    id: "k_" + Date.now(),
+    label,
+    prefix,
+    issued: "21 Nov 2026",
+    lastUsed: "Baru diterbitkan",
+    active: true
+  });
+
+  document.getElementById("secret-reveal-title").innerHTML = `Token untuk <strong>${label}</strong> hanya ditampilkan satu kali. Salin sekarang sebelum menutup peringatan ini.`;
+  document.getElementById("secret-reveal-value").textContent = fullToken;
+  document.getElementById("secret-reveal-box").classList.remove("hidden");
+
+  input.value = "";
+  renderKeysTable();
+  recordAudit(`Menerbitkan kunci API baru: ${label} (${prefix})`);
+  showToast("Kunci API baru diterbitkan");
+}
+
+function dismissSecretBox() {
+  document.getElementById("secret-reveal-box").classList.add("hidden");
+}
+
+function openRevokeModal(id) {
+  const item = apiKeysList.find((k) => k.id === id);
+  if (!item) return;
+  pendingRevokeId = id;
+  document.getElementById("modal-revoke-text").innerHTML =
+    `Apakah Anda yakin ingin mencabut kunci <strong>${item.label}</strong> (<code class="font-mono text-xs">${item.prefix}</code>)? Semua permintaan API yang menggunakan token ini akan segera ditolak dengan kode <code class="font-mono text-xs">401 Unauthorized</code>.`;
+  const modal = document.getElementById("modal-revoke");
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+}
+
+function closeRevokeModal() {
+  pendingRevokeId = null;
+  const modal = document.getElementById("modal-revoke");
+  modal.classList.add("hidden");
+  modal.classList.remove("flex");
+}
+
+function confirmRevoke() {
+  if (!pendingRevokeId) return;
+  const item = apiKeysList.find((k) => k.id === pendingRevokeId);
+  if (item) {
+    item.active = false;
+    recordAudit(`Mencabut kunci API: ${item.label} (${item.prefix})`);
+  }
+  closeRevokeModal();
+  renderKeysTable();
+  showToast("Kunci API telah dicabut");
+}
+
+// ══════════ Initialize ══════════
+renderDataSources();
+renderKeysTable();
+renderAuditLogs();
+</script>
+</body>
+</html>
