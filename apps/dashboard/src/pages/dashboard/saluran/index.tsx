@@ -238,17 +238,27 @@ export default function SaluranPage({
     setConnecting(true);
     setModalError(null);
     try {
+      // Editing a Baileys channel saves label + agent through the BAILEYS
+      // path (connect.ts) - never the Meta config payload. A Baileys edit
+      // never re-pairs (that is Tautkan Ulang's job); empty config keeps
+      // the stored creds untouched.
+      const provider: Provider =
+        modal === "edit" && target?.provider === "BAILEYS" ? "BAILEYS" : "CLOUD_API";
       await apiSend<ConnectResult>("/api/dashboard/channels/connect", "POST", {
-        provider: "CLOUD_API",
+        provider,
         ...(modal === "edit" && target ? { channelId: target.id } : {}),
         label: cloudForm.label.trim(),
         agentId: agentId || undefined,
-        config: {
-          phoneNumberId: cloudForm.phoneNumberId.trim(),
-          token: cloudForm.token.trim(),
-          appSecret: cloudForm.appSecret.trim() || undefined,
-          businessAccountId: cloudForm.businessAccountId.trim() || undefined,
-        },
+        ...(provider === "CLOUD_API"
+          ? {
+              config: {
+                phoneNumberId: cloudForm.phoneNumberId.trim(),
+                token: cloudForm.token.trim(),
+                appSecret: cloudForm.appSecret.trim() || undefined,
+                businessAccountId: cloudForm.businessAccountId.trim() || undefined,
+              },
+            }
+          : { config: { tosAcknowledged: true } }),
       });
       setModal(null);
       refresh();
@@ -441,7 +451,11 @@ export default function SaluranPage({
             <div className="border-t border-zinc-100 bg-zinc-50/40 px-5 py-4">
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <CopyField label="Callback URL" hint="HTTPS Endpoint" value={webhookUrl} />
-                <CopyField label="Verify Token" hint="Static Secret" value={cloudVerifyToken ?? "-"} />
+                <CopyField
+                  label="Verify Token"
+                  hint="Tempel di Meta App Dashboard > Webhooks saat mendaftarkan Callback URL"
+                  value={cloudVerifyToken ?? "-"}
+                />
               </div>
               <p className="mt-3 flex items-center gap-1.5 text-xs text-zinc-500">
                 <Info size={14} className="text-zinc-400" />
@@ -548,8 +562,8 @@ export default function SaluranPage({
 
       {/* ══ Footer Note ══ */}
       {!loading && channels.length > 0 && (
-        <div className="mt-6 flex items-start gap-2 text-xs text-zinc-400">
-          <ShieldCheck size={16} className="mt-0.5 shrink-0" />
+        <div className="mt-6 flex items-center gap-2 text-xs text-zinc-400">
+          <ShieldCheck size={14} className="shrink-0" />
           <p>
             Mengarsipkan saluran akan membebaskan kuota kursi aktif Anda tanpa
             menghapus riwayat percakapan. Penghapusan permanen tidak dapat
@@ -767,28 +781,39 @@ export default function SaluranPage({
               disabled={!isOwner}
             />
           </div>
-          <Field
-            label="Phone Number ID"
-            value={cloudForm.phoneNumberId}
-            onChange={(v) => setCloud({ phoneNumberId: v })}
-            disabled={!isOwner}
-          />
-          <Field
-            label="Access Token Baru"
-            value={cloudForm.token}
-            onChange={(v) => setCloud({ token: v })}
-            hint="Kosongkan jika tidak ingin mengubah token"
-            disabled={!isOwner}
-            type="password"
-          />
-          <Field
-            label="App Secret"
-            value={cloudForm.appSecret}
-            onChange={(v) => setCloud({ appSecret: v })}
-            hint="Opsional"
-            disabled={!isOwner}
-            type="password"
-          />
+          {target?.provider === "CLOUD_API" && (
+            <>
+              <Field
+                label="Phone Number ID"
+                value={cloudForm.phoneNumberId}
+                onChange={(v) => setCloud({ phoneNumberId: v })}
+                disabled={!isOwner}
+              />
+              <Field
+                label="Access Token Baru"
+                value={cloudForm.token}
+                onChange={(v) => setCloud({ token: v })}
+                hint="Kosongkan jika tidak ingin mengubah token"
+                disabled={!isOwner}
+                type="password"
+              />
+              <Field
+                label="App Secret"
+                value={cloudForm.appSecret}
+                onChange={(v) => setCloud({ appSecret: v })}
+                hint="Opsional"
+                disabled={!isOwner}
+                type="password"
+              />
+            </>
+          )}
+          {target?.provider === "BAILEYS" && (
+            <p className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-xs leading-relaxed text-zinc-500">
+              Saluran WhatsApp Pribadi (QR) tidak memakai kredensial API.
+              Nama dan agent dapat diubah di atas; gunakan Tautkan Ulang
+              untuk menyambungkan perangkat baru.
+            </p>
+          )}
           <div className="flex justify-end gap-2 border-t border-zinc-100 pt-4">
             <button
               onClick={() => setModal(null)}
@@ -1256,7 +1281,7 @@ function Modal(props: {
 @keyframes saluranPanelIn { from { transform: scale(0.97) translateY(4px) } to { transform: scale(1) translateY(0) } }`}</style>
       <div
         className={cn(
-          "w-full overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-2xl",
+          "max-h-[calc(100vh-2rem)] w-full overflow-y-auto rounded-2xl border border-zinc-200 bg-white shadow-2xl",
           props.maxWidth ?? "max-w-lg"
         )}
         style={{ animation: "saluranPanelIn 0.15s cubic-bezier(0.16, 1, 0.3, 1)" }}

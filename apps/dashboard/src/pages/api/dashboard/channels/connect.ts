@@ -216,7 +216,12 @@ export default async function handler(
 
     let qr: string | null = null;
     let open = false;
-    if (provider === "BAILEYS") {
+    // Baileys reconfigure of an already-connected channel: a label/agent
+    // edit must NOT re-pair (spawns a needless QR flow and can 440-fight
+    // the live session). The QR command runs only for new channels or
+    // disconnected ones - re-pairing is Tautkan Ulang's explicit job.
+    const skipBaileysPair = provider === "BAILEYS" && existing?.status === "CONNECTED";
+    if (provider === "BAILEYS" && !skipBaileysPair) {
       // Phase 6: the socket lives in the worker - pairing is a command the
       // worker executes (it applies stealLease on the owner's behalf).
       const cmdId = await createChannelCommand({
