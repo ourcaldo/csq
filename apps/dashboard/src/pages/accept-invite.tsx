@@ -15,7 +15,13 @@ import { apiFetch, apiSend } from "@/lib/api-client";
 
 export default function AcceptInvitePage() {
   const router = useRouter();
+  // PRD 28 Part F root cause: router.query is EMPTY on the first render of
+  // this page, so the old code treated "token not in query YET" as "token
+  // missing" and locked the UI on the error screen before the real token
+  // arrived a render later. Only conclude "no token" once the router is
+  // actually ready.
   const token = typeof router.query.token === "string" ? router.query.token : "";
+  const routerReady = router.isReady;
 
   const [email, setEmail] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -27,16 +33,18 @@ export default function AcceptInvitePage() {
   const [done, setDone] = useState(false);
 
   useEffect(() => {
+    if (!routerReady) return; // query still empty - do NOT judge yet
     if (!token) {
-      setLoadError("Tautan undangan tidak valid.");
+      setLoadError("Tautan undangan tidak valid - token tidak ditemukan di URL.");
       return;
     }
+    setLoadError(null);
     apiFetch<{ email: string }>(`/api/team/accept?token=${encodeURIComponent(token)}`)
       .then((info) => setEmail(info.email))
       .catch((err) =>
         setLoadError(err instanceof Error ? err.message : "Undangan tidak valid.")
       );
-  }, [token]);
+  }, [routerReady, token]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -92,6 +100,15 @@ export default function AcceptInvitePage() {
             Kembali ke halaman masuk
           </Link>
         </div>
+      </AuthShell>
+    );
+  }
+
+  if (!routerReady || (email === null && !loadError)) {
+    // Router warming up or the invite lookup is in flight.
+    return (
+      <AuthShell title="Aktifkan Akun">
+        <p className="py-4 text-center text-sm text-slate-500">Memuat undangan…</p>
       </AuthShell>
     );
   }

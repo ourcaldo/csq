@@ -407,7 +407,7 @@ export default function TeamPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            disabled={resendingId !== null || cancellingId !== null}
+                            disabled={resendingId !== null}
                             onClick={() => void onResendInvite(inv.id)}
                           >
                             {resendingId === inv.id ? "Mengirim..." : "Kirim Ulang"}
@@ -415,7 +415,7 @@ export default function TeamPage() {
                           <Button
                             variant="destructive"
                             size="sm"
-                            disabled={resendingId !== null || cancellingId !== null}
+                            disabled={cancellingId !== null}
                             onClick={() => void onCancelInvite(inv.id)}
                           >
                             {cancellingId === inv.id ? "Membatalkan..." : "Batalkan"}
