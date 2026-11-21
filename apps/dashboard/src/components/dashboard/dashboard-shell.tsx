@@ -202,9 +202,37 @@ export function DashboardShell({ title, description, actions, headerExtra, flush
           "flex h-16 shrink-0 items-center gap-2 border-b border-slate-100",
           collapsed ? "justify-center px-2" : "px-6"
         )}>
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-green-600 text-white">
-            <ChatCircleDots size={20} weight="fill" />
-          </div>
+          {/* Logo tile doubles as the expand button when collapsed: hover the
+              rail (group-hover) and the tile's icon swaps to the expand arrow
+              IN place - the control lives on the logo itself (owner request
+              2026-11-21). */}
+          <button
+            onClick={collapsed ? toggleCollapsed : undefined}
+            aria-label={collapsed ? "Lebarkan sidebar" : undefined}
+            title={collapsed ? "Lebarkan sidebar" : undefined}
+            className={cn(
+              "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-green-600 text-white transition-colors",
+              collapsed && "cursor-pointer hover:bg-green-700"
+            )}
+          >
+            {collapsed ? (
+              // Cross-fade: chat icon fades out, expand arrow fades in - both
+              // stacked inside the same 8x8 tile.
+              <span className="relative block h-5 w-5">
+                <ChatCircleDots
+                  size={20}
+                  weight="fill"
+                  className="absolute inset-0 transition-opacity duration-200 group-hover:opacity-0"
+                />
+                <SidebarSimple
+                  size={20}
+                  className="absolute inset-0 rotate-180 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
+                />
+              </span>
+            ) : (
+              <ChatCircleDots size={20} weight="fill" />
+            )}
+          </button>
           {!collapsed && <span className="text-xl font-bold tracking-tight text-slate-900">CSQ</span>}
           {!collapsed && (
             <button
@@ -214,19 +242,6 @@ export function DashboardShell({ title, description, actions, headerExtra, flush
               className="ml-auto rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
             >
               <SidebarSimple size={16} />
-            </button>
-          )}
-          {/* Collapsed: hover the logo area and the expand button fades in.
-              It stays clickable (not pointer-events-none) so it also works
-              on touch. */}
-          {collapsed && (
-            <button
-              onClick={toggleCollapsed}
-              aria-label="Lebarkan sidebar"
-              title="Lebarkan sidebar"
-              className="absolute right-0 flex h-8 w-8 items-center justify-center rounded-lg bg-green-600 text-white opacity-0 shadow-sm transition-opacity duration-200 group-hover:opacity-100"
-            >
-              <SidebarSimple size={16} className="rotate-180" />
             </button>
           )}
         </div>
