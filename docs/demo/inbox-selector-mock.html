@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="id" class="antialiased">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Percakapan - selector + channel pills (interactive mock)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+      }
+    }
+  }
+</script>
+<style>
+  body { font-feature-settings: "cv02", "cv03", "cv04", "cv11"; }
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+  .fade-in { animation: fadeIn 0.15s ease-out; }
+  @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+<!-- ══════════════════════════════════════════════════════════════
+     INTERACTIVE MOCK - full inbox with:
+     A) Channel pills (always visible, 1-click filter)
+        CASE: 2 Baileys channels + 1 Cloud API channel
+     B) Tabs Ditugaskan / Belum ditugaskan (per-account scoped)
+     C) Reply-from selector inside the composer
+     ══════════════════════════════════════════════════════════════ -->
+
+<div class="mx-auto flex h-screen max-w-7xl gap-4 p-4">
+
+  <!-- ════════ LEFT: Conversation list ════════ -->
+  <aside class="flex w-80 shrink-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div class="border-b border-slate-100 p-3">
+      <div class="relative mb-3">
+        <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+        <input id="search" type="text" placeholder="Cari nomor pelanggan…" oninput="render()"
+          class="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm placeholder-slate-400 focus:border-slate-300 focus:outline-none" />
+      </div>
+
+      <!-- Tabs -->
+      <div class="mb-2 flex gap-1 rounded-lg bg-slate-100 p-1 text-xs font-medium">
+        <button id="tab-assigned" onclick="setTab('assigned')"
+          class="flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 transition">
+          Ditugaskan <span id="badge-assigned" class="rounded-full px-1.5 tabular-nums">0</span>
+        </button>
+        <button id="tab-unassigned" onclick="setTab('unassigned')"
+          class="flex flex-1 items-center justify-center rounded-md px-2 py-1.5 text-slate-500 transition">
+          Belum ditugaskan
+        </button>
+      </div>
+
+      <!-- ★ Channel pills: 2 Baileys + 1 Cloud API -->
+      <div class="flex flex-wrap items-center gap-1.5" id="pills"></div>
+    </div>
+
+    <!-- List -->
+    <div id="list" class="flex-1 overflow-y-auto"></div>
+  </aside>
+
+  <!-- ════════ RIGHT: Chat panel ════════ -->
+  <main class="flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div id="chatHeader"></div>
+    <div id="thread" class="flex-1 overflow-y-auto bg-slate-50/40 p-5"></div>
+
+    <!-- Composer -->
+    <div id="composer" class="shrink-0 border-t border-slate-100 bg-white p-4"></div>
+  </main>
+</div>
+
+<!-- Channel selector popover -->
+<div id="chMenu" class="fixed z-50 hidden w-64 rounded-xl border border-slate-200 bg-white p-1 shadow-lg fade-in" style="top:0; left:0;"></div>
+
+<!-- Toast -->
+<div id="toast" class="pointer-events-none fixed bottom-5 right-5 z-50 hidden items-center gap-2 rounded-lg bg-slate-900 px-3.5 py-2.5 text-xs font-medium text-white shadow-lg">
+  <i class="ph-fill ph-check-circle text-green-400"></i><span id="toastMsg"></span>
+</div>
+
+<script>
+// ══════════ Mock data: 5 channels (2 Baileys + 2 Baileys + 1 Cloud API)
+// Toggle CHANNEL_CASE between "three" and "five" to see pill truncation.
+const CHANNEL_CASE = "five";
+const channelsThree = [
+  { id: "byo1", provider: "BAILEYS", label: "WA Pribadi Utama", phone: "6285712345678" },
+  { id: "byo2", provider: "BAILEYS", label: "WA Pribadi CS 2",   phone: "6289911223344" },
+  { id: "cld1", provider: "CLOUD_API", label: "Resmi Toko",      phone: "6281290088999" },
+];
+const channelsFive = [
+  { id: "byo1", provider: "BAILEYS", label: "WA Pribadi Utama", phone: "6285712345678" },
+  { id: "byo2", provider: "BAILEYS", label: "WA Pribadi CS 2",   phone: "6289911223344" },
+  { id: "byo3", provider: "BAILEYS", label: "WA Broadcast",      phone: "6281230044556" },
+  { id: "byo4", provider: "BAILEYS", label: "WA Kantor Pusat",    phone: "6281380099887" },
+  { id: "cld1", provider: "CLOUD_API", label: "Resmi Toko",      phone: "6281290088999" },
+];
+const channels = CHANNEL_CASE === "five" ? channelsFive : channelsThree;
+const me = "u-staff-a"; // logged-in staff
+const convs = [
+  { id: "c1", name: "Siti Rahmawati",  phone: "+62 812-3456-789", initials: "SR", channelId: "byo1", assignee: "u-staff-a", last: "Kak, kok pesanan saya belum sampai ya?", lastAt: "09:41", unread: 1,
+    msgs: [
+      { dir: "in",  text: "Kak, kok pesanan saya belum sampai ya?", at: "09:38" },
+      { dir: "out", text: "Halo Siti, pesanan Anda sudah kami kirim ya. Resinya sedang kami cek.", at: "09:41", by: "byo1" },
+      { dir: "in",  text: "Oke ditunggu ya kak", at: "09:42" },
+    ] },
+  { id: "c2", name: "Budi Agus",       phone: "+62 813-9998-887", initials: "BA", channelId: "cld1", assignee: "u-staff-a", last: "Kopi gayo 250g ready kak?", lastAt: "09:32", unread: 2,
+    msgs: [
+      { dir: "in", text: "Kopi gayo 250g ready kak?", at: "09:32" },
+    ] },
+  { id: "c3", name: "Dewi Lestari",    phone: "+62 813-7771-234", initials: "DL", channelId: "byo2", assignee: null, last: "AI: Terima kasih, pesanan diterima!", lastAt: "08:15", unread: 0,
+    msgs: [
+      { dir: "in", text: "Mau tanya menu baru ada apa aja?", at: "08:10" },
+      { dir: "ai", text: "Terima kasih, pesanan diterima!", at: "08:15" },
+    ] },
+  { id: "c4", name: "Agus Wijaya",     phone: "+62 812-2200-333", initials: "AW", channelId: "byo1", assignee: null, last: "Anda: Stok kopi susu ready ya bang", lastAt: "Yesterday", unread: 0,
+    msgs: [
+      { dir: "in",  text: "Bang, stok kopi susu ready?", at: "16:02" },
+      { dir: "out", text: "Stok kopi susu ready ya bang", at: "16:05", by: "byo1" },
+    ] },
+  { id: "c5", name: "Rina Marlina",    phone: "+62 896-5550-112", initials: "RM", channelId: "cld1", assignee: null, last: "Saya mau tanya pengiriman ke Bandung", lastAt: "Yesterday", unread: 0,
+    msgs: [
+      { dir: "in", text: "Saya mau tanya pengiriman ke Bandung", at: "14:20" },
+    ] },
+  { id: "c6", name: "Hendra Gunawan",  phone: "+62 878-1230-999", initials: "HG", channelId: "byo2", assignee: "u-staff-b", last: "Harga grosir untuk 10kg berapa?", lastAt: "Yesterday", unread: 0,
+    msgs: [
+      { dir: "in", text: "Harga grosir untuk 10kg berapa?", at: "11:00" },
+    ] },
+  // Extra chats on the 4th and 5th channels (only visible in the five-channel case)
+  { id: "c8", name: "Tuti Handayani", phone: "+62 813-5550-778", initials: "TH", channelId: "byo3", assignee: null, last: "Info stok bulan ini dong", lastAt: "Yesterday", unread: 0,
+    msgs: [ { dir: "in", text: "Info stok bulan ini dong", at: "09:00" } ] },
+  { id: "c9", name: "Fajar Nugroho",  phone: "+62 897-5551-234", initials: "FN", channelId: "byo4", assignee: null, last: "Pesan 5kg kopi arabika", lastAt: "Mon", unread: 0,
+    msgs: [ { dir: "in", text: "Pesan 5kg kopi arabika", at: "13:20" } ] },
+  { id: "c7", name: "Maya Puspita",    phone: "+62 856-4433-221", initials: "MP", channelId: "cld1", assignee: null, last: "Order #1042 mau ubah alamat", lastAt: "Mon", unread: 0,
+    msgs: [
+      { dir: "in", text: "Order #1042 mau ubah alamat", at: "10:30" },
+    ] },
+];
+
+// ══════════ State ══════════
+let state = { tab: "assigned", chFilter: "all", search: "", selectedId: "c1", replyFrom: null };
+
+function channelOf(id) { return channels.find(c => c.id === id); }
+function chBadge(id) {
+  const ch = channelOf(id);
+  if (!ch) return "";
+  return `<span class="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${ch.provider === "CLOUD_API" ? "bg-blue-50 text-blue-700" : "bg-slate-100 text-slate-600"}">${ch.label}</span>`;
+}
+function chIcon(ch, cls) {
+  return ch.provider === "CLOUD_API"
+    ? `<i class="ph-fill ph-check-circle ${cls}"></i>`
+    : `<i class="ph-fill ph-whatsapp-logo ${cls}"></i>`;
+}
+
+// ══════════ Tabs + pills ══════════
+function scopedAssigned() {
+  // "Ditugaskan" is per-account: staff sees only chats assigned to THEM
+  return convs.filter(c => c.assignee === me);
+}
+function visible() {
+  let rows = convs;
+  if (state.tab === "assigned") rows = scopedAssigned();
+  if (state.tab === "unassigned") rows = convs.filter(c => !c.assignee);
+  if (state.chFilter !== "all") rows = rows.filter(c => c.channelId === state.chFilter);
+  if (state.search) {
+    const q = state.search.toLowerCase();
+    rows = rows.filter(c => c.name.toLowerCase().includes(q) || c.phone.replace(/\D/g, "").includes(q.replace(/\D/g, "")));
+  }
+  return rows;
+}
+
+function setTab(t) { state.tab = t; render(); }
+function setPill(p) { state.chFilter = p; render(); }
+
+function renderTabs() {
+  const aBtn = document.getElementById("tab-assigned");
+  const uBtn = document.getElementById("tab-unassigned");
+  const aCount = scopedAssigned().length;
+  const aActive = state.tab === "assigned";
+  aBtn.className = `flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 transition ${aActive ? "bg-white text-green-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`;
+  uBtn.className = `flex flex-1 items-center justify-center rounded-md px-2 py-1.5 text-xs font-medium transition ${state.tab === "unassigned" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`;
+  document.getElementById("badge-assigned").className =
+    `rounded-full px-1.5 tabular-nums ${aActive ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"}`;
+  document.getElementById("badge-assigned").textContent = aCount;
+  document.getElementById("badge-assigned").parentElement.style.display = aCount > 0 ? "flex" : "flex";
+}
+
+const MAX_PILLS = 6; // icon-only pills are compact; 5 channels + "Semua" fit one row
+
+// Icon-only pill variant: no label, tooltip shows name+phone on hover.
+function pillHtml(id, inner, count, ch) {
+  const active = state.chFilter === id;
+  const base = "ch-pill flex items-center gap-0.5 rounded-full border px-2 py-1 text-[11px] font-medium transition";
+  const cls = active ? "border-green-300 bg-green-50 text-green-700" : "border-slate-200 bg-white text-slate-600 hover:border-slate-300";
+  const cntCls = active ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-500";
+  if (id === "all") {
+    return `<button onclick="setPill('${id}')" class="${base} ${cls}" title="Semua saluran">${inner} <span class="rounded-full ${cntCls} px-1 tabular-nums">${count}</span></button>`;
+  }
+  const tip = ch ? `title="${ch.label} (${ch.phone})"` : "";
+  return `<button onclick="setPill('${id}')" class="${base} ${cls}" ${tip}>${inner} <span class="rounded-full ${cntCls} px-1 tabular-nums">${count}</span></button>`;
+}
+
+function renderPills() {
+  const wrap = document.getElementById("pills");
+  const counts = { all: 0 };
+  channels.forEach(c => counts[c.id] = 0);
+  let pool = convs;
+  if (state.tab === "assigned") pool = scopedAssigned();
+  if (state.tab === "unassigned") pool = convs.filter(c => c.assignee);
+  pool.forEach(c => { counts[c.id]++; counts.all++; });
+
+  // Icon-only pills: every channel fits (one row up to ~8). Distinct colors
+  // separate multiple Baileys channels; hover tooltip carries the full name.
+  let html = pillHtml("all", `<span>Semua</span>`, counts.all, null);
+  html += channels.map(c => pillHtml(c.id, chIcon(c, chColor(c)), counts[c.id], c)).join("");
+  wrap.innerHTML = html;
+}
+// Per-channel icon colors so two Baileys numbers are distinguishable at a
+// glance even without labels.
+function chColor(c) {
+  if (c.provider === "CLOUD_API") return "text-blue-600";
+  const i = channels.filter(x => x.provider === "BAILEYS").indexOf(c);
+  const palette = ["text-green-600", "text-emerald-500", "text-teal-500", "text-lime-600"];
+  return palette[i % palette.length];
+}
+
+// ══════════ List ══════════
+function renderList() {
+  const rows = visible();
+  const el = document.getElementById("list");
+  if (!rows.length) {
+    el.innerHTML = `<div class="p-8 text-center"><i class="ph ph-chats-circle text-3xl text-slate-300"></i><p class="mt-2 text-sm text-slate-400">Tidak ada percakapan.</p></div>`;
+    return;
+  }
+  el.innerHTML = rows.map(c => {
+    const active = c.id === state.selectedId;
+    return `
+    <button onclick="selectConv('${c.id}')" class="flex w-full items-start gap-3 border-b border-slate-50 p-3 text-left transition ${active ? "border-l-4 border-l-green-500 bg-green-50/50" : "hover:bg-slate-50"}">
+      <div class="relative shrink-0">
+        <div class="flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-600">${c.initials}</div>
+        <div class="absolute bottom-0 right-0 flex h-4 w-4 items-center justify-center rounded-full border-2 border-white bg-green-500 p-0.5 text-white"><i class="ph-fill ph-whatsapp-logo text-[8px]"></i></div>
+      </div>
+      <div class="min-w-0 flex-1">
+        <div class="flex items-baseline justify-between">
+          <div class="flex min-w-0 items-baseline gap-1.5">
+            <h4 class="truncate text-sm font-semibold text-slate-900">${c.name}</h4>
+            ${chBadge(c.channelId)}
+          </div>
+          <span class="ml-2 shrink-0 text-xs text-slate-400">${c.lastAt}</span>
+        </div>
+        <div class="flex items-center justify-between gap-2">
+          <p class="truncate text-xs ${c.unread ? "font-medium text-slate-700" : "text-slate-400"}">${c.last}</p>
+          ${c.unread ? `<span class="shrink-0 rounded-full bg-green-500 px-1.5 text-[10px] font-semibold text-white">${c.unread}</span>` : ""}
+        </div>
+        ${c.assignee ? `<p class="mt-0.5 text-xs text-slate-500">Ditugaskan ke Staff A</p>` : ""}
+      </div>
+    </button>`;
+  }).join("");
+}
+
+// ══════════ Chat panel ══════════
+function selectConv(id) {
+  state.selectedId = id;
+  const c = convs.find(x => x.id === id);
+  // Reply-from default = conversation's channel (last inbound).
+  state.replyFrom = c ? c.channelId : null;
+  render();
+}
+function timeOf(m) { return m.at; }
+
+function renderChat() {
+  const c = convs.find(x => x.id === state.selectedId);
+  const header = document.getElementById("chatHeader");
+  const thread = document.getElementById("thread");
+  const composer = document.getElementById("composer");
+  if (!c) { header.innerHTML = ""; thread.innerHTML = ""; composer.innerHTML = ""; return; }
+  const ch = channelOf(c.channelId);
+
+  header.innerHTML = `
+    <div class="flex items-center justify-between border-b border-slate-100 px-5 py-3.5">
+      <div class="flex items-center gap-3">
+        <div class="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-600">${c.initials}</div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h3 class="text-sm font-semibold text-slate-900">${c.name}</h3>
+            <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600">${chIcon(ch, ch.provider === "CLOUD_API" ? "text-blue-600" : "text-green-600")} ${ch.label}</span>
+          </div>
+          <p class="text-xs text-slate-400">${c.phone}</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3 text-slate-400"><i class="ph ph-user-circle text-2xl"></i></div>
+    </div>`;
+
+  thread.innerHTML = c.msgs.map(m => {
+    if (m.dir === "in") {
+      return `
+      <div class="mb-2 flex max-w-[80%] items-end gap-2">
+        <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-semibold text-slate-600">${c.initials}</div>
+        <div>
+          <div class="rounded-2xl rounded-bl-sm bg-white px-4 py-2 text-sm text-slate-700 shadow-sm">${m.text}</div>
+          <span class="ml-1 text-[10px] text-slate-400">${timeOf(m)}</span>
+        </div>
+      </div>`;
+    }
+    const via = m.by ? channelOf(m.by) : null;
+    const viaTag = via ? `<span class="mr-1 inline-flex items-center gap-0.5 text-[10px] text-white/70">${chIcon(via, "text-white/80")} ${via.label}</span>` : "";
+    return `
+    <div class="mb-2 flex max-w-[80%] flex-col items-end">
+      <div class="whitespace-pre-line rounded-2xl rounded-br-sm bg-green-500 px-4 py-2 text-sm text-white shadow-sm">${m.text}</div>
+      <span class="mt-0.5 mr-1 flex items-center text-[10px] text-slate-400">${viaTag} ${timeOf(m)} <i class="ph-fill ph-checks ml-0.5 text-blue-500"></i></span>
+    </div>`;
+  }).join("");
+  thread.scrollTop = thread.scrollHeight;
+
+  // ★ Composer with the inline channel selector
+  const from = channelOf(state.replyFrom);
+  composer.innerHTML = `
+    <div class="mb-3 flex gap-2">
+      <button class="flex items-center gap-1 rounded-md bg-slate-900 px-3 py-1.5 text-xs text-white"><i class="ph-fill ph-lightning"></i> Balas</button>
+      <button class="flex items-center gap-1 rounded-md bg-amber-50 px-3 py-1.5 text-xs text-amber-700"><i class="ph ph-note-pencil"></i> Catatan Tim</button>
+      <span class="self-center text-[11px] text-slate-400">Ketik <kbd class="rounded border border-slate-200 bg-slate-50 px-1 font-mono">/</kbd> untuk template</span>
+    </div>
+    <div class="flex items-end gap-2 rounded-xl border border-slate-200 bg-slate-50 p-2 transition-all focus-within:border-green-300 focus-within:ring-2 focus-within:ring-green-100">
+      <button class="shrink-0 p-2 text-slate-400 hover:text-slate-600"><i class="ph ph-smiley text-xl"></i></button>
+      <button id="selBtn" onclick="openMenu(event)"
+        class="flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-white transition ${from.provider === "CLOUD_API" ? "bg-blue-600" : "bg-green-600"}"
+        title="Saluran yang dipakai membalas">
+        ${chIcon(from, "text-white")} ${from.label} <i class="ph ph-caret-down text-[10px] opacity-70"></i>
+      </button>
+      <textarea id="draft" rows="1" onkeydown="onSendKey(event)"
+        placeholder="Balas ke ${c.phone}… (ketik / untuk template)"
+        class="max-h-32 w-full resize-none border-none bg-transparent py-2 text-sm text-slate-700 outline-none placeholder-slate-400 focus:outline-none"></textarea>
+      <div class="flex shrink-0 gap-1 pb-1">
+        <button class="p-2 text-slate-400 hover:text-slate-600"><i class="ph ph-paperclip text-xl"></i></button>
+        <button onclick="mockSend()" class="flex items-center justify-center rounded-lg bg-green-500 p-2 text-white transition hover:bg-green-600"><i class="ph-fill ph-paper-plane-right text-xl"></i></button>
+      </div>
+    </div>
+    <p id="windowHint" class="mt-1.5 hidden items-center gap-1 pl-11 text-[11px] text-amber-600">
+      <i class="ph ph-warning"></i> Jendela 24 jam ${from.label} sudah lewat - balasan bebas hanya bisa dikirim dari saluran lain, atau kirim template Meta.
+    </p>`;
+
+  // Mock: Resmi (Cloud API) is outside the 24h window in this demo
+  if (state.replyFrom === "cld1") {
+    const hint = document.getElementById("windowHint");
+    hint.classList.remove("hidden"); hint.classList.add("flex");
+  }
+}
+
+// ══════════ Selector popover ══════════
+function openMenu(e) {
+  e.stopPropagation();
+  const menu = document.getElementById("chMenu");
+  const r = e.currentTarget.getBoundingClientRect();
+  menu.style.top = (r.bottom + 6) + "px";
+  menu.style.left = Math.min(r.left, window.innerWidth - 270) + "px";
+  menu.innerHTML = `
+    <p class="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Kirim dari saluran</p>
+    ${channels.map(c => {
+      const active = c.id === state.replyFrom;
+      const blocked = c.provider === "CLOUD_API"; // mock window state
+      return `
+      <button onclick="chooseCh('${c.id}')" class="flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left hover:bg-slate-50">
+        <span class="flex items-center gap-2 text-sm text-slate-700">${chIcon(c, c.provider === "CLOUD_API" ? "text-blue-600" : "text-green-600")} ${c.label}
+          <span class="font-mono text-[10px] text-slate-400">${c.phone}</span>
+        </span>
+        <span class="flex items-center gap-1.5">
+          ${blocked ? `<span class="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">24 jam tutup</span>` : ""}
+          ${active ? `<i class="ph-fill ph-check text-green-600"></i>` : ""}
+        </span>
+      </button>`;
+    }).join("")}
+  `;
+  menu.classList.remove("hidden");
+}
+document.addEventListener("click", () => document.getElementById("chMenu").classList.add("hidden"));
+function chooseCh(id) {
+  state.replyFrom = id;
+  document.getElementById("chMenu").classList.add("hidden");
+  renderChat();
+  toast(`Balasan akan dikirim dari ${channelOf(id).label}`);
+}
+
+// ══════════ Send (mock) ══════════
+function onSendKey(e) {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); mockSend(); }
+}
+function mockSend() {
+  const ta = document.getElementById("draft");
+  const text = ta.value.trim();
+  if (!text) return;
+  const c = convs.find(x => x.id === state.selectedId);
+  c.msgs.push({ dir: "out", text, at: "now", by: state.replyFrom });
+  c.last = "Anda: " + text; c.lastAt = "now"; c.unread = 0;
+  ta.value = "";
+  renderList(); renderChat();
+  toast(`Terkirim dari ${channelOf(state.replyFrom).label}`);
+}
+
+// ══════════ Toast ══════════
+let toastTimer;
+function toast(msg) {
+  const t = document.getElementById("toast");
+  document.getElementById("toastMsg").textContent = msg;
+  t.classList.remove("hidden"); t.classList.add("flex");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.classList.add("hidden"); t.classList.remove("flex"); }, 2200);
+}
+
+// ══════════ Wire + boot ══════════
+document.getElementById("search").addEventListener("input", (e) => { state.search = e.target.value; render(); });
+function render() { renderTabs(); renderPills(); renderList(); renderChat(); }
+// Logged-in staff: Staff A. Note c6 is assigned to Staff B - it must NOT
+// appear in Staff A's Ditugaskan tab (per-account scoping), but still shows
+// under Semua + the BAILEYS pill when not filtered by tab... only via pills
+// on the unassigned/assigned tabs. Tab scope wins.
+render();
+</script>
+</body>
+</html>
