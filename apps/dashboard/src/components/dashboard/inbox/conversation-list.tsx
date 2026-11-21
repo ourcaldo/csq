@@ -53,6 +53,9 @@ type ConversationListProps = {
   channels: ChannelPill[];
   channelFilter: string;
   onChannelChange: (channelId: string) => void;
+  /** Tab-scoped, un-channel-filtered list - the base for pill badge counts
+   * (counting from the filtered list made other pills show 0). */
+  badgeItems: ConversationListItem[];
 };
 
 type ConversationRowProps = {
@@ -189,6 +192,7 @@ export function ConversationList({
   channels,
   channelFilter,
   onChannelChange,
+  badgeItems,
 }: ConversationListProps) {
   function submitSearch(e: FormEvent) {
     e.preventDefault();
@@ -294,12 +298,15 @@ export function ConversationList({
                   channelFilter === "" ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-500"
                 )}
               >
-                {items.length}
+                {badgeItems.length}
               </span>
             </button>
             {channels.map((ch, i) => {
               const active = channelFilter === ch.id;
-              const count = items.filter((c) => c.channelId === ch.id).length;
+              // Count from the tab-scoped, un-channel-filtered set - NOT from
+              // `items`, which is already narrowed by the active channel
+              // filter (that made every other pill count 0).
+              const count = badgeItems.filter((c) => c.channelId === ch.id).length;
               // Distinct color per Baileys channel so two personal numbers
               // are distinguishable at a glance; Cloud API stays blue.
               const iconCls =

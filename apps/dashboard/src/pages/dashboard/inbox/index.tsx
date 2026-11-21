@@ -85,14 +85,16 @@ export default function InboxPage({ apiMediaBase }: InboxPageProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.query.c]);
 
-  // Server-side filters (status + tag + channel) are appended to the API URL
-  // so the list reflects them directly; tab/search still filter client-side
-  // on top.
+  // Server-side filters (status + tag + staff) are appended to the API URL
+  // so the list reflects them directly; tab/search/channel filter client-side
+  // on top. PRD 28 Part A fix: the channel filter must NOT hit the server,
+  // because the pills need the unfiltered per-channel counts - filtering the
+  // query made every non-active pill count 0 and "Semua" show the filtered
+  // subset instead of the total.
   const conversationsUrl =
     `/api/dashboard/inbox/conversations?pageSize=100` +
     (status ? `&status=${status}` : "") +
     (tagId ? `&tagId=${tagId}` : "") +
-    (channelId ? `&channelId=${channelId}` : "") +
     (assigneeUserId ? `&assigneeUserId=${assigneeUserId}` : "");
   const { data, loading, error, refresh } = usePolledApi<ListResult<ConversationListItem>>(
     conversationsUrl,
@@ -116,7 +118,7 @@ export default function InboxPage({ apiMediaBase }: InboxPageProps) {
   const channels = channelsData?.items ?? [];
 
   const all = data?.items ?? [];
-  const filtered = all.filter((c) => {
+  const tabScoped = all.filter((c) => {
     // "Ditugaskan" scoping (owner request 2026-11-21): staff see only chats
     // assigned to THEMSELVES; the owner sees every human-assigned chat.
     if (tab === "assigned") {
@@ -124,6 +126,13 @@ export default function InboxPage({ apiMediaBase }: InboxPageProps) {
       if (!isOwner && c.assignee?.id !== myUserId) return false;
     }
     if (tab === "unassigned" && isHumanAssigned(c)) return false;
+    return true;
+  });
+  // PRD 28 Part A: channel filter is applied on top of the tab scope so the
+  // pill badges can count from the tab-scoped set (tabScoped), not from the
+  // already-channel-filtered list.
+  const filtered = tabScoped.filter((c) => {
+    if (channelId && c.channelId !== channelId) return false;
     if (search) {
       const q = search.toLowerCase();
       return (
@@ -294,6 +303,7 @@ export default function InboxPage({ apiMediaBase }: InboxPageProps) {
             setChannelId(v);
             setFiltersOpen(false);
           }}
+          badgeItems={tabScoped}
         />
 
         {selected ? (
