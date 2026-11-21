@@ -85,12 +85,26 @@ export default async function handler(
       if (invite.acceptedAt) {
         return respondError(res, "VALIDATION_ERROR", "Undangan ini sudah diterima.");
       }
+      // Frequency guard: a resend rewrites the token, which kills the link
+      // from the previous email. Rapid double-clicks must not invalidate the
+      // mail that is already in flight - 60 seconds between resends.
+      const RESEND_COOLDOWN_MS = 60_000;
+      if (Date.now() - invite.createdAt.getTime() < RESEND_COOLDOWN_MS) {
+        return respondError(
+          res,
+          "VALIDATION_ERROR",
+          "Tunggu 1 menit sebelum mengirim ulang undangan yang sama."
+        );
+      }
       const token = randomBytes(32).toString("hex");
       const updated = await prisma.teamInvite.update({
         where: { id: invite.id },
         data: {
           tokenHash: hashToken(token),
           expiresAt: new Date(Date.now() + INVITE_TTL_MS),
+          // createdAt doubles as "last sent": the Team page shows it as
+          // Dikirim and the 60s cooldown keys on it.
+          createdAt: new Date(),
         },
       });
       const inviteLink = `${process.env.NEXTAUTH_URL ?? ""}/accept-invite?token=${token}`;

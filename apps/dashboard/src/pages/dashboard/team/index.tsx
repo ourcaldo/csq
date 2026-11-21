@@ -1,8 +1,8 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import type { GetServerSideProps } from "next";
 import { useSession } from "next-auth/react";
-import { UserPlus, Users } from "@phosphor-icons/react";
+import { UserPlus, Users, CheckCircle } from "@phosphor-icons/react";
 import { withAuth } from "@csq/core/lib/auth";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
@@ -105,6 +105,16 @@ export default function TeamPage() {
   // Row-level mutation errors (role change / delete / campaign toggle) render
   // above the table; formError belongs to the invite dialog only.
   const [actionError, setActionError] = useState<string | null>(null);
+  // Per-row busy guards + success toast for invite cancel/resend: double
+  // clicks must not fire duplicate sends, and the owner must see the result.
+  const [resendingId, setResendingId] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [resendOk, setResendOk] = useState<string | null>(null);
+  useEffect(() => {
+    if (!resendOk) return;
+    const t = setTimeout(() => setResendOk(null), 2800);
+    return () => clearTimeout(t);
+  }, [resendOk]);
 
   const [toDelete, setToDelete] = useState<TeamMember | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -136,28 +146,42 @@ export default function TeamPage() {
   }
 
   async function onCancelInvite(id: string) {
+    if (cancellingId) return;
     setActionError(null);
+    setResendOk(null);
+    setCancellingId(id);
     try {
       await apiSend(`/api/dashboard/team/invites?id=${id}`, "DELETE");
+      setResendOk("Undangan dibatalkan.");
       invitesApi.refresh();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Gagal membatalkan undangan.");
+    } finally {
+      setCancellingId(null);
     }
   }
 
   async function onResendInvite(id: string) {
+    if (resendingId) return;
     setActionError(null);
+    setResendOk(null);
+    setResendingId(id);
     try {
       const result = await apiSend<InviteResult & { inviteLink?: string }>(
         `/api/dashboard/team/invites?id=${id}`,
         "POST"
       );
+      const email = invites.find((i) => i.id === id)?.email ?? "";
       if (!result.emailed && result.inviteLink) {
-        setCreated({ ...result, email: invites.find((i) => i.id === id)?.email ?? "", role: "STAFF" });
+        setCreated({ ...result, email, role: "STAFF" });
+      } else {
+        setResendOk(`Undangan ke ${email} terkirim ulang.`);
       }
       invitesApi.refresh();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Gagal mengirim ulang undangan.");
+    } finally {
+      setResendingId(null);
     }
   }
 
@@ -226,6 +250,12 @@ export default function TeamPage() {
       {loading && <StateNotice variant="loading" message="Memuat anggota tim…" />}
       {error && <StateNotice variant="error" message={error} />}
       {actionError && <StateNotice variant="error" message={actionError} />}
+      {resendOk && (
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3.5 py-2.5 text-sm font-medium text-green-700">
+          <CheckCircle size={16} weight="fill" className="text-green-600" />
+          {resendOk}
+        </div>
+      )}
 
       {!loading && !error && members.length === 0 && (
         <EmptyState
@@ -377,16 +407,18 @@ export default function TeamPage() {
                           <Button
                             variant="outline"
                             size="sm"
+                            disabled={resendingId !== null || cancellingId !== null}
                             onClick={() => void onResendInvite(inv.id)}
                           >
-                            Kirim Ulang
+                            {resendingId === inv.id ? "Mengirim..." : "Kirim Ulang"}
                           </Button>
                           <Button
                             variant="destructive"
                             size="sm"
+                            disabled={resendingId !== null || cancellingId !== null}
                             onClick={() => void onCancelInvite(inv.id)}
                           >
-                            Batalkan
+                            {cancellingId === inv.id ? "Membatalkan..." : "Batalkan"}
                           </Button>
                         </div>
                       )}
