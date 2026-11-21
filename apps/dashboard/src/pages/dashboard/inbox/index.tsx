@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import type { ChangeEvent } from "react";
 import type { GetServerSideProps } from "next";
 import { useRouter } from "next/router";
+import { useSession } from "next-auth/react";
 import { withAuth } from "@csq/core/lib/auth";
 import { apiSend, ApiError } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
@@ -51,6 +52,9 @@ type InboxPageProps = {
 
 export default function InboxPage({ apiMediaBase }: InboxPageProps) {
   const router = useRouter();
+  const { data: session } = useSession();
+  const myUserId = session?.user?.id ?? null;
+  const isOwner = session?.user?.role === "OWNER";
   const [tab, setTab] = useState<Tab>("unassigned");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -113,7 +117,12 @@ export default function InboxPage({ apiMediaBase }: InboxPageProps) {
 
   const all = data?.items ?? [];
   const filtered = all.filter((c) => {
-    if (tab === "assigned" && !isHumanAssigned(c)) return false;
+    // "Ditugaskan" scoping (owner request 2026-11-21): staff see only chats
+    // assigned to THEMSELVES; the owner sees every human-assigned chat.
+    if (tab === "assigned") {
+      if (!isHumanAssigned(c)) return false;
+      if (!isOwner && c.assignee?.id !== myUserId) return false;
+    }
     if (tab === "unassigned" && isHumanAssigned(c)) return false;
     if (search) {
       const q = search.toLowerCase();
@@ -125,8 +134,14 @@ export default function InboxPage({ apiMediaBase }: InboxPageProps) {
     return true;
   });
 
+  // Tab badges follow the same scope as the tab content.
+  const assignedCount = all.filter(
+    (c) =>
+      isHumanAssigned(c) &&
+      (isOwner || c.assignee?.id === myUserId)
+  ).length;
   const totals = {
-    assigned: all.filter(isHumanAssigned).length,
+    assigned: assignedCount,
     unassigned: all.filter((c) => !isHumanAssigned(c)).length,
   };
 
