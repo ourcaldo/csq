@@ -35,6 +35,9 @@ type DisplayItem = Item & {
   unreadCount: number;
   // PRD 27: contact profile photo URL (media service), null when absent.
   avatarUrl: string | null;
+  // PRD 28 Part A: the remembered reply-from override (null = follow the
+  // conversation's current channel).
+  replyChannelId: string | null;
 };
 type ListResult = {
   items: DisplayItem[];
@@ -168,6 +171,11 @@ export default async function handler(
             item.contact?.avatarMediaId
               ? `/api/dashboard/media/${item.contact.avatarMediaId}`
               : null;
+          // PRD 28 Part A: the remembered composer override, read straight
+          // off the settings Json (null when never set).
+          const convSettings = (item.settings as Record<string, unknown> | null) ?? {};
+          const replyChannelId =
+            typeof convSettings.replyChannelId === "string" ? convSettings.replyChannelId : null;
           return {
             ...rest,
             stage,
@@ -175,6 +183,7 @@ export default async function handler(
             lastMessage,
             unreadCount: unreadCounts.get(item.id) ?? 0,
             avatarUrl,
+            replyChannelId,
           };
         })
       );

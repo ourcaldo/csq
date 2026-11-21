@@ -7,7 +7,7 @@
 import { useEffect, useState } from "react";
 import { ClockCounterClockwise } from "@phosphor-icons/react";
 import type { CampaignRunRow } from "@csq/core/types/campaign";
-import { apiFetch } from "@/lib/api-client";
+import { apiFetch, apiSend } from "@/lib/api-client";
 import { formatDateTime } from "./format";
 import { cn } from "@csq/ui/lib/utils";
 
@@ -43,6 +43,8 @@ export function CampaignRunsView(props: {
   const [runs, setRuns] = useState<CampaignRunRow[] | null>(null);
   const [details, setDetails] = useState<Record<string, CampaignRunRow>>({});
   const [error, setError] = useState<string | null>(null);
+  const [resending, setResending] = useState<string | null>(null);
+  const [resendMsg, setResendMsg] = useState<string | null>(null);
 
   // Load the run list, then every run's recipient log - all upfront, so the
   // page renders fully expanded (no collapse, owner request 2026-11-19).
@@ -82,9 +84,38 @@ export function CampaignRunsView(props: {
     };
   }, [props.campaignId]);
 
+  async function resendFailed(runId: string) {
+    if (resending) return;
+    setResending(runId);
+    setResendMsg(null);
+    try {
+      const result = await apiSend<{ runId: string; queued: number }>(
+        `/api/dashboard/campaigns/${props.campaignId}/resend?runId=${runId}`,
+        "POST"
+      );
+      setResendMsg(`${result.queued} pesan gagal dimasukkan ke sesi kirim baru.`);
+      // Reload runs so the new session appears immediately.
+      const data = await apiFetch<{ runs: CampaignRunRow[] }>(
+        `/api/dashboard/campaigns/${props.campaignId}/runs`
+      );
+      setRuns(data.runs);
+      setDetails({});
+    } catch (err) {
+      setResendMsg(null);
+      setError(err instanceof Error ? err.message : "Gagal mengirim ulang.");
+    } finally {
+      setResending(null);
+    }
+  }
+
   return (
     <div className="space-y-6">
       {error && <p className="text-sm text-destructive">{error}</p>}
+      {resendMsg && (
+        <p className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs font-medium text-green-700">
+          {resendMsg}
+        </p>
+      )}
 
       {runs === null && (
         <div className="rounded-xl border border-slate-200 bg-white px-6 py-12 text-center shadow-sm">
@@ -137,6 +168,17 @@ export function CampaignRunsView(props: {
                 <span className="text-slate-400">
                   dari {r.counts?.total ?? 0} kontak
                 </span>
+                {/* PRD 28 Part D2: resend the FAILED rows of this run as a
+                    new session (owner-only server-side). */}
+                {(r.counts?.failed ?? 0) > 0 && (
+                  <button
+                    onClick={() => void resendFailed(r.id)}
+                    disabled={resending !== null}
+                    className="rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white shadow-xs transition hover:bg-green-700 disabled:opacity-50"
+                  >
+                    {resending === r.id ? "Menyiapkan..." : "Kirim Ulang yang Gagal"}
+                  </button>
+                )}
               </div>
             </div>
 

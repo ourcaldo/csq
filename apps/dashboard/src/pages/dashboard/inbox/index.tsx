@@ -288,6 +288,12 @@ export default function InboxPage({ apiMediaBase }: InboxPageProps) {
           filtersOpen={filtersOpen}
           onToggleFilters={() => setFiltersOpen((v) => !v)}
           onNewChat={openNewChat}
+          channels={channels}
+          channelFilter={channelId}
+          onChannelChange={(v) => {
+            setChannelId(v);
+            setFiltersOpen(false);
+          }}
         />
 
         {selected ? (
@@ -298,6 +304,9 @@ export default function InboxPage({ apiMediaBase }: InboxPageProps) {
             channelLabel={selected.channel.label || null}
             channelNumber={selected.channel.phoneNumber}
             avatarUrl={selected.avatarUrl}
+            conversationChannelId={selected.channelId}
+            replyChannelOverride={selected.replyChannelId}
+            channels={channels}
             aiActive={!selected.assignee && !!selected.assignedAgent}
             humanTakenOver={!!selected.assignee}
             mediaBase={apiMediaBase}

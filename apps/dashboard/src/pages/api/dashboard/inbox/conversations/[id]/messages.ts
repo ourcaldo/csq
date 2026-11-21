@@ -14,9 +14,12 @@ import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import { sendHumanReply } from "@csq/core/lib/inbox";
 
 // Human reply body only; `to` is the conversation's customerPhone (server-side
-// derived, never client-supplied).
+// derived, never client-supplied). `channelId` is the OPTIONAL reply-from
+// override (PRD 28 Part A) - the remembered composer selection; validated
+// tenant-side inside sendHumanReply.
 const sendReplySchema = z.object({
   body: z.string().min(1).max(4096),
+  channelId: z.string().uuid().optional(),
 });
 
 type ListResult = {
@@ -100,6 +103,7 @@ export default async function handler(
           tenantId,
           userId: session.user.id,
           body: parsed.data.body,
+          ...(parsed.data.channelId ? { channelOverrideId: parsed.data.channelId } : {}),
         });
         // Enrich with the author's display name (same shape as the GET).
         const enriched = {

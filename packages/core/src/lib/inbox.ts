@@ -452,6 +452,10 @@ export async function assignConversation(
 // send via the channel's provider, persist the outbound Message, and audit.
 // With `mediaId` + `filename` set, the reply is a document send: `body`
 // becomes the caption and the Message row is recorded with kind MEDIA.
+// PRD 28 Part A: `channelOverrideId` is the staff-picked reply channel
+// (stored on Conversation.settings.replyChannelId by the selector). It
+// must belong to the same tenant and be CONNECTED; the 24h window check
+// runs against the OVERRIDDEN channel (that is the channel that dials).
 export async function sendHumanReply(input: {
   conversationId: string;
   tenantId: string;
@@ -459,6 +463,7 @@ export async function sendHumanReply(input: {
   body: string;
   mediaId?: string;
   filename?: string;
+  channelOverrideId?: string;
 }): Promise<Message> {
   const conv = await prisma.conversation.findFirst({
     where: { id: input.conversationId, tenantId: input.tenantId },
@@ -468,8 +473,30 @@ export async function sendHumanReply(input: {
     throw new HttpError("NOT_FOUND", "Percakapan tidak ditemukan.");
   }
 
-  // 24h customer-service window - Cloud API only (FR-MS-003).
-  if (conv.channel.provider === "CLOUD_API") {
+  let sendChannel = conv.channel;
+  if (input.channelOverrideId && input.channelOverrideId !== conv.channelId) {
+    const override = await prisma.channel.findFirst({
+      where: {
+        id: input.channelOverrideId,
+        tenantId: input.tenantId,
+        status: "CONNECTED",
+      },
+    });
+    if (!override) {
+      throw new HttpError(
+        "VALIDATION_ERROR",
+        "Saluran pilihan tidak tersedia - pilih saluran lain atau gunakan saluran percakapan."
+      );
+    }
+    sendChannel = override;
+  }
+
+  // 24h customer-service window - Cloud API only (FR-MS-003). Checked
+  // against the channel that will actually dial. Message rows carry no
+  // channelId, so the window is measured on the conversation's last inbound
+  // (the override is a same-tenant, CONNECTED channel - an out-of-window
+  // pick still fails here rather than at the provider).
+  if (sendChannel.provider === "CLOUD_API") {
     const lastInbound = await prisma.message.findFirst({
       where: { conversationId: input.conversationId, direction: "INBOUND" },
       orderBy: { createdAt: "desc" },
@@ -490,7 +517,7 @@ export async function sendHumanReply(input: {
   // synchronous contract: throw on failure, Message row only on success.
   const outboxId = await enqueueOutbound({
     tenantId: input.tenantId,
-    channelId: conv.channel.id,
+    channelId: sendChannel.id,
     to: conv.customerPhone,
     ...(input.body ? { body: input.body } : {}),
     ...(input.mediaId ? { mediaId: input.mediaId } : {}),

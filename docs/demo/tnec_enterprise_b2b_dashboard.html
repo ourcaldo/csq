@@ -1,0 +1,1652 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TNEC — Dasbor Administrasi & Pengaturan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ==========================================================================
+   DESIGN TOKENS — ENTERPRISE CLEAN WHITE B2B STANDARD (Stripe / Linear / Vercel)
+   ========================================================================== */
+:root {
+  /* Core Backgrounds */
+  --bg-app: #FAFAFA;
+  --bg-surface: #FFFFFF;
+  --bg-subtle: #F4F4F5;
+  --bg-hover: #F8FAFC;
+
+  /* Borders & Hairlines */
+  --border-subtle: #E4E4E7;
+  --border-strong: #D4D4D8;
+  --border-focus: #18181B;
+
+  /* Typography */
+  --text-primary: #09090B;
+  --text-secondary: #52525B;
+  --text-tertiary: #71717A;
+  --text-placeholder: #A1A1AA;
+
+  /* Brand & Accents */
+  --brand-navy: #0F172A;
+  --brand-navy-hover: #1E293B;
+  --brand-accent: #1D4ED8;
+  --brand-accent-bg: #EFF6FF;
+  --brand-red: #DC2626;
+  --brand-red-bg: #FEF2F2;
+  --brand-amber: #D97706;
+  --brand-amber-bg: #FFFBEB;
+  --brand-emerald: #059669;
+  --brand-emerald-bg: #ECFDF5;
+  --brand-emerald-border: #A7F3D0;
+
+  /* Typography Scale */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Radii & Shadows */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-pill: 9999px;
+
+  --shadow-xs: 0 1px 2px rgba(9, 9, 11, 0.04);
+  --shadow-sm: 0 1px 3px rgba(9, 9, 11, 0.06), 0 1px 2px rgba(9, 9, 11, 0.04);
+  --shadow-modal: 0 20px 25px -5px rgba(9, 9, 11, 0.1), 0 8px 10px -6px rgba(9, 9, 11, 0.08);
+}
+
+/* ==========================================================================
+   RESET & BASE
+   ========================================================================== */
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, p { margin: 0; }
+button, input, select, textarea { font: inherit; color: inherit; }
+a { color: inherit; text-decoration: none; }
+
+:focus-visible {
+  outline: 2px solid var(--brand-accent);
+  outline-offset: 2px;
+}
+
+/* ==========================================================================
+   APP SHELL & CLEAN WHITE SIDEBAR
+   ========================================================================== */
+.shell {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+
+.sidebar {
+  flex: 0 0 248px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-subtle);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  z-index: 20;
+}
+
+/* Organization / Workspace Header */
+.workspace-header {
+  height: 56px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.workspace-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.workspace-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: var(--brand-navy);
+  color: #FFFFFF;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: -0.02em;
+}
+
+.workspace-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.workspace-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.workspace-env {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.env-badge {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+}
+
+/* Sidebar Navigation */
+.nav {
+  flex: 1;
+  padding: 12px 10px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav__group {
+  margin: 16px 10px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+
+.nav__link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+.nav__link svg {
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+  transition: color 0.12s ease;
+}
+
+.nav__link:hover {
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+}
+
+.nav__link:hover svg {
+  color: var(--text-secondary);
+}
+
+.nav__link[aria-current="page"] {
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.nav__link[aria-current="page"] svg {
+  color: var(--text-primary);
+}
+
+.nav__badge {
+  margin-left: auto;
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sidebar Footer */
+.sidebar__foot {
+  padding: 12px 14px;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-surface);
+}
+
+.avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-strong);
+  color: var(--text-primary);
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.account-meta {
+  min-width: 0;
+  flex: 1;
+}
+
+.account__name {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.account__role {
+  display: block;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+/* ==========================================================================
+   MAIN CONTENT AREA & TOP UTILITY BAR
+   ========================================================================== */
+.content-wrapper {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  height: 56px;
+  padding: 0 32px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.breadcrumbs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-tertiary);
+}
+
+.breadcrumbs span.current {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.kbd-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 10px;
+  background: var(--bg-app);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.kbd-hint kbd {
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 1px 4px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  color: var(--text-secondary);
+}
+
+.main {
+  flex: 1;
+  width: 100%;
+  padding: 28px 32px 80px;
+}
+
+/* ==========================================================================
+   PAGE HEADER & ENTERPRISE UNDERLINE TABS
+   ========================================================================== */
+.page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.page-title {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.page-desc {
+  margin-top: 4px;
+  font-size: 13.5px;
+  color: var(--text-secondary);
+}
+
+.page-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Standardized Underline Tabs (Linear / GitHub / Stripe pattern) */
+.underline-tabs {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 24px;
+  overflow-x: auto;
+}
+
+.tab-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 2px;
+  background: transparent;
+  border: 0;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s ease;
+}
+
+.tab-btn:hover {
+  color: var(--text-primary);
+}
+
+.tab-btn[aria-selected="true"] {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.tab-btn[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: var(--text-primary);
+  border-radius: 2px 2px 0 0;
+}
+
+.tab-count {
+  padding: 1px 6px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.tab-btn[aria-selected="true"] .tab-count {
+  background: var(--text-primary);
+  color: #FFFFFF;
+}
+
+/* ==========================================================================
+   CARDS / PANELS & DATA TABLES
+   ========================================================================== */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.panel {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xs);
+  overflow: hidden;
+}
+
+.panel__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.panel__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel__desc {
+  margin-top: 4px;
+  max-width: 680px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.panel__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 24px;
+  background: var(--bg-app);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.search-input-wrap {
+  position: relative;
+  width: 260px;
+  max-width: 100%;
+}
+
+.search-input-wrap svg {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+
+.input-sm {
+  width: 100%;
+  height: 32px;
+  padding: 0 10px 0 32px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--text-primary);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.input-sm::placeholder {
+  color: var(--text-placeholder);
+}
+
+.input-sm:focus {
+  outline: none;
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(24, 24, 27, 0.08);
+}
+
+.panel__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 24px;
+  background: var(--bg-app);
+  border-top: 1px solid var(--border-subtle);
+  font-size: 12.5px;
+  color: var(--text-secondary);
+}
+
+/* Enterprise Data Table */
+.table-wrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table th {
+  padding: 10px 24px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  background: var(--bg-app);
+  border-bottom: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--border-subtle);
+  vertical-align: middle;
+  color: var(--text-primary);
+}
+
+.table tbody tr {
+  transition: background-color 0.1s ease;
+}
+
+.table tbody tr:hover {
+  background-color: var(--bg-hover);
+}
+
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.cell-main {
+  display: block;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.cell-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+}
+
+.muted {
+  color: var(--text-tertiary);
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Monospace UUID / Token Box */
+.code-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.copy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  padding: 2px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.copy-btn:hover {
+  color: var(--text-primary);
+  background: rgba(0,0,0,0.05);
+}
+
+/* ==========================================================================
+   STANDARDIZED BUTTONS & STATUS BADGES
+   ========================================================================== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.12s ease;
+}
+
+.btn--primary {
+  background: var(--brand-navy);
+  color: #FFFFFF;
+  box-shadow: var(--shadow-xs);
+}
+
+.btn--primary:hover {
+  background: var(--brand-navy-hover);
+}
+
+.btn--secondary {
+  background: var(--bg-surface);
+  border-color: var(--border-subtle);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-xs);
+}
+
+.btn--secondary:hover {
+  background: var(--bg-app);
+  border-color: var(--border-strong);
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.btn--ghost:hover {
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+}
+
+.btn--sm {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.row-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.is-action {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* Semantic Status Pills with Indicator Dot */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  border: 1px solid transparent;
+}
+
+.badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.badge--active {
+  background: var(--brand-emerald-bg);
+  color: var(--brand-emerald);
+  border-color: var(--brand-emerald-border);
+}
+
+.badge--neutral {
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  border-color: var(--border-subtle);
+}
+
+.badge--warn {
+  background: var(--brand-amber-bg);
+  color: var(--brand-amber);
+  border-color: #FDE68A;
+}
+
+.badge--danger {
+  background: var(--brand-red-bg);
+  color: var(--brand-red);
+  border-color: #FECACA;
+}
+
+/* Role Tag */
+.role-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--radius-xs);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-subtle);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+/* Info Callout Banner */
+.callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--bg-app);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.callout svg {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+  margin-top: 2px;
+}
+
+/* ==========================================================================
+   MODAL DIALOG & TOAST NOTIFICATION
+   ========================================================================== */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(9, 9, 11, 0.4);
+  backdrop-filter: blur(2px);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  z-index: 50;
+}
+
+.modal {
+  width: 100%;
+  max-width: 460px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-modal);
+  overflow: hidden;
+  animation: modalIn 0.15s ease-out;
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.97) translateY(4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.modal__head {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modal__title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.modal__body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-label {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.form-hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.form-control {
+  height: 36px;
+  padding: 0 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: 13.5px;
+  color: var(--text-primary);
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(24, 24, 27, 0.08);
+}
+
+.modal__foot {
+  padding: 14px 20px;
+  background: var(--bg-app);
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: var(--brand-navy);
+  color: #FFFFFF;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-modal);
+  font-size: 13px;
+  font-weight: 500;
+  z-index: 60;
+  transform: translateY(16px);
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.2s ease;
+}
+
+.toast.show {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+/* ==========================================================================
+   RESPONSIVE
+   ========================================================================== */
+@media (max-width: 1024px) {
+  .shell { flex-direction: column; }
+  .sidebar { position: static; height: auto; flex-basis: auto; border-right: 0; border-bottom: 1px solid var(--border-subtle); }
+  .nav { flex-direction: row; flex-wrap: wrap; padding: 8px 16px; }
+  .nav__group, .sidebar__foot { display: none; }
+  .topbar { padding: 0 16px; }
+  .main { padding: 24px 16px 64px; }
+  .hide-sm { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <!-- ================= LEFT NAVIGATION SIDEBAR ================= -->
+  <aside class="sidebar">
+    <div class="workspace-header">
+      <div class="workspace-brand">
+        <div class="workspace-mark">TN</div>
+        <div class="workspace-info">
+          <span class="workspace-title">Titik Nol English</span>
+          <span class="workspace-env">Admin Console</span>
+        </div>
+      </div>
+      <span class="env-badge">Prod</span>
+    </div>
+
+    <nav class="nav" aria-label="Menu utama">
+      <a class="nav__link" href="#" onclick="return false;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+        <span>Ringkasan</span>
+      </a>
+      <a class="nav__link" href="#" onclick="return false;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span>Database Siswa</span>
+        <span class="nav__badge">2</span>
+      </a>
+      <a class="nav__link" href="#" onclick="return false;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="8" r="6"/><path d="M15.5 13 17 22l-5-3-5 3 1.5-9"/></svg>
+        <span>Sertifikat</span>
+      </a>
+
+      <p class="nav__group">Asesmen &amp; Tes</p>
+      <a class="nav__link" href="#" onclick="return false;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/></svg>
+        <span>Submission</span>
+      </a>
+      <a class="nav__link" href="#" onclick="return false;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+        <span>Placement Test</span>
+      </a>
+      <a class="nav__link" href="#" onclick="return false;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+        <span>Pre-test</span>
+      </a>
+      <a class="nav__link" href="#" onclick="return false;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+        <span>Post-test</span>
+      </a>
+      <a class="nav__link" href="#" onclick="return false;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="m12.83 2 8 13L12 22l-8.83-7 8-13z"/></svg>
+        <span>IELTS Mockup</span>
+      </a>
+
+      <p class="nav__group">Konfigurasi</p>
+      <a class="nav__link" href="#" data-nav="program">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
+        <span>Program &amp; Kelas</span>
+      </a>
+      <a class="nav__link" href="#" data-nav="pengaturan" aria-current="page">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><circle cx="12" cy="12" r="3"/><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/></svg>
+        <span>Pengaturan</span>
+      </a>
+    </nav>
+
+    <div class="sidebar__foot">
+      <span class="avatar">AP</span>
+      <div class="account-meta">
+        <span class="account__name">Aldo Pratama</span>
+        <span class="account__role">Administrator</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ================= MAIN CONTENT WRAPPER ================= -->
+  <div class="content-wrapper">
+    <!-- Top Utility Header -->
+    <header class="topbar">
+      <nav class="breadcrumbs" aria-label="Breadcrumb">
+        <span>Konfigurasi</span>
+        <span>/</span>
+        <span class="current" id="breadcrumb-page">Pengaturan</span>
+        <span>/</span>
+        <span class="current" id="breadcrumb-tab">Saluran WhatsApp</span>
+      </nav>
+      <div class="topbar-right">
+        <div class="kbd-hint">
+          <span>Pencarian cepat</span>
+          <kbd>⌘K</kbd>
+        </div>
+      </div>
+    </header>
+
+    <main class="main">
+      <!-- =================================================================
+           VIEW 1: PENGATURAN (Saluran WhatsApp & Staf)
+           ================================================================= -->
+      <div id="page-pengaturan">
+        <header class="page-head">
+          <div>
+            <h1 class="page-title">Pengaturan Sistem</h1>
+            <p class="page-desc">Kelola integrasi saluran WhatsApp per cabang serta hak akses akun staf internal.</p>
+          </div>
+        </header>
+
+        <!-- Standardized Underline Sub-Tabs -->
+        <div class="underline-tabs" role="tablist" aria-label="Bagian pengaturan">
+          <button class="tab-btn" role="tab" aria-selected="true" data-tab-group="pengaturan" data-tab-target="wa-channels">
+            Saluran WhatsApp
+            <span class="tab-count">4</span>
+          </button>
+          <button class="tab-btn" role="tab" aria-selected="false" data-tab-group="pengaturan" data-tab-target="staff-accounts">
+            Akun Staf
+            <span class="tab-count">3</span>
+          </button>
+        </div>
+
+        <!-- TAB 1.1: SALURAN WHATSAPP -->
+        <div class="stack" data-tab-panel="pengaturan" data-panel-id="wa-channels">
+          <div class="callout">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+            <div>
+              <strong>Mekanisme Failover Otomatis:</strong> Hasil placement test dikirim melalui ID saluran cabang yang dipilih siswa. Jika saluran cabang berstatus kosong, sistem otomatis merutekan pengiriman melalui saluran utama <strong>Pare</strong> agar notifikasi siswa tidak pernah terhambat.
+            </div>
+          </div>
+
+          <section class="panel">
+            <header class="panel__head">
+              <div>
+                <h2 class="panel__title">Konfigurasi Saluran AttCos per Cabang</h2>
+                <p class="panel__desc">Hubungkan UUID saluran WhatsApp Business API untuk masing-masing operasional cabang.</p>
+              </div>
+            </header>
+
+            <div class="table-wrap">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th scope="col">Cabang</th>
+                    <th scope="col">Status Rute</th>
+                    <th scope="col">ID Saluran AttCos</th>
+                    <th scope="col" class="hide-sm">Terakhir Diubah</th>
+                    <th scope="col" class="is-action">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>
+                      <span class="cell-main">Pare (Pusat)</span>
+                      <span class="cell-sub">Saluran utama &amp; cadangan global</span>
+                    </td>
+                    <td><span class="badge badge--active">Terhubung</span></td>
+                    <td class="tnum">
+                      <span class="code-pill">
+                        <span id="uuid-pare">6a94705f-8df3-47e7-9262-639637209fc5</span>
+                        <button class="copy-btn" type="button" title="Salin ID" onclick="copyText('6a94705f-8df3-47e7-9262-639637209fc5')">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                        </button>
+                      </span>
+                    </td>
+                    <td class="hide-sm">
+                      <span class="cell-main">Aldo Pratama</span>
+                      <span class="cell-sub">14 Nov 2026</span>
+                    </td>
+                    <td class="is-action">
+                      <div class="row-actions">
+                        <button class="btn btn--secondary btn--sm" type="button" onclick="openChannelModal('Pare (Pusat)', '6a94705f-8df3-47e7-9262-639637209fc5')">Konfigurasi</button>
+                        <button class="btn btn--ghost btn--sm" type="button" onclick="showToast('Pesan uji coba berhasil dikirim ke saluran Pare.')">Uji Kirim</button>
+                      </div>
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td>
+                      <span class="cell-main">Yogyakarta</span>
+                      <span class="cell-sub">Operasional cabang Jogja</span>
+                    </td>
+                    <td><span class="badge badge--warn">Fallback ke Pare</span></td>
+                    <td class="muted">— Belum dikonfigurasi</td>
+                    <td class="hide-sm muted">Belum pernah</td>
+                    <td class="is-action">
+                      <div class="row-actions">
+                        <button class="btn btn--secondary btn--sm" type="button" onclick="openChannelModal('Yogyakarta', '')">Konfigurasi</button>
+                        <button class="btn btn--ghost btn--sm" type="button" onclick="showToast('Uji kirim dikirim melalui saluran fallback Pare.')">Uji Kirim</button>
+                      </div>
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td>
+                      <span class="cell-main">Medan</span>
+                      <span class="cell-sub">Operasional cabang Medan</span>
+                    </td>
+                    <td><span class="badge badge--warn">Fallback ke Pare</span></td>
+                    <td class="muted">— Belum dikonfigurasi</td>
+                    <td class="hide-sm muted">Belum pernah</td>
+                    <td class="is-action">
+                      <div class="row-actions">
+                        <button class="btn btn--secondary btn--sm" type="button" onclick="openChannelModal('Medan', '')">Konfigurasi</button>
+                        <button class="btn btn--ghost btn--sm" type="button" onclick="showToast('Uji kirim dikirim melalui saluran fallback Pare.')">Uji Kirim</button>
+                      </div>
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td>
+                      <span class="cell-main">Online</span>
+                      <span class="cell-sub">Kelas daring nasional</span>
+                    </td>
+                    <td><span class="badge badge--warn">Fallback ke Pare</span></td>
+                    <td class="muted">— Belum dikonfigurasi</td>
+                    <td class="hide-sm muted">Belum pernah</td>
+                    <td class="is-action">
+                      <div class="row-actions">
+                        <button class="btn btn--secondary btn--sm" type="button" onclick="openChannelModal('Online', '')">Konfigurasi</button>
+                        <button class="btn btn--ghost btn--sm" type="button" onclick="showToast('Uji kirim dikirim melalui saluran fallback Pare.')">Uji Kirim</button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <footer class="panel__foot">
+              <span>Menampilkan 4 entitas cabang terdaftar</span>
+              <span>Provider API: AttCos Gateway v2</span>
+            </footer>
+          </section>
+        </div>
+
+        <!-- TAB 1.2: AKUN STAF -->
+        <div class="stack" data-tab-panel="pengaturan" data-panel-id="staff-accounts" hidden>
+          <section class="panel">
+            <header class="panel__head">
+              <div>
+                <h2 class="panel__title">Direktori Akun Staf &amp; Hak Akses</h2>
+                <p class="panel__desc">Administrator memiliki akses penuh; Admin mengelola operasional harian; Tutor hanya dapat mengakses data siswa pada kelas yang diampu.</p>
+              </div>
+              <button class="btn btn--primary" type="button" onclick="openStaffModal()">+ Tambah Staf</button>
+            </header>
+
+            <div class="panel__toolbar">
+              <div class="search-input-wrap">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                <input class="input-sm" type="search" placeholder="Cari nama atau email staf..." oninput="filterTable(this, 'staff-table')">
+              </div>
+              <span class="muted" style="font-size: 12px;">Akun dinonaktifkan secara soft-delete untuk menjaga jejak audit</span>
+            </div>
+
+            <div class="table-wrap">
+              <table class="table" id="staff-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Nama Lengkap</th>
+                    <th scope="col">Email Kerja</th>
+                    <th scope="col">Peran</th>
+                    <th scope="col" class="hide-sm">Sesi Terakhir</th>
+                    <th scope="col">Status</th>
+                    <th scope="col" class="is-action">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>
+                      <span class="cell-main">Aldo Pratama <span class="role-tag" style="margin-left:6px; font-size:11px;">Anda</span></span>
+                      <span class="cell-sub">ID: STF-001</span>
+                    </td>
+                    <td class="muted">aldo@titiknolenglish.com</td>
+                    <td><span class="role-tag">Administrator</span></td>
+                    <td class="hide-sm tnum muted">21 Nov 2026, 09:42</td>
+                    <td><span class="badge badge--active">Aktif</span></td>
+                    <td class="is-action"><span class="muted">—</span></td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <span class="cell-main">Ufan Abdurrahman</span>
+                      <span class="cell-sub">ID: STF-002</span>
+                    </td>
+                    <td class="muted">ufan@titiknolenglish.com</td>
+                    <td><span class="role-tag">Admin</span></td>
+                    <td class="hide-sm tnum muted">20 Nov 2026, 16:15</td>
+                    <td><span class="badge badge--active">Aktif</span></td>
+                    <td class="is-action">
+                      <div class="row-actions">
+                        <button class="btn btn--secondary btn--sm" type="button" onclick="showToast('Membuka pengaturan peran Ufan Abdurrahman')">Ubah Peran</button>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <span class="cell-main">Rani Pertiwi</span>
+                      <span class="cell-sub">ID: STF-003</span>
+                    </td>
+                    <td class="muted">rani@titiknolenglish.com</td>
+                    <td><span class="role-tag">Tutor</span></td>
+                    <td class="hide-sm muted">Belum pernah masuk</td>
+                    <td><span class="badge badge--danger">Nonaktif</span></td>
+                    <td class="is-action">
+                      <div class="row-actions">
+                        <button class="btn btn--secondary btn--sm" type="button" onclick="showToast('Akun Rani Pertiwi diaktifkan kembali')">Aktifkan</button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <footer class="panel__foot">
+              <span>Menampilkan 3 akun staf terdaftar</span>
+              <span>2 Aktif · 1 Nonaktif</span>
+            </footer>
+          </section>
+        </div>
+      </div>
+
+      <!-- =================================================================
+           VIEW 2: PROGRAM & KELAS (Program, Periode, Kelas & Tutor)
+           ================================================================= -->
+      <div id="page-program" hidden>
+        <header class="page-head">
+          <div>
+            <h1 class="page-title">Program &amp; Kurikulum</h1>
+            <p class="page-desc">Kelola katalog program belajar, jadwal periode akademik, serta penugasan kelas dan tutor.</p>
+          </div>
+          <div class="page-actions">
+            <button class="btn btn--secondary" type="button" onclick="showToast('Formulir tambah tutor dibuka')">+ Tambah Tutor</button>
+            <button class="btn btn--primary" type="button" onclick="showToast('Formulir tambah program dibuka')">+ Tambah Program</button>
+          </div>
+        </header>
+
+        <!-- Standardized Underline Sub-Tabs -->
+        <div class="underline-tabs" role="tablist" aria-label="Bagian program dan kelas">
+          <button class="tab-btn" role="tab" aria-selected="true" data-tab-group="program" data-tab-target="katalog-program">
+            Katalog Program
+            <span class="tab-count">4</span>
+          </button>
+          <button class="tab-btn" role="tab" aria-selected="false" data-tab-group="program" data-tab-target="periode-akademik">
+            Periode Akademik
+            <span class="tab-count">2</span>
+          </button>
+          <button class="tab-btn" role="tab" aria-selected="false" data-tab-group="program" data-tab-target="kelas-tutor">
+            Kelas &amp; Tutor
+            <span class="tab-count">6</span>
+          </button>
+        </div>
+
+        <!-- TAB 2.1: KATALOG PROGRAM -->
+        <div class="stack" data-tab-panel="program" data-panel-id="katalog-program">
+          <section class="panel">
+            <div class="panel__toolbar">
+              <div class="search-input-wrap">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+                <input class="input-sm" type="search" placeholder="Filter nama program atau lokasi..." oninput="filterTable(this, 'program-table')">
+              </div>
+              <span class="muted" style="font-size: 12px;">Harga dasar sebelum potongan periode</span>
+            </div>
+
+            <div class="table-wrap">
+              <table class="table" id="program-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Nama Program</th>
+                    <th scope="col">Opsi Durasi</th>
+                    <th scope="col" class="hide-sm">Biaya Dasar</th>
+                    <th scope="col" class="hide-sm">Tutor Pengampu</th>
+                    <th scope="col">Status</th>
+                    <th scope="col" class="is-action">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>
+                      <span class="cell-main">General English</span>
+                      <span class="cell-sub">Offline · Kampus Pare</span>
+                    </td>
+                    <td class="muted">1 bln, 3 bln, 6 bln</td>
+                    <td class="hide-sm tnum" style="font-weight:500;">Rp 1.500.000</td>
+                    <td class="hide-sm muted">Ufan, Sinta</td>
+                    <td><span class="badge badge--active">Aktif</span></td>
+                    <td class="is-action">
+                      <div class="row-actions">
+                        <button class="btn btn--secondary btn--sm" type="button" onclick="showToast('Mengedit program General English')">Edit</button>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <span class="cell-main">IELTS Preparation</span>
+                      <span class="cell-sub">Offline · Kampus Pare</span>
+                    </td>
+                    <td class="muted">1 bln, 2 bln</td>
+                    <td class="hide-sm tnum" style="font-weight:500;">Rp 2.000.000</td>
+                    <td class="hide-sm muted">Yosua</td>
+                    <td><span class="badge badge--active">Aktif</span></td>
+                    <td class="is-action">
+                      <div class="row-actions">
+                        <button class="btn btn--secondary btn--sm" type="button" onclick="showToast('Mengedit program IELTS Preparation')">Edit</button>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <span class="cell-main">IELTS Mockup Test</span>
+                      <span class="cell-sub">Online · Nasional</span>
+                    </td>
+                    <td class="muted">1 hari (Sesi Tes)</td>
+                    <td class="hide-sm tnum" style="font-weight:500;">Rp 150.000</td>
+                    <td class="hide-sm muted">Otomatis / Sistem</td>
+                    <td><span class="badge badge--active">Aktif</span></td>
+                    <td class="is-action">
+                      <div class="row-actions">
+                        <button class="btn btn--secondary btn--sm" type="button" onclick="showToast('Mengedit program IELTS Mockup Test')">Edit</button>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <span class="cell-main">TOEFL Prediction Class</span>
+                      <span class="cell-sub">Offline · Kampus Pare</span>
+                    </td>
+                    <td class="muted">1 bln</td>
+                    <td class="hide-sm tnum" style="font-weight:500;">Rp 1.750.000</td>
+                    <td class="hide-sm muted">Ufan</td>
+                    <td><span class="badge badge--neutral">Arsip</span></td>
+                    <td class="is-action">
+                      <div class="row-actions">
+                        <button class="btn btn--secondary btn--sm" type="button" onclick="showToast('Mengedit program TOEFL Prediction Class')">Edit</button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <footer class="panel__foot">
+              <span>Menampilkan 4 program kurikulum</span>
+              <span>3 Aktif · 1 Diarsipkan</span>
+            </footer>
+          </section>
+        </div>
+
+        <!-- TAB 2.2: PERIODE AKADEMIK -->
+        <div class="stack" data-tab-panel="program" data-panel-id="periode-akademik" hidden>
+          <section class="panel">
+            <header class="panel__head">
+              <div>
+                <h2 class="panel__title">Periode Intake Akademik</h2>
+                <p class="panel__desc">Tanggal mulai gelombang kelas baru (Periode 10 &amp; Periode 25 setiap bulan).</p>
+              </div>
+              <button class="btn btn--secondary btn--sm" type="button" onclick="showToast('Periode baru ditambahkan')">+ Buat Periode</button>
+            </header>
+            <div class="table-wrap">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th scope="col">Kode Periode</th>
+                    <th scope="col">Tanggal Mulai</th>
+                    <th scope="col">Tanggal Selesai</th>
+                    <th scope="col">Siswa Terdaftar</th>
+                    <th scope="col">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><span class="cell-main">Periode 25 — November 2026</span></td>
+                    <td class="tnum muted">25 Nov 2026</td>
+                    <td class="tnum muted">24 Des 2026</td>
+                    <td class="tnum">48 Siswa</td>
+                    <td><span class="badge badge--active">Pendaftaran Buka</span></td>
+                  </tr>
+                  <tr>
+                    <td><span class="cell-main">Periode 10 — November 2026</span></td>
+                    <td class="tnum muted">10 Nov 2026</td>
+                    <td class="tnum muted">09 Des 2026</td>
+                    <td class="tnum">62 Siswa</td>
+                    <td><span class="badge badge--neutral">Sedang Berjalan</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+
+        <!-- TAB 2.3: KELAS & TUTOR -->
+        <div class="stack" data-tab-panel="program" data-panel-id="kelas-tutor" hidden>
+          <section class="panel">
+            <header class="panel__head">
+              <div>
+                <h2 class="panel__title">Distribusi Rombongan Belajar &amp; Tutor</h2>
+                <p class="panel__desc">Penempatan kelas aktif dan kapasitas siswa per ruang belajar.</p>
+              </div>
+            </header>
+            <div class="table-wrap">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th scope="col">Nama Kelas</th>
+                    <th scope="col">Program</th>
+                    <th scope="col">Tutor Utama</th>
+                    <th scope="col">Kapasitas</th>
+                    <th scope="col">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><span class="cell-main">GE-Elementary A1</span><span class="cell-sub">Ruang Oxford 02</span></td>
+                    <td class="muted">General English</td>
+                    <td>Ufan Abdurrahman</td>
+                    <td class="tnum">14 / 15 Siswa</td>
+                    <td><span class="badge badge--active">Aktif</span></td>
+                  </tr>
+                  <tr>
+                    <td><span class="cell-main">IELTS-Intensive B2</span><span class="cell-sub">Ruang Cambridge 01</span></td>
+                    <td class="muted">IELTS Preparation</td>
+                    <td>Yosua</td>
+                    <td class="tnum">10 / 12 Siswa</td>
+                    <td><span class="badge badge--active">Aktif</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ================= MODAL: KONFIGURASI SALURAN WA ================= -->
+<div class="modal-backdrop" id="channel-modal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-channel-title">
+    <div class="modal__head">
+      <h3 class="modal__title" id="modal-channel-title">Konfigurasi Saluran WhatsApp</h3>
+      <button class="btn btn--ghost btn--sm" type="button" onclick="closeModal('channel-modal')" aria-label="Tutup">✕</button>
+    </div>
+    <form onsubmit="saveChannelConfig(event)">
+      <div class="modal__body">
+        <div class="form-field">
+          <label class="form-label">Cabang Operasional</label>
+          <input class="form-control" id="modal-branch-name" type="text" readonly style="background: var(--bg-app); color: var(--text-secondary);">
+        </div>
+        <div class="form-field">
+          <label class="form-label" for="modal-channel-uuid">ID Saluran AttCos (UUID)</label>
+          <input class="form-control" id="modal-channel-uuid" type="text" placeholder="Contoh: 6a94705f-8df3-47e7-9262-639637209fc5" style="font-family: var(--font-mono); font-size: 12.5px;">
+          <span class="form-hint">Kosongkan kolom ini jika cabang ingin menggunakan rute fallback ke saluran utama Pare.</span>
+        </div>
+      </div>
+      <div class="modal__foot">
+        <button class="btn btn--secondary" type="button" onclick="closeModal('channel-modal')">Batal</button>
+        <button class="btn btn--primary" type="submit">Simpan Perubahan</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ================= MODAL: TAMBAH STAF ================= -->
+<div class="modal-backdrop" id="staff-modal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-staff-title">
+    <div class="modal__head">
+      <h3 class="modal__title" id="modal-staff-title">Undang Akun Staf Baru</h3>
+      <button class="btn btn--ghost btn--sm" type="button" onclick="closeModal('staff-modal')" aria-label="Tutup">✕</button>
+    </div>
+    <form onsubmit="saveNewStaff(event)">
+      <div class="modal__body">
+        <div class="form-field">
+          <label class="form-label" for="staff-name">Nama Lengkap</label>
+          <input class="form-control" id="staff-name" type="text" required placeholder="Nama lengkap staf">
+        </div>
+        <div class="form-field">
+          <label class="form-label" for="staff-email">Email Institusi</label>
+          <input class="form-control" id="staff-email" type="email" required placeholder="nama@titiknolenglish.com">
+        </div>
+        <div class="form-field">
+          <label class="form-label" for="staff-role">Peran &amp; Hak Akses</label>
+          <select class="form-control" id="staff-role">
+            <option value="Admin">Admin — Operasional &amp; Pendaftaran</option>
+            <option value="Tutor">Tutor — Manajemen Kelas &amp; Nilai</option>
+            <option value="Administrator">Administrator — Akses Penuh Sistem</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal__foot">
+        <button class="btn btn--secondary" type="button" onclick="closeModal('staff-modal')">Batal</button>
+        <button class="btn btn--primary" type="submit">Kirim Undangan</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ================= TOAST NOTIFICATION ================= -->
+<div class="toast" id="toast" role="status" aria-live="polite">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34D399" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+  <span id="toast-msg">Perubahan tersimpan</span>
+</div>
+
+<script>
+(() => {
+  // 1. Sidebar Primary Navigation Switching
+  const pages = {
+    pengaturan: document.getElementById("page-pengaturan"),
+    program: document.getElementById("page-program")
+  };
+  const pageLabels = {
+    pengaturan: "Pengaturan",
+    program: "Program & Kelas"
+  };
+  const navLinks = document.querySelectorAll(".nav__link[data-nav]");
+  const breadcrumbPage = document.getElementById("breadcrumb-page");
+  const breadcrumbTab = document.getElementById("breadcrumb-tab");
+
+  function switchPage(pageKey) {
+    navLinks.forEach(link => {
+      if (link.dataset.nav === pageKey) {
+        link.setAttribute("aria-current", "page");
+      } else {
+        link.removeAttribute("aria-current");
+      }
+    });
+
+    Object.entries(pages).forEach(([key, el]) => {
+      el.hidden = key !== pageKey;
+    });
+
+    breadcrumbPage.textContent = pageLabels[pageKey];
+    const activeTab = pages[pageKey].querySelector('.tab-btn[aria-selected="true"]');
+    if (activeTab) {
+      breadcrumbTab.textContent = activeTab.childNodes[0].textContent.trim();
+    }
+  }
+
+  navLinks.forEach(link => {
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      switchPage(link.dataset.nav);
+    });
+  });
+
+  // 2. Underline Sub-Tab Switching
+  const tabButtons = document.querySelectorAll(".tab-btn[data-tab-group]");
+  tabButtons.forEach(btn => {
+    btn.addEventListener("click", () => {
+      const group = btn.dataset.tabGroup;
+      const target = btn.dataset.tabTarget;
+
+      document.querySelectorAll(`.tab-btn[data-tab-group="${group}"]`).forEach(b => {
+        b.setAttribute("aria-selected", b === btn ? "true" : "false");
+      });
+
+      document.querySelectorAll(`[data-tab-panel="${group}"]`).forEach(panel => {
+        panel.hidden = panel.dataset.panelId !== target;
+      });
+
+      breadcrumbTab.textContent = btn.childNodes[0].textContent.trim();
+    });
+  });
+
+  // 3. Real-time Table Filter
+  window.filterTable = (input, tableId) => {
+    const q = input.value.toLowerCase().trim();
+    const rows = document.querySelectorAll(`#${tableId} tbody tr`);
+    rows.forEach(row => {
+      const text = row.textContent.toLowerCase();
+      row.hidden = q !== "" && !text.includes(q);
+    });
+  };
+
+  // 4. Modals & Interactive Feedback
+  window.openChannelModal = (branchName, currentUuid) => {
+    document.getElementById("modal-branch-name").value = branchName;
+    document.getElementById("modal-channel-uuid").value = currentUuid;
+    document.getElementById("channel-modal").hidden = false;
+  };
+
+  window.openStaffModal = () => {
+    document.getElementById("staff-name").value = "";
+    document.getElementById("staff-email").value = "";
+    document.getElementById("staff-modal").hidden = false;
+  };
+
+  window.closeModal = (modalId) => {
+    document.getElementById(modalId).hidden = true;
+  };
+
+  window.saveChannelConfig = (e) => {
+    e.preventDefault();
+    const branch = document.getElementById("modal-branch-name").value;
+    closeModal("channel-modal");
+    showToast(`Konfigurasi saluran WhatsApp untuk ${branch} berhasil disimpan.`);
+  };
+
+  window.saveNewStaff = (e) => {
+    e.preventDefault();
+    const name = document.getElementById("staff-name").value;
+    closeModal("staff-modal");
+    showToast(`Undangan akses staf telah dikirim ke ${name}.`);
+  };
+
+  window.copyText = (text) => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+    }
+    showToast("ID saluran berhasil disalin ke papan klip.");
+  };
+
+  let toastTimer;
+  window.showToast = (message) => {
+    const toast = document.getElementById("toast");
+    document.getElementById("toast-msg").textContent = message;
+    toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      toast.classList.remove("show");
+    }, 3200);
+  };
+
+  // Close modal on backdrop click or Escape key
+  document.querySelectorAll(".modal-backdrop").forEach(backdrop => {
+    backdrop.addEventListener("click", (e) => {
+      if (e.target === backdrop) backdrop.hidden = true;
+    });
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      document.querySelectorAll(".modal-backdrop").forEach(m => m.hidden = true);
+    }
+  });
+})();
+</script>
+</body>
+</html>

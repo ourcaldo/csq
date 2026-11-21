@@ -18,6 +18,9 @@ import {
   UserCircle,
   Checks,
   FilePdf,
+  CaretDown,
+  CheckCircle,
+  WhatsappLogo,
 } from "@phosphor-icons/react";
 import { cn } from "@csq/ui/lib/utils";
 import { apiFetch, apiSend } from "@/lib/api-client";
@@ -36,6 +39,11 @@ type ChatPanelProps = {
   channelNumber: string | null;
   /** PRD 27: contact WhatsApp profile photo URL, null when absent. */
   avatarUrl: string | null;
+  /** PRD 28 Part A: the conversation's current channel (default reply-from)
+   * and the remembered override, plus all channels for the selector. */
+  conversationChannelId: string;
+  replyChannelOverride: string | null;
+  channels: { id: string; label: string; provider: "CLOUD_API" | "BAILEYS"; phoneNumber: string | null }[];
   aiActive: boolean; // an AI agent is assigned (not handed to a human)
   humanTakenOver: boolean; // a human staff member has taken over
   /** Origin that serves /api/media (the api service in the monorepo split). */
@@ -239,7 +247,7 @@ function TypingIndicator({ label }: { label: string }) {
   );
 }
 
-export function ChatPanel({ conversationId, customerName, customerPhone, channelLabel, channelNumber, avatarUrl, aiActive, humanTakenOver, mediaBase, onBack, onOpenDetails, onRead }: ChatPanelProps) {
+export function ChatPanel({ conversationId, customerName, customerPhone, channelLabel, channelNumber, avatarUrl, conversationChannelId, replyChannelOverride, channels, aiActive, humanTakenOver, mediaBase, onBack, onOpenDetails, onRead }: ChatPanelProps) {
   const { data: session } = useSession();
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -260,6 +268,28 @@ export function ChatPanel({ conversationId, customerName, customerPhone, channel
   const [templates, setTemplates] = useState<MessageTemplate[] | null>(null);
   const [templateSending, setTemplateSending] = useState(false);
   const [templateError, setTemplateError] = useState<string | null>(null);
+  // PRD 28 Part A: reply-from channel selector. Local state mirrors the
+  // server-persisted override (Conversation.settings.replyChannelId); the
+  // PATCH fires on change so the pick survives sessions and devices.
+  const [replyFrom, setReplyFrom] = useState<string>(
+    replyChannelOverride ?? conversationChannelId
+  );
+  const [chMenuOpen, setChMenuOpen] = useState(false);
+  useEffect(() => {
+    setReplyFrom(replyChannelOverride ?? conversationChannelId);
+  }, [conversationId, conversationChannelId, replyChannelOverride]);
+
+  async function pickReplyChannel(id: string) {
+    setReplyFrom(id);
+    setChMenuOpen(false);
+    try {
+      await apiSend(`/api/dashboard/inbox/conversations/${conversationId}`, "PATCH", {
+        replyChannelId: id === conversationChannelId ? null : id,
+      });
+    } catch {
+      // The override is a preference - a failed persist must not block chat.
+    }
+  }
   // First render of a conversation's messages vs a silent background refresh.
   const hadMessagesRef = useRef(false);
   // Last server-side message id we rendered; a silent refresh that grows the
@@ -391,7 +421,13 @@ export function ChatPanel({ conversationId, customerName, customerPhone, channel
         mode === "note"
           ? `/api/dashboard/inbox/conversations/${conversationId}/notes`
           : `/api/dashboard/inbox/conversations/${conversationId}/messages`;
-      const created = await apiSend<Message>(endpoint, "POST", { body });
+      // PRD 28 Part A: send through the selected channel when the staff
+      // overrode the default (matches sendHumanReply's channelOverrideId).
+      const payload =
+        mode === "reply" && replyFrom !== conversationChannelId
+          ? { body, channelId: replyFrom }
+          : { body };
+      const created = await apiSend<Message>(endpoint, "POST", payload);
       setMessages((prev) => (prev ?? []).map((m) => (m.id === pendingId ? created : m)));
       // Replying means the thread was read: advance the watermark so the
       // left-panel badge clears instead of sticking.
@@ -744,6 +780,67 @@ export function ChatPanel({ conversationId, customerName, customerPhone, channel
           <button className="shrink-0 p-2 text-slate-400 hover:text-slate-600" aria-label="Emoji">
             <Smiley size={20} />
           </button>
+
+          {/* PRD 28 Part A: reply-from channel selector chip. Shows which
+              number the reply will be sent from; click opens the popover. */}
+          {mode === "reply" && channels.length > 0 && (
+            <div className="relative shrink-0 self-center">
+              <button
+                type="button"
+                onClick={() => setChMenuOpen((v) => !v)}
+                title="Saluran yang dipakai membalas"
+                className={cn(
+                  "flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-white transition",
+                  (channels.find((c) => c.id === replyFrom)?.provider ?? "") === "CLOUD_API"
+                    ? "bg-blue-600"
+                    : "bg-green-600"
+                )}
+              >
+                {(channels.find((c) => c.id === replyFrom)?.provider ?? "") === "CLOUD_API" ? (
+                  <CheckCircle size={13} weight="fill" className="text-white" />
+                ) : (
+                  <WhatsappLogo size={13} weight="fill" className="text-white" />
+                )}
+                {channels.find((c) => c.id === replyFrom)?.label ?? "Saluran"}
+                <CaretDown size={10} className="opacity-70" />
+              </button>
+              {chMenuOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setChMenuOpen(false)} />
+                  <div className="absolute bottom-full left-0 z-20 mb-2 w-64 rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                    <p className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                      Kirim dari saluran
+                    </p>
+                    {channels.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => void pickReplyChannel(c.id)}
+                        className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left hover:bg-slate-50"
+                      >
+                        <span className="flex min-w-0 items-center gap-2 text-sm text-slate-700">
+                          {c.provider === "CLOUD_API" ? (
+                            <CheckCircle size={15} weight="fill" className="shrink-0 text-blue-600" />
+                          ) : (
+                            <WhatsappLogo size={15} weight="fill" className="shrink-0 text-green-600" />
+                          )}
+                          <span className="min-w-0">
+                            <span className="block truncate">{c.label}</span>
+                            {c.phoneNumber && (
+                              <span className="block font-mono text-[10px] text-slate-400">
+                                {c.phoneNumber}
+                              </span>
+                            )}
+                          </span>
+                        </span>
+                        {replyFrom === c.id && <CheckCircle size={14} weight="fill" className="shrink-0 text-green-600" />}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
           <textarea
             ref={textareaRef}
             rows={1}

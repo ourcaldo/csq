@@ -42,6 +42,16 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+// PRD 28 Part D1: engine-paused campaigns (suspension, plan, or a missing /
+// disconnected channel) show the reason under the status pill.
+function AutoPausedNote() {
+  return (
+    <p className="mt-1 text-[11px] font-medium text-amber-700">
+      Dijeda otomatis - saluran terputus. Sambungkan ulang saluran lalu aktifkan.
+    </p>
+  );
+}
+
 export function CampaignTable(props: {
   items: CampaignRow[];
   loading: boolean;
@@ -132,6 +142,7 @@ export function CampaignTable(props: {
                 </TableCell>
                 <TableCell className="px-4 py-3.5">
                   <StatusBadge status={c.status} />
+                  {c.autoPaused && c.status === "PAUSED" && <AutoPausedNote />}
                 </TableCell>
                 <TableCell className="px-4 py-3.5 text-right">
                   {props.canManage && (

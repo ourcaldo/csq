@@ -4,7 +4,7 @@ import { useRouter } from "next/router";
 import { CheckCircle, Plus } from "@phosphor-icons/react";
 import { withFeature } from "@csq/core/lib/auth";
 import { apiFetch, apiSend, ApiError } from "@/lib/api-client";
-import { useApi } from "@/hooks/use-api";
+import { usePolledApi } from "@/hooks/use-polled-api";
 import type { Stage, StageKind, Tag } from "@csq/core/types/inbox";
 import type { PipelineBoardResult, PipelineDeal } from "@csq/core/types/pipeline";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
@@ -94,7 +94,9 @@ export default function PipelinePage() {
   const [leadBusy, setLeadBusy] = useState(false);
   const [leadError, setLeadError] = useState<string | null>(null);
 
-  const pipelineApi = useApi<{ stages: Stage[] }>("/api/dashboard/pipeline");
+  // PRD 28 Part B: silent 8s poll - stage moves, deal changes, and new leads
+  // appear without a manual reload (no skeleton flash on refreshes).
+  const pipelineApi = usePolledApi<{ stages: Stage[] }>("/api/dashboard/pipeline", 8000);
 
   useEffect(() => {
     if (pipelineApi.data) setStages(pipelineApi.data.stages);

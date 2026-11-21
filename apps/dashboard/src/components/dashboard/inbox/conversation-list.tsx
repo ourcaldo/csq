@@ -10,7 +10,7 @@
 // must join rowsEqual, or it renders stale until a compared field changes.
 import { memo } from "react";
 import type { ChangeEvent, FormEvent } from "react";
-import { MagnifyingGlass, Faders, Plus, WhatsappLogo } from "@phosphor-icons/react";
+import { MagnifyingGlass, Faders, Plus, WhatsappLogo, CheckCircle } from "@phosphor-icons/react";
 import { cn } from "@csq/ui/lib/utils";
 import type { ConversationListItem } from "@csq/core/types/inbox";
 import { LoadingSkeleton } from "@/components/dashboard/loading-skeleton";
@@ -21,6 +21,15 @@ import {
 } from "@/components/dashboard/entitlements-context";
 
 type Tab = "assigned" | "unassigned";
+
+// PRD 28 Part A: channel pill data - the same shape the inbox page already
+// loads for the filter dropdown.
+export type ChannelPill = {
+  id: string;
+  label: string;
+  provider: "CLOUD_API" | "BAILEYS";
+  phoneNumber: string | null;
+};
 
 type ConversationListProps = {
   items: ConversationListItem[];
@@ -40,6 +49,10 @@ type ConversationListProps = {
   onToggleFilters: () => void;
   /** New chat (+) button: opens the Chat Baru dialog (page state). */
   onNewChat: () => void;
+  /** PRD 28 Part A: channels for the icon pills + current filter. */
+  channels: ChannelPill[];
+  channelFilter: string;
+  onChannelChange: (channelId: string) => void;
 };
 
 type ConversationRowProps = {
@@ -173,6 +186,9 @@ export function ConversationList({
   filtersOpen,
   onToggleFilters,
   onNewChat,
+  channels,
+  channelFilter,
+  onChannelChange,
 }: ConversationListProps) {
   function submitSearch(e: FormEvent) {
     e.preventDefault();
@@ -255,6 +271,71 @@ export function ConversationList({
             Belum ditugaskan
           </button>
         </div>
+
+        {/* PRD 28 Part A: channel pills - one-click filtering, always
+            visible, icon-only with hover tooltip (name + phone). Replaces
+            the Faders -> dropdown flow for channel switching. */}
+        {channels.length > 0 && (
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <button
+              onClick={() => onChannelChange("")}
+              title="Semua saluran"
+              className={cn(
+                "flex items-center gap-0.5 rounded-full border px-2 py-1 text-[11px] font-medium transition",
+                channelFilter === ""
+                  ? "border-green-300 bg-green-50 text-green-700"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+              )}
+            >
+              Semua
+              <span
+                className={cn(
+                  "rounded-full px-1 tabular-nums",
+                  channelFilter === "" ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-500"
+                )}
+              >
+                {items.length}
+              </span>
+            </button>
+            {channels.map((ch, i) => {
+              const active = channelFilter === ch.id;
+              const count = items.filter((c) => c.channelId === ch.id).length;
+              // Distinct color per Baileys channel so two personal numbers
+              // are distinguishable at a glance; Cloud API stays blue.
+              const iconCls =
+                ch.provider === "CLOUD_API"
+                  ? "text-blue-600"
+                  : ["text-green-600", "text-emerald-500", "text-teal-500", "text-lime-600"][i % 4];
+              return (
+                <button
+                  key={ch.id}
+                  onClick={() => onChannelChange(active ? "" : ch.id)}
+                  title={`${ch.label || (ch.provider === "CLOUD_API" ? "Resmi" : "Pribadi")}${ch.phoneNumber ? ` (${ch.phoneNumber})` : ""}`}
+                  className={cn(
+                    "flex items-center gap-0.5 rounded-full border px-2 py-1 text-[11px] font-medium transition",
+                    active
+                      ? "border-green-300 bg-green-50 text-green-700"
+                      : "border-slate-200 bg-white text-slate-600 hover:border-slate-300"
+                  )}
+                >
+                  {ch.provider === "CLOUD_API" ? (
+                    <CheckCircle size={14} weight="fill" className={active ? "text-blue-600" : iconCls} />
+                  ) : (
+                    <WhatsappLogo size={14} weight="fill" className={iconCls} />
+                  )}
+                  <span
+                    className={cn(
+                      "rounded-full px-1 tabular-nums",
+                      active ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-500"
+                    )}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* List */}

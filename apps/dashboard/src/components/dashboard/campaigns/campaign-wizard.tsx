@@ -3,7 +3,7 @@
 // numbered badge + dashed rule headers). Owns the form state, the audience
 // preview, media upload and the save call. Used by /dashboard/campaigns/baru
 // (create) and /dashboard/campaigns/[id] (edit).
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
 import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
@@ -91,6 +91,34 @@ export function CampaignWizard({
   const [dayOfMonth, setDayOfMonth] = useState(cfg?.dayOfMonth ?? 1);
   const [everyDays, setEveryDays] = useState(cfg?.everyDays ?? 7);
   const [delaySeconds, setDelaySeconds] = useState(campaign?.delaySeconds ?? 30);
+
+  // PRD 28 Part C (campaign edit loses data): the edit page mounts the
+  // wizard with campaign=null while the fetch is in flight, so the useState
+  // initializers above captured null and every field rendered blank. When
+  // the row arrives, populate every field once.
+  const populatedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!campaign || populatedRef.current === campaign.id) return;
+    populatedRef.current = campaign.id;
+    setName(campaign.name);
+    setChannelId(campaign.channelId);
+    setAudience(campaign.audience);
+    setCategoryIds(campaign.categoryIds);
+    setTagIds(campaign.tagIds);
+    setContactIds(campaign.contactIds);
+    setBody(campaign.body);
+    setImages(
+      campaign.imageIds.map((id) => ({ id, url: `${apiMediaBase}/api/media/${id}` }))
+    );
+    setScheduleKind(campaign.scheduleKind);
+    const c = campaign.scheduleConfig;
+    setOnceAt(c.startAt ? new Date(c.startAt).toISOString().slice(0, 16) : "");
+    setTime(c.time ?? "09:00");
+    setDayOfWeek(c.dayOfWeek ?? 1);
+    setDayOfMonth(c.dayOfMonth ?? 1);
+    setEveryDays(c.everyDays ?? 7);
+    setDelaySeconds(campaign.delaySeconds);
+  }, [campaign, apiMediaBase]);
 
   // Live audience preview (advisory count - the engine resolves fresh at fire).
   useEffect(() => {

@@ -75,6 +75,9 @@ export type ConversationListItem = {
   // PRD 27: contact WhatsApp profile photo (media service URL), null when
   // the contact has none stored - the UI falls back to initials.
   avatarUrl: string | null;
+  // PRD 28 Part A: remembered reply-from override (composer selector).
+  // null = follow the conversation's current channel (last inbound).
+  replyChannelId: string | null;
   createdAt: string;
   updatedAt: string;
   contact: Contact | null;

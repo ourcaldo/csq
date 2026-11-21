@@ -154,8 +154,10 @@ export default async function handler(
             "Tautan berlaku 7 hari dan hanya dapat dipakai sekali. Jika Anda tidak merasa diundang, abaikan email ini.",
         });
         emailed = true;
-      } catch {
-        // A failed send degrades to the manual relay path below (FEA-5).
+      } catch (err) {
+        // PRD 28 Part F: log the real reason. Silent email failures made the
+        // owner think invites "failed" while the rows existed.
+        console.error("[team/invite] email send failed:", err);
         emailed = false;
       }
     }

@@ -51,6 +51,16 @@ type InviteResult = {
   note?: string;
 };
 
+// Pending-invitation management (PRD 28 Part F): list + cancel + resend.
+type InviteView = {
+  id: string;
+  email: string;
+  status: "PENDING" | "EXPIRED" | "ACCEPTED";
+  createdAt: string;
+  expiresAt: string;
+  acceptedAt: string | null;
+};
+
 const PAGE_SIZE = 50;
 
 function formatDate(iso: string): string {
@@ -77,6 +87,10 @@ export default function TeamPage() {
 
   const url = `/api/dashboard/team?page=1&pageSize=${PAGE_SIZE}`;
   const { data, loading, error, refresh } = useApi<ListResult<TeamMember>>(url);
+
+  // Pending invitations (owner-only view).
+  const invitesApi = useApi<{ items: InviteView[] }>("/api/dashboard/team/invites");
+  const invites = invitesApi.data?.items ?? [];
 
   const [inviteOpen, setInviteOpen] = useState(false);
   const [name, setName] = useState("");
@@ -113,10 +127,37 @@ export default function TeamPage() {
       setEmail("");
       setCreated(result);
       refresh();
+      invitesApi.refresh();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Gagal mengirim undangan.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function onCancelInvite(id: string) {
+    setActionError(null);
+    try {
+      await apiSend(`/api/dashboard/team/invites?id=${id}`, "DELETE");
+      invitesApi.refresh();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Gagal membatalkan undangan.");
+    }
+  }
+
+  async function onResendInvite(id: string) {
+    setActionError(null);
+    try {
+      const result = await apiSend<InviteResult & { inviteLink?: string }>(
+        `/api/dashboard/team/invites?id=${id}`,
+        "POST"
+      );
+      if (!result.emailed && result.inviteLink) {
+        setCreated({ ...result, email: invites.find((i) => i.id === id)?.email ?? "", role: "STAFF" });
+      }
+      invitesApi.refresh();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : "Gagal mengirim ulang undangan.");
     }
   }
 
@@ -292,6 +333,69 @@ export default function TeamPage() {
               })}
             </TableBody>
           </Table>
+        </div>
+      )}
+
+      {/* Pending invitations (PRD 28 Part F): owner sees every invite with
+          status, can cancel anytime, and resend expired/pending ones. */}
+      {isOwner && !loading && invites.length > 0 && (
+        <div className="mt-8">
+          <h2 className="mb-3 text-sm font-semibold text-slate-700">Undangan Tim</h2>
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="hidden sm:table-cell">Dikirim</TableHead>
+                  <TableHead className="hidden sm:table-cell">Berlaku sampai</TableHead>
+                  <TableHead className="text-right">Tindakan</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {invites.map((inv) => (
+                  <TableRow key={inv.id}>
+                    <TableCell className="font-medium">{inv.email}</TableCell>
+                    <TableCell>
+                      {inv.status === "PENDING" ? (
+                        <Badge variant="warning">Menunggu</Badge>
+                      ) : inv.status === "EXPIRED" ? (
+                        <Badge variant="secondary">Kedaluwarsa</Badge>
+                      ) : (
+                        <Badge variant="success">Diterima</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="hidden text-muted-foreground sm:table-cell">
+                      {formatDate(inv.createdAt)}
+                    </TableCell>
+                    <TableCell className="hidden text-muted-foreground sm:table-cell">
+                      {formatDate(inv.expiresAt)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {inv.status !== "ACCEPTED" && (
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => void onResendInvite(inv.id)}
+                          >
+                            Kirim Ulang
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => void onCancelInvite(inv.id)}
+                          >
+                            Batalkan
+                          </Button>
+                        </div>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       )}
 

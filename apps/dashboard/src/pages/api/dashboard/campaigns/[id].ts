@@ -148,6 +148,7 @@ function serialize(c: Campaign): CampaignRow {
     channelId: c.channelId,
     name: c.name,
     status: c.status,
+    autoPaused: c.autoPaused,
     audience: c.audience,
     categoryIds: c.categoryIds,
     tagIds: c.tagIds,

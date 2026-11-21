@@ -116,6 +116,35 @@ async function fireCampaign(campaign: Campaign): Promise<void> {
     return;
   }
 
+  // PRD 28 Part D1: a campaign whose channel is gone or disconnected must
+  // AUTO-PAUSE instead of firing a run where every recipient fails with
+  // channel_missing_or_disconnected. autoPaused so the list card can show
+  // "Dijeda otomatis - saluran terputus" and reactivation is one click
+  // after reconnecting.
+  const fireChannel = await prisma.channel.findUnique({
+    where: { id: campaign.channelId },
+  });
+  if (!fireChannel || fireChannel.status !== "CONNECTED") {
+    await prisma.campaign.update({
+      where: { id: campaign.id },
+      data: { status: "PAUSED", autoPaused: true },
+    });
+    await logAction({
+      tenantId: campaign.tenantId,
+      agentId: null,
+      action: "campaign.paused_channel",
+      entityType: "Campaign",
+      entityId: campaign.id,
+      approvalStatus: "NONE",
+      afterValue: {
+        reason: fireChannel
+          ? `Saluran ${fireChannel.label} terputus.`
+          : "Saluran kampanye sudah dihapus.",
+      },
+    });
+    return;
+  }
+
   const now = new Date();
   const tz = scheduleTz();
   const config = campaign.scheduleConfig as ScheduleConfig;

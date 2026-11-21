@@ -34,17 +34,19 @@ export default async function handler(
     if (req.method === "GET") {
       const token = strQuery(req.query, "token");
       if (!token) {
-        return respondError(res, "VALIDATION_ERROR", "Tautan undangan tidak valid.");
+        return respondError(res, "VALIDATION_ERROR", "Tautan undangan tidak valid - token tidak ditemukan di URL.");
       }
       const invite = await prisma.teamInvite.findUnique({
         where: { tokenHash: hashToken(token) },
       });
-      if (!invite || invite.acceptedAt || invite.expiresAt <= new Date()) {
-        return respondError(
-          res,
-          "VALIDATION_ERROR",
-          "Undangan tidak valid atau sudah kedaluwarsa."
-        );
+      if (!invite) {
+        return respondError(res, "NOT_FOUND", "Undangan tidak ditemukan - mungkin sudah dibatalkan atau tautannya tidak lengkap. Minta owner mengirim ulang undangan.");
+      }
+      if (invite.acceptedAt) {
+        return respondError(res, "VALIDATION_ERROR", "Undangan ini sudah pernah dipakai. Masuk dengan email dan password Anda, atau minta owner undangan baru.");
+      }
+      if (invite.expiresAt <= new Date()) {
+        return respondError(res, "VALIDATION_ERROR", "Undangan sudah kedaluwarsa (berlaku 7 hari). Minta owner mengirim ulang dari halaman Tim.");
       }
       return res.status(200).json(apiOk({ email: invite.email }));
     }
@@ -65,12 +67,14 @@ export default async function handler(
     const invite = await prisma.teamInvite.findUnique({
       where: { tokenHash: hashToken(parsed.data.token) },
     });
-    if (!invite || invite.acceptedAt || invite.expiresAt <= new Date()) {
-      return respondError(
-        res,
-        "VALIDATION_ERROR",
-        "Undangan tidak valid atau sudah kedaluwarsa."
-      );
+    if (!invite) {
+      return respondError(res, "NOT_FOUND", "Undangan tidak ditemukan - mungkin sudah dibatalkan atau tautannya tidak lengkap. Minta owner mengirim ulang undangan.");
+    }
+    if (invite.acceptedAt) {
+      return respondError(res, "VALIDATION_ERROR", "Undangan ini sudah pernah dipakai. Masuk dengan email dan password Anda, atau minta owner undangan baru.");
+    }
+    if (invite.expiresAt <= new Date()) {
+      return respondError(res, "VALIDATION_ERROR", "Undangan sudah kedaluwarsa (berlaku 7 hari). Minta owner mengirim ulang dari halaman Tim.");
     }
 
     const existing = await prisma.user.findUnique({ where: { email: invite.email } });

@@ -117,6 +117,9 @@ export type CampaignRow = {
   channelId: string;
   name: string;
   status: "DRAFT" | "ACTIVE" | "PAUSED" | "COMPLETED" | "ARCHIVED";
+  // PRD 28 Part D1: set when the engine paused the campaign itself
+  // (suspension, plan downgrade, or channel missing/disconnected).
+  autoPaused: boolean;
   audience: "ALL" | "CATEGORY" | "TAGS" | "MANUAL";
   categoryIds: string[];
   tagIds: string[];

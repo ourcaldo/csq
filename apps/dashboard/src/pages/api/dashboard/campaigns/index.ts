@@ -1,4 +1,4 @@
-import type { NextApiRequest, NextApiResponse } from "next";
+﻿import type { NextApiRequest, NextApiResponse } from "next";
 import type { Campaign } from "@prisma/client";
 import { getAuthSession } from "@csq/core/lib/auth";
 import { requireFeatureApi } from "@csq/core/lib/feature-guard";
@@ -186,13 +186,14 @@ export default async function handler(
   });
 }
 
-// Serialized client shape (Prisma Date → ISO via JSON).
+// Serialized client shape (Prisma Date to ISO via JSON).
 function serialize(c: Campaign): CampaignRow {
   return {
     id: c.id,
     channelId: c.channelId,
     name: c.name,
     status: c.status,
+    autoPaused: c.autoPaused,
     audience: c.audience,
     categoryIds: c.categoryIds,
     tagIds: c.tagIds,

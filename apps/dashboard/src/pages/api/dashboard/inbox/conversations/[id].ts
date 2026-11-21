@@ -24,12 +24,15 @@ type Detail = Prisma.ConversationGetPayload<{
   };
 }>;
 
-// PATCH body: any subset of status / assignment. assignedAgentId and
-// assigneeUserId are mutually exclusive (XOR enforced in assignConversation).
+// PATCH body: any subset of status / assignment / reply-channel override.
+// assignedAgentId and assigneeUserId are mutually exclusive (XOR enforced in
+// assignConversation). replyChannelId is the PRD 28 Part A remembered
+// composer selection: null clears it (follow last inbound again).
 const conversationPatchSchema = z.object({
   status: z.enum(["OPEN", "PENDING", "RESOLVED"]).optional(),
   assignedAgentId: z.string().uuid().nullable().optional(),
   assigneeUserId: z.string().uuid().nullable().optional(),
+  replyChannelId: z.string().uuid().nullable().optional(),
 });
 
 export default async function handler(
@@ -105,7 +108,7 @@ export default async function handler(
       if (!parsed.success) {
         return respondError(res, "VALIDATION_ERROR", parsed.error.message);
       }
-      const { status, assignedAgentId, assigneeUserId } = parsed.data;
+      const { status, assignedAgentId, assigneeUserId, replyChannelId } = parsed.data;
 
       const existing = await prisma.conversation.findFirst({
         where: { id, tenantId },
@@ -154,6 +157,27 @@ export default async function handler(
           await prisma.conversation.update({
             where: { id },
             data: { status },
+          });
+        }
+        // PRD 28 Part A: persist / clear the reply-channel override. Merge
+        // into the existing settings Json (session-close flags live there).
+        if (replyChannelId !== undefined) {
+          if (replyChannelId !== null) {
+            const ch = await prisma.channel.findFirst({
+              where: { id: replyChannelId, tenantId },
+              select: { id: true },
+            });
+            if (!ch) {
+              return respondError(res, "VALIDATION_ERROR", "Saluran tidak ditemukan dalam tenant ini.");
+            }
+          }
+          const merged = {
+            ...((existing.settings as Record<string, unknown> | null) ?? {}),
+            replyChannelId,
+          };
+          await prisma.conversation.update({
+            where: { id },
+            data: { settings: merged },
           });
         }
       } catch (err) {
