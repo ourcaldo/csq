@@ -18,7 +18,7 @@ export function AgentPicker(props: {
         value={props.value}
         onChange={(e) => props.onChange(e.target.value)}
         disabled={props.disabled}
-        className={cn(inputCls, "md:w-72")}
+        className={inputCls}
       >
         {props.agents.map((a) => (
           <option key={a.id} value={a.id}>
