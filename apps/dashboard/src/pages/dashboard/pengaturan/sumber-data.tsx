@@ -4,7 +4,7 @@
 // reset + save footer.
 import { useEffect, useState } from "react";
 import type { GetServerSideProps } from "next";
-import { DotsSixVertical } from "@phosphor-icons/react";
+import { ArrowDown, ArrowUp, DotsSixVertical } from "@phosphor-icons/react";
 import { withAuth } from "@csq/core/lib/auth";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
@@ -102,7 +102,7 @@ export default function PengaturanSumberDataPage() {
         {loading && <p className="text-sm text-slate-500">Memuat hierarki sumber...</p>}
         {error && <p className="text-sm text-red-600">{error}</p>}
         {saveError && <p className="mb-3 text-sm text-red-600">{saveError}</p>}
-        {saved && <p className="mb-3 text-sm font-medium text-emerald-700">Hierarki sumber data disimpan.</p>}
+        {saved && <p className="mb-3 text-sm font-medium text-green-700">Hierarki sumber data disimpan.</p>}
 
         {!loading && !error && (
           <>
@@ -120,7 +120,7 @@ export default function PengaturanSumberDataPage() {
                   {order.map((type, idx) => (
                     <tr key={type} className="hover:bg-slate-50/90">
                       <td className="py-3.5 font-mono text-xs font-semibold text-slate-500">
-                        <span className={cn("flex items-center gap-2", idx === 0 && "text-emerald-700")}>
+                        <span className={cn("flex items-center gap-2", idx === 0 && "text-green-700")}>
                           <DotsSixVertical size={14} className="text-slate-300" />
                           0{idx + 1}
                         </span>
@@ -128,7 +128,7 @@ export default function PengaturanSumberDataPage() {
                       <td className="py-3.5 font-medium text-slate-900">
                         {TYPE_LABEL[type]}
                         {idx === 0 && (
-                          <span className="ml-2 rounded bg-emerald-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-emerald-700">
+                          <span className="ml-2 rounded bg-green-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-green-700">
                             PRIMARY
                           </span>
                         )}
@@ -143,7 +143,7 @@ export default function PengaturanSumberDataPage() {
                             aria-label="Naikkan"
                             className="inline-flex h-7 w-7 items-center justify-center rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:pointer-events-none disabled:opacity-30"
                           >
-                            <i className="ph ph-arrow-up text-xs" />
+                            <ArrowUp size={12} className="text-slate-600" />
                           </button>
                           <button
                             type="button"
@@ -152,7 +152,7 @@ export default function PengaturanSumberDataPage() {
                             aria-label="Turunkan"
                             className="inline-flex h-7 w-7 items-center justify-center rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:pointer-events-none disabled:opacity-30"
                           >
-                            <i className="ph ph-arrow-down text-xs" />
+                            <ArrowDown size={12} className="text-slate-600" />
                           </button>
                         </div>
                       </td>
@@ -179,7 +179,7 @@ export default function PengaturanSumberDataPage() {
                 type="button"
                 onClick={() => void saveOrder()}
                 disabled={!dirty || saving}
-                className="rounded-md bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:pointer-events-none disabled:opacity-40"
+                className="rounded-md bg-green-600 px-4 py-2 text-xs font-semibold text-white hover:bg-green-700 disabled:pointer-events-none disabled:opacity-40"
               >
                 {saving ? "Menyimpan..." : "Simpan Urutan Prioritas"}
               </button>

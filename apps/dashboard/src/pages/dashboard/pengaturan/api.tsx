@@ -95,7 +95,7 @@ export default function PengaturanApiPage({ apiBaseUrl }: { apiBaseUrl: string }
           href="https://csq-docs.onrender.com"
           target="_blank"
           rel="noreferrer"
-          className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:underline"
+          className="inline-flex items-center gap-1 text-xs font-medium text-green-700 hover:underline"
         >
           <span>Referensi API v1</span>
           <ArrowUpRight size={12} />
@@ -111,12 +111,12 @@ export default function PengaturanApiPage({ apiBaseUrl }: { apiBaseUrl: string }
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Label kunci baru (contoh: Sinkronisasi POS Kasir)"
-          className="h-9 max-w-sm flex-1 rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15"
+          className="h-9 max-w-sm flex-1 rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/15"
         />
         <button
           type="submit"
           disabled={minting}
-          className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-md bg-emerald-600 px-4 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+          className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-md bg-green-600 px-4 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-50"
         >
           <Plus size={14} />
           {minting ? "Menerbitkan..." : "Terbitkan Kunci Baru"}
@@ -184,8 +184,8 @@ export default function PengaturanApiPage({ apiBaseUrl }: { apiBaseUrl: string }
                         Dicabut
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                      <span className="inline-flex items-center gap-1.5 text-xs font-medium text-green-700">
+                        <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
                         Aktif
                       </span>
                     )}

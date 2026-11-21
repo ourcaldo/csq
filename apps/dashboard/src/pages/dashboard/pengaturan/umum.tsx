@@ -21,6 +21,7 @@ type TenantInfo = {
   timezone?: string | null;
   currency?: string | null;
   legalName?: string | null;
+  logoMediaId?: string | null;
 };
 
 export default function PengaturanUmumPage({
@@ -45,6 +46,13 @@ export default function PengaturanUmumPage({
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  // Business logo (PRD 28 follow-up #5): uploaded through
+  // /api/dashboard/settings/logo, served via the authenticated media route.
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [logoBusy, setLogoBusy] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
+
+  const orgInitial = (session?.user?.name ?? tenantName ?? "U").trim().charAt(0).toUpperCase() || "U";
 
   useEffect(() => {
     if (!tenant) return;
@@ -54,7 +62,49 @@ export default function PengaturanUmumPage({
     setEmail(session?.user?.email ?? "");
     setTimezone(tenant.timezone ?? "Asia/Jakarta");
     setCurrency(tenant.currency ?? "IDR");
+    setLogoUrl(tenant.logoMediaId ? `/api/dashboard/media/${tenant.logoMediaId}` : null);
   }, [tenant, session, tenantName]);
+
+  async function uploadLogo(file: File) {
+    if (logoBusy) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setLogoError("Logo maksimal 2 MB.");
+      return;
+    }
+    setLogoBusy(true);
+    setLogoError(null);
+    try {
+      const res = await fetch("/api/dashboard/settings/logo", {
+        method: "POST",
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        body: file,
+      });
+      const data: { success?: boolean; data?: { logoUrl: string | null }; error?: { message?: string } } =
+        await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error?.message ?? "Gagal mengunggah logo.");
+      }
+      setLogoUrl(data.data?.logoUrl ?? null);
+    } catch (err) {
+      setLogoError(err instanceof Error ? err.message : "Gagal mengunggah logo.");
+    } finally {
+      setLogoBusy(false);
+    }
+  }
+
+  async function clearLogo() {
+    if (logoBusy) return;
+    setLogoBusy(true);
+    setLogoError(null);
+    try {
+      await apiSend("/api/dashboard/settings/logo", "DELETE");
+      setLogoUrl(null);
+    } catch (err) {
+      setLogoError(err instanceof Error ? err.message : "Gagal menghapus logo.");
+    } finally {
+      setLogoBusy(false);
+    }
+  }
 
   async function onSave(e: FormEvent) {
     e.preventDefault();
@@ -91,6 +141,60 @@ export default function PengaturanUmumPage({
       description="Kelola profil resmi perusahaan, kontak penanggung jawab, dan standar lokal untuk seluruh aktivitas workspace."
     >
       <form onSubmit={onSave} className="divide-y divide-slate-200">
+        {/* Row 0: business logo */}
+        <div className="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
+          <div className="md:col-span-4">
+            <span className="text-xs font-semibold text-slate-900">Logo Usaha</span>
+            <p className="mt-1 text-xs leading-relaxed text-slate-500">
+              Ditampilkan pada pengaturan workspace. Jika tidak diatur, logo CSQ bawaan yang dipakai.
+              JPEG/PNG/WebP, maksimal 2 MB.
+            </p>
+          </div>
+          <div className="md:col-span-8">
+            <div className="flex flex-wrap items-center gap-4">
+              {logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={logoUrl}
+                  alt="Logo usaha"
+                  className="h-14 w-14 rounded-lg border border-slate-200 bg-white object-contain p-1"
+                />
+              ) : (
+                <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-green-600 text-lg font-bold text-white">
+                  {orgInitial}
+                </div>
+              )}
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="inline-flex h-8 cursor-pointer items-center rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                  {logoBusy ? "Mengunggah..." : "Unggah Logo"}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    disabled={logoBusy}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) void uploadLogo(file);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+                {logoUrl && (
+                  <button
+                    type="button"
+                    onClick={() => void clearLogo()}
+                    disabled={logoBusy}
+                    className="inline-flex h-8 items-center rounded-md border border-red-200 bg-white px-3 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                  >
+                    Hapus Logo
+                  </button>
+                )}
+                {logoError && <p className="w-full text-xs text-red-600">{logoError}</p>}
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Row 1: identity */}
         <div className="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
           <div className="md:col-span-4">
@@ -110,7 +214,7 @@ export default function PengaturanUmumPage({
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="mt-1.5 h-9 w-full max-w-md rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15"
+                className="mt-1.5 h-9 w-full max-w-md rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/15"
               />
             </div>
             <div>
@@ -122,7 +226,7 @@ export default function PengaturanUmumPage({
                 type="text"
                 value={legalName}
                 onChange={(e) => setLegalName(e.target.value)}
-                className="mt-1.5 h-9 w-full max-w-md rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15"
+                className="mt-1.5 h-9 w-full max-w-md rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/15"
               />
             </div>
           </div>
@@ -177,7 +281,7 @@ export default function PengaturanUmumPage({
                 id="org-tz"
                 value={timezone}
                 onChange={(e) => setTimezone(e.target.value)}
-                className="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15"
+                className="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/15"
               >
                 <option value="Asia/Jakarta">Asia/Jakarta (WIB / UTC+07:00)</option>
                 <option value="Asia/Makassar">Asia/Makassar (WITA / UTC+08:00)</option>
@@ -192,7 +296,7 @@ export default function PengaturanUmumPage({
                 id="org-currency"
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value)}
-                className="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15"
+                className="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/15"
               >
                 <option value="IDR">IDR - Rupiah Indonesia (Rp)</option>
                 <option value="USD">USD - US Dollar ($)</option>
@@ -222,7 +326,7 @@ export default function PengaturanUmumPage({
                     title="Salin ID"
                     className="shrink-0 text-slate-400 hover:text-slate-800"
                   >
-                    <Copy size={12} className={copied ? "text-emerald-600" : ""} />
+                    <Copy size={12} className={copied ? "text-green-600" : ""} />
                   </button>
                 </dd>
               </div>
@@ -232,7 +336,7 @@ export default function PengaturanUmumPage({
               </div>
               <div>
                 <dt className="text-[11px] font-medium text-slate-400">Enkripsi Data</dt>
-                <dd className="mt-1 font-mono text-xs text-emerald-700">TLS - Aktif</dd>
+                <dd className="mt-1 font-mono text-xs text-green-700">TLS - Aktif</dd>
               </div>
             </dl>
           </div>
@@ -243,13 +347,13 @@ export default function PengaturanUmumPage({
           <div>
             {error && <p className="text-xs font-medium text-red-600">{error}</p>}
             {saved && !error && (
-              <p className="text-xs font-medium text-emerald-700">Pengaturan umum berhasil disimpan.</p>
+              <p className="text-xs font-medium text-green-700">Pengaturan umum berhasil disimpan.</p>
             )}
           </div>
           <button
             type="submit"
             disabled={saving}
-            className="rounded-md bg-emerald-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50"
+            className="rounded-md bg-green-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-green-700 disabled:opacity-50"
           >
             {saving ? "Menyimpan..." : "Simpan Perubahan"}
           </button>

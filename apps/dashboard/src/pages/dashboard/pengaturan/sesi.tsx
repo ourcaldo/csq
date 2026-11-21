@@ -89,7 +89,7 @@ export default function PengaturanSesiPage() {
                   type="checkbox"
                   checked={enabled}
                   onChange={onToggle}
-                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-600"
+                  className="mt-0.5 h-4 w-4 rounded border-slate-300 text-green-600 focus:ring-green-600"
                 />
                 <div className="text-xs">
                   <span className="font-semibold text-slate-900">
@@ -116,7 +116,7 @@ export default function PengaturanSesiPage() {
           </div>
           <div className="md:col-span-8">
             {formError && <p className="mb-3 text-sm text-red-600">{formError}</p>}
-            {saved && <p className="mb-3 text-sm font-medium text-emerald-700">Kebijakan penutupan sesi disimpan.</p>}
+            {saved && <p className="mb-3 text-sm font-medium text-green-700">Kebijakan penutupan sesi disimpan.</p>}
             <div className="flex flex-wrap items-center gap-2">
               <input
                 id="ac-minutes"
@@ -126,7 +126,7 @@ export default function PengaturanSesiPage() {
                 value={idleMinutes}
                 onChange={(e) => setIdleMinutes(e.target.value)}
                 disabled={!enabled}
-                className="h-9 w-28 rounded-md border border-slate-300 bg-white px-3 font-mono text-sm disabled:bg-slate-50 disabled:text-slate-400 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15"
+                className="h-9 w-28 rounded-md border border-slate-300 bg-white px-3 font-mono text-sm disabled:bg-slate-50 disabled:text-slate-400 focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/15"
               />
               <span className="text-xs text-slate-500">menit</span>
               <div className="ml-2 flex gap-1">
@@ -138,7 +138,7 @@ export default function PengaturanSesiPage() {
                     disabled={!enabled}
                     className={cn(
                       "rounded border border-slate-200 px-2.5 py-1.5 text-xs text-slate-600 hover:bg-slate-50 disabled:opacity-40",
-                      idleMinutes === String(m) && "border-emerald-300 bg-emerald-50 text-emerald-700"
+                      idleMinutes === String(m) && "border-green-300 bg-green-50 text-green-700"
                     )}
                   >
                     {m === 1440 ? "24 jam" : m === 240 ? "4 jam" : m === 60 ? "1 jam" : "30m"}
@@ -156,7 +156,7 @@ export default function PengaturanSesiPage() {
           <button
             type="submit"
             disabled={saving}
-            className="rounded-md bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+            className="rounded-md bg-green-600 px-4 py-2 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-50"
           >
             {saving ? "Menyimpan..." : "Simpan Kebijakan"}
           </button>

@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="id" class="antialiased">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Paket &amp; Kuota — CSQ Enterprise</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+          mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        },
+      }
+    }
+  }
+</script>
+<style>
+  body { font-feature-settings: "cv02", "cv03", "cv04", "cv11"; }
+  .nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.45rem 0.75rem;
+    border-radius: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: rgb(71 85 105);
+    transition: background-color 0.12s ease, color 0.12s ease;
+  }
+  .nav-link:hover {
+    background-color: rgb(248 250 252);
+    color: rgb(15 23 42);
+  }
+  .nav-link.active {
+    background-color: rgb(240 253 244);
+    color: rgb(21 128 61);
+    font-weight: 600;
+  }
+  .tab-btn {
+    position: relative;
+    padding: 0.65rem 0.25rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: rgb(100 116 139);
+    transition: color 0.15s ease;
+  }
+  .tab-btn:hover { color: rgb(15 23 42); }
+  .tab-btn.active {
+    color: rgb(15 23 42);
+    font-weight: 600;
+  }
+  .tab-btn.active::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    background-color: rgb(22 163 74);
+  }
+  .modal-backdrop { background: rgba(15, 23, 42, 0.45); backdrop-filter: blur(2px); }
+</style>
+</head>
+<body class="bg-white text-slate-900 selection:bg-emerald-100 selection:text-emerald-950">
+
+<!-- ══════════ Mobile Overlay ══════════ -->
+<div id="mobile-overlay" onclick="toggleSidebar(false)" class="modal-backdrop fixed inset-0 z-30 hidden md:hidden"></div>
+
+<!-- ══════════ Application Sidebar ══════════ -->
+<aside id="app-sidebar" class="fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 -translate-x-full flex-col border-r border-slate-200 bg-white transition-transform duration-200 md:translate-x-0">
+  <div class="flex h-14 items-center justify-between border-b border-slate-100 px-5">
+    <div class="flex items-center gap-2.5">
+      <div class="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-600 text-white">
+        <i class="ph-fill ph-chat-circle-dots text-base"></i>
+      </div>
+      <span class="text-lg font-bold tracking-tight text-slate-900">CSQ</span>
+    </div>
+    <button onclick="toggleSidebar(false)" aria-label="Tutup menu" class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 md:hidden">
+      <i class="ph ph-x text-base"></i>
+    </button>
+  </div>
+
+  <nav class="flex-1 space-y-5 overflow-y-auto px-3 py-4">
+    <div>
+      <p class="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Utama</p>
+      <div class="space-y-0.5">
+        <a href="#ringkasan" onclick="return false" class="nav-link"><i class="ph ph-chart-bar text-base text-slate-400"></i>Ringkasan</a>
+        <a href="#percakapan" onclick="return false" class="nav-link"><i class="ph ph-chat-circle-dots text-base text-slate-400"></i>Percakapan</a>
+        <a href="#tiket" onclick="return false" class="nav-link"><i class="ph ph-lifebuoy text-base text-slate-400"></i>Tiket</a>
+        <a href="#kampanye" onclick="return false" class="nav-link"><i class="ph ph-megaphone text-base text-slate-400"></i>Kampanye</a>
+        <a href="#template" onclick="return false" class="nav-link"><i class="ph ph-notepad text-base text-slate-400"></i>Template Pesan</a>
+        <a href="#saluran" onclick="return false" class="nav-link"><i class="ph ph-whatsapp-logo text-base text-slate-400"></i>Saluran</a>
+        <a href="#pipeline" onclick="return false" class="nav-link"><i class="ph ph-kanban text-base text-slate-400"></i>Manajemen Pipeline</a>
+        <a href="#kpi" onclick="return false" class="nav-link"><i class="ph ph-target text-base text-slate-400"></i>KPI</a>
+      </div>
+    </div>
+
+    <div>
+      <p class="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Data Bisnis</p>
+      <div class="space-y-0.5">
+        <a href="#produk" onclick="return false" class="nav-link"><i class="ph ph-package text-base text-slate-400"></i>Produk</a>
+        <a href="#inventaris" onclick="return false" class="nav-link"><i class="ph ph-stack text-base text-slate-400"></i>Inventaris</a>
+        <a href="#pesanan" onclick="return false" class="nav-link"><i class="ph ph-shopping-cart text-base text-slate-400"></i>Pesanan</a>
+        <a href="#kontak" onclick="return false" class="nav-link"><i class="ph ph-address-book text-base text-slate-400"></i>Kontak</a>
+        <a href="#tag" onclick="return false" class="nav-link"><i class="ph ph-tag text-base text-slate-400"></i>Tag</a>
+      </div>
+    </div>
+
+    <div>
+      <p class="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Pengetahuan &amp; Agent</p>
+      <div class="space-y-0.5">
+        <a href="#pengetahuan" onclick="return false" class="nav-link"><i class="ph ph-books text-base text-slate-400"></i>Pengetahuan</a>
+        <a href="#memori" onclick="return false" class="nav-link"><i class="ph ph-brain text-base text-slate-400"></i>Memori</a>
+        <a href="#sumber" onclick="return false" class="nav-link"><i class="ph ph-database text-base text-slate-400"></i>Sumber Data</a>
+        <a href="#agent" onclick="return false" class="nav-link"><i class="ph ph-robot text-base text-slate-400"></i>Agent</a>
+        <a href="#skenario" onclick="return false" class="nav-link"><i class="ph ph-flow-arrow text-base text-slate-400"></i>Skenario</a>
+        <a href="#approval" onclick="return false" class="nav-link"><i class="ph ph-seal-check text-base text-slate-400"></i>Approval</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="space-y-0.5 border-t border-slate-200 p-3">
+    <a href="#pengaturan" onclick="return false" class="nav-link"><i class="ph ph-gear text-base text-slate-400"></i>Pengaturan</a>
+    <a href="#tim" onclick="return false" class="nav-link"><i class="ph ph-users text-base text-slate-400"></i>Tim</a>
+    <a href="#kuota" onclick="return false" class="nav-link active"><i class="ph ph-wallet text-base text-emerald-600"></i>Paket &amp; Kuota</a>
+  </div>
+</aside>
+
+<!-- ══════════ Main Workspace ══════════ -->
+<div class="flex min-h-screen min-w-0 flex-col md:pl-64">
+
+  <!-- Top Utility Header -->
+  <header class="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur-xs md:px-8">
+    <div class="flex items-center gap-3">
+      <button onclick="toggleSidebar(true)" aria-label="Buka menu" class="rounded p-1.5 text-slate-600 hover:bg-slate-100 md:hidden">
+        <i class="ph ph-list text-lg"></i>
+      </button>
+      <div class="relative hidden sm:block">
+        <i class="ph ph-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400"></i>
+        <input id="global-cmd" type="text" placeholder="Cari atau ketik perintah… (⌘K)" class="h-8 w-64 rounded-md border border-slate-200 bg-slate-50 pl-8 pr-3 text-xs text-slate-900 placeholder-slate-400 transition focus:w-80 focus:border-slate-300 focus:bg-white focus:outline-none" />
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <!-- Quota Pill -->
+      <div class="hidden items-center gap-2 rounded-full border border-slate-200 bg-slate-50/70 px-3 py-1 text-xs sm:inline-flex">
+        <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+        <span class="text-slate-500">Kuota</span>
+        <span class="font-mono font-semibold text-slate-900">50%</span>
+      </div>
+      <button aria-label="Notifikasi" class="relative rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800">
+        <i class="ph ph-bell text-lg"></i>
+      </button>
+      <div class="h-4 w-px bg-slate-200"></div>
+      <div class="flex items-center gap-2">
+        <div class="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-600 text-xs font-semibold text-white">T</div>
+        <div class="hidden text-left lg:block">
+          <p class="text-xs font-semibold leading-none text-slate-900">Titik Nol English Course</p>
+          <p class="mt-0.5 font-mono text-[10px] leading-none text-slate-400">Owner</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Left-Aligned Enterprise Page Canvas -->
+  <main class="flex-1 px-4 py-7 md:px-8">
+    <div class="w-full max-w-6xl">
+
+      <!-- Page Header & Plan Actions -->
+      <div class="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-5">
+        <div>
+          <h1 class="text-xl font-semibold tracking-tight text-slate-900">Paket &amp; Kuota</h1>
+          <p class="mt-1 text-xs text-slate-500">Pantau laju konsumsi harian, alokasi kapasitas paket, dan kelola perpanjangan langganan.</p>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button type="button" onclick="toggleUpgradeDrawer()" id="btn-upgrade-toggle" class="inline-flex h-9 items-center gap-1.5 rounded-md bg-emerald-600 px-3.5 text-xs font-semibold text-white transition hover:bg-emerald-700">
+            <i class="ph ph-arrows-out-simple text-sm"></i>
+            <span>Bandingkan &amp; Upgrade Paket</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Inline Expandable Plan Tier Comparison (No Pop-up Modal) -->
+      <div id="plan-compare-drawer" class="hidden border-b border-slate-200 bg-slate-50/70 py-5 px-4 sm:px-5">
+        <div class="flex flex-wrap items-center justify-between gap-2 pb-4">
+          <div>
+            <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-900">Katalog Paket Langganan CSQ</h2>
+            <p class="mt-0.5 text-xs text-slate-500">Perubahan paket berlaku pro-rata atau pada awal siklus penagihan berikutnya.</p>
+          </div>
+          <button type="button" onclick="toggleUpgradeDrawer(false)" class="rounded p-1 text-slate-400 hover:bg-slate-200/70 hover:text-slate-700" aria-label="Tutup perbandingan paket">
+            <i class="ph ph-x text-base"></i>
+          </button>
+        </div>
+
+        <div class="overflow-x-auto bg-white border border-slate-200">
+          <table class="w-full text-left text-xs">
+            <thead>
+              <tr class="border-b border-slate-200 bg-slate-50/80 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                <th class="px-4 py-2.5">Spesifikasi Kuota</th>
+                <th class="px-4 py-2.5">Basic <span class="ml-1 rounded bg-emerald-100 px-1.5 py-0.5 font-mono text-[10px] text-emerald-800">Saat Ini</span></th>
+                <th class="px-4 py-2.5">Growth</th>
+                <th class="px-4 py-2.5">Enterprise</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200 text-slate-700">
+              <tr>
+                <td class="px-4 py-2.5 font-medium text-slate-900">Biaya Langganan / Bulan</td>
+                <td class="px-4 py-2.5 font-mono font-semibold text-slate-900">Rp 500.000</td>
+                <td class="px-4 py-2.5 font-mono font-semibold text-slate-900">Rp 1.250.000</td>
+                <td class="px-4 py-2.5 font-mono font-semibold text-slate-900">Rp 3.500.000</td>
+              </tr>
+              <tr>
+                <td class="px-4 py-2.5 font-medium text-slate-900">Kredit AI / Bulan</td>
+                <td class="px-4 py-2.5 font-mono">15.000 kredit</td>
+                <td class="px-4 py-2.5 font-mono">50.000 kredit</td>
+                <td class="px-4 py-2.5 font-mono">200.000 kredit</td>
+              </tr>
+              <tr>
+                <td class="px-4 py-2.5 font-medium text-slate-900">Monthly Active Users (MAU)</td>
+                <td class="px-4 py-2.5 font-mono">1.000 kontak</td>
+                <td class="px-4 py-2.5 font-mono">5.000 kontak</td>
+                <td class="px-4 py-2.5 font-mono">25.000 kontak</td>
+              </tr>
+              <tr>
+                <td class="px-4 py-2.5 font-medium text-slate-900">Kursi Staf &amp; Saluran WA</td>
+                <td class="px-4 py-2.5 font-mono">4 staf / 2 saluran</td>
+                <td class="px-4 py-2.5 font-mono">12 staf / 5 saluran</td>
+                <td class="px-4 py-2.5 font-mono">Unlimited staf / 15 saluran</td>
+              </tr>
+              <tr>
+                <td class="px-4 py-2.5 font-medium text-slate-900">Aksi</td>
+                <td class="px-4 py-2.5 font-mono text-[11px] text-slate-400">Paket Aktif</td>
+                <td class="px-4 py-2.5">
+                  <button type="button" onclick="requestPlanChange('Growth')" class="rounded bg-emerald-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-emerald-700">Ajukan Upgrade</button>
+                </td>
+                <td class="px-4 py-2.5">
+                  <button type="button" onclick="requestPlanChange('Enterprise')" class="rounded border border-slate-300 bg-white px-3 py-1 text-[11px] font-semibold text-slate-800 hover:bg-slate-50">Hubungi Account Manager</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <!-- SPLIT-PANE ENTERPRISE LEDGER (8-Col Telemetry + 4-Col Billing Rail)-->
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <div class="grid grid-cols-1 divide-y divide-slate-200 lg:grid-cols-12 lg:divide-x lg:divide-y-0">
+
+        <!-- LEFT PANE (8 Cols): Daily Burn Trend + Quota Allocation Ledger -->
+        <div class="py-6 lg:col-span-8 lg:pr-8">
+
+          <!-- Sub-Navigation Tabs -->
+          <div class="flex items-center justify-between border-b border-slate-200">
+            <div class="flex gap-6">
+              <button type="button" data-tab="usage" onclick="switchTab('usage')" class="tab-btn active">
+                Konsumsi &amp; Kuota
+              </button>
+              <button type="button" data-tab="invoices" onclick="switchTab('invoices')" class="tab-btn">
+                Riwayat Tagihan <span id="invoice-count-badge" class="ml-1 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-600">0</span>
+              </button>
+            </div>
+            <span class="hidden font-mono text-[11px] text-slate-400 sm:inline">Periode: 01 Nov – 30 Nov 2026</span>
+          </div>
+
+          <!-- TAB 1: PEMAKAIAN & KUOTA -->
+          <section id="panel-usage" class="tab-panel">
+
+            <!-- Minimalist 7-Day AI Credit Burn Trend (Inline SVG Spark-bars) -->
+            <div class="border-b border-slate-200 py-5">
+              <div class="flex flex-wrap items-baseline justify-between gap-2">
+                <div>
+                  <h2 class="text-xs font-semibold text-slate-900">Laju Pemakaian Kredit AI (7 Hari Terakhir)</h2>
+                  <p class="mt-0.5 text-[11px] text-slate-500">Rata-rata <span class="font-mono font-medium text-slate-700">6.4 kredit/hari</span> — estimasi pemakaian akhir bulan <span class="font-mono font-medium text-emerald-700">~192 kredit (1.3%)</span>.</p>
+                </div>
+                <span class="font-mono text-xs font-semibold text-slate-900">45 kredit <span class="font-normal text-slate-400">(7 hari)</span></span>
+              </div>
+
+              <div class="mt-4 grid grid-cols-7 items-end gap-2 pt-2">
+                <div class="flex flex-col items-center gap-1.5">
+                  <div class="flex h-12 w-full items-end rounded-xs bg-slate-100 p-0.5"><div class="w-full rounded-xs bg-emerald-500/80" style="height: 35%"></div></div>
+                  <span class="font-mono text-[10px] text-slate-400">15 Nov</span>
+                </div>
+                <div class="flex flex-col items-center gap-1.5">
+                  <div class="flex h-12 w-full items-end rounded-xs bg-slate-100 p-0.5"><div class="w-full rounded-xs bg-emerald-500/80" style="height: 55%"></div></div>
+                  <span class="font-mono text-[10px] text-slate-400">16 Nov</span>
+                </div>
+                <div class="flex flex-col items-center gap-1.5">
+                  <div class="flex h-12 w-full items-end rounded-xs bg-slate-100 p-0.5"><div class="w-full rounded-xs bg-emerald-500/80" style="height: 25%"></div></div>
+                  <span class="font-mono text-[10px] text-slate-400">17 Nov</span>
+                </div>
+                <div class="flex flex-col items-center gap-1.5">
+                  <div class="flex h-12 w-full items-end rounded-xs bg-slate-100 p-0.5"><div class="w-full rounded-xs bg-emerald-500/80" style="height: 80%"></div></div>
+                  <span class="font-mono text-[10px] text-slate-400">18 Nov</span>
+                </div>
+                <div class="flex flex-col items-center gap-1.5">
+                  <div class="flex h-12 w-full items-end rounded-xs bg-slate-100 p-0.5"><div class="w-full rounded-xs bg-emerald-500/80" style="height: 45%"></div></div>
+                  <span class="font-mono text-[10px] text-slate-400">19 Nov</span>
+                </div>
+                <div class="flex flex-col items-center gap-1.5">
+                  <div class="flex h-12 w-full items-end rounded-xs bg-slate-100 p-0.5"><div class="w-full rounded-xs bg-emerald-500/80" style="height: 60%"></div></div>
+                  <span class="font-mono text-[10px] text-slate-400">20 Nov</span>
+                </div>
+                <div class="flex flex-col items-center gap-1.5">
+                  <div class="flex h-12 w-full items-end rounded-xs bg-slate-100 p-0.5"><div class="w-full rounded-xs bg-emerald-600" style="height: 90%"></div></div>
+                  <span class="font-mono text-[10px] font-semibold text-slate-700">Hari ini</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Quota Allocation Ledger Table -->
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-sm">
+                <thead>
+                  <tr class="border-b border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                    <th class="py-3 pr-4">Metrik Sumber Daya</th>
+                    <th class="px-3 py-3">Konsumsi / Batas</th>
+                    <th class="w-40 px-3 py-3">Utilisasi</th>
+                    <th class="py-3 pl-3 text-right">Rincian</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200 border-b border-slate-200">
+                  <!-- Row 1: Kredit AI -->
+                  <tr class="hover:bg-slate-50/70">
+                    <td class="py-4 pr-4">
+                      <p class="text-xs font-semibold text-slate-900">Kredit AI</p>
+                      <p class="mt-0.5 text-[11px] text-slate-500">Inferensi model &amp; automasi</p>
+                    </td>
+                    <td class="px-3 py-4 font-mono text-xs whitespace-nowrap">
+                      <span class="font-semibold text-slate-900">67</span>
+                      <span class="text-slate-400"> / 15.000</span>
+                    </td>
+                    <td class="px-3 py-4">
+                      <div class="flex items-center gap-2">
+                        <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+                          <div class="h-full rounded-full bg-emerald-600" style="width: 2%"></div>
+                        </div>
+                        <span class="w-9 text-right font-mono text-[11px] text-slate-600">0.4%</span>
+                      </div>
+                    </td>
+                    <td class="py-4 pl-3 text-right font-mono text-[11px] text-slate-600">
+                      <div>Balasan AI: <strong class="text-slate-900">67</strong></div>
+                      <div class="text-slate-400">Skenario: 0</div>
+                    </td>
+                  </tr>
+
+                  <!-- Row 2: MAU -->
+                  <tr class="hover:bg-slate-50/70">
+                    <td class="py-4 pr-4">
+                      <p class="text-xs font-semibold text-slate-900">Monthly Active Users</p>
+                      <p class="mt-0.5 text-[11px] text-slate-500">Pengirim unik bulan ini</p>
+                    </td>
+                    <td class="px-3 py-4 font-mono text-xs whitespace-nowrap">
+                      <span class="font-semibold text-slate-900">22</span>
+                      <span class="text-slate-400"> / 1.000</span>
+                    </td>
+                    <td class="px-3 py-4">
+                      <div class="flex items-center gap-2">
+                        <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+                          <div class="h-full rounded-full bg-emerald-600" style="width: 3%"></div>
+                        </div>
+                        <span class="w-9 text-right font-mono text-[11px] text-slate-600">2.2%</span>
+                      </div>
+                    </td>
+                    <td class="py-4 pl-3 text-right text-[11px] text-slate-500">
+                      Nomor kontak unik
+                    </td>
+                  </tr>
+
+                  <!-- Row 3: Staf -->
+                  <tr class="hover:bg-slate-50/70">
+                    <td class="py-4 pr-4">
+                      <p class="text-xs font-semibold text-slate-900">Kursi Anggota Tim</p>
+                      <p class="mt-0.5 text-[11px] text-slate-500">Operator dashboard aktif</p>
+                    </td>
+                    <td class="px-3 py-4 font-mono text-xs whitespace-nowrap">
+                      <span class="font-semibold text-slate-900">1</span>
+                      <span class="text-slate-400"> / 4</span>
+                    </td>
+                    <td class="px-3 py-4">
+                      <div class="flex items-center gap-2">
+                        <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+                          <div class="h-full rounded-full bg-emerald-600" style="width: 25%"></div>
+                        </div>
+                        <span class="w-9 text-right font-mono text-[11px] text-slate-600">25%</span>
+                      </div>
+                    </td>
+                    <td class="py-4 pl-3 text-right text-[11px] text-slate-500">
+                      Sisa <strong class="font-mono text-slate-800">3</strong> slot
+                    </td>
+                  </tr>
+
+                  <!-- Row 4: Saluran Aktif -->
+                  <tr class="hover:bg-slate-50/70">
+                    <td class="py-4 pr-4">
+                      <p class="text-xs font-semibold text-slate-900">Saluran Terhubung</p>
+                      <p class="mt-0.5 text-[11px] text-slate-500">WhatsApp Cloud API / Baileys</p>
+                    </td>
+                    <td class="px-3 py-4 font-mono text-xs whitespace-nowrap">
+                      <span class="font-semibold text-slate-900">1</span>
+                      <span class="text-slate-400"> / 2</span>
+                    </td>
+                    <td class="px-3 py-4">
+                      <div class="flex items-center gap-2">
+                        <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100">
+                          <div class="h-full rounded-full bg-emerald-600" style="width: 50%"></div>
+                        </div>
+                        <span class="w-9 text-right font-mono text-[11px] text-slate-600">50%</span>
+                      </div>
+                    </td>
+                    <td class="py-4 pl-3 text-right text-[11px] text-slate-500">
+                      Sisa <strong class="font-mono text-slate-800">1</strong> saluran
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Usage Governance Row -->
+            <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 py-5">
+              <div>
+                <h3 class="text-xs font-semibold text-slate-900">Peringatan Ambang Batas Kuota (80%)</h3>
+                <p class="mt-0.5 text-[11px] text-slate-500">Kirim email peringatan otomatis ke <code class="font-mono text-slate-700">titiknolenglish@gmail.com</code> sebelum kuota habis.</p>
+              </div>
+              <label class="inline-flex cursor-pointer items-center gap-2 text-xs">
+                <input id="quota-alert-check" type="checkbox" checked onchange="toggleQuotaAlert(this.checked)" class="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-600" />
+                <span id="quota-alert-state" class="font-mono text-[11px] font-semibold text-emerald-700">Aktif</span>
+              </label>
+            </div>
+          </section>
+
+          <!-- TAB 2: TAGIHAN & INVOICE -->
+          <section id="panel-invoices" class="tab-panel hidden pt-4">
+            <div class="border-b border-slate-200 pb-4">
+              <h2 class="text-sm font-semibold text-slate-900">Riwayat Tagihan &amp; Faktur</h2>
+              <p class="mt-0.5 text-xs text-slate-500">Invoice resmi diterbitkan setelah admin menagihkan paket langganan untuk siklus berjalan.</p>
+            </div>
+
+            <div class="border-b border-slate-200 py-14 text-center">
+              <div class="mx-auto flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-400">
+                <i class="ph ph-receipt text-lg"></i>
+              </div>
+              <p class="mt-3 text-xs font-semibold text-slate-900">Belum ada tagihan diterbitkan</p>
+              <p class="mx-auto mt-1 max-w-md text-xs text-slate-500">
+                Invoice akan muncul secara otomatis di daftar ini setelah admin memproses penagihan paket <strong class="font-medium text-slate-700">Basic (Rp 500.000 / bulan)</strong>.
+              </p>
+            </div>
+          </section>
+        </div>
+
+        <!-- RIGHT PANE (4 Cols): Persistent Subscription & Billing Summary Rail -->
+        <aside class="divide-y divide-slate-200 py-6 lg:col-span-4 lg:pl-8">
+
+          <!-- Current Plan Block -->
+          <div class="pb-5">
+            <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Langganan Saat Ini</p>
+            <div class="mt-2 flex items-baseline justify-between">
+              <span class="text-2xl font-bold tracking-tight text-slate-900">Basic</span>
+              <span class="font-mono text-sm font-semibold text-slate-900">Rp 500.000<span class="text-xs font-normal text-slate-400">/bln</span></span>
+            </div>
+            <p class="mt-1 font-mono text-[11px] text-slate-500">Aktif sejak 1 Nov 2026</p>
+
+            <div class="mt-4 space-y-2 border-t border-slate-100 pt-3.5 text-xs">
+              <div class="flex items-center justify-between">
+                <span class="text-slate-500">Reset Kuota</span>
+                <span class="font-mono font-medium text-slate-900">1 Des 2026</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-slate-500">Sisa Siklus</span>
+                <span class="font-mono font-medium text-slate-900">9 hari</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-slate-500">Penagihan</span>
+                <span class="font-medium text-slate-900">Invoice Admin (Net-7)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Included Modules Entitlements -->
+          <div class="py-5">
+            <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Hak Akses Modul</p>
+            <ul class="mt-3 space-y-2.5 text-xs">
+              <li class="flex items-center justify-between">
+                <span class="flex items-center gap-2 font-medium text-slate-800">
+                  <i class="ph-fill ph-check-circle text-emerald-600"></i>Kampanye Broadcast
+                </span>
+                <span class="font-mono text-[11px] text-emerald-700">Termasuk</span>
+              </li>
+              <li class="flex items-center justify-between">
+                <span class="flex items-center gap-2 font-medium text-slate-800">
+                  <i class="ph-fill ph-check-circle text-emerald-600"></i>Skenario Otomasi
+                </span>
+                <span class="font-mono text-[11px] text-emerald-700">Termasuk</span>
+              </li>
+              <li class="flex items-center justify-between">
+                <span class="flex items-center gap-2 font-medium text-slate-800">
+                  <i class="ph-fill ph-check-circle text-emerald-600"></i>Manajemen Pipeline
+                </span>
+                <span class="font-mono text-[11px] text-emerald-700">Termasuk</span>
+              </li>
+              <li class="flex items-center justify-between text-slate-400">
+                <span class="flex items-center gap-2">
+                  <i class="ph ph-lock-simple"></i>Multi-Workspace &amp; SSO
+                </span>
+                <span class="font-mono text-[10px]">Enterprise</span>
+              </li>
+            </ul>
+          </div>
+
+          <!-- Billing Contact & Add-on Action -->
+          <div class="pt-5">
+            <p class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Kontak Penagihan</p>
+            <p class="mt-1.5 font-mono text-xs text-slate-800">titiknolenglish@gmail.com</p>
+            <p class="mt-1 text-[11px] leading-relaxed text-slate-500">Butuh tambahan kuota Kredit AI di tengah siklus berjalan?</p>
+            <button type="button" onclick="requestPlanChange('Top-Up Kredit AI')" class="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-800 transition hover:bg-slate-50">
+              <i class="ph ph-plus-circle text-sm text-emerald-600"></i>Ajukan Top-Up Kuota
+            </button>
+          </div>
+
+        </aside>
+
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- ══════════ Non-blocking Toast ══════════ -->
+<div id="toast" class="pointer-events-none fixed bottom-5 right-5 z-50 flex translate-y-4 items-center gap-2 rounded-md bg-slate-900 px-3.5 py-2.5 text-xs font-medium text-white opacity-0 shadow-lg transition-all duration-200">
+  <i class="ph-fill ph-check-circle text-sm text-emerald-400"></i>
+  <span id="toast-msg">Tersimpan</span>
+</div>
+
+<script>
+// ══════════ Sidebar & Drawer Controls ══════════
+function toggleSidebar(open) {
+  document.getElementById("app-sidebar").classList.toggle("-translate-x-full", !open);
+  document.getElementById("mobile-overlay").classList.toggle("hidden", !open);
+}
+
+function toggleUpgradeDrawer(forceState) {
+  const drawer = document.getElementById("plan-compare-drawer");
+  const shouldOpen = typeof forceState === "boolean" ? forceState : drawer.classList.contains("hidden");
+  drawer.classList.toggle("hidden", !shouldOpen);
+}
+
+function switchTab(tabKey) {
+  document.querySelectorAll(".tab-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.tab === tabKey);
+  });
+  document.querySelectorAll(".tab-panel").forEach((panel) => {
+    panel.classList.toggle("hidden", panel.id !== "panel-" + tabKey);
+  });
+}
+
+// ══════════ Toast & Interactions ══════════
+let toastTimer = null;
+function showToast(message) {
+  const el = document.getElementById("toast");
+  document.getElementById("toast-msg").textContent = message;
+  el.classList.remove("opacity-0", "translate-y-4");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.add("opacity-0", "translate-y-4"), 2600);
+}
+
+function requestPlanChange(planName) {
+  toggleUpgradeDrawer(false);
+  showToast(`Permintaan upgrade ke paket ${planName} diteruskan ke tim admin`);
+}
+
+function toggleQuotaAlert(enabled) {
+  const label = document.getElementById("quota-alert-state");
+  label.textContent = enabled ? "Aktif" : "Nonaktif";
+  label.className = enabled ? "font-mono text-[11px] text-emerald-700" : "font-mono text-[11px] text-slate-400";
+  showToast(enabled ? "Peringatan ambang batas kuota diaktifkan" : "Peringatan kuota dinonaktifkan");
+}
+
+// Keyboard shortcut for search bar
+document.addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+    e.preventDefault();
+    document.getElementById("global-cmd").focus();
+  }
+});
+</script>
+</body>
+</html>

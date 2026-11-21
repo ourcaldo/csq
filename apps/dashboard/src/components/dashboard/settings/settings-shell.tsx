@@ -21,9 +21,13 @@ import {
   MagnifyingGlass,
   X,
   List,
+  Users,
+  Wallet,
+  ChatCircleDots,
 } from "@phosphor-icons/react";
 import { cn } from "@csq/ui/lib/utils";
 import { Seo } from "@csq/ui/components/seo";
+import { useApi } from "@/hooks/use-api";
 
 export type SettingsSectionKey =
   | "umum"
@@ -31,7 +35,9 @@ export type SettingsSectionKey =
   | "email"
   | "sesi"
   | "api"
-  | "audit";
+  | "audit"
+  | "tim"
+  | "paket";
 
 const SECTIONS: {
   key: SettingsSectionKey;
@@ -41,8 +47,10 @@ const SECTIONS: {
 }[] = [
   { key: "umum", label: "Umum & Identitas", group: "Organisasi", icon: <Buildings size={16} /> },
   { key: "sumber-data", label: "Hierarki Sumber Data", group: "Organisasi", icon: <Stack size={16} /> },
+  { key: "tim", label: "Tim & Hak Akses", group: "Organisasi", icon: <Users size={16} /> },
   { key: "email", label: "Gateway Email", group: "Komunikasi & SLA", icon: <EnvelopeSimple size={16} /> },
   { key: "sesi", label: "Penutupan Sesi", group: "Komunikasi & SLA", icon: <Timer size={16} /> },
+  { key: "paket", label: "Paket & Kuota", group: "Keamanan & Developer", icon: <Wallet size={16} /> },
   { key: "api", label: "Kunci API", group: "Keamanan & Developer", icon: <Key size={16} /> },
   { key: "audit", label: "Log Audit", group: "Keamanan & Developer", icon: <ShieldCheck size={16} /> },
 ];
@@ -50,8 +58,10 @@ const SECTIONS: {
 const SECTION_LABELS: Record<SettingsSectionKey, string> = {
   umum: "Umum & Identitas",
   "sumber-data": "Hierarki Sumber Data",
+  tim: "Tim & Hak Akses",
   email: "Gateway Email",
   sesi: "Penutupan Sesi",
+  paket: "Paket & Kuota",
   api: "Kunci API",
   audit: "Log Audit",
 };
@@ -66,6 +76,31 @@ function jumpTarget(q: string): SettingsSectionKey | null {
   if (s.includes("audit") || s.includes("log") || s.includes("ip")) return "audit";
   if (s.includes("umum") || s.includes("usaha") || s.includes("zona")) return "umum";
   return null;
+}
+
+// Business logo resolver: the tenant's uploaded logo (MediaAsset) or the
+// default CSQ logo tile when unset.
+function OrgLogo({ size = 28 }: { size?: number }) {
+  const { data: tenant } = useApi<{ logoMediaId: string | null }>("/api/dashboard/tenant");
+  if (tenant?.logoMediaId) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={`/api/dashboard/media/${tenant.logoMediaId}`}
+        alt="Logo usaha"
+        style={{ width: size, height: size }}
+        className="shrink-0 rounded-md border border-slate-200 bg-white object-contain p-0.5"
+      />
+    );
+  }
+  return (
+    <div
+      style={{ width: size, height: size }}
+      className="flex shrink-0 items-center justify-center rounded-md bg-green-600 text-white"
+    >
+      <ChatCircleDots size={Math.round(size * 0.7)} weight="fill" />
+    </div>
+  );
 }
 
 export function SettingsShell(props: {
@@ -146,13 +181,11 @@ export function SettingsShell(props: {
         {/* Organization context */}
         <div className="border-b border-slate-200/80 px-4 py-3.5">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-slate-900 text-xs font-bold text-white">
-              {orgInitial}
-            </div>
+            <OrgLogo size={28} />
             <div className="min-w-0 flex-1">
               <p className="truncate text-xs font-semibold text-slate-900">{orgName}</p>
               <div className="flex items-center gap-1.5">
-                <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-500" />
                 <span className="font-mono text-[10px] text-slate-500">Workspace Aktif</span>
               </div>
             </div>
@@ -196,7 +229,7 @@ export function SettingsShell(props: {
         <div className="border-t border-slate-200/80 p-3.5">
           <div className="flex items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2.5">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-xs font-semibold text-white">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-600 text-xs font-semibold text-white">
                 {orgInitial}
               </div>
               <div className="min-w-0">
@@ -290,7 +323,7 @@ function EmailNavDot() {
   if (state === null) return null;
   return (
     <span
-      className={cn("h-1.5 w-1.5 rounded-full", state === "ok" ? "bg-emerald-500" : "bg-amber-400")}
+      className={cn("h-1.5 w-1.5 rounded-full", state === "ok" ? "bg-green-500" : "bg-amber-400")}
       title={state === "ok" ? "Terkonfigurasi" : "Menggunakan relay platform"}
     />
   );
@@ -316,7 +349,7 @@ function SesiNavState() {
     <span
       className={cn(
         "font-mono text-[10px]",
-        state ? "font-semibold text-emerald-600" : "text-slate-400"
+        state ? "font-semibold text-green-600" : "text-slate-400"
       )}
     >
       {state === null ? "" : state ? "ON" : "OFF"}

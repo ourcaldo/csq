@@ -16,6 +16,7 @@ export type TenantInfo = {
   legalName: string | null;
   timezone: string | null;
   currency: string | null;
+  logoMediaId: string | null;
 };
 
 export default async function handler(
@@ -50,6 +51,7 @@ export default async function handler(
         legalName: typeof s.legalName === "string" ? s.legalName : null,
         timezone: typeof s.timezone === "string" ? s.timezone : null,
         currency: typeof s.currency === "string" ? s.currency : null,
+        logoMediaId: typeof s.logoMediaId === "string" ? s.logoMediaId : null,
       })
     );
   });

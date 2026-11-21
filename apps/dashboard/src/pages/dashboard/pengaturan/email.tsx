@@ -134,7 +134,7 @@ export default function PengaturanEmailPage() {
         <span className="inline-flex items-center gap-1.5 font-mono text-xs text-slate-600">
           {configured ? (
             <>
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+              <span className="h-2 w-2 rounded-full bg-green-500" />
               Terhubung ({status?.type})
             </>
           ) : (
@@ -165,8 +165,8 @@ export default function PengaturanEmailPage() {
                   className={cn(
                     "rounded px-4 py-1.5 text-xs transition",
                     providerType === p
-                      ? "bg-white font-semibold text-slate-900 shadow-2xs"
-                      : "font-medium text-slate-600 hover:text-slate-900"
+                      ? "bg-white font-semibold text-green-700 shadow-2xs"
+                      : "font-medium text-slate-500 hover:text-slate-900"
                   )}
                 >
                   {p === "SMTP" ? "Custom SMTP" : "Resend API"}
@@ -185,7 +185,7 @@ export default function PengaturanEmailPage() {
                 value={from}
                 onChange={(e) => setFrom(e.target.value)}
                 placeholder="Toko Kopi Nusantara <no-reply@tokokopi.id>"
-                className="mt-1.5 h-9 w-full max-w-md rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15"
+                className="mt-1.5 h-9 w-full max-w-md rounded-md border border-slate-300 bg-white px-3 text-sm focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/15"
               />
               <p className="mt-1 text-[11px] text-slate-400">
                 Pastikan domain pengirim memiliki catatan SPF dan DKIM yang valid.
@@ -206,8 +206,8 @@ export default function PengaturanEmailPage() {
             {loading && <p className="text-sm text-slate-500">Memuat pengaturan email...</p>}
             {error && <p className="text-sm text-red-600">{error}</p>}
             {formError && <p className="mb-3 text-sm text-red-600">{formError}</p>}
-            {saved && <p className="mb-3 text-sm font-medium text-emerald-700">Konfigurasi email tersimpan.</p>}
-            {testInfo && <p className="mb-3 text-sm font-medium text-emerald-700">{testInfo}</p>}
+            {saved && <p className="mb-3 text-sm font-medium text-green-700">Konfigurasi email tersimpan.</p>}
+            {testInfo && <p className="mb-3 text-sm font-medium text-green-700">{testInfo}</p>}
 
             {!loading && !error && providerType === "SMTP" && (
               <div className="max-w-md space-y-3.5">
@@ -220,7 +220,7 @@ export default function PengaturanEmailPage() {
                       value={host}
                       onChange={(e) => setHost(e.target.value)}
                       placeholder="smtp.gmail.com"
-                      className="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 font-mono text-xs focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15"
+                      className="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 font-mono text-xs focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/15"
                     />
                   </div>
                   <div>
@@ -230,7 +230,7 @@ export default function PengaturanEmailPage() {
                       type="number"
                       value={port}
                       onChange={(e) => setPort(e.target.value)}
-                      className="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 font-mono text-xs focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15"
+                      className="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 font-mono text-xs focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/15"
                     />
                   </div>
                 </div>
@@ -240,7 +240,7 @@ export default function PengaturanEmailPage() {
                     id="smtp-tls"
                     value={secure}
                     onChange={(e) => setSecure(e.target.value)}
-                    className="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-xs focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15"
+                    className="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-xs focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/15"
                   >
                     <option value="false">STARTTLS (Direkomendasikan - Port 587)</option>
                     <option value="true">SSL / TLS Implisit (Port 465)</option>
@@ -255,7 +255,7 @@ export default function PengaturanEmailPage() {
                       value={username}
                       autoComplete="off"
                       onChange={(e) => setUsername(e.target.value)}
-                      className="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-xs focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15"
+                      className="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-xs focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/15"
                     />
                   </div>
                   <div>
@@ -267,7 +267,7 @@ export default function PengaturanEmailPage() {
                       autoComplete="new-password"
                       placeholder={configured && status?.type === "SMTP" ? "(saved)" : ""}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-xs focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15"
+                      className="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-xs focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/15"
                     />
                   </div>
                 </div>
@@ -284,7 +284,7 @@ export default function PengaturanEmailPage() {
                   autoComplete="new-password"
                   placeholder="re_live_..."
                   onChange={(e) => setApiKey(e.target.value)}
-                  className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 font-mono text-xs focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15"
+                  className="h-9 w-full rounded-md border border-slate-300 bg-white px-3 font-mono text-xs focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/15"
                 />
                 <p className="text-[11px] text-slate-400">
                   Dapatkan API key dengan izin <code className="font-mono text-slate-600">Sending access</code> dari dashboard Resend.
@@ -319,7 +319,7 @@ export default function PengaturanEmailPage() {
           <button
             type="submit"
             disabled={saving}
-            className="rounded-md bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+            className="rounded-md bg-green-600 px-4 py-2 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-50"
           >
             {saving ? "Menyimpan..." : "Simpan Gateway Email"}
           </button>
