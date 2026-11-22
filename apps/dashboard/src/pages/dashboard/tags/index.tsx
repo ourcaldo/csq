@@ -1,7 +1,12 @@
+// /dashboard/tags - enterprise taxonomy workspace revamp (template
+// 2026-11-22): sub-navigation tabs (Tag Percakapan / Kategori Kontak),
+// inline quick-add bars, and INLINE row editing (no pop-up modal except the
+// destructive delete confirm).
 import { useState } from "react";
 import type { FormEvent } from "react";
 import type { GetServerSideProps } from "next";
 import { useSession } from "next-auth/react";
+import { Plus } from "@phosphor-icons/react";
 import { withAuth } from "@csq/core/lib/auth";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
@@ -10,496 +15,430 @@ import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { StateNotice } from "@/components/dashboard/state-notice";
 import { Pagination } from "@/components/dashboard/pagination";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
-import { Dialog } from "@csq/ui/components/ui/dialog";
-import { Button } from "@csq/ui/components/ui/button";
-import { Input } from "@csq/ui/components/ui/input";
-import { Label } from "@csq/ui/components/ui/label";
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@csq/ui/components/ui/table";
+import { Toast } from "@/components/dashboard/channels/toast";
+import type { ToastState } from "@/components/dashboard/channels/types";
 import { readableTextColor } from "@/lib/tag-color";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 50;
 
-function ChipCell({ name, color }: { name: string; color: string | null }) {
+function Chip({ name, color }: { name: string; color: string | null }) {
+  const text = readableTextColor(color);
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium"
-      style={color ? { backgroundColor: color, color: readableTextColor(color) ?? undefined } : undefined}
+      className="inline-flex items-center rounded px-2.5 py-1 text-xs font-semibold"
+      style={{ backgroundColor: color ?? "#e2e8f0", color: text ?? "#1e293b" }}
     >
       {name}
     </span>
   );
 }
 
+type TaxKind = "TAG" | "CATEGORY";
+
 export default function TagsPage() {
   const { data: session } = useSession();
   const isOwner = session?.user?.role === "OWNER";
 
-  // ── Conversation tags ──
   const [page, setPage] = useState(1);
+  const [tab, setTab] = useState<"tags" | "categories">("tags");
+  const [toast, setToast] = useState<ToastState | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const [createOpen, setCreateOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [color, setColor] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
+  function showToast(msg: string) {
+    setToast({ tone: "success", msg });
+    setTimeout(() => setToast(null), 2600);
+  }
 
-  const [renaming, setRenaming] = useState<Tag | null>(null);
-  const [renameName, setRenameName] = useState("");
-  const [renameColor, setRenameColor] = useState("");
-
-  const [toDelete, setToDelete] = useState<Tag | null>(null);
-  const [deleting, setDeleting] = useState(false);
-
-  const url = `/api/dashboard/tags?page=${page}&pageSize=${PAGE_SIZE}`;
-  const { data, loading, error, refresh } = useApi<ListResult<Tag>>(url);
-
-  // ── Contact categories (feature plan 2026-11-01, section 2.5) ──
-  const [catCreateOpen, setCatCreateOpen] = useState(false);
-  const [catName, setCatName] = useState("");
-  const [catColor, setCatColor] = useState("");
-  const [catSaving, setCatSaving] = useState(false);
-  const [catError, setCatError] = useState<string | null>(null);
-
-  const [catRenaming, setCatRenaming] = useState<Category | null>(null);
-  const [catRenameName, setCatRenameName] = useState("");
-  const [catRenameColor, setCatRenameColor] = useState("");
-
-  const [catToDelete, setCatToDelete] = useState<Category | null>(null);
-  const [catDeleting, setCatDeleting] = useState(false);
-
+  const tagsUrl = `/api/dashboard/tags?page=${page}&pageSize=${PAGE_SIZE}`;
+  const tags = useApi<ListResult<Tag>>(tagsUrl);
   const categories = useApi<Category[]>("/api/dashboard/contact-categories");
 
-  async function onCreate(e: FormEvent) {
+  // Quick-add state.
+  const [tagName, setTagName] = useState("");
+  const [tagColor, setTagColor] = useState("#dcfce7");
+  const [catName, setCatName] = useState("");
+  const [catColor, setCatColor] = useState("#dbeafe");
+  const [adding, setAdding] = useState(false);
+
+  // Inline rename state: the row being edited.
+  const [editing, setEditing] = useState<{ kind: TaxKind; id: string; name: string; color: string } | null>(null);
+
+  // Destructive delete.
+  const [toDelete, setToDelete] = useState<{ kind: TaxKind; id: string; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  async function quickAdd(kind: TaxKind, e: FormEvent) {
     e.preventDefault();
-    setSaving(true);
-    setFormError(null);
+    setAdding(true);
+    setError(null);
     try {
-      await apiSend<Tag>("/api/dashboard/tags", "POST", {
-        name,
-        color: color || undefined,
-      });
-      setCreateOpen(false);
-      setName("");
-      setColor("");
-      refresh();
+      if (kind === "TAG") {
+        const name = tagName.trim();
+        if (!name) return;
+        await apiSend<Tag>("/api/dashboard/tags", "POST", { name, color: tagColor });
+        setTagName("");
+        showToast(`Tag "${name}" ditambahkan`);
+        tags.refresh();
+      } else {
+        const name = catName.trim();
+        if (!name) return;
+        await apiSend("/api/dashboard/contact-categories", "POST", { name, color: catColor });
+        setCatName("");
+        showToast(`Kategori "${name}" ditambahkan`);
+        categories.refresh();
+      }
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Gagal membuat tag.");
+      setError(err instanceof Error ? err.message : "Gagal menambahkan item.");
     } finally {
-      setSaving(false);
+      setAdding(false);
     }
   }
 
-  function openRename(tag: Tag) {
-    setRenaming(tag);
-    setRenameName(tag.name);
-    setRenameColor(tag.color ?? "");
-    setFormError(null);
-  }
-
-  async function onRename(e: FormEvent) {
+  async function saveEdit(e: FormEvent) {
     e.preventDefault();
-    if (!renaming) return;
-    setSaving(true);
-    setFormError(null);
+    if (!editing) return;
+    setAdding(true);
+    setError(null);
     try {
-      await apiSend<Tag>(`/api/dashboard/tags/${renaming.id}`, "PUT", {
-        name: renameName,
-        color: renameColor || undefined,
-      });
-      setRenaming(null);
-      refresh();
+      const payload = { name: editing.name, color: editing.color };
+      if (editing.kind === "TAG") {
+        await apiSend<Tag>(`/api/dashboard/tags/${editing.id}`, "PUT", payload);
+        tags.refresh();
+      } else {
+        await apiSend<Category>(`/api/dashboard/contact-categories/${editing.id}`, "PUT", payload);
+        categories.refresh();
+      }
+      setEditing(null);
+      showToast("Perubahan label disimpan");
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Gagal mengubah tag.");
+      setError(err instanceof Error ? err.message : "Gagal menyimpan perubahan.");
     } finally {
-      setSaving(false);
+      setAdding(false);
     }
   }
 
-  async function onConfirmDelete() {
+  async function confirmDelete() {
     if (!toDelete) return;
     setDeleting(true);
+    setError(null);
     try {
-      await apiSend(`/api/dashboard/tags/${toDelete.id}`, "DELETE");
+      if (toDelete.kind === "TAG") {
+        await apiSend(`/api/dashboard/tags/${toDelete.id}`, "DELETE");
+        tags.refresh();
+      } else {
+        await apiSend(`/api/dashboard/contact-categories/${toDelete.id}`, "DELETE");
+        categories.refresh();
+      }
       setToDelete(null);
-      refresh();
+      showToast("Item dihapus");
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Gagal menghapus tag.");
+      setError(err instanceof Error ? err.message : "Gagal menghapus item.");
     } finally {
       setDeleting(false);
     }
   }
 
-  async function onCategoryCreate(e: FormEvent) {
-    e.preventDefault();
-    setCatSaving(true);
-    setCatError(null);
-    try {
-      await apiSend("/api/dashboard/contact-categories", "POST", {
-        name: catName,
-        color: catColor || undefined,
-      });
-      setCatCreateOpen(false);
-      setCatName("");
-      setCatColor("");
-      categories.refresh();
-    } catch (err) {
-      setCatError(err instanceof Error ? err.message : "Gagal membuat kategori.");
-    } finally {
-      setCatSaving(false);
-    }
+  function taxonomyRows(kind: TaxKind) {
+    const items: { id: string; name: string; color: string | null }[] =
+      kind === "TAG" ? (tags.data?.items ?? []) : (categories.data ?? []);
+    const usageText = kind === "TAG" ? "percakapan" : "kontak";
+    return items.map((item) => {
+      const isEditing = editing?.kind === kind && editing.id === item.id;
+      if (isEditing) {
+        return (
+          <tr key={item.id} className="bg-slate-50/80">
+            <td className="py-3 pr-4">
+              <input
+                type="text"
+                value={editing.name}
+                maxLength={32}
+                onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+                className="h-8 w-56 rounded-md border border-slate-300 bg-white px-2.5 text-xs font-medium text-slate-900 focus:border-green-600 focus:outline-none"
+              />
+            </td>
+            <td className="px-4 py-3">
+              <input
+                type="color"
+                value={editing.color}
+                onChange={(e) => setEditing({ ...editing, color: e.target.value })}
+                className="h-7 w-10 cursor-pointer rounded border border-slate-300 bg-white p-0.5"
+              />
+            </td>
+            <td className="hidden px-4 py-3 font-mono text-xs text-slate-500 sm:table-cell">
+              - {usageText}
+            </td>
+            <td className="py-3 pl-4 text-right">
+              <div className="inline-flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={saveEdit}
+                  disabled={adding}
+                  className="rounded bg-green-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-60"
+                >
+                  Simpan
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditing(null)}
+                  className="rounded border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  Batal
+                </button>
+              </div>
+            </td>
+          </tr>
+        );
+      }
+      return (
+        <tr key={item.id} className="hover:bg-slate-50/80">
+          <td className="py-3.5 pr-4">
+            <Chip name={item.name} color={item.color} />
+          </td>
+          <td className="px-4 py-3.5">
+            <span className="inline-flex items-center gap-1.5 font-mono text-xs text-slate-500">
+              <span
+                className="h-3 w-3 rounded-full border border-black/15"
+                style={{ backgroundColor: item.color ?? "#cbd5e1" }}
+                aria-hidden
+              />
+              {item.color ?? "-"}
+            </span>
+          </td>
+          <td className="hidden px-4 py-3.5 font-mono text-xs text-slate-500 sm:table-cell">
+            - {usageText}
+          </td>
+          <td className="py-3.5 pl-4 text-right">
+            <div className="inline-flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() =>
+                  setEditing({ kind, id: item.id, name: item.name, color: item.color ?? "#dcfce7" })
+                }
+                className="text-xs font-medium text-slate-700 hover:text-slate-950"
+              >
+                Ubah Nama
+              </button>
+              <button
+                type="button"
+                onClick={() => setToDelete({ kind, id: item.id, name: item.name })}
+                className="text-xs font-medium text-red-600 hover:underline"
+              >
+                Hapus
+              </button>
+            </div>
+          </td>
+        </tr>
+      );
+    });
   }
 
-  async function onCategoryRename(e: FormEvent) {
-    e.preventDefault();
-    if (!catRenaming) return;
-    setCatSaving(true);
-    setCatError(null);
-    try {
-      await apiSend(`/api/dashboard/contact-categories/${catRenaming.id}`, "PUT", {
-        name: catRenameName,
-        color: catRenameColor || undefined,
-      });
-      setCatRenaming(null);
-      categories.refresh();
-    } catch (err) {
-      setCatError(err instanceof Error ? err.message : "Gagal mengubah kategori.");
-    } finally {
-      setCatSaving(false);
-    }
-  }
-
-  async function onCategoryDelete() {
-    if (!catToDelete) return;
-    setCatDeleting(true);
-    try {
-      await apiSend(`/api/dashboard/contact-categories/${catToDelete.id}`, "DELETE");
-      setCatToDelete(null);
-      categories.refresh();
-    } catch (err) {
-      setCatError(err instanceof Error ? err.message : "Gagal menghapus kategori.");
-    } finally {
-      setCatDeleting(false);
-    }
-  }
+  const tableHead = (firstLabel: string) => (
+    <thead>
+      <tr className="border-b border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+        <th className="py-3 pr-4">{firstLabel}</th>
+        <th className="px-4 py-3">Kode Warna</th>
+        <th className="hidden px-4 py-3 sm:table-cell">Digunakan</th>
+        <th className="py-3 pl-4 text-right">Aksi</th>
+      </tr>
+    </thead>
+  );
 
   return (
-    <DashboardShell title="Tag" description="Taksonomi untuk melabeli percakapan dan mengelompokkan kontak.">
-      {!isOwner && (
-        <p className="mb-4 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700">
-          Hanya owner yang dapat membuat, mengubah, atau menghapus tag dan kategori.
-        </p>
-      )}
+    <DashboardShell title="Tag" flush>
+      <div className="mx-auto w-full max-w-6xl px-4 py-7 md:px-8">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Tag &amp; Taksonomi Kontak</h1>
+          <p className="mt-1 text-xs text-slate-500">
+            Kelola label percakapan dan kategori segmentasi kontak untuk targeting kampanye broadcast dan pelaporan SLA.
+          </p>
+        </div>
 
-      {formError && <p className="mb-4 text-sm text-destructive">{formError}</p>}
-      {loading && <StateNotice variant="loading" message="Memuat tag…" />}
-      {error && <StateNotice variant="error" message={error} />}
-      {!loading && !error && (
-        <>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Tag Percakapan
-            </h2>
-            {isOwner ? (
-              <Button size="sm" onClick={() => setCreateOpen(true)}>
-                Tambah Tag
-              </Button>
-            ) : undefined}
+        {!isOwner && (
+          <p className="mt-4 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700">
+            Hanya owner yang dapat membuat, mengubah, atau menghapus tag dan kategori.
+          </p>
+        )}
+
+        {error && <p className="mt-4 text-xs text-red-600">{error}</p>}
+
+        {/* Sub-navigation tabs */}
+        <div className="mt-5 flex items-center justify-between border-b border-slate-200">
+          <div className="flex gap-6">
+            <button
+              type="button"
+              onClick={() => setTab("tags")}
+              className={
+                tab === "tags"
+                  ? "relative py-2.5 text-xs font-semibold text-slate-900 after:absolute after:inset-x-0 after:bottom-[-1px] after:h-0.5 after:bg-green-600"
+                  : "relative py-2.5 text-xs font-medium text-slate-500 hover:text-slate-900"
+              }
+            >
+              Tag Percakapan{" "}
+              <span className="ml-1 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-600">
+                {tags.data?.total ?? 0}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("categories")}
+              className={
+                tab === "categories"
+                  ? "relative py-2.5 text-xs font-semibold text-slate-900 after:absolute after:inset-x-0 after:bottom-[-1px] after:h-0.5 after:bg-green-600"
+                  : "relative py-2.5 text-xs font-medium text-slate-500 hover:text-slate-900"
+              }
+            >
+              Kategori Kontak{" "}
+              <span className="ml-1 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-600">
+                {categories.data?.length ?? 0}
+              </span>
+            </button>
           </div>
-          <div className="rounded-lg border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nama</TableHead>
-                  <TableHead>Warna</TableHead>
-                  <TableHead className="text-right">Aksi</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data && data.items.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={3}>
-                      <StateNotice variant="empty" message="Belum ada tag." />
-                    </TableCell>
-                  </TableRow>
-                )}
-                {data?.items.map((t) => (
-                  <TableRow key={t.id}>
-                    <TableCell>
-                      <ChipCell name={t.name} color={t.color} />
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      <span className="inline-flex items-center gap-1.5">
-                        <span
-                          className="h-3.5 w-3.5 rounded-full border border-black/10"
-                          style={{ backgroundColor: t.color ?? "#cbd5e1" }}
-                          aria-hidden
-                        />
-                        <span className="font-mono text-[11px]">{t.color ?? "-"}</span>
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {isOwner ? (
-                        <div className="flex justify-end gap-2">
-                          <Button variant="outline" size="sm" onClick={() => openRename(t)}>
-                            Ubah Nama
-                          </Button>
-                          <Button variant="destructive" size="sm" onClick={() => setToDelete(t)}>
-                            Hapus
-                          </Button>
-                        </div>
+        </div>
+
+        {/* TAB A: Tag Percakapan */}
+        {tab === "tags" && (
+          <section>
+            <form
+              onSubmit={(e) => quickAdd("TAG", e)}
+              className="flex flex-wrap items-center gap-2.5 border-b border-slate-200 py-4"
+            >
+              <input
+                type="text"
+                required
+                maxLength={32}
+                placeholder="Nama tag baru (mis. Komplain Prioritas)…"
+                value={tagName}
+                onChange={(e) => setTagName(e.target.value)}
+                disabled={!isOwner}
+                className="h-8 w-64 rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-green-600 focus:outline-none disabled:bg-slate-50"
+              />
+              <div className="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2 py-1">
+                <input
+                  type="color"
+                  value={tagColor}
+                  onChange={(e) => setTagColor(e.target.value)}
+                  className="h-5 w-6 cursor-pointer border-0 bg-transparent p-0"
+                />
+                <span className="font-mono text-[11px] text-slate-500">Warna</span>
+              </div>
+              <button
+                type="submit"
+                disabled={!isOwner || adding}
+                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-green-600 px-3.5 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-60"
+              >
+                <Plus size={12} />Tambah Tag
+              </button>
+            </form>
+
+            {tags.loading && <StateNotice variant="loading" message="Memuat tag…" className="mt-4" />}
+            {tags.error && <StateNotice variant="error" message={tags.error} className="mt-4" />}
+            {!tags.loading && !tags.error && (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm">
+                    {tableHead("Pratinjau Label")}
+                    <tbody className="divide-y divide-slate-200 border-b border-slate-200">
+                      {taxonomyRows("TAG").length === 0 ? (
+                        <tr>
+                          <td colSpan={4} className="py-8 text-center text-xs text-slate-400">
+                            Belum ada tag percakapan.
+                          </td>
+                        </tr>
                       ) : (
-                        <span className="text-muted-foreground">-</span>
+                        taxonomyRows("TAG")
                       )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-          {data && (
-            <Pagination
-              page={data.page}
-              pageSize={data.pageSize}
-              total={data.total}
-              onPageChange={setPage}
-            />
-          )}
-        </>
-      )}
+                    </tbody>
+                  </table>
+                </div>
+                {tags.data && (
+                  <Pagination
+                    page={tags.data.page}
+                    pageSize={tags.data.pageSize}
+                    total={tags.data.total}
+                    onPageChange={setPage}
+                  />
+                )}
+              </>
+            )}
+          </section>
+        )}
 
-      {/* Kategori kontak */}
-      <div className="mt-10">
-        {catError && <p className="mb-4 text-sm text-destructive">{catError}</p>}
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Kategori Kontak
-          </h2>
-          {isOwner ? (
-            <Button size="sm" onClick={() => setCatCreateOpen(true)}>
-              Tambah Kategori
-            </Button>
-          ) : undefined}
-        </div>
-        <div className="rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nama</TableHead>
-                <TableHead>Warna</TableHead>
-                <TableHead className="text-right">Aksi</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(categories.data ?? []).length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={3}>
-                    <StateNotice
-                      variant="empty"
-                      message="Belum ada kategori. Kategori dipakai untuk mengelompokkan kontak dan menjadi target kampanye."
-                    />
-                  </TableCell>
-                </TableRow>
-              )}
-              {(categories.data ?? []).map((c) => (
-                <TableRow key={c.id}>
-                  <TableCell>
-                    <ChipCell name={c.name} color={c.color} />
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    <span className="inline-flex items-center gap-1.5">
-                      <span
-                        className="h-3.5 w-3.5 rounded-full border border-black/10"
-                        style={{ backgroundColor: c.color ?? "#cbd5e1" }}
-                        aria-hidden
-                      />
-                      <span className="font-mono text-[11px]">{c.color ?? "-"}</span>
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {isOwner ? (
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setCatRenaming(c);
-                            setCatRenameName(c.name);
-                            setCatRenameColor(c.color ?? "");
-                          }}
-                        >
-                          Ubah Nama
-                        </Button>
-                        <Button variant="destructive" size="sm" onClick={() => setCatToDelete(c)}>
-                          Hapus
-                        </Button>
-                      </div>
+        {/* TAB B: Kategori Kontak */}
+        {tab === "categories" && (
+          <section>
+            <form
+              onSubmit={(e) => quickAdd("CATEGORY", e)}
+              className="flex flex-wrap items-center gap-2.5 border-b border-slate-200 py-4"
+            >
+              <input
+                type="text"
+                required
+                maxLength={32}
+                placeholder="Nama kategori baru (mis. Distributor)…"
+                value={catName}
+                onChange={(e) => setCatName(e.target.value)}
+                disabled={!isOwner}
+                className="h-8 w-64 rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-green-600 focus:outline-none disabled:bg-slate-50"
+              />
+              <div className="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2 py-1">
+                <input
+                  type="color"
+                  value={catColor}
+                  onChange={(e) => setCatColor(e.target.value)}
+                  className="h-5 w-6 cursor-pointer border-0 bg-transparent p-0"
+                />
+                <span className="font-mono text-[11px] text-slate-500">Warna</span>
+              </div>
+              <button
+                type="submit"
+                disabled={!isOwner || adding}
+                className="inline-flex h-8 items-center gap-1.5 rounded-md bg-green-600 px-3.5 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-60"
+              >
+                <Plus size={12} />Tambah Kategori
+              </button>
+            </form>
+
+            {categories.loading && (
+              <StateNotice variant="loading" message="Memuat kategori…" className="mt-4" />
+            )}
+            {categories.error && (
+              <StateNotice variant="error" message={categories.error} className="mt-4" />
+            )}
+            {!categories.loading && !categories.error && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  {tableHead("Pratinjau Kategori")}
+                  <tbody className="divide-y divide-slate-200 border-b border-slate-200">
+                    {taxonomyRows("CATEGORY").length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="py-8 text-center text-xs text-slate-400">
+                          Belum ada kategori kontak.
+                        </td>
+                      </tr>
                     ) : (
-                      <span className="text-muted-foreground">-</span>
+                      taxonomyRows("CATEGORY")
                     )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        )}
       </div>
-
-      {/* Tag dialogs */}
-      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} title="Tambah Tag">
-        <form onSubmit={onCreate} className="flex flex-col gap-4">
-          {formError && <p className="text-sm text-destructive">{formError}</p>}
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="tag-name">Nama</Label>
-            <Input
-              id="tag-name"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="tag-color">Warna (opsional)</Label>
-            <Input
-              id="tag-color"
-              placeholder="mis. #ef4444 - kosongkan untuk acak"
-              value={color}
-              onChange={(e) => setColor(e.target.value)}
-              pattern="^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})?$"
-              title="Kode hex, contoh: #ef4444 atau #fff"
-            />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
-              Batal
-            </Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? "Menyimpan…" : "Simpan"}
-            </Button>
-          </div>
-        </form>
-      </Dialog>
-
-      <Dialog open={renaming !== null} onClose={() => setRenaming(null)} title="Ubah Tag">
-        <form onSubmit={onRename} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="tag-rename-name">Nama</Label>
-            <Input
-              id="tag-rename-name"
-              required
-              value={renameName}
-              onChange={(e) => setRenameName(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="tag-rename-color">Warna (opsional)</Label>
-            <Input
-              id="tag-rename-color"
-              value={renameColor}
-              onChange={(e) => setRenameColor(e.target.value)}
-            />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => setRenaming(null)}>
-              Batal
-            </Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? "Menyimpan…" : "Simpan"}
-            </Button>
-          </div>
-        </form>
-      </Dialog>
-
-      {/* Category dialogs */}
-      <Dialog open={catCreateOpen} onClose={() => setCatCreateOpen(false)} title="Tambah Kategori">
-        <form onSubmit={onCategoryCreate} className="flex flex-col gap-4">
-          {catError && <p className="text-sm text-destructive">{catError}</p>}
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="category-name">Nama</Label>
-            <Input
-              id="category-name"
-              required
-              value={catName}
-              onChange={(e) => setCatName(e.target.value)}
-              placeholder="mis. Reseller, Grosir, VIP"
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="category-color">Warna (opsional)</Label>
-            <Input
-              id="category-color"
-              placeholder="mis. #22c55e - kosongkan untuk acak"
-              value={catColor}
-              onChange={(e) => setCatColor(e.target.value)}
-              pattern="^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})?$"
-              title="Kode hex, contoh: #22c55e atau #fff"
-            />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => setCatCreateOpen(false)}>
-              Batal
-            </Button>
-            <Button type="submit" disabled={catSaving}>
-              {catSaving ? "Menyimpan…" : "Simpan"}
-            </Button>
-          </div>
-        </form>
-      </Dialog>
-
-      <Dialog open={catRenaming !== null} onClose={() => setCatRenaming(null)} title="Ubah Kategori">
-        <form onSubmit={onCategoryRename} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="category-rename-name">Nama</Label>
-            <Input
-              id="category-rename-name"
-              required
-              value={catRenameName}
-              onChange={(e) => setCatRenameName(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="category-rename-color">Warna (opsional)</Label>
-            <Input
-              id="category-rename-color"
-              value={catRenameColor}
-              onChange={(e) => setCatRenameColor(e.target.value)}
-            />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => setCatRenaming(null)}>
-              Batal
-            </Button>
-            <Button type="submit" disabled={catSaving}>
-              {catSaving ? "Menyimpan…" : "Simpan"}
-            </Button>
-          </div>
-        </form>
-      </Dialog>
 
       <ConfirmDialog
         open={toDelete !== null}
-        title="Hapus Tag"
-        description={`Yakin ingin menghapus tag "${toDelete?.name}"?`}
-        confirmLabel="Hapus"
+        title={toDelete?.kind === "TAG" ? "Hapus Tag Percakapan" : "Hapus Kategori Kontak"}
+        description={`Apakah Anda yakin ingin menghapus "${toDelete?.name ?? ""}" secara permanen? Tindakan ini tidak dapat dibatalkan.`}
+        confirmLabel="Hapus Permanen"
         destructive
         loading={deleting}
-        onConfirm={onConfirmDelete}
+        onConfirm={confirmDelete}
         onCancel={() => setToDelete(null)}
       />
-
-      <ConfirmDialog
-        open={catToDelete !== null}
-        title="Hapus Kategori"
-        description={`Yakin ingin menghapus kategori "${catToDelete?.name}"? Kontak di dalamnya tidak ikut terhapus, hanya dilepas dari kategori ini.`}
-        confirmLabel="Hapus"
-        destructive
-        loading={catDeleting}
-        onConfirm={onCategoryDelete}
-        onCancel={() => setCatToDelete(null)}
-      />
+      <Toast toast={toast} />
     </DashboardShell>
   );
 }
 
-export const getServerSideProps: GetServerSideProps = withAuth<Record<string, unknown>>(
-  async () => ({ props: {} })
-);
+export const getServerSideProps: GetServerSideProps = withAuth(async () => ({ props: {} }));
