@@ -52,6 +52,7 @@ export default async function handler(
       }
       await prisma.user.delete({ where: { id } });
       await logHuman({
+        actorEmail: session.user.email ?? undefined,
         tenantId,
         action: "user.removed",
         entityType: "User",
@@ -92,6 +93,7 @@ export default async function handler(
         data: { canRunCampaigns: parsed.data.canRunCampaigns },
       });
       await logHuman({
+        actorEmail: session.user.email ?? undefined,
         tenantId,
         action: "user.campaign_permission",
         entityType: "User",
@@ -114,6 +116,7 @@ export default async function handler(
     }
     const updated = await prisma.user.update({ where: { id }, data: { role } });
     await logHuman({
+        actorEmail: session.user.email ?? undefined,
       tenantId,
       action: "user.role_change",
       entityType: "User",

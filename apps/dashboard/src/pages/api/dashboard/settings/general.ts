@@ -53,6 +53,7 @@ export default async function handler(
       data: { name: data.name, settings },
     });
     await logHuman({
+        actorEmail: session.user.email ?? undefined,
       tenantId,
       action: "settings.general_updated",
       entityType: "Tenant",

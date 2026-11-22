@@ -76,6 +76,7 @@ export default async function handler(
     });
 
     await logHuman({
+        actorEmail: session.user.email ?? undefined,
       tenantId,
       action: "agent.edit",
       entityType: "Agent",

@@ -72,6 +72,10 @@ export const authOptions: NextAuthOptions = {
             tenantId: user.tenantId,
             role: user.role,
             canRunCampaigns: user.canRunCampaigns,
+            // Audit run-3 (admin.tenant-owner-takeover): revocation stamp +
+            // rotation flag, both re-checked against the DB on every request.
+            passwordChangedAt: user.passwordChangedAt?.toISOString() ?? null,
+            mustChangePassword: user.mustChangePassword,
           };
         });
       },
@@ -85,6 +89,8 @@ export const authOptions: NextAuthOptions = {
         token.tenantId = user.tenantId;
         token.role = user.role;
         token.canRunCampaigns = user.canRunCampaigns;
+        token.passwordChangedAt = user.passwordChangedAt;
+        token.mustChangePassword = user.mustChangePassword;
       }
       return token;
     },
@@ -94,6 +100,10 @@ export const authOptions: NextAuthOptions = {
         session.user.tenantId = token.tenantId;
         session.user.role = token.role;
         session.user.canRunCampaigns = token.canRunCampaigns ?? false;
+        session.user.mustChangePassword = token.mustChangePassword ?? false;
+        // Revocation stamp echoed so getAuthSession can compare it with the
+        // DB without a cast (no secret - just a timestamp).
+        session.user.passwordChangedAt = token.passwordChangedAt ?? null;
       }
       return session;
     },
@@ -106,25 +116,54 @@ export const authOptions: NextAuthOptions = {
 // themselves (avoids prop-merging type casts under the no-`as` rule).
 // SEC-4 (PRD 16): a suspended tenant's live sessions land on /suspended, a
 // clear error page instead of a broken dashboard.
+// Audit run-3: also enforces the revocation stamp (stale session -> login)
+// and the forced-rotation redirect to /ubah-password.
+const CHANGE_PASSWORD_PAGE = "/ubah-password";
+
+// The block result is always a redirect - typed as the redirect-only variant
+// of GetServerSidePropsResult so it assigns into any page's P.
+type SsrBlock = { redirect: { destination: string; permanent: boolean } };
+
+async function ssrSessionValid(
+  ctx: GetServerSidePropsContext,
+  destination: string
+): Promise<SsrBlock | null> {
+  const session = await getServerSession(ctx.req, ctx.res, authOptions);
+  if (!session) {
+    return { redirect: { destination: "/login", permanent: false } };
+  }
+  if (session.user.tenantId) {
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: session.user.tenantId },
+      select: { status: true },
+    });
+    if (tenant?.status === "SUSPENDED") {
+      return { redirect: { destination: "/suspended", permanent: false } };
+    }
+  }
+  if (session.user.id) {
+    if (!(await passwordStampValid(session.user.id, session.user.passwordChangedAt))) {
+      return { redirect: { destination: "/login", permanent: false } };
+    }
+  }
+  if (
+    session.user.mustChangePassword &&
+    ctx.resolvedUrl.split("?")[0] !== CHANGE_PASSWORD_PAGE
+  ) {
+    return { redirect: { destination: CHANGE_PASSWORD_PAGE, permanent: false } };
+  }
+  return null;
+}
+
 export function withAuth<P extends Record<string, unknown> = Record<string, unknown>>(
   gssp: GetServerSideProps<P>,
   options?: { requiredRole?: UserRole }
 ): GetServerSideProps<P> {
   return async (ctx: GetServerSidePropsContext): Promise<GetServerSidePropsResult<P>> => {
-    const session = await getServerSession(ctx.req, ctx.res, authOptions);
-    if (!session) {
-      return { redirect: { destination: "/login", permanent: false } };
-    }
-    if (session.user.tenantId) {
-      const tenant = await prisma.tenant.findUnique({
-        where: { id: session.user.tenantId },
-        select: { status: true },
-      });
-      if (tenant?.status === "SUSPENDED") {
-        return { redirect: { destination: "/suspended", permanent: false } };
-      }
-    }
-    if (options?.requiredRole && session.user.role !== options.requiredRole) {
+    const blocked = await ssrSessionValid(ctx, "/login");
+    if (blocked) return blocked;
+    const session = await getSSRSession(ctx);
+    if (options?.requiredRole && session?.user.role !== options.requiredRole) {
       return { redirect: { destination: "/dashboard", permanent: false } };
     }
     return gssp(ctx);
@@ -136,6 +175,29 @@ export async function getSSRSession(ctx: GetServerSidePropsContext): Promise<Ses
 }
 
 // API route session helper - call first in every tenant-touching API route.
+// Audit run-3 (admin.tenant-owner-takeover): revocation check. The JWT
+// carries the passwordChangedAt stamp from sign-in; this is compared
+// against the DB on every request so ANY password write (admin reset,
+// self-service change, invite accept) kills all outstanding stateless
+// sessions immediately. Null stamp = the user never had a password write
+// since the migration; the token also has null -> valid.
+async function passwordStampValid(
+  userId: string,
+  tokenStamp: string | null | undefined
+): Promise<boolean> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { passwordChangedAt: true },
+  });
+  if (!user) return false;
+  const current = user.passwordChangedAt?.toISOString() ?? null;
+  return (tokenStamp ?? null) === current;
+}
+
+// The one API path a mustChangePassword user may reach: setting their new
+// password. Everything else stays locked until the rotation happens.
+const PASSWORD_CHANGE_PATH = "/api/dashboard/account/password";
+
 export async function getAuthSession(
   req: NextApiRequest,
   res: NextApiResponse
@@ -151,6 +213,20 @@ export async function getAuthSession(
       select: { status: true },
     });
     if (tenant?.status === "SUSPENDED") return null;
+  }
+  // Audit run-3: revocation stamp - a password change since sign-in
+  // invalidates this session everywhere, unconditionally.
+  if (session?.user?.id) {
+    if (!(await passwordStampValid(session.user.id, session.user.passwordChangedAt))) {
+      return null;
+    }
+  }
+  // Audit run-3: forced rotation - a user flagged mustChangePassword
+  // (admin reset, tenant bootstrap) can do nothing except set a new
+  // password. The change page itself must stay reachable.
+  if (session?.user?.mustChangePassword) {
+    const path = (req.url ?? "").split("?")[0];
+    if (path !== PASSWORD_CHANGE_PATH) return null;
   }
   return session;
 }
@@ -183,18 +259,11 @@ export function withFeature<P extends Record<string, unknown>>(
   gssp: GetServerSideProps<P>
 ): GetServerSideProps<P> {
   return async (ctx: GetServerSidePropsContext): Promise<GetServerSidePropsResult<P>> => {
+    const blocked = await ssrSessionValid(ctx, "/login");
+    if (blocked) return blocked;
     const session = await getSSRSession(ctx);
     if (!session) {
       return { redirect: { destination: "/login", permanent: false } };
-    }
-    if (session.user.tenantId) {
-      const tenant = await prisma.tenant.findUnique({
-        where: { id: session.user.tenantId },
-        select: { status: true },
-      });
-      if (tenant?.status === "SUSPENDED") {
-        return { redirect: { destination: "/suspended", permanent: false } };
-      }
     }
     const entitlements = await getTenantEntitlements(session.user.tenantId);
     if (!entitlements.features.includes(feature)) {

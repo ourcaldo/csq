@@ -31,6 +31,10 @@ export async function createTenantWithOwner(
           role: "OWNER",
           canRunCampaigns: true,
           passwordHash,
+          // Audit run-3: the emailed bootstrap password is single-use by
+          // policy - the owner rotates it at first login.
+          mustChangePassword: true,
+          passwordChangedAt: new Date(),
         },
       },
     },

@@ -132,6 +132,7 @@ export default async function handler(
       }
       await saveEmailProvider(tenantId, stored.data);
       await logHuman({
+        actorEmail: session.user.email ?? undefined,
         tenantId,
         action: "email.provider_update",
         entityType: "Tenant",
@@ -149,6 +150,7 @@ export default async function handler(
       if (before) {
         await clearEmailProvider(tenantId);
         await logHuman({
+        actorEmail: session.user.email ?? undefined,
           tenantId,
           action: "email.provider_disconnect",
           entityType: "Tenant",

@@ -114,6 +114,9 @@ export default async function handler(
             passwordHash: await hashPassword(parsed.data.password),
             role: invite.role,
             tenantId: invite.tenantId,
+            // Audit run-3: stamp the self-chosen password so any forged
+            // pre-accept session material cannot exist.
+            passwordChangedAt: new Date(),
           },
         });
       });
@@ -146,6 +149,7 @@ export default async function handler(
         passwordHash: await hashPassword(parsed.data.password),
         role: invite.role,
         tenantId: invite.tenantId,
+        passwordChangedAt: new Date(),
       },
     });
     await prisma.teamInvite.update({

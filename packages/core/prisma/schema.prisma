@@ -429,6 +429,10 @@ model User {
   // FEA-5 (PRD 16): invite-token accounts must set their own password at
   // first login; the invite credential is single-use.
   mustChangePassword Boolean @default(false)
+  // Audit run-3 (admin.tenant-owner-takeover): session-revocation stamp -
+  // embedded in the JWT at sign-in and re-checked per request; every
+  // password write bumps it so outstanding stateless sessions die.
+  passwordChangedAt DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -921,6 +925,11 @@ model AuditLog {
   id             String         @id @default(uuid())
   tenantId       String
   agentId        String?
+  // Audit run-3 (audit.actor-misattribution): the acting human's email at
+  // write time (same pattern as AdminActionLog.adminEmail) - so the audit
+  // page renders the real actor instead of the viewing owner. Null on rows
+  // written before the backfill.
+  actorEmail     String?
   action         String
   entityType     String
   entityId       String

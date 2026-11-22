@@ -163,6 +163,7 @@ export default async function handler(
     }
 
     await logHuman({
+        actorEmail: session.user.email ?? undefined,
       tenantId,
       action: "user.invited",
       entityType: "TeamInvite",

@@ -53,6 +53,7 @@ export default async function handler(
         where: { tenantId, agentId: agent.id },
       });
       await logHuman({
+        actorEmail: session.user.email ?? undefined,
         tenantId,
         action: "agent.capability.reset",
         entityType: "AgentCapability",
@@ -80,6 +81,7 @@ export default async function handler(
     await grantCapability(tenantId, agent.id, tool, allowed, requiresApproval);
 
     await logHuman({
+        actorEmail: session.user.email ?? undefined,
       tenantId,
       action: "agent.capability.update",
       entityType: "AgentCapability",

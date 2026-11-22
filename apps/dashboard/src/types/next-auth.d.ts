@@ -14,6 +14,10 @@ declare module "next-auth" {
       // Campaign permission (feature plan 2026-11-01, decision 2.2): OWNER
       // always has it; STAFF only when the owner toggles it on the Team page.
       canRunCampaigns: boolean;
+      // Audit run-3: forced-rotation flag + the revocation stamp echoed from
+      // the JWT (getAuthSession re-checks both against the DB).
+      mustChangePassword: boolean;
+      passwordChangedAt: string | null;
     } & DefaultSession["user"];
   }
 
@@ -21,6 +25,8 @@ declare module "next-auth" {
     tenantId: string;
     role: UserRole;
     canRunCampaigns: boolean;
+    mustChangePassword: boolean;
+    passwordChangedAt: string | null;
   }
 }
 
@@ -30,5 +36,7 @@ declare module "next-auth/jwt" {
     tenantId: string;
     role: UserRole;
     canRunCampaigns: boolean;
+    mustChangePassword: boolean;
+    passwordChangedAt: string | null;
   }
 }

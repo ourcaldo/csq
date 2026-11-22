@@ -6,10 +6,11 @@ import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 
 // Tenant configuration audit log (PRD 28 follow-up): the tenant's own
-// AuditLog rows, newest first. OWNER-only. The schema has no per-row human
-// actor or IP (logHuman writes agentId: null) - the actor is rendered from
-// the agent relation when present, else the acting session user (the only
-// role that can reach this page is OWNER).
+// AuditLog rows, newest first. OWNER-only.
+// Audit run-3 (audit.actor-misattribution): the actor comes from the row -
+// the agent relation for AI actions, the NEW actorEmail snapshot for human
+// actions. Legacy rows (pre-backfill, actorEmail null) render "Pengguna"
+// instead of being misattributed to the viewing owner.
 
 type AuditRow = {
   id: string;
@@ -47,15 +48,17 @@ export default async function handler(
         entityType: true,
         entityId: true,
         agent: { select: { name: true } },
+        actorEmail: true,
       },
     });
 
     const items: AuditRow[] = rows.map((r) => ({
       id: r.id,
       action: r.action,
-      // agentId null = a human action (logHuman) - on this OWNER-only page
-      // that resolves to the signed-in operator.
-      actorName: r.agent?.name ?? session.user.name ?? session.user.email ?? null,
+      // Agent rows name the agent; human rows use the recorded actor email;
+      // legacy human rows have no recorded actor - "Pengguna" (NOT the
+      // viewer: the audit trail must never falsify attribution).
+      actorName: r.agent?.name ?? r.actorEmail ?? "Pengguna",
       createdAt: r.createdAt.toISOString(),
       entityType: r.entityType,
       entityId: r.entityId,

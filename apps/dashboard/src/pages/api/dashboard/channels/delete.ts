@@ -55,6 +55,7 @@ export default async function handler(
     await prisma.channel.delete({ where: { id: channel.id } });
 
     await logHuman({
+        actorEmail: session.user.email ?? undefined,
       tenantId,
       action: "channel.delete",
       entityType: "Channel",

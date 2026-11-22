@@ -12,6 +12,9 @@ export type AuditLogInput = {
   afterValue?: Prisma.InputJsonValue;
   approvalStatus: ApprovalStatus;
   customerPhone?: string;
+  // Audit run-3 (audit.actor-misattribution): the acting human's email,
+  // snapshotted at write time (pattern of AdminActionLog.adminEmail).
+  actorEmail?: string;
 };
 
 // Append-only audit (SDD §4.4 / §6.6). Only create() is ever called - there is
@@ -23,6 +26,7 @@ export async function logAction(input: AuditLogInput): Promise<void> {
     data: {
       tenantId: input.tenantId,
       agentId: input.agentId,
+      actorEmail: input.actorEmail,
       action: input.action,
       entityType: input.entityType,
       entityId: input.entityId,
@@ -73,6 +77,9 @@ export function toJsonValue(v: unknown): Prisma.InputJsonValue {
 
 // Human (dashboard) mutations: agentId is null, approvalStatus NONE. Use this
 // from dashboard CRUD routes so human writes are audited alongside agent ones.
+// Audit run-3: pass actorEmail (the session user's email) so the audit trail
+// names the real actor; rows written without it render as "Pengguna" instead
+// of being misattributed to whoever views the log.
 export async function logHuman(input: {
   tenantId: string;
   action: string;
@@ -80,6 +87,7 @@ export async function logHuman(input: {
   entityId: string;
   beforeValue?: unknown;
   afterValue?: unknown;
+  actorEmail?: string;
 }): Promise<void> {
   await logAction({
     tenantId: input.tenantId,
@@ -90,6 +98,7 @@ export async function logHuman(input: {
     approvalStatus: "NONE",
     beforeValue: input.beforeValue !== undefined ? toJsonValue(input.beforeValue) : undefined,
     afterValue: input.afterValue !== undefined ? toJsonValue(input.afterValue) : undefined,
+    actorEmail: input.actorEmail,
   });
 }
 

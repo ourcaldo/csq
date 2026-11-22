@@ -77,6 +77,7 @@ export default async function handler(
       };
       await prisma.tenant.update({ where: { id: tenantId }, data: { settings } });
       await logHuman({
+        actorEmail: session.user.email ?? undefined,
         tenantId,
         action: "settings.logo_updated",
         entityType: "Tenant",
@@ -96,6 +97,7 @@ export default async function handler(
       delete settings.logoMediaId;
       await prisma.tenant.update({ where: { id: tenantId }, data: { settings } });
       await logHuman({
+        actorEmail: session.user.email ?? undefined,
         tenantId,
         action: "settings.logo_cleared",
         entityType: "Tenant",

@@ -91,9 +91,17 @@ export default async function handler(
           return res.status(404).json(apiError("NOT_FOUND", "User not found in this tenant."));
         }
         const passwordHash = await hashPassword(newPassword);
+        // Audit run-3 (admin.tenant-owner-takeover): bump the revocation
+        // stamp (all outstanding sessions die) and force rotation - the
+        // emailed password is a bootstrap credential that cannot outlive
+        // the owner's first login.
         await prisma.user.update({
           where: { id: user.id },
-          data: { passwordHash },
+          data: {
+            passwordHash,
+            passwordChangedAt: new Date(),
+            mustChangePassword: true,
+          },
         });
         await auditAdminAction({
           adminId: admin.adminId,          email: admin.email ?? "",
@@ -118,6 +126,7 @@ export default async function handler(
                 `Masuk di: ${loginUrl}\n` +
                 `Email: ${user.email}\n` +
                 `Password baru: ${newPassword}\n\n` +
+                "Password ini wajib Anda ganti setelah masuk pertama kali.\n" +
                 "Jika Anda tidak merasa meminta reset ini, hubungi admin platform Anda.",
             });
             emailed = true;

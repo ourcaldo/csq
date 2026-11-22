@@ -53,6 +53,7 @@ export default async function handler(
       const before = await getAutoCloseConfig(tenantId);
       await saveAutoCloseConfig(tenantId, parsed.data);
       await logHuman({
+        actorEmail: session.user.email ?? undefined,
         tenantId,
         action: "session.autoclose_update",
         entityType: "Tenant",

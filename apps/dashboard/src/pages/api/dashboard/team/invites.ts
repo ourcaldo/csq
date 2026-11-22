@@ -70,6 +70,7 @@ export default async function handler(
       // and the seat frees from the staffLimit pending count.
       await prisma.teamInvite.delete({ where: { id: invite.id } });
       await logHuman({
+        actorEmail: session.user.email ?? undefined,
         tenantId,
         action: "team.invite_cancelled",
         entityType: "TeamInvite",
@@ -129,6 +130,7 @@ export default async function handler(
         }
       }
       await logHuman({
+        actorEmail: session.user.email ?? undefined,
         tenantId,
         action: "team.invite_resent",
         entityType: "TeamInvite",
