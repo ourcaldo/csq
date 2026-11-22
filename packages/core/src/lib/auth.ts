@@ -185,10 +185,15 @@ async function passwordStampValid(
   userId: string,
   tokenStamp: string | null | undefined
 ): Promise<boolean> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { passwordChangedAt: true },
-  });
+  // RLS (PRD 16 SEC-1): User is a tenant table - contextless queries fail
+  // CLOSED. The check predates knowing the tenant, so like authorize()'s
+  // email lookup it runs in the system-bypass context.
+  const user = await withSystemContext(async () =>
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { passwordChangedAt: true },
+    })
+  );
   if (!user) return false;
   const current = user.passwordChangedAt?.toISOString() ?? null;
   return (tokenStamp ?? null) === current;
