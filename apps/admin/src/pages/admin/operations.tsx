@@ -36,6 +36,35 @@ export default function OperationsPage() {
   const heldLocks = locks.filter((l) => l.isHeld).length;
   const outboxCount = (status: string) => data?.outbox.find((o) => o.status === status)?.count ?? 0;
 
+  // Probe cells: services + the DB check, always. The column count follows
+  // the cell count so the strip fills its row edge-to-edge (a fixed 6-col
+  // grid with 4 cells left half the strip blank).
+  const probes = data
+    ? [
+        ...data.health.services.map((s) => ({
+          name: s.name,
+          ok: s.ok,
+          metric: s.ok ? `${s.ms} ms` : "No answer",
+          sub: s.ok ? `${PROBE_SUB[s.name] ?? "HTTP"} ${s.status ?? ""}` : "no answer within 5s",
+        })),
+        {
+          name: "PostgreSQL",
+          ok: data.health.db.ok,
+          metric: data.health.db.ok ? `${data.health.db.ms} ms` : "Failed",
+          sub: data.health.db.ok ? "SELECT 1" : "unreachable",
+        },
+      ]
+    : [];
+  const probeCols: Record<number, string> = {
+    1: "sm:grid-cols-1",
+    2: "sm:grid-cols-2",
+    3: "sm:grid-cols-3",
+    4: "sm:grid-cols-4",
+    5: "sm:grid-cols-5",
+    6: "sm:grid-cols-6",
+  };
+  const probeGrid = probeCols[probes.length] ?? "sm:grid-cols-4";
+
   async function retry(messageId: string) {
     setBusy(messageId);
     try {
@@ -79,29 +108,16 @@ export default function OperationsPage() {
 
       {data && (
         <>
-          {/* Infrastructure probes strip: uniform cells, label row aligned
-              across every column (label + status dot left, metric below).
-              The DB probe joins the services array so the grid stays one
-              even row instead of wrapping a lonely 6th cell. */}
-          <div className="mt-6 grid grid-cols-2 border-y border-slate-200 sm:grid-cols-3 lg:grid-cols-6">
-            {[...data.health.services.map((s) => ({
-                name: s.name,
-                ok: s.ok,
-                metric: s.ok ? `${s.ms} ms` : "No answer",
-                sub: s.ok ? `${PROBE_SUB[s.name] ?? "HTTP"} ${s.status ?? ""}` : "no answer within 5s",
-              })),
-              ...(data.health.services.length < 5 ? [] : [{
-                name: "PostgreSQL",
-                ok: data.health.db.ok,
-                metric: data.health.db.ok ? `${data.health.db.ms} ms` : "Failed",
-                sub: data.health.db.ok ? "SELECT 1" : "unreachable",
-              }]),
-            ].map((p, idx, all) => (
+          {/* Infrastructure probes strip: one even row, columns follow the
+              actual cell count so the strip always fills the width and its
+              dividers line up with the metric row below. */}
+          <div className={`mt-6 grid grid-cols-2 border-y border-slate-200 ${probeGrid}`}>
+            {probes.map((p, idx) => (
               <div
                 key={p.name}
                 className={`border-slate-200 py-3.5 pr-4 ${idx > 0 ? "sm:border-l sm:pl-4" : ""} ${
                   idx >= 2 ? "border-t sm:border-t-0" : ""
-                } ${idx >= 3 ? "lg:border-t lg:border-t-0" : ""}`}
+                }`}
               >
                 <div className="flex items-center gap-1.5">
                   <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${p.ok ? "bg-emerald-500" : "bg-red-500"}`} />
