@@ -28,7 +28,9 @@ import {
 import { cn } from "@csq/ui/lib/utils";
 import { ConfirmDialogHost } from "@/components/confirm-dialog";
 import { ToastHost } from "@/components/toast";
+import { Skeleton } from "@/components/console";
 import { useAdminApi } from "@/lib/admin-api";
+
 
 // Admin shell - "Enterprise Control Plane" direction (owner-approved
 // template 2026-11-22). Fixed off-canvas sidebar that switches to a Settings
@@ -129,6 +131,11 @@ export function AdminShell({ title, children }: { title: string; children: React
   const failedCount = opsData?.failedMessages.length ?? 0;
   const connected = (channelsData?.items ?? []).filter((c) => c.status === "CONNECTED").length;
   const dbMs = opsData?.health.db.ok ? `${opsData.health.db.ms}ms DB` : "DB down";
+  // Skeletons only on the genuine first load (no cached response yet) -
+  // afterwards the module cache in lib/admin-api serves the last data
+  // instantly on every navigation, so no value ever flashes.
+  const opsLoaded = opsData !== null;
+  const channelsLoaded = channelsData !== null;
   const name = session?.user?.name ?? "Operator";
   const initials = name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 
@@ -192,10 +199,20 @@ export function AdminShell({ title, children }: { title: string; children: React
         <div className="border-b border-slate-100 bg-muted/70 px-5 py-2.5">
           <div className="flex items-center justify-between text-[11px]">
             <span className="flex items-center gap-1.5 font-medium text-slate-700">
-              <span className={`h-1.5 w-1.5 rounded-full ${failedCount === 0 ? "live-dot bg-emerald-500" : "bg-red-500"}`} />
-              <span>{failedCount === 0 ? "All systems operational" : `${failedCount} failed sends`}</span>
+              {opsLoaded ? (
+                <>
+                  <span className={`h-1.5 w-1.5 rounded-full ${failedCount === 0 ? "live-dot bg-emerald-500" : "bg-red-500"}`} />
+                  <span>{failedCount === 0 ? "All systems operational" : `${failedCount} failed sends`}</span>
+                </>
+              ) : (
+                <Skeleton className="h-2 w-32" />
+              )}
             </span>
-            <span className="font-mono text-[10px] text-slate-500">{connected}/{counts.channels} channels up</span>
+            {channelsLoaded ? (
+              <span className="font-mono text-[10px] text-slate-500">{connected}/{counts.channels} channels up</span>
+            ) : (
+              <Skeleton className="h-2 w-20" />
+            )}
           </div>
         </div>
 
@@ -354,9 +371,15 @@ export function AdminShell({ title, children }: { title: string; children: React
               href="/admin/operations"
               className="hidden items-center gap-2 rounded-full border border-slate-200 bg-muted/80 px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-100 sm:inline-flex"
             >
-              <span className={`h-2 w-2 rounded-full ${failedCount === 0 ? "live-dot bg-emerald-500" : "bg-red-500"}`} />
-              <span>{failedCount === 0 ? "Worker OK" : "Needs attention"}</span>
-              <span className="font-mono text-[10px] text-slate-400">{dbMs}</span>
+              {opsLoaded ? (
+                <>
+                  <span className={`h-2 w-2 rounded-full ${failedCount === 0 ? "live-dot bg-emerald-500" : "bg-red-500"}`} />
+                  <span>{failedCount === 0 ? "Worker OK" : "Needs attention"}</span>
+                  <span className="font-mono text-[10px] text-slate-400">{dbMs}</span>
+                </>
+              ) : (
+                <Skeleton className="h-2.5 w-24" />
+              )}
             </Link>
             <Link
               href="/admin/operations"
@@ -370,20 +393,6 @@ export function AdminShell({ title, children }: { title: string; children: React
               )}
             </Link>
             <div className="h-4 w-px bg-slate-200" />
-            <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-600 text-xs font-semibold text-white">
-                {initials}
-              </div>
-              <div className="hidden text-left xl:block">
-                <p className="text-xs font-semibold leading-none text-slate-900">{name}</p>
-                <button
-                  onClick={() => void signOut({ callbackUrl: "/login" })}
-                  className="mt-0.5 font-mono text-[10px] leading-none text-slate-400 hover:text-emerald-700"
-                >
-                  Sign out
-                </button>
-              </div>
-            </div>
           </div>
         </header>
 

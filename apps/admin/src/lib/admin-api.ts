@@ -5,6 +5,13 @@ import { z } from "zod";
 // dashboard's useApi: url + loading + error + refresh. Cookie-based auth
 // (the admin session rides the NextAuth cookie automatically).
 
+// Cross-page response cache: every console page mounts its own shell and
+// its own fetches, so without this the header/strip state flashes default
+// values ("Worker OK", 0 counts) before the refetch lands on each
+// navigation. Entries live for the session and revalidate on every mount;
+// a failed revalidation keeps the last good data instead of flashing.
+const responseCache = new Map<string, unknown>();
+
 // A crashed route returns a plain-text error page, not the JSON envelope -
 // parse defensively so the UI shows a readable message instead of a JSON
 // tokenizer error.
@@ -42,8 +49,8 @@ export function useAdminApi<T>(url: string): {
   error: string | null;
   refresh: () => void;
 } {
-  const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<T | null>(() => (responseCache.has(url) ? (responseCache.get(url) as T) : null));
+  const [loading, setLoading] = useState(!responseCache.has(url));
   const [error, setError] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
 
@@ -56,6 +63,7 @@ export function useAdminApi<T>(url: string): {
       .then((result) => {
         if (!active) return;
         if (result.ok) {
+          responseCache.set(url, result.data);
           setData(result.data as T);
           setError(null);
         } else {
@@ -76,6 +84,13 @@ export function useAdminApi<T>(url: string): {
   return { data, loading, error, refresh };
 }
 
+// Mutations invalidate every cached GET: the console's write endpoints all
+// mutate list/state data the pages re-render from, so a stale cache after a
+// successful write would show pre-action state until the next navigation.
+function bustCache(): void {
+  responseCache.clear();
+}
+
 // POST/PUT/PATCH/DELETE helper that returns the parsed envelope.
 export async function adminFetch<T>(
   url: string,
@@ -92,6 +107,7 @@ export async function adminFetch<T>(
   if (!result.ok) {
     throw new Error(result.message);
   }
+  bustCache();
   return result.data as T;
 }
 

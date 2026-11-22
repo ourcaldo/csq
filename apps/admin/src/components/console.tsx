@@ -117,6 +117,12 @@ export function Segmented({
 
 export const pad = (n: number) => String(n).padStart(2, "0");
 
+// Loading skeleton (template direction: neutral pulse, never colored -
+// a colored placeholder would flash a fake status before data lands).
+export function Skeleton({ className }: { className?: string }) {
+  return <span className={`inline-block animate-pulse rounded bg-slate-200/80 ${className ?? ""}`} />;
+}
+
 export function idr(n: number): string {
   return "Rp " + Number(n || 0).toLocaleString("id-ID");
 }
