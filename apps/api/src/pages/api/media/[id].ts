@@ -35,8 +35,19 @@ export default async function handler(
   // execute in the browser. nosniff everywhere, and non-image bytes download
   // instead of render even if a script-executable mime slipped into storage.
   res.setHeader("X-Content-Type-Options", "nosniff");
-  if (!asset.mimeType.startsWith("image/")) {
+  // Audit run-3 (media.inline-svg-any-user-bytes): only rasters render
+  // inline - image/svg+xml executes script when navigated to directly.
+  if (!INLINE_SAFE.has(asset.mimeType)) {
     res.setHeader("Content-Disposition", "attachment");
+    res.setHeader("Content-Security-Policy", "default-src 'none'; sandbox");
   }
   res.end(asset.data);
 }
+
+// Inline-safe = raster images only (SVG is a script-executing document).
+const INLINE_SAFE = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+]);

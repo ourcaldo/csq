@@ -193,6 +193,18 @@ function fromJid(jid: string | undefined | null): string {
   return (jid ?? "").split("@")[0];
 }
 
+// Audit run-3 hardening (lid.alt-poisoning-family, rejected as a finding):
+// remoteJidAlt is derived by Baileys from WhatsApp-server-stamped stanza
+// attributes, so no forge path is known - but the code still trusts the
+// field blindly. Guardrail: an alt is only usable as a PN identity when it
+// is a structurally valid phone JID (digits-only user part, PN domain).
+// Anything else is ignored, never stored.
+function isPnJid(jid: string): boolean {
+  if (!jid.endsWith("@s.whatsapp.net")) return false;
+  const user = jid.split("@")[0].split(":")[0];
+  return /^[0-9]{7,15}$/.test(user);
+}
+
 // Canonical conversation identity for an inbound Baileys chat (one thread per
 // customer). Baileys 7 carries the alt JID (the PN when the chat is
 // LID-addressed) on the message key - but NOT on every message. When it is
@@ -214,11 +226,15 @@ export async function resolveInboundIdentity(
   if (!remoteJid) return null;
   if (remoteJid.endsWith("@lid")) {
     const lidUser = remoteJid.split("@")[0].split(":")[0];
-    let pnUser = altJid
-      ? altJid.split("@")[0].split(":")[0]
+    // Audit run-3: only a structurally valid PN alt feeds the identity and
+    // the mapping store; a malformed alt falls through to the mapping
+    // lookup as if it were absent.
+    const usableAlt = altJid && isPnJid(altJid) ? altJid : null;
+    let pnUser = usableAlt
+      ? usableAlt.split("@")[0].split(":")[0]
       : await getPnForLid(channelId, remoteJid).catch(() => null);
     let lidChanged = false;
-    if (altJid && lidUser && pnUser) {
+    if (usableAlt && lidUser && pnUser) {
       // Await: the mapping must exist before the ingest lookup, or a
       // first-message race stores a LID-keyed thread that a later message
       // splits (the 2026-11-22 duplicate-thread incident).

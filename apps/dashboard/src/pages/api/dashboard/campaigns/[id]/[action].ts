@@ -42,7 +42,13 @@ export default async function handler(
       if (existing.status !== "ACTIVE") {
         return respondError(res, "VALIDATION_ERROR", "Kampanye tidak sedang aktif.");
       }
-      const updated = await prisma.campaign.update({ where: { id }, data: { status: "PAUSED" } });
+      // Audit run-3 (campaign.activate_stale_autopaused): an explicit owner
+      // pause clears the auto-pause marker so a later admin tenant-reactivate
+      // can no longer force-resume this campaign over the owner's decision.
+      const updated = await prisma.campaign.update({
+        where: { id },
+        data: { status: "PAUSED", autoPaused: false },
+      });
       await logHuman({
         tenantId,
         action: "campaign.pause",
@@ -78,7 +84,9 @@ export default async function handler(
     }
     const updated = await prisma.campaign.update({
       where: { id },
-      data: { status: "ACTIVE", nextRunAt: next },
+      // Audit run-3: activate also clears the auto-pause marker - the owner
+      // has explicitly re-engaged the campaign.
+      data: { status: "ACTIVE", nextRunAt: next, autoPaused: false },
     });
     await logHuman({
       tenantId,

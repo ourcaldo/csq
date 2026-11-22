@@ -36,6 +36,15 @@ const ALLOWED_DOC_MIME = new Set([
   "text/plain",
 ]);
 
+// Audit run-3: raster-only image allow-list - image/svg+xml is a script-
+// executing document, not a displayable image.
+const INLINE_SAFE_IMAGES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+]);
+
 function readRawBody(req: NextApiRequest): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = [];
@@ -108,7 +117,13 @@ export default async function handler(
     const rawMime = req.headers["content-type"];
     const mimeType = Array.isArray(rawMime) ? rawMime[0] ?? "" : rawMime ?? "";
     const isDocument = !mimeType.startsWith("image/");
-    if (!mimeType.startsWith("image/") && !ALLOWED_DOC_MIME.has(mimeType)) {
+    // Audit run-3 (media.inline-svg-any-user-bytes): the image allow-list is
+    // the raster set, not bare image/* - image/svg+xml must never be stored
+    // (it executes script when the media URL is opened directly).
+    if (
+      (!mimeType.startsWith("image/") || !INLINE_SAFE_IMAGES.has(mimeType)) &&
+      !ALLOWED_DOC_MIME.has(mimeType)
+    ) {
       return respondError(
         res,
         "VALIDATION_ERROR",

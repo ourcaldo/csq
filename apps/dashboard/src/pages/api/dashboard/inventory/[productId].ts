@@ -42,6 +42,17 @@ export default async function handler(
       if (!parsed.success) {
         return respondError(res, "VALIDATION_ERROR", parsed.error.message);
       }
+      // Audit run-3 (bff.inventory-upsert-tenant): the upsert keys on the
+      // globally-unique productId, so a foreign tenant's product UUID would
+      // otherwise claim the key and break the victim's stock/order flows.
+      // The product must belong to this tenant, mirroring products/[id].
+      const product = await prisma.product.findFirst({
+        where: { id: productId, tenantId },
+        select: { id: true },
+      });
+      if (!product) {
+        return respondError(res, "NOT_FOUND", "Produk tidak ditemukan dalam tenant ini.");
+      }
       // Verify the inventory row belongs to this tenant before mutating;
       // a product just created has no Inventory row yet - upsert it.
       const existing = await prisma.inventory.findFirst({

@@ -39,8 +39,22 @@ export default async function handler(
   // Private cache: authenticated bytes, never a shared proxy cache.
   res.setHeader("Cache-Control", "private, max-age=86400");
   res.setHeader("X-Content-Type-Options", "nosniff");
-  if (!asset.mimeType.startsWith("image/")) {
+  // Audit run-3 (media.inline-svg-any-user-bytes): only rasters render
+  // inline. image/svg+xml is an HTML document that executes script under the
+  // dashboard origin when navigated to directly - everything outside the
+  // raster set is forced to download.
+  if (!INLINE_SAFE.has(asset.mimeType)) {
     res.setHeader("Content-Disposition", "attachment");
+    res.setHeader("Content-Security-Policy", "default-src 'none'; sandbox");
   }
   res.end(asset.data);
 }
+
+// Inline-safe = raster images only. SVG (and any polyglot labeled image/*)
+// is never on this list.
+const INLINE_SAFE = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+]);

@@ -14,8 +14,10 @@ type Item = Prisma.ConversationGetPayload<{
   include: {
     channel: { select: { provider: true; label: true; phoneNumber: true } };
     contact: true;
-    assignedAgent: true;
-    assignee: true;
+    // Audit run-3: masked selects - full rows leaked passwordHash and agent
+    // instructions.
+    assignedAgent: { select: { id: true, name: true, status: true } };
+    assignee: { select: { id: true; name: true; email: true; role: true } };
     tags: { include: { tag: true } };
     deal: { include: { stage: true } };
   };
@@ -109,8 +111,12 @@ export default async function handler(
                 tags: { include: { tag: true } },
               },
             },
-            assignedAgent: true,
-            assignee: true,
+            // Audit run-3 (inbox-assignee-passwordhash-disclosure): never
+            // include the full User/Agent rows - passwordHash and agent
+            // instructions leaked through `true`. Select exactly what the
+            // client types declare (types/inbox.ts User / Agent).
+            assignedAgent: { select: { id: true, name: true, status: true } },
+            assignee: { select: { id: true, name: true, email: true, role: true } },
             tags: { include: { tag: true } },
             deal: { include: { stage: true } },
             messages: { take: 1, orderBy: { createdAt: "desc" }, select: { body: true, senderType: true, kind: true } },

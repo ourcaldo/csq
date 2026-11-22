@@ -75,6 +75,14 @@ export async function storeLidPnMapping(
     where: { channelId_lid: { channelId, lid: lidUser } },
   });
   const changed = existing?.pn !== pnUser;
+  // Audit run-3 hardening: a lid -> pn CHANGE is rare (WhatsApp change-number
+  // keeps the LID) and reroutes every send on the channel - log it so an
+  // anomalous pattern is visible instead of silent.
+  if (existing && changed) {
+    console.log(
+      `[baileys-auth] lid mapping changed: channel=${channelId} lid=${lidUser} ${existing.pn} -> ${pnUser}`
+    );
+  }
   await prisma.lidMapping.upsert({
     where: { channelId_lid: { channelId, lid: lidUser } },
     create: { channelId, lid: lidUser, pn: pnUser },

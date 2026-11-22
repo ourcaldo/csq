@@ -17,12 +17,26 @@ import { logHuman } from "@csq/core/lib/audit";
 type Detail = Prisma.ConversationGetPayload<{
   include: {
     contact: true;
-    assignedAgent: true;
-    assignee: true;
+    assignedAgent: { select: { id: true; name: true; status: true } };
+    assignee: { select: { id: true; name: true; email: true; role: true } };
     tags: { include: { tag: true } };
     messages: true;
   };
 }>;
+
+// Audit run-3: the assignee/assignedAgent selects must mask the full rows
+// (passwordHash / instructions) on every path that returns a conversation.
+const DETAIL_INCLUDE = {
+  contact: {
+    include: {
+      categories: { include: { category: true } },
+      tags: { include: { tag: true } },
+    },
+  },
+  assignedAgent: { select: { id: true, name: true, status: true } },
+  assignee: { select: { id: true, name: true, email: true, role: true } },
+  tags: { include: { tag: true } },
+} satisfies Prisma.ConversationInclude;
 
 // PATCH body: any subset of status / assignment / reply-channel override.
 // assignedAgentId and assigneeUserId are mutually exclusive (XOR enforced in
@@ -54,15 +68,7 @@ export default async function handler(
       const conv = await prisma.conversation.findFirst({
         where: { id, tenantId },
         include: {
-          contact: {
-            include: {
-              categories: { include: { category: true } },
-              tags: { include: { tag: true } },
-            },
-          },
-          assignedAgent: true,
-          assignee: true,
-          tags: { include: { tag: true } },
+          ...DETAIL_INCLUDE,
           // Newest last (asc by time) for chat-panel rendering.
           messages: { orderBy: { createdAt: "asc" }, skip, take },
         },
@@ -129,6 +135,17 @@ export default async function handler(
           return respondError(res, "VALIDATION_ERROR", "User tidak ditemukan dalam tim ini.");
         }
       }
+      // Audit run-3 (bff.assign-agent-crosstenant): same tenant check for the
+      // agent branch - assigneeUserId was verified, assignedAgentId was not.
+      if (assignedAgentId) {
+        const agent = await prisma.agent.findFirst({
+          where: { id: assignedAgentId, tenantId },
+          select: { id: true },
+        });
+        if (!agent) {
+          return respondError(res, "VALIDATION_ERROR", "Agent tidak ditemukan dalam tenant ini.");
+        }
+      }
 
       try {
         if (assignedAgentId !== undefined || assigneeUserId !== undefined) {
@@ -190,10 +207,7 @@ export default async function handler(
       const conv = await prisma.conversation.findFirst({
         where: { id, tenantId },
         include: {
-          contact: true,
-          assignedAgent: true,
-          assignee: true,
-          tags: { include: { tag: true } },
+          ...DETAIL_INCLUDE,
           messages: { orderBy: { createdAt: "asc" } },
         },
       });
