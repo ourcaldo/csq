@@ -1,0 +1,2377 @@
+<!DOCTYPE html>
+<html lang="en" class="antialiased">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CSQ Admin Console — Enterprise Control Plane</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+          mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        },
+      }
+    }
+  }
+</script>
+<style>
+  body { font-feature-settings: "cv02", "cv03", "cv04", "cv11"; }
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+
+  .nav-link {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.65rem;
+    padding: 0.45rem 0.75rem;
+    border-radius: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: rgb(71 85 105);
+    transition: background-color 0.12s ease, color 0.12s ease;
+    cursor: pointer;
+  }
+  .nav-link:hover {
+    background-color: rgb(248 250 252);
+    color: rgb(15 23 42);
+  }
+  .nav-link.active {
+    background-color: rgb(240 253 244);
+    color: rgb(21 128 61);
+    font-weight: 600;
+  }
+
+  .tab-btn {
+    position: relative;
+    padding: 0.65rem 0.25rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: rgb(100 116 139);
+    transition: color 0.15s ease;
+    cursor: pointer;
+  }
+  .tab-btn:hover { color: rgb(15 23 42); }
+  .tab-btn.active {
+    color: rgb(15 23 42);
+    font-weight: 600;
+  }
+  .tab-btn.active::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    background-color: rgb(22 163 74);
+  }
+
+  .modal-backdrop { background: rgba(15, 23, 42, 0.45); backdrop-filter: blur(2px); }
+  @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+  .live-dot { animation: pulse-dot 1.8s ease-in-out infinite; }
+</style>
+</head>
+<body class="bg-white text-slate-900 selection:bg-emerald-100 selection:text-emerald-950">
+
+<!-- ══════════ Mobile Overlay ══════════ -->
+<div id="mobile-overlay" onclick="toggleSidebar(false)" class="modal-backdrop fixed inset-0 z-30 hidden md:hidden"></div>
+
+<!-- ══════════ Dedicated Enterprise Admin Sidebar ══════════ -->
+<aside id="app-sidebar" class="fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 -translate-x-full flex-col border-r border-slate-200 bg-white transition-transform duration-200 md:translate-x-0">
+  <!-- Brand Header -->
+  <div class="flex h-14 items-center justify-between border-b border-slate-100 px-5">
+    <div class="flex items-center gap-2.5">
+      <div class="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-600 text-white">
+        <i class="ph-fill ph-chat-circle-dots text-base"></i>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <span class="text-lg font-bold tracking-tight text-slate-900">CSQ</span>
+        <span class="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-slate-600">Admin</span>
+      </div>
+    </div>
+    <button onclick="toggleSidebar(false)" aria-label="Close navigation" class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 md:hidden">
+      <i class="ph ph-x text-base"></i>
+    </button>
+  </div>
+
+  <!-- Control Plane Context Strip -->
+  <div class="border-b border-slate-100 bg-slate-50/70 px-5 py-2.5">
+    <div class="flex items-center justify-between text-[11px]">
+      <span class="flex items-center gap-1.5 font-medium text-slate-700">
+        <span class="live-dot h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+        <span>Control Plane</span>
+      </span>
+      <span class="font-mono text-[10px] text-slate-500">ap-southeast-3</span>
+    </div>
+  </div>
+
+  <!-- Categorized Navigation -->
+  <nav id="sidebar-nav" class="flex-1 space-y-5 overflow-y-auto px-3 py-4"></nav>
+
+  <!-- Bottom Settings Entry & Operator Footer -->
+  <div class="border-t border-slate-200 p-3">
+    <div id="sidebar-settings-trigger" class="mb-2.5"></div>
+    <div class="flex items-center justify-between gap-2 px-1.5 pt-1">
+      <div class="flex min-w-0 items-center gap-2.5">
+        <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">OP</div>
+        <div class="min-w-0">
+          <p class="truncate text-xs font-semibold text-slate-900">Operator Prima</p>
+          <p class="truncate font-mono text-[10px] text-slate-500">operator@csq.id</p>
+        </div>
+      </div>
+      <span class="rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-emerald-700">ROOT</span>
+    </div>
+  </div>
+</aside>
+
+<!-- ══════════ Main Workspace ══════════ -->
+<div class="flex min-h-screen min-w-0 flex-col md:pl-64">
+
+  <!-- Sticky Enterprise Utility Header -->
+  <header class="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur-xs md:px-8">
+    <div class="flex items-center gap-3">
+      <button onclick="toggleSidebar(true)" aria-label="Open menu" class="rounded p-1.5 text-slate-600 hover:bg-slate-100 md:hidden">
+        <i class="ph ph-list text-lg"></i>
+      </button>
+
+      <!-- Breadcrumb -->
+      <div class="hidden items-center gap-2 text-xs lg:flex">
+        <span id="crumb-group" class="text-slate-400">Platform</span>
+        <span class="text-slate-300">/</span>
+        <span id="crumb-page" class="font-semibold text-slate-900">Overview</span>
+      </div>
+
+      <!-- Global Quick-Jump Input -->
+      <div class="relative sm:ml-2">
+        <i class="ph ph-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400"></i>
+        <input id="global-search" type="text" oninput="handleQuickJump(this.value)" placeholder="Jump to view or search tenant… (⌘K)" class="h-8 w-56 rounded-md border border-slate-200 bg-slate-50 pl-8 pr-3 text-xs text-slate-900 placeholder-slate-400 transition focus:w-80 focus:border-slate-300 focus:bg-white focus:outline-none" />
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <!-- Live Fleet Health Pill -->
+      <button type="button" onclick="go('operations')" class="hidden items-center gap-2 rounded-full border border-slate-200 bg-slate-50/80 px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-100 sm:inline-flex">
+        <span class="live-dot h-2 w-2 rounded-full bg-emerald-500"></span>
+        <span>Worker OK</span>
+        <span class="font-mono text-[10px] text-slate-400">11ms DB</span>
+      </button>
+
+      <!-- Incident Alert Indicator -->
+      <button type="button" onclick="go('operations')" aria-label="Outbox Alerts" class="relative rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800" title="View Outbox Failures">
+        <i class="ph ph-bell text-lg"></i>
+        <span id="header-alert-dot" class="absolute right-1.5 top-1.5 h-2 w-2 rounded-full border-2 border-white bg-red-500"></span>
+      </button>
+
+      <div class="h-4 w-px bg-slate-200"></div>
+
+      <div class="flex items-center gap-2">
+        <div class="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-600 text-xs font-semibold text-white">OP</div>
+        <div class="hidden text-left xl:block">
+          <p class="text-xs font-semibold leading-none text-slate-900">Operator Prima</p>
+          <p class="mt-0.5 font-mono text-[10px] leading-none text-slate-400">Super Admin</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Left-Aligned Enterprise Page Canvas -->
+  <main class="flex-1 px-4 py-7 md:px-8">
+    <div id="page" class="w-full max-w-6xl"></div>
+  </main>
+</div>
+
+<!-- ══════════ Destructive Confirmation Dialog Only ══════════ -->
+<div id="confirm-modal" class="modal-backdrop fixed inset-0 z-50 hidden items-center justify-center p-4">
+  <div class="w-full max-w-md overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl">
+    <div class="border-b border-slate-100 px-5 py-3.5">
+      <h3 id="confirm-title" class="text-sm font-semibold text-slate-900">Confirm Action</h3>
+    </div>
+    <div class="space-y-3 px-5 py-4">
+      <p id="confirm-desc" class="text-xs leading-relaxed text-slate-600"></p>
+      <div id="confirm-type-wrap" class="hidden">
+        <label for="confirm-type-input" class="block text-xs font-medium text-slate-700">Type exact name to confirm:</label>
+        <input id="confirm-type-input" type="text" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-red-600 focus:outline-none" />
+      </div>
+    </div>
+    <div class="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-5 py-3">
+      <button type="button" onclick="closeConfirmModal()" class="rounded-md border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+      <button type="button" id="confirm-action-btn" onclick="executeConfirmModal()" class="rounded-md bg-red-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-red-700">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ Non-blocking Toast ══════════ -->
+<div id="toast" class="pointer-events-none fixed bottom-5 right-5 z-50 flex translate-y-4 items-center gap-2 rounded-md bg-slate-900 px-3.5 py-2.5 text-xs font-medium text-white opacity-0 shadow-lg transition-all duration-200">
+  <i class="ph-fill ph-check-circle text-sm text-emerald-400"></i>
+  <span id="toast-msg">Saved</span>
+</div>
+
+<script>
+// ══════════ Master Platform State ══════════
+const TENANTS = [
+  {
+    id: "a1",
+    name: "Toko Kopi Nusantara",
+    slug: "csq7xk2m9p",
+    status: "ACTIVE",
+    createdAt: "2026-08-14",
+    users: 4,
+    channels: 2,
+    conversations: 512,
+    msgs30d: 3890,
+    plan: "Growth",
+    detail: {
+      users: [
+        { id: "u1", name: "Budi Santoso", email: "budi@tokokopi.id", role: "OWNER" },
+        { id: "u2", name: "Sari Dewi", email: "sari@tokokopi.id", role: "STAFF" }
+      ],
+      agents: [
+        { name: "Kopi CS Agent", status: "ACTIVE" },
+        { name: "Order Bot", status: "PAUSED" }
+      ],
+      channels: [
+        { provider: "BAILEYS", type: "WHATSAPP", status: "CONNECTED", ok: true },
+        { provider: "CLOUD_API", type: "WHATSAPP", status: "DISCONNECTED", ok: false }
+      ],
+      campaigns: [
+        { name: "Promo Akhir Bulan", status: "ACTIVE" },
+        { name: "Follow-up Pesanan", status: "COMPLETED" },
+        { name: "Ulang Tahun Pelanggan", status: "PAUSED" }
+      ],
+      sources: [
+        { name: "produk.xlsx", type: "EXCEL", status: "ACTIVE" },
+        { name: "Google Sheets Inventaris", type: "SHEETS", status: "ACTIVE" },
+        { name: "manual", type: "MANUAL", status: "ACTIVE" }
+      ]
+    }
+  },
+  {
+    id: "a2",
+    name: "Titik Nol English Course",
+    slug: "csq3hf8w2r",
+    status: "ACTIVE",
+    createdAt: "2026-09-02",
+    users: 3,
+    channels: 1,
+    conversations: 204,
+    msgs30d: 1512,
+    plan: "Basic",
+    detail: {
+      users: [
+        { id: "u3", name: "Rina Marlina", email: "rina@titiknol.id", role: "OWNER" }
+      ],
+      agents: [
+        { name: "Course Info Agent", status: "ACTIVE" }
+      ],
+      channels: [
+        { provider: "CLOUD_API", type: "WHATSAPP", status: "CONNECTED", ok: true }
+      ],
+      campaigns: [
+        { name: "Trial Class Blast", status: "PAUSED" }
+      ],
+      sources: [
+        { name: "jadwal.xlsx", type: "EXCEL", status: "ACTIVE" }
+      ]
+    }
+  },
+  {
+    id: "a3",
+    name: "Warung Sate Pak Man",
+    slug: "csq9dke4tz",
+    status: "SUSPENDED",
+    createdAt: "2026-09-19",
+    users: 2,
+    channels: 1,
+    conversations: 88,
+    msgs30d: 0,
+    plan: null,
+    detail: {
+      users: [
+        { id: "u5", name: "Pak Man", email: "pakman@warung.id", role: "OWNER" }
+      ],
+      agents: [],
+      channels: [
+        { provider: "BAILEYS", type: "WHATSAPP", status: "DISCONNECTED", ok: false }
+      ],
+      campaigns: [],
+      sources: []
+    }
+  },
+  {
+    id: "a4",
+    name: "Bengkel Jaya Motor",
+    slug: "csq5tb7q3n",
+    status: "ACTIVE",
+    createdAt: "2026-10-05",
+    users: 5,
+    channels: 2,
+    conversations: 136,
+    msgs30d: 611,
+    plan: "Basic",
+    detail: {
+      users: [
+        { id: "u6", name: "Jaya Wijaya", email: "jaya@bengkel.id", role: "OWNER" },
+        { id: "u7", name: "Andi", email: "andi@bengkel.id", role: "STAFF" }
+      ],
+      agents: [
+        { name: "Service Reminder", status: "ACTIVE" }
+      ],
+      channels: [
+        { provider: "BAILEYS", type: "WHATSAPP", status: "CONNECTED", ok: true }
+      ],
+      campaigns: [],
+      sources: [
+        { name: "servis.csv", type: "CSV", status: "ERROR" }
+      ]
+    }
+  }
+];
+
+const CHANNELS = [
+  { id: "c1", tenant: "Toko Kopi Nusantara", slug: "csq7xk2m9p", tstatus: "ACTIVE", label: "Kopi WA Utama", number: "6281234500011", provider: "BAILEYS", type: "WHATSAPP", status: "CONNECTED", held: true, until: "14:32", token: "f3a1b2c3", upd: "2026-11-22 14:02" },
+  { id: "c2", tenant: "Toko Kopi Nusantara", slug: "csq7xk2m9p", tstatus: "ACTIVE", label: "WA Cloud Trial", number: null, waba: "109384756", provider: "CLOUD_API", type: "WHATSAPP", status: "DISCONNECTED", held: false, until: null, token: null, upd: "2026-11-20 09:14" },
+  { id: "c3", tenant: "Titik Nol English Course", slug: "csq3hf8w2r", tstatus: "ACTIVE", label: "Titik Nol CS", number: "6289876500123", provider: "CLOUD_API", type: "WHATSAPP", status: "CONNECTED", held: true, until: "14:35", token: "8e2d4c1a", upd: "2026-11-22 14:05" },
+  { id: "c4", tenant: "Warung Sate Pak Man", slug: "csq9dke4tz", tstatus: "SUSPENDED", label: "Warung Sate", number: "6281345600987", provider: "BAILEYS", type: "WHATSAPP", status: "DISCONNECTED", held: false, until: null, token: null, upd: "2026-11-18 16:40" },
+  { id: "c5", tenant: "Bengkel Jaya Motor", slug: "csq5tb7q3n", tstatus: "ACTIVE", label: "Bengkel Service", number: "6285673400021", provider: "BAILEYS", type: "WHATSAPP", status: "CONNECTING", held: false, until: null, token: null, upd: "2026-11-22 13:58" }
+];
+
+const PLANS = [
+  { id: "p1", name: "Basic", price: 199000, credits: 1000, mau: 300, staff: 2, channels: 1, features: ["Knowledge Base", "Manual Data Sources"] },
+  { id: "p2", name: "Growth", price: 499000, credits: 5000, mau: 1000, staff: 5, channels: 2, features: ["Knowledge Base", "Google Sheets Sync", "Campaigns", "Pipeline"] },
+  { id: "p3", name: "Enterprise", price: 1499000, credits: null, mau: null, staff: null, channels: null, features: ["Knowledge Base", "Google Sheets Sync", "Campaigns", "Pipeline", "API Access", "Priority Support"] }
+];
+
+const USAGE = [
+  { tenant: "Toko Kopi Nusantara", planId: "p2", mau: 512, mauLimit: 1000, credits: 4102, creditsLimit: 5000, staff: 3, staffLimit: 5, channels: 1, channelLimit: 2, media: 412300000 },
+  { tenant: "Titik Nol English Course", planId: "p1", mau: 118, mauLimit: 300, credits: 622, creditsLimit: 1000, staff: 1, staffLimit: 2, channels: 1, channelLimit: 1, media: 58700000 },
+  { tenant: "Warung Sate Pak Man", planId: null, mau: 34, mauLimit: null, credits: 0, creditsLimit: null, staff: 0, staffLimit: null, channels: 0, channelLimit: null, media: 2100000 },
+  { tenant: "Bengkel Jaya Motor", planId: "p1", mau: 156, mauLimit: 300, credits: 490, creditsLimit: 1000, staff: 1, staffLimit: 2, channels: 1, channelLimit: 1, media: 96400000 }
+];
+
+const INVOICES = [
+  { id: "i1", number: "INV-202610-0001", tenant: "Toko Kopi Nusantara", plan: "Growth", period: "1 Oct – 31 Oct 2026", amount: 499000, status: "PAID", due: "8 Oct 2026", paid: "6 Oct 2026" },
+  { id: "i2", number: "INV-202610-0002", tenant: "Titik Nol English Course", plan: "Basic", period: "1 Oct – 31 Oct 2026", amount: 199000, status: "PAID", due: "8 Oct 2026", paid: "7 Oct 2026" },
+  { id: "i3", number: "INV-202611-0003", tenant: "Toko Kopi Nusantara", plan: "Growth", period: "1 Nov – 30 Nov 2026", amount: 499000, status: "ISSUED", due: "29 Nov 2026", paid: null },
+  { id: "i4", number: "INV-202611-0004", tenant: "Titik Nol English Course", plan: "Basic", period: "1 Nov – 30 Nov 2026", amount: 199000, status: "ISSUED", due: "15 Nov 2026", paid: null }
+];
+
+const NEEDS = [{ tenant: "Bengkel Jaya Motor", plan: "Basic", price: 199000 }];
+
+const REQUESTS = [
+  { id: "r1", tenant: "Toko Kopi Nusantara", slug: "csq7xk2m9p", plan: "Enterprise", price: 1499000, note: "Butuh API access untuk integrasi POS", status: "NEW", created: "18 Nov 2026" },
+  { id: "r2", tenant: "Bengkel Jaya Motor", slug: "csq5tb7q3n", plan: "Growth", price: 499000, note: "Channel kedua untuk cabang baru", status: "CONTACTED", created: "14 Nov 2026" }
+];
+
+const APIKEYS = [
+  { id: "k1", name: "POS Integration", prefix: "csqk_7f3a", tenant: "Toko Kopi Nusantara", slug: "csq7xk2m9p", lastUsed: "21 Nov 2026", revoked: false },
+  { id: "k2", name: "Backup sync", prefix: "csqk_b2c8", tenant: "Toko Kopi Nusantara", slug: "csq7xk2m9p", lastUsed: null, revoked: false },
+  { id: "k3", name: "Old webhook", prefix: "csqk_d9e1", tenant: "Titik Nol English Course", slug: "csq3hf8w2r", lastUsed: "2 Oct 2026", revoked: true }
+];
+
+const ADMINS = [
+  { id: "me", name: "Operator Prima", email: "operator@csq.id", since: "1 Sep 2026" },
+  { id: "ad2", name: "Sinta Nurdini", email: "sinta@csq.id", since: "12 Oct 2026" }
+];
+
+const ADMINLOG = [
+  { id: "m1", time: "22 Nov, 14:02", action: "tenant", suffix: "create", admin: "Operator Prima", email: "operator@csq.id", target: "Tenant #a1b2c3d4", before: null, after: { name: "Toko Kopi Nusantara", slug: "csq7xk2m9p" } },
+  { id: "m2", time: "22 Nov, 13:48", action: "plan", suffix: "assign", admin: "Operator Prima", email: "operator@csq.id", target: "Tenant #a1b2c3d4", before: { planId: null }, after: { planId: "p2" } },
+  { id: "m3", time: "22 Nov, 11:17", action: "tenant", suffix: "suspend", admin: "Sinta Nurdini", email: "sinta@csq.id", target: "Tenant #c4d5e6f7", before: { status: "ACTIVE" }, after: { status: "SUSPENDED" } },
+  { id: "m4", time: "21 Nov, 17:33", action: "invoice", suffix: "paid", admin: "Operator Prima", email: "operator@csq.id", target: "Invoice #i1e2f3a4", before: { status: "ISSUED" }, after: { status: "PAID", method: "TRANSFER" } },
+  { id: "m5", time: "21 Nov, 09:05", action: "apikey", suffix: "revoke", admin: "Sinta Nurdini", email: "sinta@csq.id", target: "ApiKey #k9l0m1n2", before: null, after: { prefix: "csqk_d9e1" } }
+];
+
+const TENANTLOG = [
+  { id: "t1", time: "22 Nov, 14:10", action: "guard", suffix: "post_flag", entity: "Conversation #7f3a91b2", tenant: "Toko Kopi Nusantara", phone: "6281234500999", before: null, after: { mode: "shadow", retried: true, grounded: 0.61, onTopic: 0.92, revealsInternals: 0.02 } },
+  { id: "t2", time: "22 Nov, 13:55", action: "product", suffix: "update", entity: "Product #3c2b1a09", tenant: "Toko Kopi Nusantara", phone: "6281234500777", before: { price: 18000 }, after: { price: 20000 } },
+  { id: "t3", time: "22 Nov, 13:31", action: "outbox", suffix: "send_error", entity: "OutboundMessage #5e6f7a8b", tenant: "Toko Kopi Nusantara", phone: "6281234500011", before: null, after: { error: "Window closed" } },
+  { id: "t4", time: "22 Nov, 11:20", action: "order", suffix: "create", entity: "Order #9a8b7c6d", tenant: "Titik Nol English Course", phone: "6289876500321", before: null, after: { total: 350000 } }
+];
+
+const GUARDS = [
+  { id: "g1", time: "22 Nov, 14:10", type: "Post", tenant: "Toko Kopi Nusantara", phone: "6281234500999", values: "ground 61% / topic 92% / internal 2%", mode: "shadow", verdict: "Retried", json: { mode: "shadow", retried: true, grounded: 0.61, onTopic: 0.92, revealsInternals: 0.02, at: "2026-11-22T14:10:31Z" } },
+  { id: "g2", time: "22 Nov, 13:02", type: "Pre", tenant: "Toko Kopi Nusantara", phone: "6281234500444", values: "intent 12% / inj 96%", mode: "shadow", verdict: "Would reject", json: { mode: "shadow", blocked: false, storeIntent: 0.12, injection: 0.96, at: "2026-11-22T13:02:11Z" } },
+  { id: "g3", time: "22 Nov, 10:47", type: "Post", tenant: "Bengkel Jaya Motor", phone: "6285673400021", values: "ground 48% / topic 95% / internal 0%", mode: "shadow", verdict: "Flagged", json: { mode: "shadow", retried: false, grounded: 0.48, onTopic: 0.95, revealsInternals: 0, at: "2026-11-22T10:47:02Z" } }
+];
+
+const FAILED_MSGS = [
+  { id: "f1", to: "6281234500011@s.whatsapp.net", error: "Connection closed (440) - device pairing conflict", upd: "22 Nov, 13:31" },
+  { id: "f2", to: "6289876500321@s.whatsapp.net", error: "Window closed: free-form reply outside 24h", upd: "22 Nov, 09:12" }
+];
+
+const LOCKS = [
+  { key: "worker-heartbeat", held: true, upd: "22 Nov, 14:12" },
+  { key: "baileys-socket:c1", held: true, upd: "22 Nov, 14:10" },
+  { key: "campaign-tick", held: false, upd: "22 Nov, 12:00" },
+  { key: "scenario-tick", held: false, upd: "22 Nov, 12:00" }
+];
+
+const CHART = [312, 388, 401, 295, 344, 420, 437, 402, 366, 351, 398, 442, 455, 389, 340, 327, 372, 410, 448, 396, 358, 349, 391, 430, 462, 478, 501, 415, 372, 412];
+const FEATURES = ["Knowledge Base", "Google Sheets Sync", "Campaigns", "Pipeline", "API Access", "Priority Support"];
+
+// ══════════ Routing & UI State ══════════
+const MAIN_NAV = [
+  {
+    group: "Platform",
+    items: [
+      { route: "overview", label: "Overview", icon: "squares-four" },
+      { route: "tenants", label: "Tenants", icon: "storefront", count: () => TENANTS.length },
+      { route: "channels", label: "Channels", icon: "chat-circle-dots", count: () => CHANNELS.length },
+      { route: "api-keys", label: "API Keys", icon: "key", count: () => APIKEYS.filter((k) => !k.revoked).length }
+    ]
+  },
+  {
+    group: "Operations",
+    items: [
+      { route: "operations", label: "Operations", icon: "pulse", alert: () => FAILED_MSGS.length > 0 },
+      { route: "guardrails", label: "Guardrails", icon: "shield-check" },
+      { route: "audit", label: "Audit Log", icon: "scroll" }
+    ]
+  }
+];
+
+const SETTINGS_NAV = [
+  {
+    group: "Monetization & Quotas",
+    items: [
+      { route: "plans", label: "Plans & Usage", icon: "tag" },
+      { route: "billing", label: "Billing & Invoices", icon: "receipt" }
+    ]
+  },
+  {
+    group: "System & Access",
+    items: [
+      { route: "email", label: "Platform Email", icon: "envelope-simple" },
+      { route: "admins", label: "Operators & Admins", icon: "users-three" }
+    ]
+  }
+];
+
+const SETTINGS_ROUTES = ["plans", "billing", "email", "admins"];
+
+const state = {
+  page: "overview",
+  subView: null,
+  paramId: null,
+  tenantQ: "",
+  tenantStatus: "",
+  tenantNotice: "",
+  detailNotice: "",
+  resetPwEmail: null,
+  channelMsg: "",
+  guardTab: "all",
+  expandedGuardId: null,
+  auditTab: "tenant",
+  auditQ: "",
+  expandedAuditId: null,
+  billingTab: "invoices",
+  payingInvoiceId: null,
+  prefillInvoiceTenant: "",
+  emailConfigured: true,
+  showAddAdmin: false
+};
+
+// ══════════ Formatting & UI Helpers ══════════
+function esc(str) {
+  return String(str ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function pad(n) {
+  return String(n).padStart(2, "0");
+}
+
+function idr(n) {
+  return "Rp " + Number(n || 0).toLocaleString("id-ID");
+}
+
+function bytes(b) {
+  if (!b) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  let i = 0;
+  let val = Number(b);
+  while (val >= 1024 && i < units.length - 1) {
+    val /= 1024;
+    i++;
+  }
+  return `${val.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+}
+
+function limitLabel(v) {
+  return v === null || v === undefined ? "∞" : Number(v).toLocaleString("en-GB");
+}
+
+function statusDot(tone, label) {
+  const map = {
+    ok: ["bg-emerald-500", "text-emerald-700"],
+    warn: ["bg-amber-500", "text-amber-700"],
+    bad: ["bg-red-500", "text-red-700"],
+    off: ["bg-slate-300", "text-slate-500"]
+  };
+  const [dot, text] = map[tone] || map.off;
+  return `<span class="inline-flex items-center gap-1.5 font-mono text-[11px] font-medium ${text}"><span class="h-1.5 w-1.5 rounded-full ${dot}"></span>${esc(label)}</span>`;
+}
+
+let toastTimer = null;
+function showToast(msg) {
+  const el = document.getElementById("toast");
+  document.getElementById("toast-msg").textContent = msg;
+  el.classList.remove("opacity-0", "translate-y-4");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.add("opacity-0", "translate-y-4"), 2500);
+}
+
+function toggleSidebar(open) {
+  document.getElementById("app-sidebar").classList.toggle("-translate-x-full", !open);
+  document.getElementById("mobile-overlay").classList.toggle("hidden", !open);
+}
+
+function handleQuickJump(val) {
+  const q = val.trim().toLowerCase();
+  if (!q) return;
+  const routeMatch = [...MAIN_NAV, ...SETTINGS_NAV]
+    .flatMap((g) => g.items)
+    .find((item) => item.label.toLowerCase().includes(q) || item.route.includes(q));
+  if (routeMatch) {
+    go(routeMatch.route);
+    return;
+  }
+  const tenantMatch = TENANTS.find((t) => t.name.toLowerCase().includes(q) || t.slug.toLowerCase().includes(q));
+  if (tenantMatch) {
+    go(`tenants/${tenantMatch.id}`);
+  }
+}
+
+document.addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+    e.preventDefault();
+    document.getElementById("global-search").focus();
+  }
+});
+
+// ══════════ Client Router ══════════
+function go(path) {
+  location.hash = "#/" + path.replace(/^\/+/, "");
+  toggleSidebar(false);
+}
+
+function parseRoute() {
+  const raw = location.hash.replace(/^#\/?/, "");
+  const [seg1, seg2, seg3] = raw.split("/");
+  const allMainRoutes = MAIN_NAV.flatMap((g) => g.items.map((i) => i.route));
+  const knownPages = [...allMainRoutes, ...SETTINGS_ROUTES];
+  state.page = knownPages.includes(seg1) ? seg1 : "overview";
+  state.subView = null;
+  state.paramId = null;
+
+  if (seg1 === "tenants" && seg2 === "new") {
+    state.subView = "tenant-new";
+  } else if (seg1 === "tenants" && seg2) {
+    state.subView = "tenant-detail";
+    state.paramId = seg2;
+  } else if (seg1 === "plans" && seg2 === "new") {
+    state.subView = "plan-editor";
+  } else if (seg1 === "plans" && seg2 === "edit" && seg3) {
+    state.subView = "plan-editor";
+    state.paramId = seg3;
+  } else if (seg1 === "billing" && seg2 === "new-invoice") {
+    state.subView = "invoice-new";
+  }
+
+  render();
+}
+
+// ══════════ Master Render & Navigation ══════════
+function render() {
+  const isSettingsMode = SETTINGS_ROUTES.includes(state.page);
+  const navEl = document.getElementById("sidebar-nav");
+  const settingsTriggerEl = document.getElementById("sidebar-settings-trigger");
+
+  if (isSettingsMode) {
+    navEl.innerHTML = `
+      <div>
+        <button type="button" onclick="go('overview')" class="mb-4 flex w-full items-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900">
+          <i class="ph ph-arrow-left text-sm"></i>
+          <span>Back to Control Plane</span>
+        </button>
+      </div>
+      ${SETTINGS_NAV.map((grp) => `
+        <div>
+          <p class="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">${esc(grp.group)}</p>
+          <div class="space-y-0.5">
+            ${grp.items.map((item) => {
+              const active = state.page === item.route;
+              return `
+                <a onclick="go('${item.route}')" class="nav-link ${active ? "active" : ""}">
+                  <span class="flex items-center gap-2.5">
+                    <i class="ph ph-${item.icon} text-base ${active ? "text-emerald-600" : "text-slate-400"}"></i>
+                    <span>${esc(item.label)}</span>
+                  </span>
+                </a>
+              `;
+            }).join("")}
+          </div>
+        </div>
+      `).join("")}
+    `;
+    settingsTriggerEl.innerHTML = "";
+  } else {
+    navEl.innerHTML = MAIN_NAV.map((grp) => `
+      <div>
+        <p class="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">${esc(grp.group)}</p>
+        <div class="space-y-0.5">
+          ${grp.items.map((item) => {
+            const active = state.page === item.route;
+            const badge = item.count
+              ? `<span class="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-600">${item.count()}</span>`
+              : item.alert && item.alert()
+              ? `<span class="h-1.5 w-1.5 rounded-full bg-red-500"></span>`
+              : "";
+            return `
+              <a onclick="go('${item.route}')" class="nav-link ${active ? "active" : ""}">
+                <span class="flex items-center gap-2.5">
+                  <i class="ph ph-${item.icon} text-base ${active ? "text-emerald-600" : "text-slate-400"}"></i>
+                  <span>${esc(item.label)}</span>
+                </span>
+                ${badge}
+              </a>
+            `;
+          }).join("")}
+        </div>
+      </div>
+    `).join("");
+
+    settingsTriggerEl.innerHTML = `
+      <a onclick="go('plans')" class="nav-link">
+        <span class="flex items-center gap-2.5">
+          <i class="ph ph-sliders-horizontal text-base text-slate-400"></i>
+          <span>Platform Settings</span>
+        </span>
+        <i class="ph ph-caret-right text-xs text-slate-400"></i>
+      </a>
+    `;
+  }
+
+  // Update alert dot in top bar
+  const alertDot = document.getElementById("header-alert-dot");
+  if (alertDot) {
+    alertDot.classList.toggle("hidden", FAILED_MSGS.length === 0);
+  }
+
+  // Update breadcrumbs
+  const allGroups = [...MAIN_NAV, ...SETTINGS_NAV];
+  const matchedGroup = allGroups.find((g) => g.items.some((i) => i.route === state.page));
+  const matchedItem = matchedGroup?.items.find((i) => i.route === state.page);
+  document.getElementById("crumb-group").textContent = matchedGroup ? matchedGroup.group : "Platform";
+
+  let crumbSuffix = matchedItem ? matchedItem.label : "Overview";
+  if (state.subView === "tenant-new") crumbSuffix = "Tenants / New Tenant";
+  if (state.subView === "tenant-detail") crumbSuffix = "Tenants / Workspace Detail";
+  if (state.subView === "plan-editor") crumbSuffix = "Plans & Usage / Plan Editor";
+  if (state.subView === "invoice-new") crumbSuffix = "Billing / Issue Invoice";
+  document.getElementById("crumb-page").textContent = crumbSuffix;
+
+  // Dispatch active view
+  const pageEl = document.getElementById("page");
+  if (state.subView === "tenant-new") pageEl.innerHTML = viewTenantCreate();
+  else if (state.subView === "tenant-detail") pageEl.innerHTML = viewTenantDetail();
+  else if (state.subView === "plan-editor") pageEl.innerHTML = viewPlanEditor();
+  else if (state.subView === "invoice-new") pageEl.innerHTML = viewInvoiceCreate();
+  else if (state.page === "tenants") pageEl.innerHTML = viewTenants();
+  else if (state.page === "channels") pageEl.innerHTML = viewChannels();
+  else if (state.page === "operations") pageEl.innerHTML = viewOperations();
+  else if (state.page === "guardrails") pageEl.innerHTML = viewGuardrails();
+  else if (state.page === "audit") pageEl.innerHTML = viewAudit();
+  else if (state.page === "api-keys") pageEl.innerHTML = viewApiKeys();
+  else if (state.page === "plans") pageEl.innerHTML = viewPlans();
+  else if (state.page === "billing") pageEl.innerHTML = viewBilling();
+  else if (state.page === "email") pageEl.innerHTML = viewEmail();
+  else if (state.page === "admins") pageEl.innerHTML = viewAdmins();
+  else pageEl.innerHTML = viewOverview();
+}
+
+// ══════════ VIEW 1: PLATFORM OVERVIEW ══════════
+function viewOverview() {
+  const activeTenants = TENANTS.filter((t) => t.status === "ACTIVE").length;
+  const connectedChannels = CHANNELS.filter((c) => c.status === "CONNECTED").length;
+  const totalMsgs30d = TENANTS.reduce((sum, t) => sum + t.msgs30d, 0);
+  const settledMrr = INVOICES.filter((i) => i.status === "PAID").reduce((sum, i) => sum + i.amount, 0);
+  const maxChart = Math.max(...CHART, 1);
+
+  return `
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <h1 class="text-xl font-semibold tracking-tight text-slate-900">Control Plane Overview</h1>
+        <p class="mt-1 text-xs text-slate-500">Multi-tenant fleet telemetry, 30-day message throughput, and infrastructure health across all workspaces.</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button type="button" onclick="go('operations')" class="inline-flex h-9 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">
+          <i class="ph ph-pulse text-sm text-emerald-600"></i>System Health
+        </button>
+        <button type="button" onclick="go('tenants/new')" class="inline-flex h-9 items-center gap-1.5 rounded-md bg-emerald-600 px-3.5 text-xs font-semibold text-white hover:bg-emerald-700">
+          <i class="ph ph-plus text-sm"></i>New Tenant
+        </button>
+      </div>
+    </div>
+
+    <!-- Top Fleet Telemetry Strip -->
+    <div class="mt-6 grid grid-cols-2 border-y border-slate-200 sm:grid-cols-4 sm:divide-x sm:divide-slate-200">
+      <div class="py-3.5 pr-4">
+        <p class="text-[11px] font-medium text-slate-400">Active Workspaces</p>
+        <p class="mt-1 font-mono text-lg font-semibold text-slate-900 tabular-nums">${activeTenants} <span class="text-xs font-normal text-slate-400">/ ${TENANTS.length}</span></p>
+      </div>
+      <div class="py-3.5 sm:px-5">
+        <p class="text-[11px] font-medium text-slate-400">Connected Channels</p>
+        <p class="mt-1 font-mono text-lg font-semibold text-emerald-700 tabular-nums">${connectedChannels} <span class="text-xs font-normal text-slate-400">/ ${CHANNELS.length}</span></p>
+      </div>
+      <div class="border-t border-slate-200 py-3.5 pr-4 sm:border-t-0 sm:px-5">
+        <p class="text-[11px] font-medium text-slate-400">30d Message Volume</p>
+        <p class="mt-1 font-mono text-lg font-semibold text-slate-900 tabular-nums">${totalMsgs30d.toLocaleString("en-GB")}</p>
+      </div>
+      <div class="border-t border-slate-200 py-3.5 sm:border-t-0 sm:pl-5">
+        <p class="text-[11px] font-medium text-slate-400">Settled Cycle Revenue</p>
+        <p class="mt-1 font-mono text-lg font-semibold text-slate-900 tabular-nums">${idr(settledMrr)}</p>
+      </div>
+    </div>
+
+    <!-- 30-Day Throughput Bar Chart -->
+    <div class="border-b border-slate-200 py-6">
+      <div class="flex flex-wrap items-baseline justify-between gap-2">
+        <div>
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-500">30-Day Outbound &amp; AI Message Throughput</h2>
+          <p class="mt-0.5 text-xs text-slate-400">Daily message volume aggregated across all active WhatsApp Cloud API &amp; Baileys sockets.</p>
+        </div>
+        <span class="font-mono text-xs text-slate-500">Peak: <strong class="text-slate-900">${maxChart}</strong> msgs/day</span>
+      </div>
+
+      <div class="mt-4 flex h-24 items-end gap-1 pt-2">
+        ${CHART.map((val, idx) => {
+          const pct = Math.max(8, Math.round((val / maxChart) * 100));
+          const isRecent = idx >= CHART.length - 3;
+          return `
+            <div class="group relative flex h-full flex-1 flex-col justify-end" title="Day ${idx + 1}: ${val} messages">
+              <div class="w-full rounded-xs transition-colors ${isRecent ? "bg-emerald-600 group-hover:bg-emerald-700" : "bg-slate-200 group-hover:bg-emerald-500"}" style="height:${pct}%"></div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+      <div class="mt-2 flex justify-between font-mono text-[10px] text-slate-400">
+        <span>30 days ago</span>
+        <span>15 days ago</span>
+        <span>Today (22 Nov 2026)</span>
+      </div>
+    </div>
+
+    <!-- Active Workspaces Quick Ledger -->
+    <div class="pt-6">
+      <div class="flex items-center justify-between pb-3">
+        <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Tenant Workspaces (${TENANTS.length})</h2>
+        <button type="button" onclick="go('tenants')" class="text-xs font-semibold text-emerald-700 hover:underline">Manage All Tenants →</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead>
+            <tr class="border-y border-slate-200 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              <th class="py-2.5 pr-4">Workspace</th>
+              <th class="px-4 py-2.5">Plan</th>
+              <th class="px-4 py-2.5">Status</th>
+              <th class="px-4 py-2.5 text-right">30d Msgs</th>
+              <th class="py-2.5 pl-4 text-right">Inspect</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200 border-b border-slate-200">
+            ${TENANTS.map((t) => `
+              <tr class="hover:bg-slate-50/80">
+                <td class="py-3 pr-4">
+                  <p class="font-semibold text-slate-900">${esc(t.name)}</p>
+                  <p class="font-mono text-[11px] text-slate-400">${esc(t.slug)}</p>
+                </td>
+                <td class="px-4 py-3 font-medium text-slate-700">${esc(t.plan || "None")}</td>
+                <td class="px-4 py-3">${statusDot(t.status === "ACTIVE" ? "ok" : "bad", t.status === "ACTIVE" ? "Active" : "Suspended")}</td>
+                <td class="px-4 py-3 text-right font-mono text-slate-800 tabular-nums">${t.msgs30d.toLocaleString("en-GB")}</td>
+                <td class="py-3 pl-4 text-right">
+                  <button type="button" onclick="go('tenants/${t.id}')" class="font-semibold text-emerald-700 hover:underline">Open →</button>
+                </td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+// ══════════ VIEW 2A: TENANTS DIRECTORY ══════════
+function viewTenants() {
+  const q = state.tenantQ.trim().toLowerCase();
+  const filtered = TENANTS.filter((t) => {
+    const matchesText = !q || t.name.toLowerCase().includes(q) || t.slug.toLowerCase().includes(q);
+    const matchesStatus = !state.tenantStatus || t.status === state.tenantStatus;
+    return matchesText && matchesStatus;
+  });
+
+  return `
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <h1 class="text-xl font-semibold tracking-tight text-slate-900">Tenant Workspaces</h1>
+        <p class="mt-1 text-xs text-slate-500">Provision isolated customer workspaces, inspect subscription status, and manage account suspensions.</p>
+      </div>
+      <button type="button" onclick="go('tenants/new')" class="inline-flex h-9 items-center gap-1.5 rounded-md bg-emerald-600 px-3.5 text-xs font-semibold text-white hover:bg-emerald-700">
+        <i class="ph ph-plus text-sm"></i>Provision Tenant
+      </button>
+    </div>
+
+    ${state.tenantNotice ? `
+      <div class="mt-5 flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50/80 px-4 py-2.5 text-xs text-slate-800">
+        <div class="flex items-center gap-2">
+          <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500"></span>
+          <span>${esc(state.tenantNotice)}</span>
+        </div>
+        <button type="button" onclick="state.tenantNotice=''; render()" class="text-slate-400 hover:text-slate-700"><i class="ph ph-x text-sm"></i></button>
+      </div>
+    ` : ""}
+
+    <!-- Filter & Search Strip -->
+    <div class="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-5">
+      <div class="flex flex-wrap items-center gap-3">
+        <div class="relative">
+          <i class="ph ph-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400"></i>
+          <input type="text" value="${esc(state.tenantQ)}" oninput="state.tenantQ=this.value; render()" placeholder="Filter by workspace name or slug…" class="h-8 w-64 rounded-md border border-slate-300 bg-white pl-8 pr-3 text-xs text-slate-900 focus:border-emerald-600 focus:outline-none" />
+        </div>
+        <div class="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5 text-xs">
+          ${[["", "All"], ["ACTIVE", "Active"], ["SUSPENDED", "Suspended"]].map(([val, lbl]) => {
+            const active = state.tenantStatus === val;
+            return `<button type="button" onclick="state.tenantStatus='${val}'; render()" class="rounded px-2.5 py-1 transition ${active ? "bg-white font-semibold text-slate-900 shadow-2xs" : "font-medium text-slate-600 hover:text-slate-900"}">${lbl}</button>`;
+          }).join("")}
+        </div>
+      </div>
+      <span class="font-mono text-[11px] text-slate-400">${filtered.length} workspaces</span>
+    </div>
+
+    <div class="mt-4 overflow-x-auto">
+      <table class="w-full text-left text-sm">
+        <thead>
+          <tr class="border-y border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+            <th class="py-3 pr-4">Workspace</th>
+            <th class="px-4 py-3">Plan</th>
+            <th class="px-4 py-3">Status</th>
+            <th class="px-4 py-3 text-right">Users / Channels</th>
+            <th class="hidden px-4 py-3 text-right md:table-cell">30d Messages</th>
+            <th class="py-3 pl-4 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200 border-b border-slate-200">
+          ${filtered.length === 0 ? `
+            <tr><td colspan="6" class="py-10 text-center text-xs text-slate-400">No tenant workspaces match your filter criteria.</td></tr>
+          ` : filtered.map((t) => `
+            <tr class="hover:bg-slate-50/80">
+              <td class="py-3.5 pr-4">
+                <a onclick="go('tenants/${t.id}')" class="cursor-pointer text-xs font-semibold text-slate-900 hover:text-emerald-700">${esc(t.name)}</a>
+                <p class="mt-0.5 font-mono text-[11px] text-slate-400">${esc(t.slug)} • Created ${t.createdAt}</p>
+              </td>
+              <td class="px-4 py-3.5 text-xs font-medium text-slate-700">${esc(t.plan || "None")}</td>
+              <td class="px-4 py-3.5">${statusDot(t.status === "ACTIVE" ? "ok" : "bad", t.status === "ACTIVE" ? "Active" : "Suspended")}</td>
+              <td class="px-4 py-3.5 text-right font-mono text-xs text-slate-700 tabular-nums">${t.users} / ${t.channels}</td>
+              <td class="hidden px-4 py-3.5 text-right font-mono text-xs text-slate-900 tabular-nums md:table-cell">${t.msgs30d.toLocaleString("en-GB")}</td>
+              <td class="py-3.5 pl-4 text-right">
+                <div class="inline-flex items-center gap-3 text-xs">
+                  <button type="button" onclick="go('tenants/${t.id}')" class="font-semibold text-emerald-700 hover:underline">Inspect</button>
+                  <button type="button" onclick="toggleTenantStatus('${t.id}')" class="font-medium ${t.status === "ACTIVE" ? "text-amber-700" : "text-slate-700"} hover:underline">
+                    ${t.status === "ACTIVE" ? "Suspend" : "Activate"}
+                  </button>
+                </div>
+              </td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function toggleTenantStatus(id) {
+  const t = TENANTS.find((x) => x.id === id);
+  if (!t) return;
+  t.status = t.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE";
+  showToast(`Workspace "${t.name}" is now ${t.status}`);
+  render();
+}
+
+// ══════════ VIEW 2B: FULL-PAGE NEW TENANT PROVISIONER ══════════
+function viewTenantCreate() {
+  return `
+    <div class="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-5">
+      <div>
+        <div class="flex items-center gap-2 text-xs text-slate-500">
+          <button type="button" onclick="go('tenants')" class="inline-flex items-center gap-1 hover:text-slate-900">
+            <i class="ph ph-arrow-left text-xs"></i>Tenants
+          </button>
+          <span class="text-slate-300">/</span>
+          <span class="font-medium text-slate-700">New Workspace</span>
+        </div>
+        <h1 class="mt-1.5 text-xl font-semibold tracking-tight text-slate-900">Provision New Tenant Workspace</h1>
+        <p class="mt-1 text-xs text-slate-500">Creates an isolated tenant environment, generates a unique alphanumeric slug, and initializes the Owner account.</p>
+      </div>
+      <button type="button" onclick="go('tenants')" class="inline-flex h-8 items-center rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+    </div>
+
+    <form onsubmit="submitNewTenant(event)" class="divide-y divide-slate-200">
+      <div class="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
+        <div class="md:col-span-4">
+          <label for="nt-name" class="text-xs font-semibold text-slate-900">Workspace Identity</label>
+          <p class="mt-1 text-xs leading-relaxed text-slate-500">Official business name displayed in the tenant dashboard. A unique 10-character Tenant ID is generated automatically.</p>
+        </div>
+        <div class="space-y-3.5 md:col-span-8 max-w-md">
+          <div>
+            <label for="nt-name" class="block text-xs font-medium text-slate-700">Business / Tenant Name <span class="text-red-500">*</span></label>
+            <input id="nt-name" type="text" required placeholder="e.g. Toko Kopi Nusantara" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-700">Initial Subscription Tier</label>
+            <div class="mt-1.5 flex flex-wrap gap-2">
+              ${PLANS.map((p, idx) => `
+                <label class="inline-flex cursor-pointer items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs hover:bg-slate-50">
+                  <input type="radio" name="nt-plan" value="${p.name}" ${idx === 0 ? "checked" : ""} class="text-emerald-600 focus:ring-emerald-600" />
+                  <span class="font-medium text-slate-900">${p.name}</span>
+                  <span class="font-mono text-[11px] text-slate-400">${idr(p.price)}</span>
+                </label>
+              `).join("")}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
+        <div class="md:col-span-4">
+          <label for="nt-owner-name" class="text-xs font-semibold text-slate-900">Initial Owner Credentials</label>
+          <p class="mt-1 text-xs leading-relaxed text-slate-500">Primary administrator account with full access to billing, team management, and AI agents.</p>
+        </div>
+        <div class="space-y-3.5 md:col-span-8 max-w-md">
+          <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+            <div>
+              <label for="nt-owner-name" class="block text-xs font-medium text-slate-700">Owner Full Name <span class="text-red-500">*</span></label>
+              <input id="nt-owner-name" type="text" required placeholder="Budi Santoso" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15" />
+            </div>
+            <div>
+              <label for="nt-owner-email" class="block text-xs font-medium text-slate-700">Owner Email <span class="text-red-500">*</span></label>
+              <input id="nt-owner-email" type="email" required placeholder="owner@tokokopi.id" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15" />
+            </div>
+          </div>
+          <div>
+            <label for="nt-owner-pass" class="block text-xs font-medium text-slate-700">Temporary Password <span class="text-red-500">*</span></label>
+            <input id="nt-owner-pass" type="text" required minlength="8" placeholder="Minimum 8 characters" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 font-mono text-xs text-slate-900 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15" />
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2.5 pt-5">
+        <button type="button" onclick="go('tenants')" class="rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+        <button type="submit" class="rounded-md bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700">Provision Workspace</button>
+      </div>
+    </form>
+  `;
+}
+
+function submitNewTenant(e) {
+  e.preventDefault();
+  const name = document.getElementById("nt-name").value.trim();
+  const ownerName = document.getElementById("nt-owner-name").value.trim();
+  const ownerEmail = document.getElementById("nt-owner-email").value.trim();
+  const plan = document.querySelector('input[name="nt-plan"]:checked')?.value || "Basic";
+  const slug = "csq" + Math.random().toString(36).slice(2, 10);
+
+  TENANTS.unshift({
+    id: "t_" + Date.now(),
+    name,
+    slug,
+    status: "ACTIVE",
+    createdAt: "2026-11-22",
+    users: 1,
+    channels: 0,
+    conversations: 0,
+    msgs30d: 0,
+    plan,
+    detail: {
+      users: [{ id: "u_" + Date.now(), name: ownerName, email: ownerEmail, role: "OWNER" }],
+      agents: [],
+      channels: [],
+      campaigns: [],
+      sources: []
+    }
+  });
+
+  state.tenantNotice = `Workspace "${name}" provisioned (Tenant ID: ${slug}). ${state.emailConfigured ? "Welcome credentials dispatched via Platform SMTP." : "Platform SMTP not configured — hand over credentials manually."}`;
+  showToast("New tenant workspace created");
+  go("tenants");
+}
+
+// ══════════ VIEW 2C: FULL-PAGE TENANT WORKSPACE INSPECTOR ══════════
+function viewTenantDetail() {
+  const t = TENANTS.find((x) => x.id === state.paramId) || TENANTS[0];
+  const d = t.detail;
+
+  return `
+    <div class="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-5">
+      <div>
+        <div class="flex items-center gap-2 text-xs text-slate-500">
+          <button type="button" onclick="go('tenants')" class="inline-flex items-center gap-1 hover:text-slate-900">
+            <i class="ph ph-arrow-left text-xs"></i>Tenants
+          </button>
+          <span class="text-slate-300">/</span>
+          <span class="font-mono text-slate-700">${esc(t.slug)}</span>
+        </div>
+        <div class="mt-1.5 flex items-center gap-3">
+          <h1 class="text-xl font-semibold tracking-tight text-slate-900">${esc(t.name)}</h1>
+          ${statusDot(t.status === "ACTIVE" ? "ok" : "bad", t.status === "ACTIVE" ? "Active" : "Suspended")}
+        </div>
+        <p class="mt-1 font-mono text-xs text-slate-500">Created ${t.createdAt} • Plan: ${t.plan || "None"}</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button type="button" onclick="toggleTenantStatus('${t.id}')" class="inline-flex h-8 items-center rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">
+          ${t.status === "ACTIVE" ? "Suspend Workspace" : "Activate Workspace"}
+        </button>
+        <button type="button" onclick="go('tenants')" class="inline-flex h-8 items-center rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">Back</button>
+      </div>
+    </div>
+
+    ${state.detailNotice ? `
+      <div class="mt-5 flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50/80 px-4 py-2.5 text-xs text-slate-800">
+        <div class="flex items-center gap-2">
+          <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500"></span>
+          <span>${esc(state.detailNotice)}</span>
+        </div>
+        <button type="button" onclick="state.detailNotice=''; render()" class="text-slate-400 hover:text-slate-700"><i class="ph ph-x text-sm"></i></button>
+      </div>
+    ` : ""}
+
+    <!-- Telemetry Strip -->
+    <div class="mt-6 grid grid-cols-2 border-y border-slate-200 sm:grid-cols-5 sm:divide-x sm:divide-slate-200">
+      <div class="py-3.5 pr-4">
+        <p class="text-[11px] font-medium text-slate-400">Team Members</p>
+        <p class="mt-1 font-mono text-lg font-semibold text-slate-900">${t.users}</p>
+      </div>
+      <div class="py-3.5 sm:px-5">
+        <p class="text-[11px] font-medium text-slate-400">Connected Channels</p>
+        <p class="mt-1 font-mono text-lg font-semibold text-slate-900">${t.channels}</p>
+      </div>
+      <div class="border-t border-slate-200 py-3.5 pr-4 sm:border-t-0 sm:px-5">
+        <p class="text-[11px] font-medium text-slate-400">Conversations</p>
+        <p class="mt-1 font-mono text-lg font-semibold text-slate-900">${t.conversations}</p>
+      </div>
+      <div class="border-t border-slate-200 py-3.5 sm:border-t-0 sm:px-5">
+        <p class="text-[11px] font-medium text-slate-400">Messages (30d)</p>
+        <p class="mt-1 font-mono text-lg font-semibold text-slate-900">${t.msgs30d.toLocaleString("en-GB")}</p>
+      </div>
+      <div class="border-t border-slate-200 py-3.5 sm:border-t-0 sm:pl-5">
+        <p class="text-[11px] font-medium text-slate-400">Media Footprint</p>
+        <p class="mt-1 font-mono text-lg font-semibold text-slate-900">${bytes(412300000)}</p>
+      </div>
+    </div>
+
+    <!-- Users & Inline Password Reset -->
+    <div class="py-6 border-b border-slate-200">
+      <div class="flex items-center justify-between pb-3">
+        <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Workspace Users (${d.users.length})</h2>
+      </div>
+
+      ${state.resetPwEmail ? `
+        <form onsubmit="submitInlinePasswordReset(event)" class="mb-4 flex flex-wrap items-center gap-2.5 rounded-md border border-slate-200 bg-slate-50/80 px-4 py-2.5">
+          <span class="text-xs text-slate-700">Set new password for <strong class="font-mono text-slate-900">${esc(state.resetPwEmail)}</strong>:</span>
+          <input id="inline-new-pw" type="text" required minlength="8" placeholder="Min. 8 chars" class="h-8 w-48 rounded-md border border-slate-300 bg-white px-2.5 font-mono text-xs text-slate-900 focus:border-emerald-600 focus:outline-none" />
+          <button type="submit" class="rounded-md bg-emerald-600 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-700">Apply Password</button>
+          <button type="button" onclick="state.resetPwEmail=null; render()" class="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-50">Cancel</button>
+        </form>
+      ` : ""}
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead>
+            <tr class="border-y border-slate-200 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              <th class="py-2.5 pr-4">Name</th>
+              <th class="px-4 py-2.5">Email</th>
+              <th class="px-4 py-2.5">Role</th>
+              <th class="py-2.5 pl-4 text-right">Credentials</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200 border-b border-slate-200">
+            ${d.users.map((u) => `
+              <tr class="hover:bg-slate-50/80">
+                <td class="py-3 pr-4 font-semibold text-slate-900">${esc(u.name)}</td>
+                <td class="px-4 py-3 font-mono text-slate-500">${esc(u.email)}</td>
+                <td class="px-4 py-3">${statusDot(u.role === "OWNER" ? "ok" : "off", u.role)}</td>
+                <td class="py-3 pl-4 text-right">
+                  <button type="button" onclick="state.resetPwEmail='${esc(u.email)}'; render()" class="font-medium text-emerald-700 hover:underline">Reset Password</button>
+                </td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Agents, Channels, Data Sources Grid -->
+    <div class="grid grid-cols-1 divide-y divide-slate-200 border-b border-slate-200 lg:grid-cols-3 lg:divide-x lg:divide-y-0">
+      <div class="py-5 lg:pr-6">
+        <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">AI Agents (${d.agents.length})</h3>
+        <div class="mt-3 divide-y divide-slate-100">
+          ${d.agents.map((a) => `
+            <div class="flex items-center justify-between py-2 text-xs">
+              <span class="font-medium text-slate-800">${esc(a.name)}</span>
+              ${statusDot(a.status === "ACTIVE" ? "ok" : "warn", a.status)}
+            </div>
+          `).join("") || `<p class="py-3 text-xs text-slate-400">No agents configured.</p>`}
+        </div>
+      </div>
+
+      <div class="py-5 lg:px-6">
+        <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Channels (${d.channels.length})</h3>
+        <div class="mt-3 divide-y divide-slate-100">
+          ${d.channels.map((c) => `
+            <div class="flex items-center justify-between py-2 text-xs">
+              <span class="font-mono text-slate-800">${esc(c.provider)}</span>
+              ${statusDot(c.ok ? "ok" : "bad", c.status)}
+            </div>
+          `).join("") || `<p class="py-3 text-xs text-slate-400">No channels attached.</p>`}
+        </div>
+      </div>
+
+      <div class="py-5 lg:pl-6">
+        <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Data Sources (${d.sources.length})</h3>
+        <div class="mt-3 divide-y divide-slate-100">
+          ${d.sources.map((s) => `
+            <div class="flex items-center justify-between py-2 text-xs">
+              <span class="font-medium text-slate-800">${esc(s.name)} <span class="font-mono text-[10px] text-slate-400">(${s.type})</span></span>
+              ${statusDot(s.status === "ACTIVE" ? "ok" : "bad", s.status)}
+            </div>
+          `).join("") || `<p class="py-3 text-xs text-slate-400">No data sources synced.</p>`}
+        </div>
+      </div>
+    </div>
+
+    <!-- Danger Zone -->
+    <div class="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-md border border-red-200 bg-red-50/30 px-4 py-3.5">
+      <div>
+        <p class="text-xs font-semibold text-red-800">Permanent Workspace Deletion</p>
+        <p class="mt-0.5 text-xs text-slate-600">Deletes all users, conversations, messages, orders, media, and disconnects WhatsApp sessions irreversibly.</p>
+      </div>
+      <button type="button" onclick="askDeleteTenant('${t.id}')" class="rounded-md bg-red-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-red-700">Delete Workspace</button>
+    </div>
+  `;
+}
+
+function submitInlinePasswordReset(e) {
+  e.preventDefault();
+  const targetEmail = state.resetPwEmail;
+  state.resetPwEmail = null;
+  state.detailNotice = `Password updated for ${targetEmail}. ${state.emailConfigured ? "Notification sent via Platform SMTP." : "No active SMTP — hand over the password manually."}`;
+  showToast("User password reset");
+  render();
+}
+
+// ══════════ VIEW 3: CHANNELS FLEET ══════════
+function viewChannels() {
+  const connected = CHANNELS.filter((c) => c.status === "CONNECTED").length;
+  return `
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <h1 class="text-xl font-semibold tracking-tight text-slate-900">Channel Fleet</h1>
+        <p class="mt-1 text-xs text-slate-500">Monitor Baileys socket leases, Cloud API connections, and dispatch worker reconnect commands.</p>
+      </div>
+      <span class="inline-flex items-center gap-1.5 font-mono text-xs text-slate-600">
+        <span class="h-2 w-2 rounded-full bg-emerald-500"></span>${connected} / ${CHANNELS.length} Connected
+      </span>
+    </div>
+
+    ${state.channelMsg ? `
+      <div class="mt-5 flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50/80 px-4 py-2.5 text-xs text-slate-800">
+        <div class="flex items-center gap-2">
+          <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500"></span>
+          <span>${esc(state.channelMsg)}</span>
+        </div>
+        <button type="button" onclick="state.channelMsg=''; render()" class="text-slate-400 hover:text-slate-700"><i class="ph ph-x text-sm"></i></button>
+      </div>
+    ` : ""}
+
+    <div class="mt-6 overflow-x-auto">
+      <table class="w-full text-left text-sm">
+        <thead>
+          <tr class="border-y border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+            <th class="py-3 pr-4">Tenant</th>
+            <th class="px-4 py-3">Channel &amp; Number</th>
+            <th class="px-4 py-3">Provider</th>
+            <th class="px-4 py-3">Connection</th>
+            <th class="px-4 py-3">Worker Lease</th>
+            <th class="hidden px-4 py-3 md:table-cell">Last Activity</th>
+            <th class="py-3 pl-4 text-right">Control</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200 border-b border-slate-200">
+          ${CHANNELS.map((c) => `
+            <tr class="hover:bg-slate-50/80">
+              <td class="py-3.5 pr-4">
+                <p class="text-xs font-semibold text-slate-900">${esc(c.tenant)}</p>
+                <p class="mt-0.5 font-mono text-[11px] text-slate-400">${esc(c.slug)}${c.tstatus === "SUSPENDED" ? " • suspended" : ""}</p>
+              </td>
+              <td class="px-4 py-3.5">
+                <p class="text-xs font-medium text-slate-800">${esc(c.label)}</p>
+                <p class="mt-0.5 font-mono text-[11px] text-slate-400">${c.number || "No phone"}${c.waba ? " • WABA " + c.waba : ""}</p>
+              </td>
+              <td class="px-4 py-3.5">
+                <span class="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 font-mono text-[11px] text-slate-700">${c.provider}</span>
+              </td>
+              <td class="px-4 py-3.5">${statusDot(c.status === "CONNECTED" ? "ok" : c.status === "CONNECTING" ? "warn" : "bad", c.status)}</td>
+              <td class="px-4 py-3.5">
+                <span class="inline-flex items-center gap-1.5 font-mono text-xs ${c.held ? "text-emerald-700" : "text-slate-400"}">
+                  <span class="h-1.5 w-1.5 rounded-full ${c.held ? "live-dot bg-emerald-500" : "bg-slate-300"}"></span>
+                  ${c.held ? `Held (until ${c.until})` : "Free"}
+                </span>
+                ${c.token ? `<p class="mt-0.5 font-mono text-[10px] text-slate-400">token #${c.token}</p>` : ""}
+              </td>
+              <td class="hidden px-4 py-3.5 font-mono text-xs text-slate-500 md:table-cell">${c.upd}</td>
+              <td class="py-3.5 pl-4 text-right">
+                <div class="inline-flex items-center gap-2">
+                  <button type="button" onclick="triggerChannelCommand('${c.id}', 'reconnect')" class="rounded border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50">Reconnect</button>
+                  <button type="button" onclick="triggerChannelCommand('${c.id}', 'disconnect')" class="rounded border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-50">Disconnect</button>
+                </div>
+              </td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function triggerChannelCommand(id, action) {
+  const c = CHANNELS.find((x) => x.id === id);
+  if (!c) return;
+  c.status = action === "reconnect" ? "CONNECTING" : "DISCONNECTED";
+  c.held = false;
+  state.channelMsg = `Dispatched "${action}" command for ${c.label}. Worker polls command queue within 2 seconds.`;
+  showToast(`Command "${action}" queued`);
+  render();
+  if (action === "reconnect") {
+    setTimeout(() => {
+      c.status = "CONNECTED";
+      c.held = true;
+      c.until = "14:55";
+      c.upd = "2026-11-22 14:26";
+      render();
+    }, 2400);
+  }
+}
+
+// ══════════ VIEW 4: OPERATIONS ══════════
+function viewOperations() {
+  const heldLocks = LOCKS.filter((l) => l.held).length;
+
+  return `
+    <div>
+      <h1 class="text-xl font-semibold tracking-tight text-slate-900">Operations &amp; Telemetry</h1>
+      <p class="mt-1 text-xs text-slate-500">Infrastructure latency probes, AI inference response percentiles, outbound worker retries, and distributed scheduler locks.</p>
+    </div>
+
+    <!-- Infrastructure Probes Strip -->
+    <div class="mt-6 grid grid-cols-2 border-y border-slate-200 sm:grid-cols-5 sm:divide-x sm:divide-slate-200">
+      ${[
+        ["Dashboard", "142 ms", "HTTP 200"],
+        ["REST API", "96 ms", "HTTP 200"],
+        ["Worker Node", "Active", "Heartbeat OK"],
+        ["PostgreSQL", "11 ms", "SELECT 1"],
+        ["Media Store", "204 ms", "S3 Object OK"]
+      ].map(([svc, lat, sub], idx) => `
+        <div class="py-3.5 ${idx > 0 ? "sm:px-4" : "pr-4"}">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-medium text-slate-400">${svc}</span>
+            <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+          </div>
+          <p class="mt-1 font-mono text-base font-semibold text-slate-900">${lat}</p>
+          <p class="mt-0.5 font-mono text-[10px] text-emerald-700">${sub}</p>
+        </div>
+      `).join("")}
+    </div>
+
+    <!-- AI Latency & Outbox Metrics -->
+    <div class="grid grid-cols-2 border-b border-slate-200 py-4 sm:grid-cols-4 sm:divide-x sm:divide-slate-200">
+      <div class="pr-4">
+        <p class="text-[11px] text-slate-400">AI Avg Latency (24h)</p>
+        <p class="mt-1 font-mono text-lg font-semibold text-slate-900">6.4s <span class="text-xs font-normal text-slate-400">(p95: 14.8s)</span></p>
+      </div>
+      <div class="sm:px-5">
+        <p class="text-[11px] text-slate-400">AI Replies (24h)</p>
+        <p class="mt-1 font-mono text-lg font-semibold text-slate-900">148</p>
+      </div>
+      <div class="mt-3 sm:mt-0 sm:px-5">
+        <p class="text-[11px] text-slate-400">Outbox Delivered</p>
+        <p class="mt-1 font-mono text-lg font-semibold text-emerald-700">12,842</p>
+      </div>
+      <div class="mt-3 sm:mt-0 sm:pl-5">
+        <p class="text-[11px] text-slate-400">Outbox Failed</p>
+        <p class="mt-1 font-mono text-lg font-semibold ${FAILED_MSGS.length > 0 ? "text-red-600" : "text-slate-900"}">${pad(FAILED_MSGS.length)}</p>
+      </div>
+    </div>
+
+    <!-- Failed Outbound Messages -->
+    <div class="py-6 border-b border-slate-200">
+      <div class="flex items-center justify-between pb-3">
+        <div>
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Failed Outbox Messages (${FAILED_MSGS.length})</h2>
+        </div>
+        ${FAILED_MSGS.length > 0 ? `<button type="button" onclick="retryAllMessages()" class="text-xs font-semibold text-emerald-700 hover:underline">Retry All (${FAILED_MSGS.length})</button>` : ""}
+      </div>
+
+      ${FAILED_MSGS.length === 0 ? `
+        <div class="border-y border-slate-200 py-8 text-center text-xs text-slate-500">
+          Outbox queue is healthy — zero failed messages pending retry.
+        </div>
+      ` : `
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead>
+              <tr class="border-y border-slate-200 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                <th class="py-2.5 pr-4">Destination JID</th>
+                <th class="px-4 py-2.5">Error Reason</th>
+                <th class="px-4 py-2.5">Timestamp</th>
+                <th class="py-2.5 pl-4 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-200 border-b border-slate-200">
+              ${FAILED_MSGS.map((m) => `
+                <tr class="hover:bg-slate-50/80">
+                  <td class="py-3 pr-4 font-mono text-slate-800">${esc(m.to)}</td>
+                  <td class="px-4 py-3 text-red-600">${esc(m.error)}</td>
+                  <td class="px-4 py-3 font-mono text-slate-400">${esc(m.upd)}</td>
+                  <td class="py-3 pl-4 text-right">
+                    <button type="button" onclick="retrySingleMessage('${m.id}')" class="rounded border border-slate-200 bg-white px-2.5 py-1 font-semibold text-emerald-700 hover:bg-emerald-50">Requeue</button>
+                  </td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      `}
+    </div>
+
+    <!-- Distributed Scheduler Locks -->
+    <div class="pt-6">
+      <div class="flex items-center justify-between pb-3">
+        <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Distributed Scheduler Locks (${heldLocks} held)</h2>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead>
+            <tr class="border-y border-slate-200 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              <th class="py-2.5 pr-4">Lock Key</th>
+              <th class="px-4 py-2.5">Lease Status</th>
+              <th class="py-2.5 pl-4 text-right">Last Heartbeat</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200 border-b border-slate-200">
+            ${LOCKS.map((l) => `
+              <tr class="hover:bg-slate-50/80">
+                <td class="py-3 pr-4 font-mono text-slate-800">${esc(l.key)}</td>
+                <td class="px-4 py-3">${statusDot(l.held ? "ok" : "off", l.held ? "Held" : "Expired")}</td>
+                <td class="py-3 pl-4 text-right font-mono text-slate-500">${esc(l.upd)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function retrySingleMessage(id) {
+  const idx = FAILED_MSGS.findIndex((m) => m.id === id);
+  if (idx > -1) FAILED_MSGS.splice(idx, 1);
+  showToast("Message requeued to worker outbox");
+  render();
+}
+
+function retryAllMessages() {
+  FAILED_MSGS.splice(0, FAILED_MSGS.length);
+  showToast("All failed messages requeued");
+  render();
+}
+
+// ══════════ VIEW 5: GUARDRAILS ══════════
+function viewGuardrails() {
+  const items = GUARDS.filter((g) => state.guardTab === "all" || g.type.toLowerCase() === state.guardTab);
+
+  return `
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <h1 class="text-xl font-semibold tracking-tight text-slate-900">AI Decision Guardrails</h1>
+        <p class="mt-1 text-xs text-slate-500">Pre-turn prompt injection detection and post-turn grounding verification telemetry across all active agents.</p>
+      </div>
+      <div class="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5 text-xs">
+        ${[["all", "All Turns"], ["pre", "Pre-Turn"], ["post", "Post-Turn"]].map(([key, lbl]) => {
+          const active = state.guardTab === key;
+          return `<button type="button" onclick="state.guardTab='${key}'; render()" class="rounded px-3 py-1 transition ${active ? "bg-white font-semibold text-slate-900 shadow-2xs" : "font-medium text-slate-600 hover:text-slate-900"}">${lbl}</button>`;
+        }).join("")}
+      </div>
+    </div>
+
+    <div class="mt-6 overflow-x-auto">
+      <table class="w-full text-left text-xs">
+        <thead>
+          <tr class="border-y border-slate-200 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            <th class="py-3 pr-4">Timestamp</th>
+            <th class="px-4 py-3">Stage</th>
+            <th class="px-4 py-3">Tenant &amp; Sender</th>
+            <th class="px-4 py-3">Classifier Scores</th>
+            <th class="px-4 py-3">Verdict</th>
+            <th class="py-3 pl-4 text-right">Payload</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200 border-b border-slate-200">
+          ${items.map((g) => {
+            const expanded = state.expandedGuardId === g.id;
+            return `
+              <tr class="hover:bg-slate-50/80">
+                <td class="py-3.5 pr-4 font-mono text-slate-500 whitespace-nowrap">${esc(g.time)}</td>
+                <td class="px-4 py-3.5">
+                  <span class="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 font-mono text-[11px] font-medium text-slate-700">${g.type}</span>
+                </td>
+                <td class="px-4 py-3.5">
+                  <p class="font-semibold text-slate-900">${esc(g.tenant)}</p>
+                  <p class="font-mono text-[11px] text-slate-400">${esc(g.phone)}</p>
+                </td>
+                <td class="px-4 py-3.5 font-mono text-slate-700">${esc(g.values)}</td>
+                <td class="px-4 py-3.5">${statusDot("warn", `${g.verdict} (${g.mode})`)}</td>
+                <td class="py-3.5 pl-4 text-right">
+                  <button type="button" onclick="state.expandedGuardId = state.expandedGuardId === '${g.id}' ? null : '${g.id}'; render()" class="font-medium text-emerald-700 hover:underline">
+                    ${expanded ? "Hide JSON" : "Inspect JSON"}
+                  </button>
+                </td>
+              </tr>
+              ${expanded ? `
+                <tr class="bg-slate-50/80">
+                  <td colspan="6" class="px-4 py-3">
+                    <pre class="overflow-x-auto rounded border border-slate-200 bg-slate-900 p-3 font-mono text-[11px] leading-relaxed text-slate-200">${esc(JSON.stringify(g.json, null, 2))}</pre>
+                  </td>
+                </tr>
+              ` : ""}
+            `;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+// ══════════ VIEW 6: AUDIT LOG ══════════
+function viewAudit() {
+  const isTenant = state.auditTab === "tenant";
+  const rawRows = isTenant ? TENANTLOG : ADMINLOG;
+  const q = state.auditQ.trim().toLowerCase();
+  const rows = rawRows.filter((r) => !q || `${r.action}.${r.suffix}`.toLowerCase().includes(q) || JSON.stringify(r).toLowerCase().includes(q));
+
+  return `
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <h1 class="text-xl font-semibold tracking-tight text-slate-900">Immutable Audit Trail</h1>
+        <p class="mt-1 text-xs text-slate-500">Chronological record of tenant mutations and super-admin control plane operations.</p>
+      </div>
+      <div class="relative">
+        <i class="ph ph-funnel absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400"></i>
+        <input type="text" value="${esc(state.auditQ)}" oninput="state.auditQ=this.value; render()" placeholder="Filter event or actor…" class="h-8 w-56 rounded-md border border-slate-300 bg-white pl-8 pr-3 text-xs text-slate-900 focus:border-emerald-600 focus:outline-none" />
+      </div>
+    </div>
+
+    <div class="mt-5 flex items-center justify-between border-b border-slate-200">
+      <div class="flex gap-6">
+        <button type="button" onclick="state.auditTab='tenant'; state.expandedAuditId=null; render()" class="tab-btn ${isTenant ? "active" : ""}">Tenant Activity</button>
+        <button type="button" onclick="state.auditTab='admin'; state.expandedAuditId=null; render()" class="tab-btn ${!isTenant ? "active" : ""}">Operator Actions</button>
+      </div>
+      <span class="font-mono text-[11px] text-slate-400">Showing ${rows.length} of 137 entries</span>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-xs">
+        <thead>
+          <tr class="border-b border-slate-200 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            <th class="py-3 pr-4">Timestamp</th>
+            <th class="px-4 py-3">Event</th>
+            ${isTenant ? `<th class="px-4 py-3">Entity</th><th class="px-4 py-3">Tenant</th>` : `<th class="px-4 py-3">Operator</th><th class="px-4 py-3">Target</th>`}
+            <th class="py-3 pl-4 text-right">Diff</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200 border-b border-slate-200">
+          ${rows.map((r) => {
+            const expanded = state.expandedAuditId === r.id;
+            return `
+              <tr class="hover:bg-slate-50/80">
+                <td class="py-3.5 pr-4 font-mono text-slate-500 whitespace-nowrap">${esc(r.time)}</td>
+                <td class="px-4 py-3.5 font-mono font-medium ${r.suffix.includes("error") ? "text-red-600" : "text-slate-900"}">
+                  <span class="text-slate-400">${r.action}.</span>${r.suffix}
+                </td>
+                ${isTenant
+                  ? `<td class="px-4 py-3.5 text-slate-800">${esc(r.entity)}</td><td class="px-4 py-3.5 text-slate-500">${esc(r.tenant)} <span class="font-mono text-[11px]">(${r.phone})</span></td>`
+                  : `<td class="px-4 py-3.5"><span class="font-semibold text-slate-900">${esc(r.admin)}</span> <span class="font-mono text-[11px] text-slate-400">${esc(r.email)}</span></td><td class="px-4 py-3.5 text-slate-600">${esc(r.target)}</td>`}
+                <td class="py-3.5 pl-4 text-right">
+                  <button type="button" onclick="state.expandedAuditId = state.expandedAuditId === '${r.id}' ? null : '${r.id}'; render()" class="font-medium text-emerald-700 hover:underline">
+                    ${expanded ? "Close" : "Values"}
+                  </button>
+                </td>
+              </tr>
+              ${expanded ? `
+                <tr class="bg-slate-50/80">
+                  <td colspan="5" class="px-4 py-3">
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div>
+                        <p class="mb-1 font-mono text-[10px] font-semibold uppercase text-slate-400">Before</p>
+                        <pre class="rounded border border-slate-200 bg-white p-2.5 font-mono text-[11px] text-slate-600">${r.before ? esc(JSON.stringify(r.before, null, 2)) : "null"}</pre>
+                      </div>
+                      <div>
+                        <p class="mb-1 font-mono text-[10px] font-semibold uppercase text-slate-400">After</p>
+                        <pre class="rounded border border-slate-200 bg-white p-2.5 font-mono text-[11px] text-slate-800">${r.after ? esc(JSON.stringify(r.after, null, 2)) : "null"}</pre>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              ` : ""}
+            `;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+// ══════════ VIEW 7: API KEYS ══════════
+function viewApiKeys() {
+  const activeCount = APIKEYS.filter((k) => !k.revoked).length;
+
+  return `
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <h1 class="text-xl font-semibold tracking-tight text-slate-900">Tenant API Keys</h1>
+        <p class="mt-1 text-xs text-slate-500">Inspect active Bearer integration tokens across workspaces and revoke compromised credentials.</p>
+      </div>
+      <div class="flex items-center gap-4 font-mono text-xs">
+        <span class="text-emerald-700 font-semibold">${activeCount} Active</span>
+        <span class="text-slate-400">${APIKEYS.length - activeCount} Revoked</span>
+      </div>
+    </div>
+
+    <div class="mt-6 overflow-x-auto">
+      <table class="w-full text-left text-sm">
+        <thead>
+          <tr class="border-y border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+            <th class="py-3 pr-4">Key Label</th>
+            <th class="px-4 py-3">Prefix</th>
+            <th class="px-4 py-3">Workspace</th>
+            <th class="px-4 py-3">Last Activity</th>
+            <th class="px-4 py-3">Status</th>
+            <th class="py-3 pl-4 text-right">Action</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200 border-b border-slate-200">
+          ${APIKEYS.map((k) => `
+            <tr class="hover:bg-slate-50/80">
+              <td class="py-3.5 pr-4 text-xs font-semibold text-slate-900">${esc(k.name)}</td>
+              <td class="px-4 py-3.5 font-mono text-xs text-slate-500">${esc(k.prefix)}…</td>
+              <td class="px-4 py-3.5">
+                <p class="text-xs font-medium text-slate-800">${esc(k.tenant)}</p>
+                <p class="font-mono text-[11px] text-slate-400">${esc(k.slug)}</p>
+              </td>
+              <td class="px-4 py-3.5 font-mono text-xs text-slate-500">${k.lastUsed || "Never"}</td>
+              <td class="px-4 py-3.5">${statusDot(k.revoked ? "off" : "ok", k.revoked ? "Revoked" : "Active")}</td>
+              <td class="py-3.5 pl-4 text-right">
+                ${!k.revoked
+                  ? `<button type="button" onclick="askRevokeApiKey('${k.id}')" class="text-xs font-medium text-red-600 hover:underline">Revoke</button>`
+                  : `<span class="text-xs text-slate-300">—</span>`}
+              </td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+// ══════════ VIEW 8A: PLANS & USAGE ══════════
+function viewPlans() {
+  return `
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <h1 class="text-xl font-semibold tracking-tight text-slate-900">Plans &amp; Quota Utilization</h1>
+        <p class="mt-1 text-xs text-slate-500">Define subscription tier limits, feature entitlements, and inspect real-time monthly consumption per tenant.</p>
+      </div>
+      <button type="button" onclick="go('plans/new')" class="inline-flex h-9 items-center gap-1.5 rounded-md bg-emerald-600 px-3.5 text-xs font-semibold text-white hover:bg-emerald-700">
+        <i class="ph ph-plus text-sm"></i>New Plan Tier
+      </button>
+    </div>
+
+    <!-- Tier Catalog Table -->
+    <div class="mt-6">
+      <h2 class="pb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Subscription Catalog (${PLANS.length} Tiers)</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead>
+            <tr class="border-y border-slate-200 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              <th class="py-3 pr-4">Tier Name</th>
+              <th class="px-3 py-3 text-right">Monthly Price</th>
+              <th class="px-3 py-3 text-right">AI Credits</th>
+              <th class="px-3 py-3 text-right">MAU</th>
+              <th class="px-3 py-3 text-right">Staff / Channels</th>
+              <th class="px-3 py-3">Included Modules</th>
+              <th class="py-3 pl-3 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200 border-b border-slate-200">
+            ${PLANS.map((p) => `
+              <tr class="hover:bg-slate-50/80">
+                <td class="py-3.5 pr-4 font-semibold text-slate-900">${esc(p.name)}</td>
+                <td class="px-3 py-3.5 text-right font-mono font-semibold text-slate-900 tabular-nums">${idr(p.price)}</td>
+                <td class="px-3 py-3.5 text-right font-mono text-slate-700 tabular-nums">${limitLabel(p.credits)}</td>
+                <td class="px-3 py-3.5 text-right font-mono text-slate-700 tabular-nums">${limitLabel(p.mau)}</td>
+                <td class="px-3 py-3.5 text-right font-mono text-slate-700 tabular-nums">${limitLabel(p.staff)} / ${limitLabel(p.channels)}</td>
+                <td class="px-3 py-3.5 text-slate-500">${p.features.join(", ")}</td>
+                <td class="py-3.5 pl-3 text-right">
+                  <button type="button" onclick="go('plans/edit/${p.id}')" class="font-medium text-slate-700 hover:text-slate-950">Edit</button>
+                </td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Tenant Quota Utilization Ledger -->
+    <div class="mt-8">
+      <h2 class="pb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Current Cycle Consumption (Since 1 Nov 2026)</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead>
+            <tr class="border-y border-slate-200 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              <th class="py-3 pr-4">Tenant Workspace</th>
+              <th class="px-3 py-3">Assigned Tier</th>
+              <th class="px-3 py-3 text-right">MAU</th>
+              <th class="px-3 py-3 text-right">AI Credits</th>
+              <th class="px-3 py-3 text-right">Staff / Channels</th>
+              <th class="px-3 py-3 text-right">Media Storage</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-200 border-b border-slate-200">
+            ${USAGE.map((u) => `
+              <tr class="hover:bg-slate-50/80">
+                <td class="py-3.5 pr-4 font-semibold text-slate-900">${esc(u.tenant)}</td>
+                <td class="px-3 py-3.5">
+                  <select onchange="assignTenantPlan('${esc(u.tenant)}', this.value)" class="h-7 rounded border border-slate-300 bg-white px-2 text-xs text-slate-800 focus:border-emerald-600 focus:outline-none">
+                    <option value="">— No Plan —</option>
+                    ${PLANS.map((p) => `<option value="${p.id}" ${p.id === u.planId ? "selected" : ""}>${esc(p.name)}</option>`).join("")}
+                  </select>
+                </td>
+                <td class="px-3 py-3.5 text-right font-mono tabular-nums">${u.mau.toLocaleString("en-GB")}${u.mauLimit !== null ? ` <span class="text-slate-400">/ ${u.mauLimit.toLocaleString("en-GB")}</span>` : ""}</td>
+                <td class="px-3 py-3.5 text-right font-mono tabular-nums">${u.credits.toLocaleString("en-GB")}${u.creditsLimit !== null ? ` <span class="text-slate-400">/ ${u.creditsLimit.toLocaleString("en-GB")}</span>` : ""}</td>
+                <td class="px-3 py-3.5 text-right font-mono tabular-nums">${u.staff}/${u.staffLimit ?? "∞"} • ${u.channels}/${u.channelLimit ?? "∞"}</td>
+                <td class="px-3 py-3.5 text-right font-mono text-slate-600 tabular-nums">${bytes(u.media)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function assignTenantPlan(tenantName, planId) {
+  const row = USAGE.find((u) => u.tenant === tenantName);
+  const plan = PLANS.find((p) => p.id === planId);
+  if (row) {
+    row.planId = planId || null;
+    row.mauLimit = plan ? plan.mau : null;
+    row.creditsLimit = plan ? plan.credits : null;
+    row.staffLimit = plan ? plan.staff : null;
+    row.channelLimit = plan ? plan.channels : null;
+  }
+  showToast(plan ? `Assigned ${plan.name} to ${tenantName}` : `Cleared plan for ${tenantName}`);
+  render();
+}
+
+// ══════════ VIEW 8B: FULL-PAGE PLAN EDITOR ══════════
+function viewPlanEditor() {
+  const existing = state.paramId ? PLANS.find((p) => p.id === state.paramId) : null;
+
+  return `
+    <div class="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-5">
+      <div>
+        <div class="flex items-center gap-2 text-xs text-slate-500">
+          <button type="button" onclick="go('plans')" class="inline-flex items-center gap-1 hover:text-slate-900">
+            <i class="ph ph-arrow-left text-xs"></i>Plans &amp; Usage
+          </button>
+          <span class="text-slate-300">/</span>
+          <span class="font-medium text-slate-700">${existing ? `Edit ${esc(existing.name)}` : "New Plan Tier"}</span>
+        </div>
+        <h1 class="mt-1.5 text-xl font-semibold tracking-tight text-slate-900">${existing ? `Configure "${esc(existing.name)}" Tier` : "Create Subscription Plan Tier"}</h1>
+        <p class="mt-1 text-xs text-slate-500">Set monthly recurring pricing, resource caps, and module entitlements.</p>
+      </div>
+      <button type="button" onclick="go('plans')" class="inline-flex h-8 items-center rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+    </div>
+
+    <form onsubmit="savePlanEditor(event)" class="divide-y divide-slate-200">
+      <div class="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
+        <div class="md:col-span-4">
+          <label for="pe-name" class="text-xs font-semibold text-slate-900">Tier Identity &amp; Pricing</label>
+          <p class="mt-1 text-xs leading-relaxed text-slate-500">Public tier title and base monthly invoice rate in Indonesian Rupiah.</p>
+        </div>
+        <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-2 md:col-span-8 max-w-lg">
+          <div>
+            <label for="pe-name" class="block text-xs font-medium text-slate-700">Plan Name <span class="text-red-500">*</span></label>
+            <input id="pe-name" type="text" required value="${existing ? esc(existing.name) : ""}" placeholder="e.g. Scale" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-emerald-600 focus:outline-none" />
+          </div>
+          <div>
+            <label for="pe-price" class="block text-xs font-medium text-slate-700">Price / Month (IDR) <span class="text-red-500">*</span></label>
+            <input id="pe-price" type="number" min="0" step="1000" required value="${existing ? existing.price : ""}" placeholder="750000" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 font-mono text-sm text-slate-900 focus:border-emerald-600 focus:outline-none" />
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
+        <div class="md:col-span-4">
+          <span class="text-xs font-semibold text-slate-900">Monthly Capacity Caps</span>
+          <p class="mt-1 text-xs leading-relaxed text-slate-500">Leave any field blank to grant unlimited capacity for that resource.</p>
+        </div>
+        <div class="grid grid-cols-2 gap-3.5 sm:grid-cols-4 md:col-span-8 max-w-xl">
+          <div>
+            <label for="pe-credits" class="block text-xs font-medium text-slate-700">AI Credits</label>
+            <input id="pe-credits" type="number" min="0" value="${existing && existing.credits !== null ? existing.credits : ""}" placeholder="Unlimited" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 font-mono text-xs text-slate-900 focus:border-emerald-600 focus:outline-none" />
+          </div>
+          <div>
+            <label for="pe-mau" class="block text-xs font-medium text-slate-700">MAU Contacts</label>
+            <input id="pe-mau" type="number" min="0" value="${existing && existing.mau !== null ? existing.mau : ""}" placeholder="Unlimited" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 font-mono text-xs text-slate-900 focus:border-emerald-600 focus:outline-none" />
+          </div>
+          <div>
+            <label for="pe-staff" class="block text-xs font-medium text-slate-700">Staff Seats</label>
+            <input id="pe-staff" type="number" min="0" value="${existing && existing.staff !== null ? existing.staff : ""}" placeholder="Unlimited" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 font-mono text-xs text-slate-900 focus:border-emerald-600 focus:outline-none" />
+          </div>
+          <div>
+            <label for="pe-channels" class="block text-xs font-medium text-slate-700">WA Channels</label>
+            <input id="pe-channels" type="number" min="0" value="${existing && existing.channels !== null ? existing.channels : ""}" placeholder="Unlimited" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 font-mono text-xs text-slate-900 focus:border-emerald-600 focus:outline-none" />
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
+        <div class="md:col-span-4">
+          <span class="text-xs font-semibold text-slate-900">Module Entitlements</span>
+          <p class="mt-1 text-xs leading-relaxed text-slate-500">Features unlocked inside the tenant workspace for subscribers on this plan.</p>
+        </div>
+        <div class="grid grid-cols-1 gap-2 sm:grid-cols-3 md:col-span-8 max-w-2xl">
+          ${FEATURES.map((feat) => `
+            <label class="flex cursor-pointer items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 hover:bg-slate-50">
+              <input type="checkbox" name="pe-feat" value="${esc(feat)}" ${existing && existing.features.includes(feat) ? "checked" : ""} class="h-3.5 w-3.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-600" />
+              <span>${esc(feat)}</span>
+            </label>
+          `).join("")}
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2.5 pt-5">
+        <button type="button" onclick="go('plans')" class="rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+        <button type="submit" class="rounded-md bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700">${existing ? "Save Changes" : "Create Plan"}</button>
+      </div>
+    </form>
+  `;
+}
+
+function savePlanEditor(e) {
+  e.preventDefault();
+  const parseCap = (id) => {
+    const raw = document.getElementById(id).value.trim();
+    return raw === "" ? null : Number(raw);
+  };
+  const payload = {
+    name: document.getElementById("pe-name").value.trim(),
+    price: Number(document.getElementById("pe-price").value || 0),
+    credits: parseCap("pe-credits"),
+    mau: parseCap("pe-mau"),
+    staff: parseCap("pe-staff"),
+    channels: parseCap("pe-channels"),
+    features: Array.from(document.querySelectorAll('input[name="pe-feat"]:checked')).map((el) => el.value)
+  };
+
+  if (state.paramId) {
+    const existing = PLANS.find((p) => p.id === state.paramId);
+    if (existing) Object.assign(existing, payload);
+    showToast(`Plan "${payload.name}" updated`);
+  } else {
+    PLANS.push({ id: "p_" + Date.now(), ...payload });
+    showToast(`Plan "${payload.name}" created`);
+  }
+  go("plans");
+}
+
+// ══════════ VIEW 9A: BILLING & INVOICING ══════════
+function viewBilling() {
+  const outstanding = INVOICES.filter((i) => i.status === "ISSUED").reduce((s, i) => s + i.amount, 0);
+  const overdueCount = INVOICES.filter((i) => i.status === "ISSUED" && i.due < "28 Nov 2026").length;
+  const paidThisMonth = INVOICES.filter((i) => i.status === "PAID").reduce((s, i) => s + i.amount, 0);
+
+  return `
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <h1 class="text-xl font-semibold tracking-tight text-slate-900">Billing &amp; Revenue Ledger</h1>
+        <p class="mt-1 text-xs text-slate-500">Issue tenant subscription invoices, settle bank transfers, and review upgrade requests.</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button type="button" onclick="go('plans')" class="inline-flex h-9 items-center rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">Manage Plans</button>
+        <button type="button" onclick="state.prefillInvoiceTenant=''; go('billing/new-invoice')" class="inline-flex h-9 items-center gap-1.5 rounded-md bg-emerald-600 px-3.5 text-xs font-semibold text-white hover:bg-emerald-700">
+          <i class="ph ph-plus text-sm"></i>Issue Invoice
+        </button>
+      </div>
+    </div>
+
+    <!-- Financial Telemetry Strip -->
+    <div class="mt-6 grid grid-cols-1 border-y border-slate-200 sm:grid-cols-3 sm:divide-x sm:divide-slate-200">
+      <div class="py-3.5 pr-4">
+        <p class="text-[11px] font-medium text-slate-400">Outstanding Receivables</p>
+        <p class="mt-1 font-mono text-lg font-semibold text-slate-900 tabular-nums">${idr(outstanding)}</p>
+      </div>
+      <div class="border-t border-slate-200 py-3.5 sm:border-t-0 sm:px-5">
+        <p class="text-[11px] font-medium text-slate-400">Overdue Invoices</p>
+        <p class="mt-1 font-mono text-lg font-semibold ${overdueCount > 0 ? "text-red-600" : "text-slate-900"} tabular-nums">${overdueCount}</p>
+      </div>
+      <div class="border-t border-slate-200 py-3.5 sm:border-t-0 sm:pl-5">
+        <p class="text-[11px] font-medium text-slate-400">Settled Revenue</p>
+        <p class="mt-1 font-mono text-lg font-semibold text-emerald-700 tabular-nums">${idr(paidThisMonth)}</p>
+      </div>
+    </div>
+
+    <!-- Sub-Navigation Tabs -->
+    <div class="mt-5 flex gap-6 border-b border-slate-200">
+      <button type="button" onclick="state.billingTab='invoices'; render()" class="tab-btn ${state.billingTab === "invoices" ? "active" : ""}">Invoices (${INVOICES.length})</button>
+      <button type="button" onclick="state.billingTab='requests'; render()" class="tab-btn ${state.billingTab === "requests" ? "active" : ""}">Upgrade Requests (${REQUESTS.length})</button>
+      <button type="button" onclick="state.billingTab='settings'; render()" class="tab-btn ${state.billingTab === "settings" ? "active" : ""}">Bank &amp; Terms</button>
+    </div>
+
+    ${state.billingTab === "invoices" ? renderInvoicesTab() : state.billingTab === "requests" ? renderRequestsTab() : renderBillingSettingsTab()}
+  `;
+}
+
+function renderInvoicesTab() {
+  return `
+    ${NEEDS.length > 0 ? `
+      <div class="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-200 bg-slate-50/80 px-4 py-2.5 text-xs text-slate-700">
+        <div class="flex items-center gap-2">
+          <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500"></span>
+          <span><strong class="font-semibold text-slate-900">Unbilled Cycle:</strong> ${esc(NEEDS[0].tenant)} (${esc(NEEDS[0].plan)} — <span class="font-mono">${idr(NEEDS[0].price)}</span>) has no invoice for November 2026.</span>
+        </div>
+        <button type="button" onclick="state.prefillInvoiceTenant='${esc(NEEDS[0].tenant)}'; go('billing/new-invoice')" class="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-800 hover:bg-slate-50">Create Invoice →</button>
+      </div>
+    ` : ""}
+
+    ${state.payingInvoiceId ? `
+      <form onsubmit="submitInlinePayment(event)" class="mt-5 flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-slate-50/80 px-4 py-3 text-xs">
+        <span class="font-semibold text-slate-900">Settle Invoice <span class="font-mono">${esc(INVOICES.find((x) => x.id === state.payingInvoiceId)?.number || "")}</span>:</span>
+        <select id="pay-method-inline" class="h-8 rounded-md border border-slate-300 bg-white px-2.5 text-xs">
+          <option>Bank Transfer (BCA)</option>
+          <option>Cash</option>
+          <option>Other</option>
+        </select>
+        <input id="pay-ref-inline" type="text" placeholder="Transfer reference (optional)" class="h-8 w-52 rounded-md border border-slate-300 bg-white px-2.5 font-mono text-xs" />
+        <button type="submit" class="rounded-md bg-emerald-600 px-3 py-1.5 font-semibold text-white hover:bg-emerald-700">Confirm Paid</button>
+        <button type="button" onclick="state.payingInvoiceId=null; render()" class="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-slate-600 hover:bg-slate-50">Cancel</button>
+      </form>
+    ` : ""}
+
+    <div class="mt-4 overflow-x-auto">
+      <table class="w-full text-left text-xs">
+        <thead>
+          <tr class="border-y border-slate-200 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            <th class="py-3 pr-4">Invoice #</th>
+            <th class="px-4 py-3">Tenant &amp; Tier</th>
+            <th class="px-4 py-3">Billing Period</th>
+            <th class="px-4 py-3 text-right">Amount</th>
+            <th class="px-4 py-3">Status</th>
+            <th class="px-4 py-3">Due / Paid Date</th>
+            <th class="py-3 pl-4 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200 border-b border-slate-200">
+          ${INVOICES.map((inv) => {
+            const overdue = inv.status === "ISSUED" && inv.due < "28 Nov 2026";
+            return `
+              <tr class="hover:bg-slate-50/80">
+                <td class="py-3.5 pr-4 font-mono font-medium text-slate-700">${esc(inv.number)}</td>
+                <td class="px-4 py-3.5">
+                  <p class="font-semibold text-slate-900">${esc(inv.tenant)}</p>
+                  <p class="text-[11px] text-slate-400">${esc(inv.plan)}</p>
+                </td>
+                <td class="px-4 py-3.5 text-slate-600">${esc(inv.period)}</td>
+                <td class="px-4 py-3.5 text-right font-mono font-semibold text-slate-900 tabular-nums">${idr(inv.amount)}</td>
+                <td class="px-4 py-3.5">${statusDot(inv.status === "PAID" ? "ok" : inv.status === "VOID" ? "off" : overdue ? "bad" : "warn", inv.status === "PAID" ? "Paid" : inv.status === "VOID" ? "Void" : overdue ? "Overdue" : "Unpaid")}</td>
+                <td class="px-4 py-3.5 font-mono text-slate-500">${esc(inv.paid || inv.due)}</td>
+                <td class="py-3.5 pl-4 text-right">
+                  ${inv.status === "ISSUED"
+                    ? `<div class="inline-flex items-center gap-3">
+                         <button type="button" onclick="state.payingInvoiceId='${inv.id}'; render()" class="font-semibold text-emerald-700 hover:underline">Mark Paid</button>
+                         <button type="button" onclick="askVoidInvoice('${inv.id}')" class="font-medium text-red-600 hover:underline">Void</button>
+                       </div>`
+                    : `<span class="text-slate-300">—</span>`}
+                </td>
+              </tr>
+            `;
+          }).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function submitInlinePayment(e) {
+  e.preventDefault();
+  const inv = INVOICES.find((x) => x.id === state.payingInvoiceId);
+  if (inv) {
+    inv.status = "PAID";
+    inv.paid = "22 Nov 2026";
+    showToast(`Invoice ${inv.number} marked as Paid`);
+  }
+  state.payingInvoiceId = null;
+  render();
+}
+
+function renderRequestsTab() {
+  return `
+    <div class="mt-4 overflow-x-auto">
+      <table class="w-full text-left text-xs">
+        <thead>
+          <tr class="border-y border-slate-200 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            <th class="py-3 pr-4">Tenant</th>
+            <th class="px-4 py-3">Requested Plan</th>
+            <th class="px-4 py-3">Operator Note</th>
+            <th class="px-4 py-3">Status</th>
+            <th class="px-4 py-3">Submitted</th>
+            <th class="py-3 pl-4 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200 border-b border-slate-200">
+          ${REQUESTS.map((r) => `
+            <tr class="hover:bg-slate-50/80">
+              <td class="py-3.5 pr-4">
+                <p class="font-semibold text-slate-900">${esc(r.tenant)}</p>
+                <p class="font-mono text-[11px] text-slate-400">${esc(r.slug)}</p>
+              </td>
+              <td class="px-4 py-3.5">
+                <span class="font-semibold text-slate-900">${esc(r.plan)}</span>
+                <span class="ml-1 font-mono text-slate-500">(${idr(r.price)})</span>
+              </td>
+              <td class="px-4 py-3.5 text-slate-600">${esc(r.note || "—")}</td>
+              <td class="px-4 py-3.5">${statusDot(r.status === "DONE" ? "ok" : r.status === "REJECTED" ? "off" : "warn", r.status)}</td>
+              <td class="px-4 py-3.5 font-mono text-slate-500">${esc(r.created)}</td>
+              <td class="py-3.5 pl-4 text-right">
+                <div class="inline-flex items-center gap-3">
+                  ${r.status === "NEW" ? `<button type="button" onclick="updateRequestStatus('${r.id}', 'CONTACTED')" class="font-medium text-slate-700 hover:underline">Contacted</button>` : ""}
+                  ${(r.status === "NEW" || r.status === "CONTACTED") ? `
+                    <button type="button" onclick="updateRequestStatus('${r.id}', 'DONE')" class="font-semibold text-emerald-700 hover:underline">Complete</button>
+                    <button type="button" onclick="updateRequestStatus('${r.id}', 'REJECTED')" class="font-medium text-red-600 hover:underline">Reject</button>
+                  ` : `<span class="text-slate-300">—</span>`}
+                </div>
+              </td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function updateRequestStatus(id, status) {
+  const req = REQUESTS.find((r) => r.id === id);
+  if (req) req.status = status;
+  showToast(`Request marked ${status}`);
+  render();
+}
+
+function renderBillingSettingsTab() {
+  return `
+    <form onsubmit="event.preventDefault(); showToast('Bank & payment terms saved')" class="divide-y divide-slate-200">
+      <div class="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
+        <div class="md:col-span-4">
+          <span class="text-xs font-semibold text-slate-900">Settlement Bank Account</span>
+          <p class="mt-1 text-xs leading-relaxed text-slate-500">Displayed on tenant billing pages for manual bank transfer settlement.</p>
+        </div>
+        <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-3 md:col-span-8 max-w-2xl">
+          <div>
+            <label class="block text-xs font-medium text-slate-700">Bank Name</label>
+            <input type="text" value="BCA" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-xs" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-700">Account Number</label>
+            <input type="text" value="1234567890" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 font-mono text-xs" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-700">Account Holder</label>
+            <input type="text" value="PT CSQ Indonesia" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-xs" />
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
+        <div class="md:col-span-4">
+          <span class="text-xs font-semibold text-slate-900">Net Payment &amp; Grace Window</span>
+          <p class="mt-1 text-xs leading-relaxed text-slate-500">Days before an issued invoice becomes overdue and grace period prior to auto-suspension.</p>
+        </div>
+        <div class="grid grid-cols-2 gap-3.5 md:col-span-8 max-w-xs">
+          <div>
+            <label class="block text-xs font-medium text-slate-700">Due Days</label>
+            <input type="number" min="1" max="90" value="7" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 font-mono text-xs" />
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-700">Grace Days</label>
+            <input type="number" min="0" max="90" value="7" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 font-mono text-xs" />
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-end pt-5">
+        <button type="submit" class="rounded-md bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700">Save Billing Settings</button>
+      </div>
+    </form>
+  `;
+}
+
+// ══════════ VIEW 9B: FULL-PAGE INVOICE COMPOSER ══════════
+function viewInvoiceCreate() {
+  return `
+    <div class="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-5">
+      <div>
+        <div class="flex items-center gap-2 text-xs text-slate-500">
+          <button type="button" onclick="go('billing')" class="inline-flex items-center gap-1 hover:text-slate-900">
+            <i class="ph ph-arrow-left text-xs"></i>Billing
+          </button>
+          <span class="text-slate-300">/</span>
+          <span class="font-medium text-slate-700">Issue Invoice</span>
+        </div>
+        <h1 class="mt-1.5 text-xl font-semibold tracking-tight text-slate-900">Issue Tenant Invoice</h1>
+        <p class="mt-1 text-xs text-slate-500">Generates a numbered billing statement visible immediately inside the tenant's Paket &amp; Kuota ledger.</p>
+      </div>
+      <button type="button" onclick="go('billing')" class="inline-flex h-8 items-center rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+    </div>
+
+    <form onsubmit="submitNewInvoice(event)" class="divide-y divide-slate-200">
+      <div class="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
+        <div class="md:col-span-4">
+          <label for="ni-tenant" class="text-xs font-semibold text-slate-900">Billed Workspace</label>
+          <p class="mt-1 text-xs leading-relaxed text-slate-500">Select the recipient tenant workspace and applicable subscription plan.</p>
+        </div>
+        <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-2 md:col-span-8 max-w-lg">
+          <div>
+            <label for="ni-tenant" class="block text-xs font-medium text-slate-700">Tenant Workspace <span class="text-red-500">*</span></label>
+            <select id="ni-tenant" required class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-900">
+              ${TENANTS.map((t) => `<option value="${esc(t.name)}" ${state.prefillInvoiceTenant === t.name ? "selected" : ""}>${esc(t.name)}</option>`).join("")}
+            </select>
+          </div>
+          <div>
+            <label for="ni-plan" class="block text-xs font-medium text-slate-700">Plan Reference</label>
+            <select id="ni-plan" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-900">
+              ${PLANS.map((p) => `<option value="${esc(p.name)}">${esc(p.name)} (${idr(p.price)})</option>`).join("")}
+              <option value="Custom Add-on">Custom Add-on</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
+        <div class="md:col-span-4">
+          <label for="ni-amount" class="text-xs font-semibold text-slate-900">Amount &amp; Due Date</label>
+          <p class="mt-1 text-xs leading-relaxed text-slate-500">Invoice total in IDR and net settlement deadline.</p>
+        </div>
+        <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-3 md:col-span-8 max-w-xl">
+          <div>
+            <label for="ni-period" class="block text-xs font-medium text-slate-700">Period Label</label>
+            <input id="ni-period" type="text" required value="1 Nov – 30 Nov 2026" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-xs" />
+          </div>
+          <div>
+            <label for="ni-amount" class="block text-xs font-medium text-slate-700">Amount (IDR) <span class="text-red-500">*</span></label>
+            <input id="ni-amount" type="number" min="0" step="1000" required value="199000" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 font-mono text-xs" />
+          </div>
+          <div>
+            <label for="ni-due" class="block text-xs font-medium text-slate-700">Due Date</label>
+            <input id="ni-due" type="text" required value="29 Nov 2026" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 font-mono text-xs" />
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2.5 pt-5">
+        <button type="button" onclick="go('billing')" class="rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">Cancel</button>
+        <button type="submit" class="rounded-md bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700">Issue Invoice</button>
+      </div>
+    </form>
+  `;
+}
+
+function submitNewInvoice(e) {
+  e.preventDefault();
+  const num = "INV-202611-" + String(INVOICES.length + 1).padStart(4, "0");
+  INVOICES.unshift({
+    id: "i_" + Date.now(),
+    number: num,
+    tenant: document.getElementById("ni-tenant").value,
+    plan: document.getElementById("ni-plan").value,
+    period: document.getElementById("ni-period").value.trim(),
+    amount: Number(document.getElementById("ni-amount").value || 0),
+    status: "ISSUED",
+    due: document.getElementById("ni-due").value.trim(),
+    paid: null
+  });
+  showToast(`Invoice ${num} issued`);
+  go("billing");
+}
+
+// ══════════ VIEW 10: PLATFORM EMAIL ══════════
+function viewEmail() {
+  return `
+    <div class="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-5">
+      <div>
+        <h1 class="text-xl font-semibold tracking-tight text-slate-900">Platform Default SMTP</h1>
+        <p class="mt-1 text-xs text-slate-500">Global fallback mail relay for tenant invitations, password resets, and scenario email actions.</p>
+      </div>
+      <div class="flex items-center gap-3">
+        ${statusDot(state.emailConfigured ? "ok" : "warn", state.emailConfigured ? "Connected (smtp.csq.id:587)" : "Not Configured")}
+        ${state.emailConfigured ? `<button type="button" onclick="state.emailConfigured=false; showToast('Platform SMTP disconnected'); render()" class="text-xs font-medium text-red-600 hover:underline">Disconnect</button>` : ""}
+      </div>
+    </div>
+
+    <form onsubmit="event.preventDefault(); state.emailConfigured=true; showToast('Platform SMTP saved'); render()" class="divide-y divide-slate-200">
+      <div class="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
+        <div class="md:col-span-4">
+          <span class="text-xs font-semibold text-slate-900">SMTP Server Endpoint</span>
+          <p class="mt-1 text-xs leading-relaxed text-slate-500">Tenant-level custom SMTP gateways still override this global relay when configured.</p>
+        </div>
+        <div class="space-y-3.5 md:col-span-8 max-w-md">
+          <div class="grid grid-cols-3 gap-3">
+            <div class="col-span-2">
+              <label class="block text-xs font-medium text-slate-700">SMTP Host</label>
+              <input type="text" required value="smtp.csq.id" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 font-mono text-xs" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-700">Port</label>
+              <input type="number" required value="587" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 font-mono text-xs" />
+            </div>
+          </div>
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label class="block text-xs font-medium text-slate-700">Username</label>
+              <input type="text" required value="no-reply@csq.id" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-xs" />
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-700">Password</label>
+              <input type="password" placeholder="••••••••••••" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-xs" />
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-700">Default From Address</label>
+            <input type="email" required value="no-reply@csq.id" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-xs" />
+          </div>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center justify-end gap-2.5 py-5">
+        <button type="button" ${!state.emailConfigured ? "disabled" : ""} onclick="showToast('Test email dispatched to operator@csq.id')" class="rounded-md border border-slate-300 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40">Send Test Email</button>
+        <button type="submit" class="rounded-md bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700">Save Platform SMTP</button>
+      </div>
+    </form>
+  `;
+}
+
+// ══════════ VIEW 11: PLATFORM ADMINS ══════════
+function viewAdmins() {
+  return `
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <h1 class="text-xl font-semibold tracking-tight text-slate-900">Platform Operators</h1>
+        <p class="mt-1 text-xs text-slate-500">Manage root-level administrators authorized to access the CSQ Control Plane.</p>
+      </div>
+      <button type="button" onclick="state.showAddAdmin = !state.showAddAdmin; render()" class="inline-flex h-9 items-center gap-1.5 rounded-md bg-emerald-600 px-3.5 text-xs font-semibold text-white hover:bg-emerald-700">
+        <i class="ph ph-user-plus text-sm"></i>Add Operator
+      </button>
+    </div>
+
+    ${state.showAddAdmin ? `
+      <form onsubmit="submitAddAdmin(event)" class="mt-5 border-y border-slate-200 bg-slate-50/70 px-4 py-4">
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-12 sm:items-end">
+          <div class="sm:col-span-4">
+            <label class="block text-xs font-medium text-slate-700">Operator Name</label>
+            <input id="na-name" type="text" required placeholder="Full name" class="mt-1 h-8 w-full rounded-md border border-slate-300 bg-white px-2.5 text-xs" />
+          </div>
+          <div class="sm:col-span-4">
+            <label class="block text-xs font-medium text-slate-700">Email Address</label>
+            <input id="na-email" type="email" required placeholder="name@csq.id" class="mt-1 h-8 w-full rounded-md border border-slate-300 bg-white px-2.5 text-xs" />
+          </div>
+          <div class="sm:col-span-4 flex items-center gap-2">
+            <button type="submit" class="h-8 rounded-md bg-emerald-600 px-3.5 text-xs font-semibold text-white hover:bg-emerald-700">Create</button>
+            <button type="button" onclick="state.showAddAdmin=false; render()" class="h-8 rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-600 hover:bg-slate-50">Cancel</button>
+          </div>
+        </div>
+      </form>
+    ` : ""}
+
+    <div class="mt-6 overflow-x-auto">
+      <table class="w-full text-left text-sm">
+        <thead>
+          <tr class="border-y border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+            <th class="py-3 pr-4">Operator</th>
+            <th class="px-4 py-3">Email</th>
+            <th class="px-4 py-3">Provisioned</th>
+            <th class="py-3 pl-4 text-right">Action</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-200 border-b border-slate-200">
+          ${ADMINS.map((a) => `
+            <tr class="hover:bg-slate-50/80">
+              <td class="py-3.5 pr-4 text-xs font-semibold text-slate-900">
+                ${esc(a.name)}
+                ${a.id === "me" ? `<span class="ml-2 rounded bg-emerald-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-emerald-700">You</span>` : ""}
+              </td>
+              <td class="px-4 py-3.5 font-mono text-xs text-slate-500">${esc(a.email)}</td>
+              <td class="px-4 py-3.5 font-mono text-xs text-slate-500">${esc(a.since)}</td>
+              <td class="py-3.5 pl-4 text-right">
+                ${a.id !== "me"
+                  ? `<button type="button" onclick="askRemoveAdmin('${a.id}')" class="text-xs font-medium text-red-600 hover:underline">Remove</button>`
+                  : `<span class="font-mono text-[11px] text-slate-400">Active Session</span>`}
+              </td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function submitAddAdmin(e) {
+  e.preventDefault();
+  ADMINS.push({
+    id: "ad_" + Date.now(),
+    name: document.getElementById("na-name").value.trim(),
+    email: document.getElementById("na-email").value.trim(),
+    since: "22 Nov 2026"
+  });
+  state.showAddAdmin = false;
+  showToast("Platform operator added");
+  render();
+}
+
+// ══════════ Destructive Confirm Modal (Zero native confirm/alert) ══════════
+let confirmCtx = null;
+
+function openConfirmModal({ title, desc, requireText, btnLabel, onConfirm }) {
+  confirmCtx = { requireText: requireText || null, onConfirm };
+  document.getElementById("confirm-title").textContent = title;
+  document.getElementById("confirm-desc").innerHTML = desc;
+  document.getElementById("confirm-action-btn").textContent = btnLabel || "Confirm";
+
+  const typeWrap = document.getElementById("confirm-type-wrap");
+  const typeInp = document.getElementById("confirm-type-input");
+  typeInp.value = "";
+  typeWrap.classList.toggle("hidden", !requireText);
+
+  const modal = document.getElementById("confirm-modal");
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+}
+
+function closeConfirmModal() {
+  confirmCtx = null;
+  const modal = document.getElementById("confirm-modal");
+  modal.classList.add("hidden");
+  modal.classList.remove("flex");
+}
+
+function executeConfirmModal() {
+  if (!confirmCtx) return;
+  if (confirmCtx.requireText) {
+    const typed = document.getElementById("confirm-type-input").value.trim();
+    if (typed !== confirmCtx.requireText) {
+      showToast("Typed workspace name does not match");
+      return;
+    }
+  }
+  const fn = confirmCtx.onConfirm;
+  closeConfirmModal();
+  fn();
+}
+
+function askDeleteTenant(id) {
+  const t = TENANTS.find((x) => x.id === id);
+  if (!t) return;
+  openConfirmModal({
+    title: "Delete Workspace Permanently",
+    desc: `This will permanently delete <strong>${esc(t.name)}</strong> (<code class="font-mono text-xs">${esc(t.slug)}</code>) and all associated customer records.`,
+    requireText: t.name,
+    btnLabel: "Delete Permanently",
+    onConfirm: () => {
+      const idx = TENANTS.findIndex((x) => x.id === id);
+      if (idx > -1) TENANTS.splice(idx, 1);
+      showToast(`Workspace "${t.name}" deleted`);
+      go("tenants");
+    }
+  });
+}
+
+function askRevokeApiKey(id) {
+  const k = APIKEYS.find((x) => x.id === id);
+  if (!k) return;
+  openConfirmModal({
+    title: "Revoke Tenant API Key",
+    desc: `Revoke <strong>${esc(k.name)}</strong> (<code class="font-mono text-xs">${esc(k.prefix)}…</code>) for ${esc(k.tenant)}? Requests using this token will immediately fail with 401 Unauthorized.`,
+    btnLabel: "Revoke Token",
+    onConfirm: () => {
+      k.revoked = true;
+      k.lastUsed = "22 Nov 2026";
+      showToast(`API Key ${k.prefix} revoked`);
+      render();
+    }
+  });
+}
+
+function askVoidInvoice(id) {
+  const inv = INVOICES.find((x) => x.id === id);
+  if (!inv) return;
+  openConfirmModal({
+    title: "Void Invoice",
+    desc: `Mark invoice <strong>${esc(inv.number)}</strong> (${idr(inv.amount)}) for ${esc(inv.tenant)} as Void?`,
+    btnLabel: "Void Invoice",
+    onConfirm: () => {
+      inv.status = "VOID";
+      showToast(`Invoice ${inv.number} voided`);
+      render();
+    }
+  });
+}
+
+function askRemoveAdmin(id) {
+  const adm = ADMINS.find((x) => x.id === id);
+  if (!adm) return;
+  openConfirmModal({
+    title: "Remove Platform Operator",
+    desc: `Revoke Control Plane access for <strong>${esc(adm.name)}</strong> (<code class="font-mono text-xs">${esc(adm.email)}</code>)?`,
+    btnLabel: "Remove Operator",
+    onConfirm: () => {
+      const idx = ADMINS.findIndex((x) => x.id === id);
+      if (idx > -1) ADMINS.splice(idx, 1);
+      showToast(`Operator ${adm.name} removed`);
+      render();
+    }
+  });
+}
+
+// ══════════ Boot Application ══════════
+window.addEventListener("hashchange", parseRoute);
+parseRoute();
+</script>
+</body>
+</html>

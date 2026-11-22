@@ -1,460 +1,175 @@
 import Link from "next/link";
-import { useSession } from "next-auth/react";
-import {
-  Storefront,
-  ChatCircleDots,
-  Tray,
-  Warning,
-  PaperPlaneTilt,
-  Robot,
-  FolderOpen,
-  ArrowUpRight,
-  CheckCircle,
-  User,
-  Clock,
-} from "@phosphor-icons/react";
+import { Pulse, Plus } from "@phosphor-icons/react";
 import { AdminShell } from "@/components/admin-shell";
-import { Card, Group, PageHead, Stat, Status, btnClass, pad } from "@/components/console";
+import { StatusLabel, StatCell, btnPrimary, btnOutline } from "@/components/console";
 import { withAdminAuth } from "@/lib/admin-auth";
 import { useAdminApi } from "@/lib/admin-api";
 
-// Overview (PRD 13). Console copy is English (owner direction 2026-11-13).
+// Control Plane Overview (template viewOverview 1:1): fleet telemetry strip,
+// 30-day throughput chart with the last-3-days highlight, tenant workspaces
+// quick ledger. Console copy is English (owner direction 2026-11-13).
 
-type Tenant = {
-  id: string;
-  name: string;
-  slug: string;
-  status: string;
-  conversationCount: number;
-};
-type Channel = {
-  id: string;
-  tenantName: string;
-  tenantSlug: string;
-  provider: string;
-  status: string;
-  leaseHeld: boolean;
-};
-type Ops = { outbox: { status: string; count: number }[] };
+type Tenant = { id: string; name: string; slug: string; status: string; plan?: string; msgs30d?: number };
+type Channel = { id: string; status: string };
 type Usage = {
-  items: {
-    tenantId: string;
-    tenantName: string;
-    mau: number;
-    mauLimit: number | null;
-    agentReplies: number;
-    scenarioCredits: number;
-    creditsUsed: number;
-    creditsLimit: number | null;
-    staff: number;
-    staffLimit: number | null;
-    channelCount: number;
-    channelLimit: number | null;
-    mediaBytes: number;
-  }[];
+  items: { tenantId: string; tenantName: string; planName: string | null }[];
   daily: { date: string; count: number }[];
-  kpis: {
-    users: number;
-    messages24h: number;
-    conversations24h: number;
-    messages7d: number;
-    conversations7d: number;
-    commandQueue: number;
-    tickFreshness: {
-      lastTickAt: string | null;
-      heldLeases: number;
-      staleLeases: number;
-    };
-  };
 };
-type AuditItem = { id: string; action: string; tenantName?: string; createdAt: string };
 
 export const getServerSideProps = withAdminAuth(async () => ({ props: {} }));
 
-function bytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / 1024 / 1024).toFixed(1)} MB`;
-}
-
-function ago(iso: string): string {
-  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
-
-function Chart({ daily }: { daily: { date: string; count: number }[] }) {
-  const max = Math.max(...daily.map((d) => d.count), 0);
-  const top = Math.max(8, Math.ceil(max / 8) * 8);
-  const ticks = [top, (top * 3) / 4, top / 2, top / 4, 0];
-  const peak = daily.findIndex((d) => d.count === max && max > 0);
-  const H = 180;
-
-  return (
-    <div className="flex gap-3">
-      <div
-        className="flex flex-col justify-between pb-7 text-right font-mono text-[10.5px] text-muted-foreground"
-        style={{ height: H + 28 }}
-      >
-        {ticks.map((t) => (
-          <span key={t} className="leading-none">
-            {t}
-          </span>
-        ))}
-      </div>
-      <div className="relative flex-1">
-        <div className="absolute inset-x-0 top-0 flex flex-col justify-between" style={{ height: H }}>
-          {ticks.map((t) => (
-            <div key={t} className="border-t border-dashed border-border" />
-          ))}
-        </div>
-        <div className="relative flex items-end gap-1.5" style={{ height: H }}>
-          {daily.map((d, i) => (
-            <div key={d.date} className="group relative flex h-full flex-1 items-end">
-              <div
-                className={`w-full rounded-full transition-colors ${
-                  i === peak
-                    ? "bg-foreground"
-                    : "bg-muted ring-1 ring-border/60 group-hover:bg-foreground/70"
-                }`}
-                style={{ height: Math.max(10, (d.count / top) * H) }}
-              />
-              <span className="pointer-events-none absolute -top-7 left-1/2 hidden -translate-x-1/2 rounded-md bg-foreground px-1.5 py-0.5 font-mono text-[10.5px] text-background group-hover:block">
-                {d.count}
-              </span>
-            </div>
-          ))}
-        </div>
-        <div className="mt-2 flex gap-1.5 font-mono text-[10px] text-muted-foreground">
-          {daily.map((d, i) => (
-            <span key={d.date} className={`flex-1 text-center ${i % 3 === 0 ? "" : "invisible"}`}>
-              {new Date(d.date).getUTCDate()}
-            </span>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function AdminOverview() {
-  const { data: session } = useSession();
-  const { data: tenantsData } = useAdminApi<{ items: Tenant[] }>("/api/admin/tenants");
+  const { data: tenantsData } = useAdminApi<{ items: (Tenant & { planName?: string | null; msgs30d?: number })[] }>(
+    "/api/admin/tenants"
+  );
   const { data: channelsData } = useAdminApi<{ items: Channel[] }>("/api/admin/channels");
-  const { data: opsData } = useAdminApi<Ops>("/api/admin/operations");
   const { data: usageData } = useAdminApi<Usage>("/api/admin/usage");
-  const { data: auditData } = useAdminApi<{ items: AuditItem[] }>("/api/admin/audit");
 
   const tenants = tenantsData?.items ?? [];
   const channels = channelsData?.items ?? [];
-  const usage = usageData?.items ?? [];
   const daily = usageData?.daily ?? [];
-  const audit = auditData?.items ?? [];
-
-  const suspended = tenants.filter((t) => t.status !== "ACTIVE").length;
   const connected = channels.filter((c) => c.status === "CONNECTED").length;
-  const down = channels.filter((c) => c.status !== "CONNECTED");
-  const outbox = (status: string) =>
-    opsData?.outbox.find((o) => o.status === status)?.count ?? 0;
-  const failed = outbox("FAILED");
-
-  const totalMessages = daily.reduce((s, d) => s + d.count, 0);
-  const aiReplies = usage.reduce((s, u) => s + u.agentReplies, 0);
-  const scenarioCredits = usage.reduce((s, u) => s + u.scenarioCredits, 0);
-  const credits = usage.reduce((s, u) => s + u.creditsUsed, 0);
-  const media = usage.reduce((s, u) => s + u.mediaBytes, 0);
-  const conversations = tenants.reduce((s, t) => s + t.conversationCount, 0);
-  const kpis = usageData?.kpis;
-
-  const quotas = usage
-    .map((u) => {
-      const checks: { label: string; used: number; limit: number }[] = [];
-      if (u.creditsLimit !== null) {
-        checks.push({ label: "AI credits", used: u.creditsUsed, limit: u.creditsLimit });
-      }
-      if (u.mauLimit !== null) {
-        checks.push({ label: "MAU", used: u.mau, limit: u.mauLimit });
-      }
-      if (u.staffLimit !== null) {
-        checks.push({ label: "Staff", used: u.staff, limit: u.staffLimit });
-      }
-      if (u.channelLimit !== null) {
-        checks.push({ label: "Channels", used: u.channelCount, limit: u.channelLimit });
-      }
-      const worst = checks
-        .map((c) => ({ ...c, pct: Math.round((c.used / c.limit) * 100) }))
-        .sort((a, b) => b.pct - a.pct)[0];
-      return worst && worst.pct >= 80 ? { tenant: u.tenantName, ...worst } : null;
-    })
-    .filter((q): q is { tenant: string; label: string; used: number; limit: number; pct: number } =>
-      q !== null
-    );
+  const totalMsgs30d = tenants.reduce((s, t) => s + (t.msgs30d ?? 0), 0);
+  const maxChart = Math.max(...daily.map((d) => d.count), 1);
 
   return (
     <AdminShell title="Overview">
-      <PageHead
-        eyebrow="Platform"
-        title={session?.user?.name ? `${session.user.name}, here is CSQ today` : "CSQ today"}
-        sub="A snapshot of today, and how the last 30 days are going."
-        action={
-          <Link href="/admin/tenants" className={btnClass()}>
-            New tenant
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Control Plane Overview</h1>
+          <p className="mt-1 text-xs text-slate-500">
+            Multi-tenant fleet telemetry, 30-day message throughput, and infrastructure health across all workspaces.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link href="/admin/operations" className={btnOutline()}>
+            <Pulse size={14} className="text-emerald-600" />
+            System Health
           </Link>
-        }
-      />
-
-      <div className="mb-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Stat
-          icon={<Storefront size={14} />}
-          label="Active tenants"
-          value={pad(tenants.length - suspended)}
-          note={`${suspended} suspended`}
-        />
-        <Stat
-          icon={<ChatCircleDots size={14} />}
-          label="Channels"
-          value={pad(channels.length)}
-          note={`${connected} connected, ${channels.length - connected} disconnected`}
-        />
-        <Stat
-          icon={<Tray size={14} />}
-          label="Queue"
-          value={pad(outbox("QUEUED"))}
-          note={`${outbox("SENDING")} sending`}
-        />
-        <Stat
-          icon={<Warning size={14} />}
-          label="Send failures"
-          value={pad(failed)}
-          note={failed > 0 ? "Retry from Operations" : "Outbox worker healthy"}
-        />
+          <Link href="/admin/tenants/new" className={btnPrimary()}>
+            <Plus size={14} />
+            New Tenant
+          </Link>
+        </div>
       </div>
 
-      {kpis && (
-        <Group label="Current state">
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-            <Stat
-              icon={<User size={14} />}
-              label="Users"
-              value={pad(kpis.users)}
-              note="Accounts across tenants"
-            />
-            <Stat
-              icon={<PaperPlaneTilt size={14} />}
-              label="Messages (24h)"
-              value={pad(kpis.messages24h)}
-              note={
-                <>
-                  <span className="text-foreground">{kpis.conversations24h}</span> new conversations
-                </>
-              }
-            />
-            <Stat
-              icon={<ChatCircleDots size={14} />}
-              label="Messages (7d)"
-              value={pad(kpis.messages7d)}
-              note={
-                <>
-                  <span className="text-foreground">{kpis.conversations7d}</span> new conversations
-                </>
-              }
-            />
-            <Stat
-              icon={<Tray size={14} />}
-              label="Command queue"
-              value={pad(kpis.commandQueue)}
-              note="Channel commands waiting for the worker"
-            />
-            <Stat
-              icon={<Clock size={14} />}
-              label="Scheduler leases"
-              value={pad(kpis.tickFreshness.heldLeases)}
-              note={
-                kpis.tickFreshness.lastTickAt
-                  ? `Last tick ${ago(kpis.tickFreshness.lastTickAt)}, ${kpis.tickFreshness.staleLeases} stale`
-                  : "No held ticks"
-              }
-            />
-          </div>
-        </Group>
-      )}
-
-      <Group label="Last 30 days">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Stat
-            icon={<PaperPlaneTilt size={14} />}
-            label="Messages"
-            value={totalMessages}
-            note={
-              <>
-                <span className="text-foreground">{conversations}</span> conversations served
-              </>
-            }
-          />
-          <Stat
-            icon={<Robot size={14} />}
-            label="AI credits"
-            value={credits}
-            note={
-              <>
-                <span className="text-foreground">{aiReplies}</span> AI replies,{" "}
-                <span className="text-foreground">{scenarioCredits}</span> scenario modules
-              </>
-            }
-          />
-          <Stat
-            icon={<FolderOpen size={14} />}
-            label="Media"
-            value={bytes(media)}
-            note="Total tenant media storage"
-          />
+      {/* Fleet telemetry strip */}
+      <div className="mt-6 grid grid-cols-2 border-y border-slate-200 sm:grid-cols-4 sm:divide-x sm:divide-slate-200">
+        <div className="py-3.5 pr-4">
+          <p className="text-[11px] font-medium text-slate-400">Active Workspaces</p>
+          <p className="mt-1 font-mono text-lg font-semibold text-slate-900 tabular-nums">
+            {tenants.filter((t) => t.status === "ACTIVE").length}{" "}
+            <span className="text-xs font-normal text-slate-400">/ {tenants.length}</span>
+          </p>
         </div>
-      </Group>
+        <div className="py-3.5 sm:px-5">
+          <p className="text-[11px] font-medium text-slate-400">Connected Channels</p>
+          <p className="mt-1 font-mono text-lg font-semibold text-emerald-700 tabular-nums">
+            {connected} <span className="text-xs font-normal text-slate-400">/ {channels.length}</span>
+          </p>
+        </div>
+        <div className="border-t border-slate-200 py-3.5 pr-4 sm:border-t-0 sm:px-5">
+          <p className="text-[11px] font-medium text-slate-400">30d Message Volume</p>
+          <p className="mt-1 font-mono text-lg font-semibold text-slate-900 tabular-nums">
+            {totalMsgs30d.toLocaleString("en-GB")}
+          </p>
+        </div>
+        <div className="border-t border-slate-200 py-3.5 sm:border-t-0 sm:pl-5">
+          <p className="text-[11px] font-medium text-slate-400">Cycle Start</p>
+          <p className="mt-1 font-mono text-lg font-semibold text-slate-900 tabular-nums">1 Nov</p>
+        </div>
+      </div>
 
-      <Card className="mb-4 p-5">
-        <div className="mb-5 flex items-center justify-between">
-          <span className="eyebrow text-foreground">Messages per day</span>
-          <span className="font-mono text-[11.5px] text-muted-foreground">
-            {totalMessages} messages in period
+      {/* 30-day throughput chart */}
+      <div className="border-b border-slate-200 py-6">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <div>
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              30-Day Outbound &amp; AI Message Throughput
+            </h2>
+            <p className="mt-0.5 text-xs text-slate-400">
+              Daily message volume aggregated across all active WhatsApp Cloud API &amp; Baileys sockets.
+            </p>
+          </div>
+          <span className="font-mono text-xs text-slate-500">
+            Peak: <strong className="text-slate-900">{maxChart}</strong> msgs/day
           </span>
         </div>
-        <Chart daily={daily} />
-      </Card>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card>
-          <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
-            <span className="eyebrow text-foreground">Needs attention</span>
-            <Link
-              href="/admin/channels"
-              className="flex items-center gap-1 text-[12.5px] text-muted-foreground hover:text-foreground"
-            >
-              All channels <ArrowUpRight size={13} />
-            </Link>
-          </div>
-          {down.length === 0 ? (
-            <div className="flex flex-col items-center px-5 py-10 text-center">
-              <CheckCircle size={20} className="mb-2 text-ok" />
-              <p className="text-[13px] font-medium">All channels connected</p>
-              <p className="mt-0.5 text-[12px] text-muted-foreground">
-                Nothing needs action.
-              </p>
-            </div>
-          ) : (
-            down.slice(0, 5).map((c) => (
+        <div className="mt-4 flex h-24 items-end gap-1 pt-2">
+          {daily.map((d, idx) => {
+            const pct = Math.max(8, Math.round((d.count / maxChart) * 100));
+            const isRecent = idx >= daily.length - 3;
+            return (
               <div
-                key={c.id}
-                className="flex items-center gap-3 border-b border-border px-5 py-3 last:border-0"
+                key={d.date}
+                className="group relative flex h-full flex-1 flex-col justify-end"
+                title={`${d.date}: ${d.count} messages`}
               >
-                <span className="flex h-8 w-8 items-center justify-center rounded-md bg-muted ring-1 ring-border">
-                  <ChatCircleDots size={14} className="text-muted-foreground" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[13.5px] font-medium">{c.tenantName}</div>
-                  <div className="font-mono text-[11.5px] text-muted-foreground">
-                    {c.provider}
-                  </div>
-                </div>
-                <Status tone={c.status === "CONNECTING" ? "warn" : "bad"}>{c.status}</Status>
-              </div>
-            ))
-          )}
-        </Card>
-
-        <Card>
-          <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
-            <span className="eyebrow text-foreground">Quotas</span>
-            <Link
-              href="/admin/plans"
-              className="flex items-center gap-1 text-[12.5px] text-muted-foreground hover:text-foreground"
-            >
-              Plans <ArrowUpRight size={13} />
-            </Link>
-          </div>
-          {quotas.length === 0 ? (
-            <div className="flex flex-col items-center px-5 py-10 text-center">
-              <CheckCircle size={20} className="mb-2 text-ok" />
-              <p className="text-[13px] font-medium">All tenants within quota</p>
-              <p className="mt-0.5 text-[12px] text-muted-foreground">
-                No usage above 80 percent.
-              </p>
-            </div>
-          ) : (
-            quotas.slice(0, 5).map((q) => (
-              <div
-                key={q.tenant + q.label}
-                className="flex items-center gap-3 border-b border-border px-5 py-3 last:border-0"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[13.5px] font-medium">{q.tenant}</div>
-                  <div className="text-[11.5px] text-muted-foreground">{q.label}</div>
-                </div>
-                <span className="font-mono text-[11.5px] tabular-nums text-muted-foreground">
-                  {q.used}/{q.limit}
-                </span>
-                <Status tone={q.pct >= 100 ? "bad" : "warn"}>{q.pct}%</Status>
-              </div>
-            ))
-          )}
-        </Card>
-
-        <Card>
-          <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
-            <span className="eyebrow text-foreground">Recent activity</span>
-            <Link
-              href="/admin/audit"
-              className="flex items-center gap-1 text-[12.5px] text-muted-foreground hover:text-foreground"
-            >
-              Audit log <ArrowUpRight size={13} />
-            </Link>
-          </div>
-          {audit.length === 0 ? (
-            <div className="flex flex-col items-center px-5 py-10 text-center">
-              <p className="text-[13px] font-medium">No activity yet</p>
-              <p className="mt-0.5 text-[12px] text-muted-foreground">
-                Tenant and admin actions will appear here.
-              </p>
-            </div>
-          ) : (
-            audit.slice(0, 6).map((e) => (
-              <div
-                key={e.id}
-                className="flex items-center gap-3 border-b border-border px-5 py-3 last:border-0"
-              >
-                <span
-                  className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-                    e.action.includes("error") ? "bg-bad" : "bg-muted-foreground/50"
+                <div
+                  className={`w-full rounded-xs transition-colors ${
+                    isRecent ? "bg-emerald-600 group-hover:bg-emerald-700" : "bg-slate-200 group-hover:bg-emerald-500"
                   }`}
+                  style={{ height: `${pct}%` }}
                 />
-                <span className="flex-1 truncate font-mono text-[12px]">
-                  {e.action}
-                </span>
-                <span className="font-mono text-[11.5px] text-muted-foreground">
-                  {new Date(e.createdAt).toLocaleTimeString("en-GB", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </span>
               </div>
-            ))
-          )}
-        </Card>
+            );
+          })}
+        </div>
+        <div className="mt-2 flex justify-between font-mono text-[10px] text-slate-400">
+          <span>30 days ago</span>
+          <span>15 days ago</span>
+          <span>Today</span>
+        </div>
       </div>
 
-      {failed > 0 && (
-        <div className="mt-4 flex items-center justify-between gap-4 rounded-xl border border-border border-l-2 border-l-bad bg-card px-5 py-3">
-          <p className="text-[13px]">
-            <span className="font-medium text-bad">{failed} messages failed</span> to send to
-            customers.
-          </p>
-          <Link href="/admin/operations" className={btnClass("line")}>
-            Retry
+      {/* Tenant workspaces quick ledger */}
+      <div className="pt-6">
+        <div className="flex items-center justify-between pb-3">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Tenant Workspaces ({tenants.length})
+          </h2>
+          <Link href="/admin/tenants" className="text-xs font-semibold text-emerald-700 hover:underline">
+            Manage All Tenants →
           </Link>
         </div>
-      )}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead>
+              <tr className="border-y border-slate-200 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                <th className="py-2.5 pr-4">Workspace</th>
+                <th className="px-4 py-2.5">Plan</th>
+                <th className="px-4 py-2.5">Status</th>
+                <th className="px-4 py-2.5 text-right">30d Msgs</th>
+                <th className="py-2.5 pl-4 text-right">Inspect</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 border-b border-slate-200">
+              {tenants.map((t) => (
+                <tr key={t.id} className="hover:bg-slate-50/80">
+                  <td className="py-3 pr-4">
+                    <p className="font-semibold text-slate-900">{t.name}</p>
+                    <p className="font-mono text-[11px] text-slate-400">{t.slug}</p>
+                  </td>
+                  <td className="px-4 py-3 font-medium text-slate-700">{t.planName ?? "None"}</td>
+                  <td className="px-4 py-3">
+                    <StatusLabel tone={t.status === "ACTIVE" ? "ok" : "bad"}>
+                      {t.status === "ACTIVE" ? "Active" : "Suspended"}
+                    </StatusLabel>
+                  </td>
+                  <td className="px-4 py-3 text-right font-mono text-slate-800 tabular-nums">
+                    {(t.msgs30d ?? 0).toLocaleString("en-GB")}
+                  </td>
+                  <td className="py-3 pl-4 text-right">
+                    <Link href={`/admin/tenants/${t.id}`} className="font-semibold text-emerald-700 hover:underline">
+                      Open →
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </AdminShell>
   );
 }

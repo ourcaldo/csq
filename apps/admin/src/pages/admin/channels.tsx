@@ -1,210 +1,189 @@
 import { useState } from "react";
-import { ArrowsClockwise, Power } from "@phosphor-icons/react";
 import { AdminShell } from "@/components/admin-shell";
-import { Btn, PageHead, Status, TableCard, Tag } from "@/components/console";
+import { StatusLabel, btnSmOutline } from "@/components/console";
+import { showToast } from "@/components/toast";
 import { withAdminAuth } from "@/lib/admin-auth";
 import { useAdminApi, adminFetch } from "@/lib/admin-api";
 
-// Channel fleet (PRD 13 Phase 3). Console copy is English (owner direction
-// 2026-11-13).
+// Channel fleet (template viewChannels 1:1): socket lease telemetry,
+// reconnect/disconnect dispatch to the worker via ChannelCommand.
 
 type Channel = {
   id: string;
   tenantName: string;
   tenantSlug: string;
   tenantStatus: string;
-  provider: string;
-  type: string;
-  status: string;
   label: string;
   phoneNumber: string | null;
   wabaId: string | null;
-  archivedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
+  provider: string;
+  type: string;
+  status: string;
   leaseHeld: boolean;
   leaseUntil: string | null;
   leaseToken: string | null;
-  leaseUpdatedAt: string | null;
+  updatedAt: string;
 };
-type ChannelList = { items: Channel[] };
 
 export const getServerSideProps = withAdminAuth(async () => ({ props: {} }));
 
-function ago(iso: string): string {
-  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
-
-function when(iso: string): string {
-  return new Date(iso).toLocaleString("en-GB", {
-    day: "numeric",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 export default function ChannelsPage() {
-  const { data, loading, error, refresh } = useAdminApi<ChannelList>("/api/admin/channels");
+  const { data, loading, error, refresh } = useAdminApi<{ items: Channel[] }>("/api/admin/channels");
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
-  async function act(channelId: string, action: "reconnect" | "disconnect") {
-    setBusy(channelId);
+  const items = data?.items ?? [];
+  const connected = items.filter((c) => c.status === "CONNECTED").length;
+
+  async function act(id: string, action: "reconnect" | "disconnect") {
+    setBusy(id);
     setMsg(null);
+    setActionError(null);
     try {
-      await adminFetch("/api/admin/channels", "POST", { channelId, action });
-      setMsg(`${action} command sent. The worker picks it up within 2 seconds.`);
+      await adminFetch("/api/admin/channels", "POST", { channelId: id, action });
+      setMsg(`Dispatched "${action}" command. The worker polls the command queue within 2 seconds.`);
+      showToast(`Command "${action}" queued`);
       setTimeout(refresh, 4000);
     } catch (err) {
-      setMsg(err instanceof Error ? err.message : "Failed to send the command.");
+      setActionError(err instanceof Error ? err.message : "Failed to send the command.");
     } finally {
       setBusy(null);
     }
   }
 
-  const items = data?.items ?? [];
-  const connected = items.filter((c) => c.status === "CONNECTED").length;
-
   return (
     <AdminShell title="Channels">
-      <PageHead
-        eyebrow="Platform"
-        title="Channels"
-        sub={`Channel fleet - ${connected} of ${items.length} connected`}
-      />
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Channel Fleet</h1>
+          <p className="mt-1 text-xs text-slate-500">
+            Monitor Baileys socket leases, Cloud API connections, and dispatch worker reconnect commands.
+          </p>
+        </div>
+        <span className="inline-flex items-center gap-1.5 font-mono text-xs text-slate-600">
+          <span className="h-2 w-2 rounded-full bg-emerald-500" />
+          {connected} / {items.length} Connected
+        </span>
+      </div>
 
       {msg && (
-        <div className="mb-4 rounded-xl border border-border bg-card px-5 py-3 text-[13px]">
+        <div className="mt-5 rounded-md border border-slate-200 bg-muted/80 px-4 py-2.5 text-xs text-slate-800">
           {msg}
         </div>
       )}
-      {error && (
-        <div className="mb-4 rounded-xl border border-border border-l-2 border-l-bad bg-card px-5 py-3 text-[13px] text-bad">
-          {error}
+      {(actionError || error) && (
+        <div className="mt-5 rounded-md border border-slate-200 border-l-2 border-l-red-500 bg-card px-4 py-2.5 text-xs text-red-600">
+          {actionError ?? error}
         </div>
       )}
 
-      <TableCard>
-        <table className="ledger">
+      <div className="mt-6 overflow-x-auto">
+        <table className="w-full text-left text-sm">
           <thead>
-            <tr>
-              <th>Tenant</th>
-              <th>Channel</th>
-              <th>Provider</th>
-              <th>Type</th>
-              <th>Status</th>
-              <th>Lease</th>
-              <th>Until</th>
-              <th>Last activity</th>
-              <th className="text-right">Actions</th>
+            <tr className="border-y border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              <th className="py-3 pr-4">Tenant</th>
+              <th className="px-4 py-3">Channel &amp; Number</th>
+              <th className="px-4 py-3">Provider</th>
+              <th className="px-4 py-3">Connection</th>
+              <th className="px-4 py-3">Worker Lease</th>
+              <th className="hidden px-4 py-3 md:table-cell">Last Activity</th>
+              <th className="py-3 pl-4 text-right">Control</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-slate-200 border-b border-slate-200">
+            {loading && (
+              <tr>
+                <td colSpan={7} className="py-10 text-center text-xs text-slate-400">
+                  Loading...
+                </td>
+              </tr>
+            )}
             {items.map((c) => (
-              <tr key={c.id} className={c.archivedAt ? "opacity-50" : undefined}>
-                <td>
-                  <div className="font-medium">{c.tenantName}</div>
-                  <div className="text-[12px] text-muted-foreground">
+              <tr key={c.id} className="hover:bg-slate-50/80">
+                <td className="py-3.5 pr-4">
+                  <p className="text-xs font-semibold text-slate-900">{c.tenantName}</p>
+                  <p className="mt-0.5 font-mono text-[11px] text-slate-400">
                     {c.tenantSlug}
-                    {c.tenantStatus === "SUSPENDED" && " / suspended"}
-                  </div>
+                    {c.tenantStatus === "SUSPENDED" ? " - suspended" : ""}
+                  </p>
                 </td>
-                <td>
-                  <div className="font-medium">{c.label}</div>
-                  <div className="text-[12px] text-muted-foreground">
-                    {c.phoneNumber ?? "-"}
-                    {c.wabaId ? ` / WABA ${c.wabaId}` : ""}
-                    {c.archivedAt ? " / archived" : ""}
-                  </div>
+                <td className="px-4 py-3.5">
+                  <p className="text-xs font-medium text-slate-800">{c.label}</p>
+                  <p className="mt-0.5 font-mono text-[11px] text-slate-400">
+                    {c.phoneNumber ?? "No phone"}
+                    {c.wabaId ? ` - WABA ${c.wabaId}` : ""}
+                  </p>
                 </td>
-                <td>
-                  <Tag>{c.provider}</Tag>
+                <td className="px-4 py-3.5">
+                  <span className="rounded border border-slate-200 bg-muted px-2 py-0.5 font-mono text-[11px] text-slate-700">
+                    {c.provider}
+                  </span>
                 </td>
-                <td className="text-[13px] text-muted-foreground">{c.type}</td>
-                <td>
-                  <Status
-                    tone={
-                      c.status === "CONNECTED"
-                        ? "ok"
-                        : c.status === "CONNECTING"
-                          ? "warn"
-                          : "bad"
-                    }
+                <td className="px-4 py-3.5">
+                  <StatusLabel
+                    tone={c.status === "CONNECTED" ? "ok" : c.status === "CONNECTING" ? "warn" : "bad"}
                   >
                     {c.status}
-                  </Status>
+                  </StatusLabel>
                 </td>
-                <td>
-                  <span className="flex items-center gap-1.5 text-[13px]">
+                <td className="px-4 py-3.5">
+                  <span
+                    className={`inline-flex items-center gap-1.5 font-mono text-xs ${
+                      c.leaseHeld ? "text-emerald-700" : "text-slate-400"
+                    }`}
+                  >
                     <span
-                      className={`h-1.5 w-1.5 rounded-full ${
-                        c.leaseHeld ? "bg-ok live" : "bg-muted-foreground/40"
-                      }`}
+                      className={`h-1.5 w-1.5 rounded-full ${c.leaseHeld ? "live-dot bg-emerald-500" : "bg-slate-300"}`}
                     />
-                    {c.leaseHeld ? "Held" : "Free"}
+                    {c.leaseHeld
+                      ? `Held (until ${c.leaseUntil ? new Date(c.leaseUntil).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "-"})`
+                      : "Free"}
                   </span>
-                  {c.leaseToken && c.leaseUpdatedAt && (
-                    <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">
-                      #{c.leaseToken.slice(0, 8)}, updated {ago(c.leaseUpdatedAt)}
-                    </div>
+                  {c.leaseToken && (
+                    <p className="mt-0.5 font-mono text-[10px] text-slate-400">token #{c.leaseToken.slice(0, 8)}</p>
                   )}
                 </td>
-                <td className="whitespace-nowrap font-mono text-[12px] text-muted-foreground">
-                  {c.leaseUntil
-                    ? new Date(c.leaseUntil).toLocaleTimeString("en-GB", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })
-                    : "-"}
+                <td className="hidden px-4 py-3.5 font-mono text-xs text-slate-500 md:table-cell">
+                  {new Date(c.updatedAt).toLocaleString("en-GB", {
+                    day: "numeric",
+                    month: "short",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
                 </td>
-                <td className="whitespace-nowrap font-mono text-[12px] text-muted-foreground">
-                  {when(c.updatedAt)}
-                </td>
-                <td className="text-right">
-                  <Btn
-                    variant="ghost"
-                    disabled={busy === c.id}
-                    onClick={() => void act(c.id, "reconnect")}
-                    aria-label={`Reconnect ${c.tenantName}`}
-                    className="px-2.5"
-                  >
-                    <ArrowsClockwise size={14} />
-                  </Btn>
-                  <Btn
-                    variant="ghost"
-                    disabled={busy === c.id}
-                    onClick={() => void act(c.id, "disconnect")}
-                    aria-label={`Disconnect ${c.tenantName}`}
-                    className="px-2.5 hover:text-bad"
-                  >
-                    <Power size={14} />
-                  </Btn>
+                <td className="py-3.5 pl-4 text-right">
+                  <div className="inline-flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={busy === c.id}
+                      onClick={() => void act(c.id, "reconnect")}
+                      className={btnSmOutline()}
+                    >
+                      Reconnect
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy === c.id}
+                      onClick={() => void act(c.id, "disconnect")}
+                      className={btnSmOutline("text-red-600 hover:bg-red-50")}
+                    >
+                      Disconnect
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
             {!loading && items.length === 0 && (
               <tr>
-                <td colSpan={9} className="py-12 text-center text-[13px] text-muted-foreground">
+                <td colSpan={7} className="py-10 text-center text-xs text-slate-400">
                   No channels across any tenant.
-                </td>
-              </tr>
-            )}
-            {loading && (
-              <tr>
-                <td colSpan={9} className="py-12 text-center text-[13px] text-muted-foreground">
-                  Loading...
                 </td>
               </tr>
             )}
           </tbody>
         </table>
-      </TableCard>
+      </div>
     </AdminShell>
   );
 }

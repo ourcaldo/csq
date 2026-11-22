@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en" class="antialiased">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CSQ Console - Interactive Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+          mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        },
+        colors: {
+          background: 'hsl(0 0% 96.5%)',
+          panel: 'hsl(0 0% 98.5%)',
+          card: 'hsl(0 0% 100%)',
+          foreground: 'hsl(222 10% 13%)',
+          muted: 'hsl(220 6% 96.7%)',
+          mutedfg: 'hsl(222 10% 47%)',
+          border: 'hsl(220 6% 92.5%)',
+          ok: 'hsl(142 76% 36%)',
+          oksoft: 'hsl(145 60% 94%)',
+          warn: 'hsl(38 92% 50%)',
+          bad: 'hsl(0 72% 51%)',
+        }
+      }
+    }
+  }
+</script>
+<style>
+  body { font-feature-settings: "ss02"; background: hsl(0 0% 96.5%); }
+  .eyebrow { font-size: 10.5px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.14em; color: hsl(222 10% 47%); }
+  .pill { display: inline-flex; align-items: center; gap: 0.375rem; border-radius: 9999px; padding: 0.125rem 0.5rem; font-size: 11.5px; font-weight: 500; box-shadow: 0 0 0 1px var(--ring-c, transparent); white-space: nowrap; }
+  .pill-ok   { background: hsl(145 60% 94%); color: hsl(142 76% 36%); --ring-c: hsl(142 76% 36% / 0.2); }
+  .pill-off  { background: hsl(220 6% 96.7%); color: hsl(222 10% 47%); --ring-c: hsl(220 6% 92.5%); }
+  .pill-warn { background: hsl(220 6% 96.7%); color: hsl(222 10% 13%); --ring-c: hsl(220 6% 92.5%); }
+  .pill-bad  { background: hsl(0 72% 51% / 0.08); color: hsl(0 72% 51%); --ring-c: hsl(0 72% 51% / 0.2); }
+  .dot { width: 0.375rem; height: 0.375rem; border-radius: 9999px; flex-shrink: 0; display: inline-block; }
+  .nav-item { display: flex; align-items: center; gap: 0.625rem; height: 2rem; border-radius: 0.375rem; padding: 0 0.5rem; font-size: 13.5px; color: hsl(222 10% 47%); transition: background-color 120ms, color 120ms; cursor: pointer; }
+  .nav-item:hover { background: hsl(220 6% 96.7% / 0.6); color: hsl(222 10% 13%); }
+  .nav-item.active { background: hsl(0 0% 100%); color: hsl(222 10% 13%); font-weight: 500; box-shadow: 0 1px 2px rgba(0,0,0,0.06), 0 0 0 1px hsl(220 6% 92.5%); }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.375rem; height: 2.25rem; border-radius: 9999px; padding: 0 1rem; font-size: 13px; font-weight: 500; transition: background-color 120ms; cursor: pointer; user-select: none; }
+  .btn:disabled { pointer-events: none; opacity: 0.5; }
+  .btn-ink  { background: hsl(222 10% 13%); color: hsl(0 0% 96.5%); }
+  .btn-ink:hover { background: hsl(222 10% 13% / 0.85); }
+  .btn-line { background: hsl(0 0% 100%); box-shadow: 0 0 0 1px hsl(220 6% 92.5%); }
+  .btn-line:hover { background: hsl(220 6% 96.7%); }
+  .btn-ghost { color: hsl(222 10% 47%); padding: 0 0.75rem; height: 2rem; }
+  .btn-ghost:hover { background: hsl(220 6% 96.7%); color: hsl(222 10% 13%); }
+  .btn-ghost.danger:hover { color: hsl(0 72% 51%); }
+  .btn-ghost.go:hover { color: hsl(142 76% 36%); }
+  .bar { transition: background-color 120ms; }
+  .bar:hover { background: hsl(222 10% 13% / 0.7); }
+  .stat-card { border-radius: 0.75rem; border: 1px solid hsl(220 6% 92.5%); background: hsl(0 0% 100%); padding: 1.25rem; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+  .stat-label { display: flex; align-items: center; gap: 0.625rem; }
+  .stat-label span.t { font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.14em; }
+  .stat-icon { flex-shrink: 0; display: flex; height: 1.75rem; width: 1.75rem; align-items: center; justify-content: center; border-radius: 0.375rem; box-shadow: 0 0 0 1px hsl(220 6% 92.5%); }
+  .stat-value { margin-top: 1rem; font-family: JetBrains Mono, monospace; font-size: 30px; font-weight: 500; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+  .stat-note { margin-top: 0.625rem; font-size: 12px; color: hsl(222 10% 47%); }
+  .section { margin-bottom: 1rem; border-radius: 1rem; border: 1px solid hsl(220 6% 92.5%); background: hsl(0 0% 98.5%); padding: 1rem; }
+  .section-head { margin-bottom: 0.75rem; display: flex; align-items: center; justify-content: space-between; padding: 0 0.25rem; }
+  .ledger-wrap { border-radius: 0.75rem; border: 1px solid hsl(220 6% 92.5%); background: hsl(0 0% 100%); overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+  table.ledger { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px; }
+  .ledger th { padding: 12px 20px; border-bottom: 1px solid hsl(220 6% 92.5%); font-size: 10.5px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.12em; color: hsl(222 10% 47%); text-align: left; white-space: nowrap; }
+  .ledger th.tr { text-align: right; }
+  .ledger td { padding: 14px 20px; border-bottom: 1px solid hsl(220 6% 92.5%); vertical-align: middle; }
+  .ledger tbody tr:last-child td { border-bottom: 0; }
+  .ledger tbody tr { transition: background-color 120ms; }
+  .ledger tbody tr:hover { background-color: hsl(220 6% 96.7%); }
+  .seg { display: flex; border-radius: 9999px; background: hsl(0 0% 100%); padding: 0.25rem; box-shadow: 0 0 0 1px hsl(220 6% 92.5%); }
+  .seg button { border-radius: 9999px; padding: 0.25rem 0.75rem; font-size: 13px; color: hsl(222 10% 47%); transition: all 120ms; cursor: pointer; }
+  .seg button:hover { color: hsl(222 10% 13%); }
+  .seg button.on { background: hsl(222 10% 13%); font-weight: 500; color: hsl(0 0% 96.5%); }
+  .inp { height: 2.25rem; width: 100%; border-radius: 0.375rem; border: 1px solid hsl(220 6% 90%); background: hsl(0 0% 100%); padding: 0 0.75rem; font-size: 13.5px; outline: none; }
+  .inp:focus { box-shadow: 0 0 0 2px hsl(142 76% 36% / 0.25); }
+  .lbl { display: block; font-size: 12.5px; font-weight: 500; margin-bottom: 0.375rem; }
+  .modal-bg { position: fixed; inset: 0; z-index: 50; background: rgba(15,23,42,0.45); backdrop-filter: blur(2px); display: flex; align-items: flex-start; justify-content: center; padding: 4rem 1rem; overflow-y: auto; }
+  .modal { width: 100%; border-radius: 1rem; border: 1px solid hsl(220 6% 92.5%); background: hsl(0 0% 100%); box-shadow: 0 24px 64px rgba(0,0,0,0.18); }
+  .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 3rem 1.25rem; text-align: center; border-radius: 0.75rem; border: 1px solid hsl(220 6% 92.5%); background: hsl(0 0% 100%); box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+  @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+  .live { animation: pulse-dot 1.8s ease-in-out infinite; }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .rise { animation: rise 380ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+  @media (prefers-reduced-motion: reduce) { .rise, .live { animation: none; } }
+  details summary { cursor: pointer; }
+  details summary:hover { color: hsl(222 10% 13%); }
+  .pre-json { overflow-x: auto; border-radius: 0.5rem; background: hsl(220 6% 96.7%); padding: 0.75rem; font-family: JetBrains Mono, monospace; font-size: 11.5px; color: hsl(222 10% 47%); }
+</style>
+</head>
+<body class="font-sans text-foreground">
+
+<div class="flex min-h-screen w-full bg-background p-2">
+
+  <!-- Sidebar -->
+  <aside id="sidebar" class="sticky top-2 hidden h-[calc(100vh-1rem)] w-60 shrink-0 flex-col md:flex">
+    <div class="flex h-12 items-center gap-2 px-3">
+      <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-ok text-[11px] font-bold text-white">C</span>
+      <span id="sidebar-brand" class="text-[15px] font-semibold tracking-tight">CSQ <span class="font-normal text-mutedfg">Console</span></span>
+    </div>
+    <nav id="nav" class="mt-3 flex-1 space-y-5 overflow-y-auto px-2"></nav>
+    <div class="flex items-center gap-2.5 px-2 py-2">
+      <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-card text-[11px] font-semibold ring-1 ring-border">OP</span>
+      <span class="min-w-0 flex-1 nav-label">
+        <span class="block truncate text-[13px] font-medium">Operator Prima</span>
+        <span class="block truncate text-[11.5px] text-mutedfg">Administrator</span>
+      </span>
+      <button aria-label="Sign out" class="rounded-md p-1.5 text-mutedfg hover:bg-card hover:text-foreground"><i class="ph ph-sign-out text-[15px]"></i></button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="flex min-w-0 flex-1 flex-col md:pl-2">
+    <header class="flex h-12 items-center gap-3 px-2">
+      <button onclick="toggleSidebar()" aria-label="Toggle sidebar" class="hidden rounded-md p-1.5 text-mutedfg hover:bg-card hover:text-foreground md:block">
+        <i class="ph ph-sidebar-simple text-base"></i>
+      </button>
+      <span class="hidden h-4 w-px bg-border md:block"></span>
+      <div class="flex min-w-0 items-center gap-1.5 text-[13px]">
+        <span class="eyebrow hidden sm:block" id="crumb-group">Platform</span>
+        <i class="ph ph-caret-right text-[13px] hidden text-mutedfg sm:block"></i>
+        <span class="truncate font-medium" id="crumb-page">Overview</span>
+      </div>
+      <div class="ml-auto flex items-center gap-3">
+        <span class="hidden font-mono text-[11.5px] text-mutedfg lg:block">operator@csq.id</span>
+      </div>
+    </header>
+
+    <main class="flex-1 rounded-2xl border border-border bg-panel p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] md:p-6">
+      <nav id="mobile-nav" class="mb-5 flex gap-1 overflow-x-auto md:hidden"></nav>
+      <div id="page" class="rise mx-auto max-w-[1240px]"></div>
+    </main>
+  </div>
+</div>
+
+<div id="modal-root"></div>
+<div id="toast-root" class="fixed bottom-4 right-4 z-[60] space-y-2"></div>
+
+<script>
+/* ══════════ Demo data ══════════ */
+const TENANTS = [
+  { id: "a1", name: "Toko Kopi Nusantara", slug: "csq7xk2m9p", status: "ACTIVE", createdAt: "2026-08-14", users: 4, channels: 2, conversations: 512, msgs30d: 3890, plan: "Growth", detail: { users: [
+    { id: "u1", name: "Budi Santoso", email: "budi@tokokopi.id", role: "OWNER" },
+    { id: "u2", name: "Sari Dewi", email: "sari@tokokopi.id", role: "STAFF" }],
+    agents: [{ name: "Kopi CS Agent", status: "ACTIVE" }, { name: "Order Bot", status: "PAUSED" }],
+    channels: [{ provider: "BAILEYS", type: "WHATSAPP", status: "CONNECTED", ok: true }, { provider: "CLOUD_API", type: "WHATSAPP", status: "DISCONNECTED", ok: false }],
+    campaigns: [{ name: "Promo Akhir Bulan", status: "ACTIVE" }, { name: "Follow-up Pesanan", status: "COMPLETED" }, { name: "Ulang Tahun Pelanggan", status: "PAUSED" }],
+    sources: [{ name: "produk.xlsx", type: "EXCEL", status: "ACTIVE" }, { name: "Google Sheets Inventaris", type: "SHEETS", status: "ACTIVE" }, { name: "manual", type: "MANUAL", status: "ACTIVE" }] } },
+  { id: "a2", name: "Titik Nol English Course", slug: "csq3hf8w2r", status: "ACTIVE", createdAt: "2026-09-02", users: 3, channels: 1, conversations: 204, msgs30d: 1512, plan: "Basic", detail: { users: [
+    { id: "u3", name: "Rina Marlina", email: "rina@titiknol.id", role: "OWNER" }],
+    agents: [{ name: "Course Info Agent", status: "ACTIVE" }],
+    channels: [{ provider: "CLOUD_API", type: "WHATSAPP", status: "CONNECTED", ok: true }],
+    campaigns: [{ name: "Trial Class Blast", status: "PAUSED" }],
+    sources: [{ name: "jadwal.xlsx", type: "EXCEL", status: "ACTIVE" }] } },
+  { id: "a3", name: "Warung Sate Pak Man", slug: "csq9dke4tz", status: "SUSPENDED", createdAt: "2026-09-19", users: 2, channels: 1, conversations: 88, msgs30d: 0, plan: null, detail: { users: [
+    { id: "u5", name: "Pak Man", email: "pakman@warung.id", role: "OWNER" }],
+    agents: [], channels: [{ provider: "BAILEYS", type: "WHATSAPP", status: "DISCONNECTED", ok: false }],
+    campaigns: [], sources: [] } },
+  { id: "a4", name: "Bengkel Jaya Motor", slug: "csq5tb7q3n", status: "ACTIVE", createdAt: "2026-10-05", users: 5, channels: 2, conversations: 136, msgs30d: 611, plan: "Basic", detail: { users: [
+    { id: "u6", name: "Jaya Wijaya", email: "jaya@bengkel.id", role: "OWNER" },
+    { id: "u7", name: "Andi", email: "andi@bengkel.id", role: "STAFF" }],
+    agents: [{ name: "Service Reminder", status: "ACTIVE" }],
+    channels: [{ provider: "BAILEYS", type: "WHATSAPP", status: "CONNECTED", ok: true }],
+    campaigns: [], sources: [{ name: "servis.csv", type: "CSV", status: "ERROR" }] } },
+];
+const CHANNELS = [
+  { id: "c1", tenant: "Toko Kopi Nusantara", slug: "csq7xk2m9p", tstatus: "ACTIVE", label: "Kopi WA Utama", number: "6281234500011", provider: "BAILEYS", type: "WHATSAPP", status: "CONNECTED", held: true, until: "14:32", token: "f3a1b2c3", leaseUpd: "2026-11-22T14:02", upd: "2026-11-22T14:02" },
+  { id: "c2", tenant: "Toko Kopi Nusantara", slug: "csq7xk2m9p", tstatus: "ACTIVE", label: "WA Cloud Trial", number: null, waba: "109384756", provider: "CLOUD_API", type: "WHATSAPP", status: "DISCONNECTED", held: false, until: null, token: null, leaseUpd: null, upd: "2026-11-20T09:14" },
+  { id: "c3", tenant: "Titik Nol English Course", slug: "csq3hf8w2r", tstatus: "ACTIVE", label: "Titik Nol CS", number: "6289876500123", provider: "CLOUD_API", type: "WHATSAPP", status: "CONNECTED", held: true, until: "14:35", token: "8e2d4c1a", leaseUpd: "2026-11-22T14:05", upd: "2026-11-22T14:05" },
+  { id: "c4", tenant: "Warung Sate Pak Man", slug: "csq9dke4tz", tstatus: "SUSPENDED", label: "Warung Sate", number: "6281345600987", provider: "BAILEYS", type: "WHATSAPP", status: "DISCONNECTED", held: false, until: null, token: null, leaseUpd: null, upd: "2026-11-18T16:40" },
+  { id: "c5", tenant: "Bengkel Jaya Motor", slug: "csq5tb7q3n", tstatus: "ACTIVE", label: "Bengkel Service", number: "6285673400021", provider: "BAILEYS", type: "WHATSAPP", status: "CONNECTING", held: false, until: null, token: null, leaseUpd: null, upd: "2026-11-22T13:58" },
+];
+const PLANS = [
+  { id: "p1", name: "Basic", price: 199000, credits: 1000, mau: 300, staff: 2, channels: 1, features: ["Knowledge Base", "Manual Data Sources"] },
+  { id: "p2", name: "Growth", price: 499000, credits: 5000, mau: 1000, staff: 5, channels: 2, features: ["Knowledge Base", "Google Sheets Sync", "Campaigns", "Pipeline"] },
+  { id: "p3", name: "Enterprise", price: 1499000, credits: null, mau: null, staff: null, channels: null, features: ["Knowledge Base", "Google Sheets Sync", "Campaigns", "Pipeline", "API Access", "Priority Support"] },
+];
+const USAGE = [
+  { tenant: "Toko Kopi Nusantara", planId: "p2", mau: 512, mauLimit: 1000, credits: 4102, creditsLimit: 5000, staff: 3, staffLimit: 5, channels: 1, channelLimit: 2, media: 412300000 },
+  { tenant: "Titik Nol English Course", planId: "p1", mau: 118, mauLimit: 300, credits: 622, creditsLimit: 1000, staff: 1, staffLimit: 2, channels: 1, channelLimit: 1, media: 58700000 },
+  { tenant: "Warung Sate Pak Man", planId: null, mau: 34, mauLimit: null, credits: 0, creditsLimit: null, staff: 0, staffLimit: null, channels: 0, channelLimit: null, media: 2100000 },
+  { tenant: "Bengkel Jaya Motor", planId: "p1", mau: 156, mauLimit: 300, credits: 490, creditsLimit: 1000, staff: 1, staffLimit: 2, channels: 1, channelLimit: 1, media: 96400000 },
+];
+const INVOICES = [
+  { id: "i1", number: "INV-202610-0001", tenant: "Toko Kopi Nusantara", plan: "Growth", period: "1 Oct - 31 Oct 2026", amount: 499000, status: "PAID", due: "8 Oct 2026", paid: "6 Oct 2026" },
+  { id: "i2", number: "INV-202610-0002", tenant: "Titik Nol English Course", plan: "Basic", period: "1 Oct - 31 Oct 2026", amount: 199000, status: "PAID", due: "8 Oct 2026", paid: "7 Oct 2026" },
+  { id: "i3", number: "INV-202611-0003", tenant: "Toko Kopi Nusantara", plan: "Growth", period: "1 Nov - 30 Nov 2026", amount: 499000, status: "ISSUED", due: "29 Nov 2026", paid: null },
+  { id: "i4", number: "INV-202611-0004", tenant: "Titik Nol English Course", plan: "Basic", period: "1 Nov - 30 Nov 2026", amount: 199000, status: "ISSUED", due: "15 Nov 2026", paid: null },
+];
+const NEEDS = [{ tenant: "Bengkel Jaya Motor", plan: "Basic", price: 199000 }];
+const REQUESTS = [
+  { id: "r1", tenant: "Toko Kopi Nusantara", slug: "csq7xk2m9p", plan: "Enterprise", price: 1499000, note: "Butuh API access untuk integrasi POS", status: "NEW", created: "18 Nov 2026" },
+  { id: "r2", tenant: "Bengkel Jaya Motor", slug: "csq5tb7q3n", plan: "Growth", price: 499000, note: "Channel kedua untuk cabang baru", status: "CONTACTED", created: "14 Nov 2026" },
+];
+const APIKEYS = [
+  { id: "k1", name: "POS Integration", prefix: "csqk_7f3a", tenant: "Toko Kopi Nusantara", slug: "csq7xk2m9p", lastUsed: "21 Nov 2026", revoked: false },
+  { id: "k2", name: "Backup sync", prefix: "csqk_b2c8", tenant: "Toko Kopi Nusantara", slug: "csq7xk2m9p", lastUsed: null, revoked: false },
+  { id: "k3", name: "Old webhook", prefix: "csqk_d9e1", tenant: "Titik Nol English Course", slug: "csq3hf8w2r", lastUsed: "2 Oct 2026", revoked: true },
+];
+const ADMINS = [
+  { id: "me", name: "Operator Prima", email: "operator@csq.id", since: "1 Sep 2026" },
+  { id: "ad2", name: "Sinta Nurdini", email: "sinta@csq.id", since: "12 Oct 2026" },
+];
+const ADMINLOG = [
+  { id: "m1", time: "22 Nov, 14:02", action: "tenant", suffix: "create", admin: "Operator Prima", email: "operator@csq.id", target: "Tenant #a1b2c3d4", before: null, after: { name: "Toko Kopi Nusantara", slug: "csq7xk2m9p" } },
+  { id: "m2", time: "22 Nov, 13:48", action: "plan", suffix: "assign", admin: "Operator Prima", email: "operator@csq.id", target: "Tenant #a1b2c3d4", before: { planId: null }, after: { planId: "p2" } },
+  { id: "m3", time: "22 Nov, 11:17", action: "tenant", suffix: "suspend", admin: "Sinta Nurdini", email: "sinta@csq.id", target: "Tenant #c4d5e6f7", before: { status: "ACTIVE" }, after: { status: "SUSPENDED" } },
+  { id: "m4", time: "21 Nov, 17:33", action: "invoice", suffix: "paid", admin: "Operator Prima", email: "operator@csq.id", target: "Invoice #i1e2f3a4", before: { status: "ISSUED" }, after: { status: "PAID", method: "TRANSFER" } },
+  { id: "m5", time: "21 Nov, 09:05", action: "apikey", suffix: "revoke", admin: "Sinta Nurdini", email: "sinta@csq.id", target: "ApiKey #k9l0m1n2", before: null, after: { prefix: "csqk_d9e1" } },
+];
+const TENANTLOG = [
+  { id: "t1", time: "22 Nov, 14:10", action: "guard", suffix: "post_flag", entity: "Conversation #7f3a91b2", tenant: "Toko Kopi Nusantara", phone: "6281234500999", before: null, after: { mode: "shadow", retried: true, grounded: 0.61, onTopic: 0.92, revealsInternals: 0.02 } },
+  { id: "t2", time: "22 Nov, 13:55", action: "product", suffix: "update", entity: "Product #3c2b1a09", tenant: "Toko Kopi Nusantara", phone: "6281234500777", before: { price: 18000 }, after: { price: 20000 } },
+  { id: "t3", time: "22 Nov, 13:31", action: "outbox", suffix: "send_error", entity: "OutboundMessage #5e6f7a8b", tenant: "Toko Kopi Nusantara", phone: "6281234500011", before: null, after: { error: "Window closed" } },
+  { id: "t4", time: "22 Nov, 11:20", action: "order", suffix: "create", entity: "Order #9a8b7c6d", tenant: "Titik Nol English Course", phone: "6289876500321", before: null, after: { total: 350000 } },
+];
+const GUARDS = [
+  { id: "g1", time: "22 Nov, 14:10", type: "Post", tenant: "Toko Kopi Nusantara", phone: "6281234500999", values: "ground 61% / topic 92% / internal 2%", mode: "shadow", verdict: "Retried", bad: false,
+    json: { mode: "shadow", retried: true, grounded: 0.61, onTopic: 0.92, revealsInternals: 0.02, at: "2026-11-22T14:10:31Z" } },
+  { id: "g2", time: "22 Nov, 13:02", type: "Pre", tenant: "Toko Kopi Nusantara", phone: "6281234500444", values: "intent 12% / inj 96%", mode: "shadow", verdict: "Would reject", bad: false,
+    json: { mode: "shadow", blocked: false, storeIntent: 0.12, injection: 0.96, at: "2026-11-22T13:02:11Z" } },
+  { id: "g3", time: "22 Nov, 10:47", type: "Post", tenant: "Bengkel Jaya Motor", phone: "6285673400021", values: "ground 48% / topic 95% / internal 0%", mode: "shadow", verdict: "Flagged", bad: false,
+    json: { mode: "shadow", retried: false, grounded: 0.48, onTopic: 0.95, revealsInternals: 0, at: "2026-11-22T10:47:02Z" } },
+];
+const FAILED_MSGS = [
+  { id: "f1", to: "6281234500011@s.whatsapp.net", error: "Connection closed (440) - device pairing conflict", upd: "22 Nov, 13:31" },
+  { id: "f2", to: "6289876500321@s.whatsapp.net", error: "Window closed: free-form reply outside 24h", upd: "22 Nov, 09:12" },
+];
+const LOCKS = [
+  { key: "worker-heartbeat", held: true, upd: "22 Nov, 14:12" },
+  { key: "baileys-socket:c1", held: true, upd: "22 Nov, 14:10" },
+  { key: "campaign-tick", held: false, upd: "22 Nov, 12:00" },
+  { key: "scenario-tick", held: false, upd: "22 Nov, 12:00" },
+];
+const CHART = [312, 388, 401, 295, 344, 420, 437, 402, 366, 351, 398, 442, 455, 389, 340, 327, 372, 410, 448, 396, 358, 349, 391, 430, 462, 478, 501, 415, 372, 412];
+const FEATURES = ["Knowledge Base", "Google Sheets Sync", "Campaigns", "Pipeline", "API Access", "Priority Support"];
+
+/* ══════════ Helpers ══════════ */
+const $ = (sel, root) => (root || document).querySelector(sel);
+const pad = (n) => String(n).padStart(2, "0");
+const idr = (n) => "Rp " + n.toLocaleString("id-ID");
+const bytes = (n) => n < 1024 ? n + " B" : n < 1048576 ? (n / 1024).toFixed(1) + " KB" : (n / 1048576).toFixed(1) + " MB";
+const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+function statusPill(tone, label) {
+  const dotc = { ok: "bg-ok", off: "bg-mutedfg/60", warn: "bg-warn", bad: "bg-bad" }[tone];
+  return `<span class="pill pill-${tone}"><span class="dot ${dotc}"></span>${label}</span>`;
+}
+function statCard(icon, label, value, note) {
+  return `<div class="stat-card">
+    <div class="stat-label"><span class="stat-icon"><i class="ph ph-${icon} text-[13px]"></i></span><span class="t">${label}</span></div>
+    <div class="stat-value">${value}</div>${note ? `<div class="stat-note">${note}</div>` : ""}
+  </div>`;
+}
+function section(title, meta, body) {
+  return `<div class="section"><div class="section-head"><span class="eyebrow">${title}</span><span class="font-mono text-[11.5px] text-mutedfg">${meta || ""}</span></div>${body}</div>`;
+}
+function toast(msg) {
+  const el = document.createElement("div");
+  el.className = "rounded-xl border border-border bg-card px-4 py-2.5 text-[13px] shadow-lg rise";
+  el.textContent = msg;
+  $("#toast-root").appendChild(el);
+  setTimeout(() => el.remove(), 3200);
+}
+function openModal(html) {
+  $("#modal-root").innerHTML = `<div class="modal-bg" onclick="if(event.target===this) closeModal()"><div class="modal">${html}</div></div>`;
+}
+function closeModal() { $("#modal-root").innerHTML = ""; }
+function modalHead(eyebrow, title, sub) {
+  return `<div class="flex items-start justify-between border-b border-border px-5 py-4">
+    <div><div class="eyebrow mb-1">${eyebrow}</div><h2 class="text-[18px] font-semibold tracking-tight">${title}</h2>
+    ${sub ? `<p class="mt-0.5 text-[12.5px] text-mutedfg">${sub}</p>` : ""}</div>
+    <button onclick="closeModal()" class="rounded-md p-1.5 text-mutedfg hover:bg-muted hover:text-foreground" aria-label="Close"><i class="ph ph-x text-base"></i></button>
+  </div>`;
+}
+
+/* ══════════ Router ══════════ */
+const NAV = [
+  { group: "Platform", items: [
+    { route: "overview", label: "Overview", icon: "squares-four" },
+    { route: "tenants", label: "Tenants", icon: "storefront" },
+    { route: "channels", label: "Channels", icon: "chat-circle-dots" } ] },
+  { group: "Operations", items: [
+    { route: "operations", label: "Operations", icon: "pulse" },
+    { route: "guardrails", label: "Guardrails", icon: "shield-check" },
+    { route: "audit", label: "Audit", icon: "scroll" } ] },
+  { group: "Configuration", items: [
+    { route: "api-keys", label: "API Keys", icon: "key" },
+    { route: "plans", label: "Plans & Usage", icon: "tag" },
+    { route: "billing", label: "Billing", icon: "receipt" },
+    { route: "email", label: "Email", icon: "envelope-simple" },
+    { route: "admins", label: "Admins", icon: "users-three" } ] },
+];
+const state = { page: "overview", tenantId: null, tab: {}, auditTab: "tenant", guardTab: "all", collapsed: false };
+
+function route() {
+  const h = location.hash.replace(/^#\/?/, "");
+  const [page, param] = h.split("/");
+  const known = NAV.flatMap(g => g.items).some(i => i.route === page);
+  state.page = known ? page : "overview";
+  state.tenantId = page === "tenants" && param ? param : null;
+  render();
+}
+function go(route) { location.hash = "#/" + route; }
+
+function render() {
+  // nav
+  const activeItem = state.tenantId ? "tenants" : state.page;
+  $("#nav").innerHTML = NAV.map(g => `
+    <div class="mb-5"><div class="eyebrow px-2 pb-1.5">${g.group}</div>
+    <div class="space-y-0.5">${g.items.map(it => `
+      <a class="nav-item ${it.route === activeItem ? "active" : ""}" onclick="go('${it.route}')">
+        <i class="ph ph-${it.icon} text-base"></i><span class="nav-label">${it.label}</span>
+      </a>`).join("")}</div></div>`).join("");
+  $("#mobile-nav").innerHTML = NAV.flatMap(g => g.items).map(it => `
+    <a onclick="go('${it.route}')" class="whitespace-nowrap rounded-full px-3 py-1 text-[12.5px] ${it.route === activeItem ? "bg-foreground font-medium text-background" : "bg-card text-mutedfg ring-1 ring-border"}">${it.label}</a>`).join("");
+  const g = NAV.find(gr => gr.items.some(i => i.route === activeItem));
+  $("#crumb-group").textContent = g ? g.group : "Platform";
+  $("#crumb-page").textContent = state.tenantId ? "Tenant detail" : (g && g.items.find(i => i.route === state.page) || {}).label || "Overview";
+
+  const views = { overview: viewOverview, tenants: viewTenants, "tenant-detail": viewTenantDetail, channels: viewChannels,
+    operations: viewOperations, guardrails: viewGuardrails, audit: viewAudit, "api-keys": viewApiKeys,
+    plans: viewPlans, billing: viewBilling, email: viewEmail, admins: viewAdmins };
+  const v = views[state.tenantId ? "tenant-detail" : state.page] || viewOverview;
+  const pg = $("#page");
+  pg.classList.remove("rise"); void pg.offsetWidth; pg.classList.add("rise");
+  pg.innerHTML = v();
+}
+
+/* ══════════ Views ══════════ */
+function pageHead(eyebrow, title, sub, action) {
+  return `<div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+    <div><div class="eyebrow mb-1.5">${eyebrow}</div>
+    <h1 class="text-[28px] font-bold leading-tight tracking-tight">${title}</h1>
+    ${sub ? `<p class="mt-1 text-[13.5px] text-mutedfg">${sub}</p>` : ""}</div>
+    <div class="flex items-center gap-2">${action || ""}</div></div>`;
+}
+
+function viewOverview() {
+  const connected = CHANNELS.filter(c => c.status === "CONNECTED").length;
+  const failed = FAILED_MSGS.length;
+  const max = Math.max(...CHART), top = Math.max(8, Math.ceil(max / 8) * 8);
+  const ticks = [top, top * 3 / 4, top / 2, top / 4, 0], peak = CHART.indexOf(max), H = 180;
+  const today = new Date();
+  const bars = CHART.map((c, i) => {
+    const d = new Date(today); d.setUTCDate(d.getUTCDate() - (29 - i));
+    return `<div class="group relative flex h-full flex-1 items-end">
+      <div class="bar w-full rounded-full ${i === peak ? "bg-foreground" : "bg-muted ring-1 ring-border/60"}" style="height:${Math.max(10, (c / top) * H)}px"></div>
+      <span class="pointer-events-none absolute -top-7 left-1/2 hidden -translate-x-1/2 rounded-md bg-foreground px-1.5 py-0.5 font-mono text-[10.5px] text-background group-hover:block">${c}</span>
+    </div>`;
+  }).join("");
+  const dayLabels = CHART.map((_, i) => {
+    const d = new Date(today); d.setUTCDate(d.getUTCDate() - (29 - i));
+    return `<span class="flex-1 text-center ${i % 3 === 0 ? "" : "invisible"}">${d.getUTCDate()}</span>`;
+  }).join("");
+  return pageHead("Platform", "Operator Prima, here is CSQ today", "A snapshot of today, and how the last 30 days are going.",
+      `<button class="btn btn-ink" onclick="modalNewTenant()"><i class="ph ph-plus text-sm"></i>New tenant</button>`)
+    + `<div class="mb-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      ${statCard("storefront", "Active tenants", pad(TENANTS.filter(t => t.status === "ACTIVE").length), TENANTS.filter(t => t.status !== "ACTIVE").length + " suspended")}
+      ${statCard("chat-circle-dots", "Channels", pad(CHANNELS.length), connected + " connected, " + (CHANNELS.length - connected) + " disconnected")}
+      ${statCard("tray", "Queue", "07", "2 sending")}
+      ${statCard("warning", "Send failures", pad(failed), failed > 0 ? `<span class="text-bad font-medium">${failed} messages failed</span> - retry from Operations` : "Outbox worker healthy")}
+    </div>`
+    + section("Current state", `<span class="flex items-center gap-1.5"><span class="dot bg-ok live"></span>live</span>`, `<div class="grid grid-cols-2 gap-4 lg:grid-cols-5">
+      ${statCard("user", "Users", "38", "Accounts across tenants")}
+      ${statCard("paper-plane-tilt", "Messages (24h)", "412", '<span class="text-foreground">37</span> new conversations')}
+      ${statCard("chat-circle-dots", "Messages (7d)", "2,905", '<span class="text-foreground">214</span> new conversations')}
+      ${statCard("tray", "Command queue", "01", "Channel commands waiting for the worker")}
+      ${statCard("clock", "Scheduler leases", "00", "Last tick 2m ago, 0 stale")}
+    </div>`)
+    + section("Last 30 days", "", `<div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      ${statCard("paper-plane-tilt", "Messages", "12,847", '<span class="text-foreground">940</span> conversations served')}
+      ${statCard("robot", "AI credits", "5,214", '<span class="text-foreground">4,102</span> AI replies, <span class="text-foreground">9</span> scenario modules')}
+      ${statCard("folder-open", "Media", "842.6 MB", "Total tenant media storage")}
+    </div>`)
+    + `<div class="mb-4 rounded-xl border border-border bg-card p-5">
+      <div class="mb-5 flex items-center justify-between"><span class="eyebrow text-foreground">Messages per day</span>
+      <span class="font-mono text-[11.5px] text-mutedfg">12,847 messages in period</span></div>
+      <div class="flex gap-3">
+        <div class="flex flex-col justify-between pb-7 text-right font-mono text-[10.5px] text-mutedfg" style="height:${H + 28}px">${ticks.map(t => `<span class="leading-none">${t}</span>`).join("")}</div>
+        <div class="relative flex-1">
+          <div class="absolute inset-x-0 top-0 flex flex-col justify-between" style="height:${H}px">${ticks.map(() => `<div class="border-t border-dashed border-border"></div>`).join("")}</div>
+          <div class="relative flex items-end gap-1.5" style="height:${H}px">${bars}</div>
+          <div class="mt-2 flex gap-1.5 font-mono text-[10px] text-mutedfg">${dayLabels}</div>
+        </div>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div class="rounded-xl border border-border bg-card">
+        <div class="flex items-center justify-between border-b border-border px-5 py-3.5"><span class="eyebrow text-foreground">Needs attention</span>
+        <a onclick="go('channels')" class="flex cursor-pointer items-center gap-1 text-[12.5px] text-mutedfg hover:text-foreground">All channels <i class="ph ph-arrow-up-right text-[13px]"></i></a></div>
+        ${CHANNELS.filter(c => c.status !== "CONNECTED").slice(0, 5).map(c => `
+        <div class="flex items-center gap-3 border-b border-border px-5 py-3">
+          <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted ring-1 ring-border"><i class="ph ph-chat-circle-dots text-[14px] text-mutedfg"></i></span>
+          <div class="min-w-0 flex-1"><div class="truncate text-[13.5px] font-medium">${c.tenant}</div>
+          <div class="font-mono text-[11.5px] text-mutedfg">${c.provider}</div></div>
+          ${statusPill(c.status === "CONNECTING" ? "warn" : "bad", c.status)}
+        </div>`).join("") || '<div class="px-5 py-10 text-center text-[13px] text-mutedfg">All channels connected</div>'}
+      </div>
+      <div class="rounded-xl border border-border bg-card">
+        <div class="flex items-center justify-between border-b border-border px-5 py-3.5"><span class="eyebrow text-foreground">Quotas</span>
+        <a onclick="go('plans')" class="flex cursor-pointer items-center gap-1 text-[12.5px] text-mutedfg hover:text-foreground">Plans <i class="ph ph-arrow-up-right text-[13px]"></i></a></div>
+        ${USAGE.filter(u => u.planId).map(u => {
+          const dims = [[u.mau, u.mauLimit], [u.credits, u.creditsLimit], [u.staff, u.staffLimit], [u.channels, u.channelLimit]]
+            .filter(([, l]) => l !== null).map(([v, l]) => Math.round(v / l * 100));
+          const pct = Math.max(...dims);
+          const lbl = { [u.mauLimit]: "MAU", [u.creditsLimit]: "AI credits", [u.staffLimit]: "Staff", [u.channelLimit]: "Channels" };
+          const worst = [[u.mau, u.mauLimit, "MAU"], [u.credits, u.creditsLimit, "AI credits"], [u.staff, u.staffLimit, "Staff"], [u.channels, u.channelLimit, "Channels"]].filter(([, l]) => l !== null).sort((a, b) => b[0] / b[1] - a[0] / a[1])[0];
+          return pct < 80 ? "" : `<div class="flex items-center gap-3 border-b border-border px-5 py-3">
+            <div class="min-w-0 flex-1"><div class="truncate text-[13.5px] font-medium">${u.tenant}</div>
+            <div class="text-[11.5px] text-mutedfg">${worst[2]}</div></div>
+            <span class="font-mono text-[11.5px] tabular-nums text-mutedfg">${worst[0]}/${worst[1]}</span>
+            ${statusPill(pct >= 100 ? "bad" : "warn", pct + "%")}</div>`;
+        }).join("") || '<div class="px-5 py-10 text-center text-[13px] text-mutedfg">All tenants within quota</div>'}
+      </div>
+      <div class="rounded-xl border border-border bg-card">
+        <div class="flex items-center justify-between border-b border-border px-5 py-3.5"><span class="eyebrow text-foreground">Recent activity</span>
+        <a onclick="go('audit')" class="flex cursor-pointer items-center gap-1 text-[12.5px] text-mutedfg hover:text-foreground">Audit log <i class="ph ph-arrow-up-right text-[13px]"></i></a></div>
+        ${ADMINLOG.slice(0, 6).map(e => `<div class="flex items-center gap-3 border-b border-border px-5 py-3">
+          <span class="dot ${e.suffix.includes("error") ? "bg-bad" : "bg-mutedfg/50"}"></span>
+          <span class="flex-1 truncate font-mono text-[12px]">${e.action}.${e.suffix}</span>
+          <span class="font-mono text-[11.5px] text-mutedfg">${e.time.slice(-5)}</span></div>`).join("")}
+      </div>
+    </div>`
+    + (failed > 0 ? `<div class="mt-4 flex items-center justify-between gap-4 rounded-xl border border-border border-l-2 border-l-bad bg-card px-5 py-3">
+      <p class="text-[13px]"><span class="font-medium text-bad">${failed} messages failed</span> to send to customers.</p>
+      <button class="btn btn-line" onclick="go('operations')"><i class="ph ph-arrow-clockwise text-sm"></i>Retry</button></div>` : "");
+}
+
+function viewTenants() {
+  const q = (state.tenantQ || "").toLowerCase();
+  const items = TENANTS.filter(t => (!q || t.name.toLowerCase().includes(q) || t.slug.includes(q))
+    && (!state.tenantStatus || t.status === state.tenantStatus));
+  return pageHead("Platform", "Tenants", `${items.length} tenants registered`,
+      `<button class="btn btn-ink" onclick="modalNewTenant()"><i class="ph ph-plus text-sm font-bold"></i>New tenant</button>`)
+    + (state.tenantNotice ? `<div class="mb-4 rounded-xl border border-border border-l-2 border-l-ok bg-card px-5 py-3 text-[13px]">${state.tenantNotice}</div>` : "")
+    + `<form onsubmit="event.preventDefault(); state.tenantQ = this.q.value.trim(); render()" class="mb-4 flex flex-wrap items-center gap-2">
+      <input name="q" value="${esc(state.tenantQ || "")}" placeholder="Search name or slug" class="inp w-56" aria-label="Search tenants">
+      <select class="inp w-40" onchange="state.tenantStatus = this.value; render()">
+        <option value="">All statuses</option><option ${state.tenantStatus === "ACTIVE" ? "selected" : ""} value="ACTIVE">Active</option>
+        <option ${state.tenantStatus === "SUSPENDED" ? "selected" : ""} value="SUSPENDED">Suspended</option>
+      </select>
+      <button class="btn btn-line" type="submit">Search</button>
+    </form>
+    <div class="ledger-wrap"><table class="ledger">
+      <thead><tr><th>Name</th><th>Status</th><th>Health</th><th class="tr">Users</th><th class="tr">Channels</th><th class="tr">Conversations</th><th class="tr">Msgs (30d)</th><th>Created</th><th></th></tr></thead>
+      <tbody>${items.map(t => `<tr>
+        <td><div class="font-medium">${t.name}</div><div class="text-[12px] text-mutedfg">${t.slug}</div></td>
+        <td>${statusPill(t.status === "ACTIVE" ? "ok" : "bad", t.status === "ACTIVE" ? "Active" : "Suspended")}</td>
+        <td>${statusPill(t.channels > 0 && t.msgs30d > 0 ? "ok" : "off", t.channels > 0 && t.msgs30d > 0 ? "Healthy" : "Quiet")}</td>
+        <td class="tr font-mono tabular-nums">${t.users}</td><td class="tr font-mono tabular-nums">${t.channels}</td>
+        <td class="tr font-mono tabular-nums">${t.conversations}</td><td class="tr font-mono tabular-nums">${t.msgs30d}</td>
+        <td class="whitespace-nowrap font-mono text-[12.5px] text-mutedfg">${new Date(t.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</td>
+        <td class="tr">
+          <button class="btn btn-ghost" onclick="go('tenants/${t.id}')">View</button>
+          <button class="btn btn-ghost ${t.status === "ACTIVE" ? "danger" : "go"}" onclick="toggleTenant('${t.id}')">${t.status === "ACTIVE" ? "Suspend" : "Activate"}</button>
+        </td></tr>`).join("") || `<tr><td colspan="9" class="py-12 text-center text-[13px] text-mutedfg">No matching tenants.</td></tr>`}
+      </tbody></table></div>`;
+}
+function toggleTenant(id) {
+  const t = TENANTS.find(x => x.id === id);
+  t.status = t.status === "ACTIVE" ? "SUSPENDED" : "ACTIVE";
+  toast(t.status === "ACTIVE" ? `Tenant ${t.name} activated` : `Tenant ${t.name} suspended`);
+  render();
+}
+function modalNewTenant() {
+  openModal(modalHead("Platform", "New tenant", "Creates the tenant and its owner account.") + `
+    <form class="space-y-4 p-5" onsubmit="event.preventDefault(); this.reportValidity() && createTenant(this)">
+      <div class="space-y-1.5"><label class="lbl" for="t-name">Tenant name</label>
+        <input id="t-name" class="inp" required placeholder="Toko Kopi Nusantara">
+        <p class="text-[12px] text-mutedfg">The tenant ID is generated automatically (unique, alphanumeric).</p></div>
+      <div class="border-t border-border pt-4"><div class="eyebrow mb-3">Owner account</div>
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div class="space-y-1.5"><label class="lbl" for="t-email">Email</label><input id="t-email" type="email" class="inp" required placeholder="owner@tokokopi.id"></div>
+          <div class="space-y-1.5"><label class="lbl" for="t-oname">Name</label><input id="t-oname" class="inp" required placeholder="Budi Santoso"></div>
+        </div>
+        <div class="mt-3 space-y-1.5"><label class="lbl" for="t-pass">Password</label>
+        <input id="t-pass" type="password" class="inp" required minlength="8" placeholder="Minimum 8 characters"></div></div>
+      <div class="flex justify-end gap-2 pt-1">
+        <button type="button" class="btn btn-line" onclick="closeModal()">Cancel</button>
+        <button type="submit" class="btn btn-ink">Create tenant</button></div>
+    </form>`);
+}
+function createTenant(f) {
+  const name = f["t-name"].value;
+  const slug = "csq" + Math.random().toString(36).slice(2, 10);
+  TENANTS.unshift({ id: "n" + Date.now(), name, slug, status: "ACTIVE", createdAt: new Date().toISOString().slice(0, 10),
+    users: 1, channels: 0, conversations: 0, msgs30d: 0, plan: null,
+    detail: { users: [{ id: "nu", name: f["t-oname"].value, email: f["t-email"].value, role: "OWNER" }], agents: [], channels: [], campaigns: [], sources: [] } });
+  closeModal();
+  state.tenantNotice = `Tenant created. Tenant ID: ${slug}. The welcome email was NOT sent (platform SMTP not configured or failed) - hand over the email and password manually.`;
+  go("tenants"); render();
+}
+
+function viewTenantDetail() {
+  const t = TENANTS.find(x => x.id === state.tenantId) || TENANTS[0];
+  const d = t.detail;
+  return pageHead("Platform", esc(t.name), esc(t.slug),
+      `<button class="btn btn-ghost" onclick="go('tenants')"><i class="ph ph-arrow-left text-sm"></i>All tenants</button>`)
+    + (state.detailNotice ? `<div class="mb-4 rounded-xl border border-border border-l-2 border-l-ok bg-card px-5 py-3 text-[13px]">${state.detailNotice}</div>` : "")
+    + section("Summary", statusPill(t.status === "ACTIVE" ? "ok" : "bad", t.status === "ACTIVE" ? "Active" : "Suspended"),
+      `<div class="grid grid-cols-2 gap-4 lg:grid-cols-6">
+        ${statCard("", "Created", new Date(t.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }))}
+        ${statCard("", "Users", t.users)}${statCard("", "Channels", t.channels)}
+        ${statCard("", "Conversations", t.conversations)}${statCard("", "Msgs (30d)", t.msgs30d)}${statCard("", "Media", bytes(412300000))}
+      </div>`)
+    + section("Users", `${d.users.length} accounts`, d.users.length === 0 ? "" :
+      `<div class="ledger-wrap"><table class="ledger"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th></th></tr></thead>
+      <tbody>${d.users.map(u => `<tr><td class="font-medium">${u.name}</td>
+        <td class="font-mono text-[12.5px] text-mutedfg">${u.email}</td>
+        <td>${statusPill(u.role === "OWNER" ? "ok" : "off", u.role === "OWNER" ? "Owner" : "Staff")}</td>
+        <td class="tr"><button class="btn btn-ghost" onclick="modalResetPw('${esc(u.email)}')"><i class="ph ph-key text-[12px]"></i>Reset Password</button></td></tr>`).join("")}
+      </tbody></table></div>`)
+    + section("Agents", `${d.agents.length} agents`, d.agents.length === 0 ? "" :
+      `<div class="ledger-wrap"><table class="ledger"><thead><tr><th>Name</th><th>Status</th></tr></thead>
+      <tbody>${d.agents.map(a => `<tr><td class="font-medium">${a.name}</td>
+        <td>${statusPill(a.status === "ACTIVE" ? "ok" : a.status === "PAUSED" ? "warn" : "off", a.status)}</td></tr>`).join("")}</tbody></table></div>`)
+    + section("Channels", `${d.channels.length} channels`, d.channels.length === 0 ? "" :
+      `<div class="ledger-wrap"><table class="ledger"><thead><tr><th>Provider</th><th>Type</th><th>Status</th></tr></thead>
+      <tbody>${d.channels.map(c => `<tr><td class="font-medium">${c.provider}</td>
+        <td class="text-[13px] text-mutedfg">${c.type}</td>
+        <td>${statusPill(c.ok ? "ok" : "bad", c.ok ? "Connected" : "Disconnected")}</td></tr>`).join("")}</tbody></table></div>`)
+    + section("Campaigns", `${d.campaigns.length} campaigns`, d.campaigns.length === 0 ? "" :
+      `<div class="ledger-wrap"><table class="ledger"><thead><tr><th>Name</th><th>Status</th><th>Schedule</th></tr></thead>
+      <tbody>${d.campaigns.map(c => `<tr><td class="font-medium">${c.name}</td>
+        <td>${statusPill(c.status === "ACTIVE" || c.status === "COMPLETED" ? "ok" : "warn", c.status)}</td>
+        <td class="font-mono text-[12px] text-mutedfg">CRON</td></tr>`).join("")}</tbody></table></div>`)
+    + section("Data sources", `${d.sources.length} sources`, d.sources.length === 0 ? "" :
+      `<div class="ledger-wrap"><table class="ledger"><thead><tr><th>Name</th><th>Type</th><th>Status</th><th>Last sync</th></tr></thead>
+      <tbody>${d.sources.map(s => `<tr><td class="font-medium">${s.name}</td>
+        <td class="font-mono text-[12px] text-mutedfg">${s.type}</td>
+        <td>${statusPill(s.status === "ACTIVE" ? "ok" : "bad", s.status)}</td>
+        <td class="whitespace-nowrap font-mono text-[12px] text-mutedfg">${s.status === "ACTIVE" ? "22 Nov, 13:40" : "-"}</td></tr>`).join("")}</tbody></table></div>`)
+    + section("Danger zone", "Irreversible", `
+      <div class="flex items-center gap-4 rounded-xl border border-bad/30 bg-bad/5 px-5 py-4">
+        <i class="ph-fill ph-warning text-xl shrink-0 text-bad"></i>
+        <div class="flex-1"><p class="text-[13px] font-medium">Delete tenant "${esc(t.name)}"</p>
+        <p class="text-[13px] text-mutedfg">All tenant data is deleted permanently: users, conversations, messages, orders, campaigns, media, and channels (disconnected first). This cannot be undone.</p></div>
+        <button class="btn btn-ink" onclick="modalDeleteTenant('${t.id}')">Delete tenant</button>
+      </div>`);
+}
+function modalResetPw(email) {
+  openModal(modalHead("Reset Password", "New password for " + esc(email)) + `
+    <form class="space-y-3 p-5" onsubmit="event.preventDefault(); this.reportValidity() && (state.detailNotice = 'Password for ${esc(email)} was reset, but the email was NOT sent (no active SMTP). Hand over the new password manually.', closeModal(), render())">
+      <div><label class="lbl" for="new-password">New password (min. 8 characters)</label>
+      <input id="new-password" type="text" class="inp" required minlength="8" placeholder="new password"></div>
+      <p class="text-xs text-mutedfg">Credentials are emailed to the user when SMTP is active; otherwise hand them over manually.</p>
+      <div class="flex justify-end gap-2 pt-2"><button type="button" class="btn btn-line" onclick="closeModal()">Cancel</button>
+      <button type="submit" class="btn btn-ink">Reset Password</button></div>
+    </form>`);
+}
+function modalDeleteTenant(id) {
+  const t = TENANTS.find(x => x.id === id);
+  openModal(modalHead("Delete tenant", 'Type "' + esc(t.name) + '" to confirm', "This action is irreversible.") + `
+    <form class="space-y-3 p-5" onsubmit="event.preventDefault(); if (this.confirmname.value === '${esc(t.name).replace(/'/g, "\\'")}') { TENANTS.splice(TENANTS.indexOf(TENANTS.find(x => x.id === '${id}')), 1); closeModal(); toast('Tenant ${esc(t.name)} deleted'); go('tenants'); } else toast('The typed name does not match')">
+      <input name="confirmname" class="inp" placeholder="Type the tenant name" required>
+      <div class="flex justify-end gap-2 pt-2"><button type="button" class="btn btn-line" onclick="closeModal()">Cancel</button>
+      <button type="submit" class="btn btn-ink bg-bad hover:bg-bad/85">Delete tenant</button></div>
+    </form>`);
+}
+
+function viewChannels() {
+  const connected = CHANNELS.filter(c => c.status === "CONNECTED").length;
+  return pageHead("Platform", "Channels", `Channel fleet - ${connected} of ${CHANNELS.length} connected`)
+    + (state.channelMsg ? `<div class="mb-4 rounded-xl border border-border bg-card px-5 py-3 text-[13px]">${state.channelMsg}</div>` : "")
+    + `<div class="ledger-wrap"><table class="ledger">
+      <thead><tr><th>Tenant</th><th>Channel</th><th>Provider</th><th>Type</th><th>Status</th><th>Lease</th><th>Until</th><th>Last activity</th><th class="tr">Actions</th></tr></thead>
+      <tbody>${CHANNELS.map(c => `<tr>
+        <td><div class="font-medium">${c.tenant}</div><div class="text-[12px] text-mutedfg">${c.slug}${c.tstatus === "SUSPENDED" ? " / suspended" : ""}</div></td>
+        <td><div class="font-medium">${c.label}</div><div class="text-[12px] text-mutedfg">${c.number || "-"}${c.waba ? " / WABA " + c.waba : ""}</div></td>
+        <td><span class="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[11px] ring-1 ring-border">${c.provider}</span></td>
+        <td class="text-[13px] text-mutedfg">${c.type}</td>
+        <td>${statusPill(c.status === "CONNECTED" ? "ok" : c.status === "CONNECTING" ? "warn" : "bad", c.status)}</td>
+        <td><span class="flex items-center gap-1.5 text-[13px]"><span class="dot ${c.held ? "bg-ok live" : "bg-mutedfg/40"}"></span>${c.held ? "Held" : "Free"}</span>
+          ${c.token ? `<div class="mt-0.5 font-mono text-[11px] text-mutedfg">#${c.token}, updated 2m ago</div>` : ""}</td>
+        <td class="whitespace-nowrap font-mono text-[12px] text-mutedfg">${c.until || "-"}</td>
+        <td class="whitespace-nowrap font-mono text-[12px] text-mutedfg">${c.upd}</td>
+        <td class="tr">
+          <button class="btn btn-ghost" aria-label="Reconnect" onclick="channelAct('${c.id}', 'reconnect')"><i class="ph ph-arrows-clockwise text-sm"></i></button>
+          <button class="btn btn-ghost danger" aria-label="Disconnect" onclick="channelAct('${c.id}', 'disconnect')"><i class="ph ph-power text-sm"></i></button>
+        </td></tr>`).join("")}</tbody></table></div>`;
+}
+function channelAct(id, act) {
+  const c = CHANNELS.find(x => x.id === id);
+  c.status = act === "reconnect" ? "CONNECTING" : "DISCONNECTED";
+  c.held = false;
+  state.channelMsg = `${act} command sent. The worker picks it up within 2 seconds.`;
+  toast(`${act} command queued for ${c.label}`);
+  render();
+  setTimeout(() => { if (act === "reconnect") { c.status = "CONNECTED"; c.held = true; c.until = new Date(Date.now() + 30 * 60000).toTimeString().slice(0, 5); } render(); }, 3000);
+}
+
+function viewOperations() {
+  const held = LOCKS.filter(l => l.held).length;
+  return pageHead("Operations", "Operations", "System health, AI response time, queues & locks")
+    + section("System health", "current status", `<div class="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
+      ${statCard("", "Dashboard", "142 ms", '<span class="pill pill-ok"><span class="dot bg-ok"></span>Healthy</span> HTTP 200')}
+      ${statCard("", "API", "96 ms", '<span class="pill pill-ok"><span class="dot bg-ok"></span>Healthy</span> HTTP 200')}
+      ${statCard("", "Worker", "just now", '<span class="pill pill-ok"><span class="dot bg-ok"></span>Active</span> heartbeat lock')}
+      ${statCard("", "Database", "11 ms", '<span class="pill pill-ok"><span class="dot bg-ok"></span>Healthy</span> SELECT 1')}
+      ${statCard("", "Media store", "204 ms", '<span class="pill pill-ok"><span class="dot bg-ok"></span>Healthy</span> HTTP 200')}
+    </div>`)
+    + section("AI response time", "last inbound message to agent reply", `<div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      ${statCard("timer", "Avg (24h)", "6.4s")}${statCard("timer", "p95 (24h)", "14.8s")}
+      ${statCard("pulse", "Replies (24h)", "148")}${statCard("timer", "Avg (7d)", "7.1s")}
+    </div>`)
+    + section("Outbound messages", "worker outbox", `<div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      ${statCard("tray", "Queued", "07")}${statCard("paper-plane-tilt", "Sending", "02")}
+      ${statCard("check-circle", "Sent", "12,842")}${statCard("warning", "Failed", pad(FAILED_MSGS.length))}
+    </div>`)
+    + section("Failed messages", `${FAILED_MSGS.length} messages`, FAILED_MSGS.length === 0 ?
+      `<div class="empty"><i class="ph ph-check-circle text-xl mb-2 text-ok"></i><p class="text-[13px] font-medium">No failed messages</p><p class="mt-0.5 text-[12px] text-mutedfg">The outbox worker has nothing to retry.</p></div>` :
+      `<div class="ledger-wrap"><table class="ledger"><thead><tr><th>Destination</th><th>Error</th><th>Updated</th><th></th></tr></thead>
+      <tbody>${FAILED_MSGS.map(m => `<tr><td class="whitespace-nowrap font-mono text-[12px]">${m.to}</td>
+        <td class="max-w-md truncate text-[12.5px] text-bad">${m.error}</td>
+        <td class="whitespace-nowrap font-mono text-[12px] text-mutedfg">${m.upd}</td>
+        <td class="tr"><button class="btn btn-ghost go" onclick="retryMsg('${m.id}')">Retry</button></td></tr>`).join("")}
+      </tbody></table></div>`)
+    + section("System locks", `${held} held`, `<div class="ledger-wrap"><table class="ledger">
+      <thead><tr><th>Key</th><th>Status</th><th>Updated</th></tr></thead>
+      <tbody>${LOCKS.map(l => `<tr><td class="font-mono text-[12px]">${l.key}</td>
+        <td>${statusPill(l.held ? "ok" : "off", l.held ? "Held" : "Expired")}</td>
+        <td class="whitespace-nowrap font-mono text-[12px] text-mutedfg">${l.upd}</td></tr>`).join("")}</tbody></table></div>`);
+}
+function retryMsg(id) {
+  FAILED_MSGS.splice(FAILED_MSGS.findIndex(m => m.id === id), 1);
+  toast("Message moved back to QUEUED");
+  render();
+}
+
+function viewGuardrails() {
+  const items = GUARDS.filter(g => state.guardTab === "all" || g.type.toLowerCase() === state.guardTab);
+  return pageHead("Operations", "Guardrails", "Decision-model guard flags, newest first",
+    `<div class="seg">${[["all", "All"], ["pre", "Pre-turn"], ["post", "Post-turn"]].map(([k, l]) =>
+      `<button class="${state.guardTab === k ? "on" : ""}" onclick="state.guardTab='${k}'; render()">${l}</button>`).join("")}</div>`)
+    + `<form class="mb-4 flex flex-wrap items-center gap-2" onsubmit="event.preventDefault(); render()">
+      <input type="date" class="inp w-40" aria-label="From date"><input type="date" class="inp w-40" aria-label="To date">
+      <button class="btn btn-line" type="submit">Apply</button></form>
+    <div class="ledger-wrap"><table class="ledger">
+      <thead><tr><th style="width:11rem">Time</th><th>Type</th><th>Tenant</th><th>Phone</th><th>Values</th><th>Mode</th><th>Verdict</th></tr></thead>
+      <tbody>${items.map(g => `<tr>
+        <td class="whitespace-nowrap font-mono text-[12.5px] text-mutedfg">${g.time}</td>
+        <td class="text-[12.5px]">${g.type}</td><td class="text-[12.5px]">${g.tenant}</td>
+        <td class="font-mono text-[12px] text-mutedfg">${g.phone}</td>
+        <td class="whitespace-nowrap font-mono text-[12px] text-mutedfg">${g.values}</td>
+        <td class="text-[12.5px] text-mutedfg">${g.mode}</td>
+        <td>${statusPill(g.verdict === "Rejected" ? "bad" : "warn", g.verdict)}</td></tr>
+        <tr><td colspan="7" class="border-t-0 pt-0 pb-3"><details>
+          <summary class="select-none text-[11.5px] text-mutedfg">Full verdict (chat #${g.id}4a2b)</summary>
+          <div class="mt-2 max-w-xl"><p class="mb-1 text-[10.5px] font-semibold uppercase tracking-wider text-mutedfg">Guard verdict</p>
+          <pre class="pre-json">${esc(JSON.stringify(g.json, null, 2))}</pre></div>
+        </details></td></tr>`).join("") || `<tr><td colspan="7" class="py-12 text-center text-[13px] text-mutedfg">No guard flags yet</td></tr>`}
+      </tbody></table></div>`;
+}
+
+function viewAudit() {
+  const isTenant = state.auditTab === "tenant";
+  const rows = isTenant ? TENANTLOG : ADMINLOG;
+  return pageHead("Operations", "Audit", "Activity log, newest first",
+    `<div class="seg">${[["tenant", "Tenant activity"], ["admin", "Admin actions"]].map(([k, l]) =>
+      `<button class="${state.auditTab === k ? "on" : ""}" onclick="state.auditTab='${k}'; render()">${l}</button>`).join("")}</div>`)
+    + `<form class="mb-4 flex flex-wrap items-center gap-2" onsubmit="event.preventDefault(); render()">
+      <input placeholder="Filter action (e.g. tenant)" class="inp w-56" aria-label="Filter action">
+      <input type="date" class="inp w-40" aria-label="From date"><input type="date" class="inp w-40" aria-label="To date">
+      <button class="btn btn-line" type="submit">Apply</button></form>
+    <div class="ledger-wrap"><table class="ledger">
+      <thead><tr><th style="width:11rem">Time</th><th>Action</th>${isTenant ? "<th>Entity</th><th>Tenant</th><th>Phone</th>" : "<th>Admin</th><th>Target</th>"}</tr></thead>
+      <tbody>${rows.map(a => `<tr>
+        <td class="whitespace-nowrap font-mono text-[12.5px] text-mutedfg">${a.time}</td>
+        <td><span class="font-mono text-[12.5px] ${a.suffix.includes("error") ? "text-bad" : "text-foreground"}"><span class="text-mutedfg">${a.action}.</span>${a.suffix}</span></td>
+        ${isTenant ? `<td class="text-[12.5px]">${a.entity}</td><td class="text-[12.5px] text-mutedfg">${a.tenant}</td><td class="font-mono text-[12px] text-mutedfg">${a.phone}</td>`
+          : `<td><div class="text-[13px] font-medium">${a.admin}</div><div class="text-[11.5px] text-mutedfg">${a.email}</div></td><td class="text-[12.5px] text-mutedfg">${a.target}</td>`}
+      </tr>
+      ${(a.before || a.after) ? `<tr><td colspan="${isTenant ? 5 : 4}" class="border-t-0 pt-0 pb-3"><details>
+        <summary class="select-none text-[11.5px] text-mutedfg">Before / after values</summary>
+        <div class="mt-2 grid gap-3 sm:grid-cols-2">
+          <div><p class="mb-1 text-[10.5px] font-semibold uppercase tracking-wider text-mutedfg">Before</p><pre class="pre-json">${a.before ? esc(JSON.stringify(a.before, null, 2)) : "-"}</pre></div>
+          <div><p class="mb-1 text-[10.5px] font-semibold uppercase tracking-wider text-mutedfg">After</p><pre class="pre-json">${a.after ? esc(JSON.stringify(a.after, null, 2)) : "-"}</pre></div>
+        </div></details></td></tr>` : ""}`).join("") || `<tr><td colspan="5" class="py-12 text-center text-[13px] text-mutedfg">No entries</td></tr>`}
+      </tbody></table></div>
+    <p class="mt-3 font-mono text-[11.5px] text-mutedfg">Showing ${rows.length} of 137 entries</p>`;
+}
+
+function viewApiKeys() {
+  const active = APIKEYS.filter(k => !k.revoked).length;
+  return pageHead("Configuration", "API Keys", "Tenant tokens & integrations",
+      `<div class="flex gap-5 font-mono text-[12px]"><span>${active} active</span><span class="text-mutedfg">${APIKEYS.length - active} revoked</span></div>`)
+    + `<div class="ledger-wrap"><table class="ledger">
+      <thead><tr><th>Name</th><th>Prefix</th><th>Tenant</th><th>Last used</th><th>Status</th><th></th></tr></thead>
+      <tbody>${APIKEYS.map(k => `<tr>
+        <td class="font-medium">${k.name}</td><td class="font-mono text-[12px] text-mutedfg">${k.prefix}...</td>
+        <td><div class="text-[13.5px]">${k.tenant}</div><div class="text-[12px] text-mutedfg">${k.slug}</div></td>
+        <td class="whitespace-nowrap font-mono text-[12px] text-mutedfg">${k.lastUsed || "Never"}</td>
+        <td>${statusPill(k.revoked ? "off" : "ok", k.revoked ? "Revoked" : "Active")}</td>
+        <td class="tr">${!k.revoked ? `<button class="btn btn-ghost danger" onclick="revokeKey('${k.id}')">Revoke</button>` : ""}</td>
+      </tr>`).join("")}</tbody></table></div>`;
+}
+function revokeKey(id) {
+  const k = APIKEYS.find(x => x.id === id);
+  k.revoked = true; k.lastUsed = "22 Nov 2026";
+  toast(`Key ${k.prefix} revoked`);
+  render();
+}
+
+function limit(v) { return v === null ? "Unlimited" : v.toLocaleString("en-GB"); }
+function viewPlans() {
+  return pageHead("Configuration", "Plans & Usage", "AI credits, MAU, seats, channels, and features per plan",
+      `<button class="btn btn-ink" onclick="modalPlan()"><i class="ph ph-plus text-sm font-bold"></i>New plan</button>`)
+    + section("Available plans", `${PLANS.length} plans`, `<div class="ledger-wrap"><table class="ledger">
+      <thead><tr><th>Name</th><th class="tr">Price / month</th><th class="tr">AI credits</th><th class="tr">MAU</th><th class="tr">Staff</th><th class="tr">Channels</th><th>Features</th><th></th></tr></thead>
+      <tbody>${PLANS.map(p => `<tr>
+        <td class="font-medium">${p.name}</td><td class="tr font-mono tabular-nums">${idr(p.price)}</td>
+        <td class="tr font-mono tabular-nums">${limit(p.credits)}</td><td class="tr font-mono tabular-nums">${limit(p.mau)}</td>
+        <td class="tr font-mono tabular-nums">${limit(p.staff)}</td><td class="tr font-mono tabular-nums">${limit(p.channels)}</td>
+        <td class="text-[12.5px] text-mutedfg">${p.features.join(", ")}</td>
+        <td class="tr"><button class="btn btn-ghost" onclick="modalPlan('${p.id}')">Edit</button></td></tr>`).join("")}
+      </tbody></table></div>`)
+    + section("Usage this month", "since 1 Nov", `<div class="ledger-wrap"><table class="ledger">
+      <thead><tr><th>Tenant</th><th>Plan</th><th class="tr">MAU</th><th class="tr">AI credits</th><th class="tr">Staff</th><th class="tr">Channels</th><th class="tr">Peak</th><th class="tr">Media</th></tr></thead>
+      <tbody>${USAGE.map(u => {
+        const dims = [[u.mau, u.mauLimit], [u.credits, u.creditsLimit], [u.staff, u.staffLimit], [u.channels, u.channelLimit]]
+          .filter(([, l]) => l !== null).map(([v, l]) => Math.round(v / l * 100));
+        const pct = dims.length ? Math.max(...dims) : null;
+        const cell = (v, l, over) => `<span class="font-mono tabular-nums ${over ? "font-medium text-bad" : ""}">${v.toLocaleString("en-GB")}${l !== null ? " / " + l.toLocaleString("en-GB") : ""}</span>`;
+        return `<tr><td class="font-medium">${u.tenant}</td>
+        <td><select class="h-7 rounded-sm border border-border bg-card px-2 text-[12.5px] text-mutedfg" onchange="toast('Plan assigned to ${esc(u.tenant)}')">
+          <option value="">- no plan -</option>${PLANS.map(p => `<option ${p.id === u.planId ? "selected" : ""}>${p.name}</option>`).join("")}</select></td>
+        <td class="tr">${cell(u.mau, u.mauLimit, u.mau > u.mauLimit)}</td>
+        <td class="tr">${cell(u.credits, u.creditsLimit, u.credits > u.creditsLimit)}</td>
+        <td class="tr">${cell(u.staff, u.staffLimit, u.staff > u.staffLimit)}</td>
+        <td class="tr">${cell(u.channels, u.channelLimit, u.channels > u.channelLimit)}</td>
+        <td class="whitespace-nowrap tr">${pct === null ? '<span class="text-mutedfg">-</span>' :
+          `<span class="flex items-center justify-end gap-1.5"><span class="font-mono tabular-nums ${pct > 100 ? "font-medium text-bad" : "text-mutedfg"}">${pct}%</span>${pct > 100 ? statusPill("bad", "Over") : ""}</span>`}</td>
+        <td class="tr font-mono tabular-nums">${bytes(u.media)}</td></tr>`;
+      }).join("")}</tbody></table></div>`);
+}
+function modalPlan(id) {
+  const p = id ? PLANS.find(x => x.id === id) : null;
+  const f = (label, id2, val, ph) => `<div class="space-y-1.5"><label class="lbl text-[11px]" for="${id2}">${label}</label><input id="${id2}" type="number" class="inp" value="${val || ""}" placeholder="${ph}"></div>`;
+  openModal(modalHead("Configuration", id ? "Edit " + p.name : "New plan") + `
+    <form class="space-y-4 p-5" onsubmit="event.preventDefault(); closeModal(); toast('Plan saved'); render()">
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div class="space-y-1.5"><label class="lbl" for="p-name">Plan name</label><input id="p-name" class="inp" required value="${p ? esc(p.name) : ""}" placeholder="Basic"></div>
+        <div class="space-y-1.5"><label class="lbl" for="p-price">Price per month (IDR)</label><input id="p-price" type="number" class="inp" required value="${p ? p.price : ""}" placeholder="500000"></div>
+      </div>
+      <div class="border-t border-border pt-4"><div class="eyebrow mb-3">Monthly limits</div>
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          ${f("AI credits", "p-credits", p ? p.credits : "", "15000")}${f("MAU", "p-mau", p ? p.mau : "", "1000")}
+          ${f("Staff", "p-staff", p ? p.staff : "", "1")}${f("Channels", "p-ch", p ? p.channels : "", "1")}
+        </div>
+        <p class="mt-2 text-[11.5px] text-mutedfg">Leave a limit empty for unlimited. Staff excludes the owner. Only connected channels count.</p></div>
+      <div class="border-t border-border pt-4"><div class="eyebrow mb-3">Features</div>
+        <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">${FEATURES.map(feat =>
+          `<label class="flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-[13px] transition-colors hover:bg-muted">
+          <input type="checkbox" class="h-3.5 w-3.5 accent-ok" ${p && p.features.includes(feat) ? "checked" : ""}>${feat}</label>`).join("")}</div>
+        <p class="mt-2 text-[11.5px] text-mutedfg">Unchecked features are disabled for tenants on this plan.</p></div>
+      <div class="flex justify-end gap-2 pt-1"><button type="button" class="btn btn-line" onclick="closeModal()">Cancel</button>
+      <button type="submit" class="btn btn-ink">${id ? "Save" : "Create plan"}</button></div>
+    </form>`);
+}
+
+function viewBilling() {
+  const tab = state.billingTab || "invoices";
+  const outstanding = INVOICES.filter(i => i.status === "ISSUED").reduce((s, i) => s + i.amount, 0);
+  const overdue = INVOICES.filter(i => i.status === "ISSUED" && i.due < "28 Nov 2026").length;
+  return pageHead("Configuration", "Billing", "Invoices, plan requests, and payment settings",
+      `<button class="btn btn-line" onclick="go('plans')">Manage plans</button>
+       <button class="btn btn-ink" onclick="modalInvoice()"><i class="ph ph-plus text-sm font-bold"></i>New invoice</button>`)
+    + `<div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      ${statCard("", "Outstanding", idr(outstanding), INVOICES.filter(i => i.status === "ISSUED").length + " invoices")}
+      ${statCard("", "Overdue", overdue, "Needs follow-up")}
+      ${statCard("", "Paid this month", idr(698000), "Total paid invoices")}
+    </div>
+    <div class="mb-5 flex gap-5 border-b border-border">
+      ${[["invoices", "Invoices"], ["requests", "Plan requests"], ["settings", "Settings"]].map(([k, l]) =>
+        `<button onclick="state.billingTab='${k}'; render()" class="-mb-px border-b-2 pb-2 text-[13px] transition-colors ${tab === k ? "border-ok font-medium text-foreground" : "border-transparent text-mutedfg hover:text-foreground"}">${l}</button>`).join("")}
+    </div>
+    ${tab === "invoices" ? viewInvoices() : tab === "requests" ? viewRequests() : viewBillingSettings()}`;
+}
+function viewInvoices() {
+  return (NEEDS.length ? `<div class="mb-5 rounded-xl border border-border bg-card">
+      <div class="flex items-center justify-between border-b border-border px-5 py-3"><span class="eyebrow text-foreground">Needs invoicing</span><span class="text-[11px] text-mutedfg">No invoice for this month yet</span></div>
+      ${NEEDS.map(n => `<div class="flex items-center gap-4 px-5 py-2.5">
+        <div class="min-w-0 flex-1"><p class="text-[13px] font-medium">${n.tenant}</p><p class="text-[11.5px] text-mutedfg">${n.plan}, ${idr(n.price)}</p></div>
+        <button class="btn btn-line" onclick="modalInvoice('${esc(n.tenant)}')">Create</button></div>`).join("")}
+    </div>` : "")
+    + `<div class="ledger-wrap"><table class="ledger">
+      <thead><tr><th>Number</th><th>Tenant</th><th>Period</th><th class="tr">Amount</th><th>Status</th><th>Due</th><th></th></tr></thead>
+      <tbody>${INVOICES.map(i => {
+        const overdue = i.status === "ISSUED" && i.due < "28 Nov 2026";
+        return `<tr><td class="font-mono text-[12px]">${i.number}</td>
+        <td><div class="font-medium">${i.tenant}</div><div class="text-[12px] text-mutedfg">${i.plan}</div></td>
+        <td class="whitespace-nowrap text-[12.5px] text-mutedfg">${i.period}</td>
+        <td class="tr font-mono tabular-nums">${idr(i.amount)}</td>
+        <td>${statusPill(i.status === "PAID" ? "ok" : i.status === "VOID" ? "off" : overdue ? "bad" : "warn", i.status === "PAID" ? "Paid" : i.status === "VOID" ? "Void" : overdue ? "Overdue" : "Unpaid")}</td>
+        <td class="whitespace-nowrap font-mono text-[12px] text-mutedfg">${i.paid || i.due}</td>
+        <td class="tr">${i.status === "ISSUED" ? `<button class="btn btn-ghost go" onclick="modalPay('${i.id}')">Mark paid</button>
+          <button class="btn btn-ghost danger" onclick="voidInvoice('${i.id}')">Void</button>` : ""}</td></tr>`; }).join("")}
+      </tbody></table></div>`;
+}
+function modalPay(id) {
+  const i = INVOICES.find(x => x.id === id);
+  openModal(modalHead(i.number, "Mark as paid", `${i.tenant}, ${idr(i.amount)}`) + `
+    <form class="space-y-4 p-5" onsubmit="event.preventDefault(); i2 = INVOICES.find(x => x.id === '${id}'); i2.status = 'PAID'; i2.paid = '22 Nov 2026'; closeModal(); toast('Invoice ${i.number} marked as paid'); render()">
+      <div class="space-y-1.5"><label class="lbl" for="pay-method">Method</label>
+        <select id="pay-method" class="inp"><option>Transfer</option><option>Cash</option><option>Other</option></select></div>
+      <div class="space-y-1.5"><label class="lbl" for="pay-ref">Reference (optional)</label><input id="pay-ref" class="inp" placeholder="Transaction reference"></div>
+      <div class="flex justify-end gap-2 pt-1"><button type="button" class="btn btn-line" onclick="closeModal()">Cancel</button>
+      <button type="submit" class="btn btn-ink">Mark as paid</button></div>
+    </form>`);
+}
+function voidInvoice(id) {
+  const i = INVOICES.find(x => x.id === id);
+  if (!confirm(`Void invoice ${i.number}?`)) return;
+  i.status = "VOID";
+  toast(`Invoice ${i.number} voided`);
+  render();
+}
+function viewRequests() {
+  return `<div class="ledger-wrap"><table class="ledger">
+    <thead><tr><th>Tenant</th><th>Requested plan</th><th>Note</th><th>Status</th><th>Created</th><th></th></tr></thead>
+    <tbody>${REQUESTS.map(r => `<tr>
+      <td><div class="font-medium">${r.tenant}</div><div class="text-[12px] text-mutedfg">${r.slug}</div></td>
+      <td><div>${r.plan}</div><div class="font-mono text-[12px] text-mutedfg">${idr(r.price)}</div></td>
+      <td class="max-w-xs truncate text-[12.5px] text-mutedfg">${r.note || "-"}</td>
+      <td>${statusPill(r.status === "DONE" ? "ok" : r.status === "REJECTED" ? "off" : "warn", r.status[0] + r.status.slice(1).toLowerCase())}</td>
+      <td class="whitespace-nowrap font-mono text-[12px] text-mutedfg">${r.created}</td>
+      <td class="tr">${r.status === "NEW" ? `<button class="btn btn-ghost" onclick="reqStatus('${r.id}', 'Contacted')">Contact</button>` : ""}
+        ${(r.status === "NEW" || r.status === "CONTACTED") ? `<button class="btn btn-ghost go" onclick="reqStatus('${r.id}', 'Done')">Done</button>
+        <button class="btn btn-ghost danger" onclick="reqStatus('${r.id}', 'Rejected')">Reject</button>` : ""}</td></tr>`).join("")}
+    </tbody></table></div>`;
+}
+function reqStatus(id, s) {
+  REQUESTS.find(r => r.id === id).status = s.toUpperCase();
+  toast("Request marked " + s.toLowerCase());
+  render();
+}
+function viewBillingSettings() {
+  return `<form class="rounded-xl border border-border bg-card p-5" onsubmit="event.preventDefault(); toast('Billing settings saved')">
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div class="space-y-1.5"><label class="lbl" for="bank-name">Bank</label><input id="bank-name" class="inp" value="BCA"></div>
+      <div class="space-y-1.5"><label class="lbl" for="bank-number">Account number</label><input id="bank-number" class="inp font-mono" value="1234567890"></div>
+      <div class="space-y-1.5"><label class="lbl" for="bank-holder">Account holder</label><input id="bank-holder" class="inp" value="PT CSQ Indonesia"></div>
+      <div class="space-y-1.5"><label class="lbl" for="due-days">Due days</label><input id="due-days" type="number" min="1" max="90" class="inp" value="7"></div>
+      <div class="space-y-1.5"><label class="lbl" for="grace-days">Grace days</label><input id="grace-days" type="number" min="0" max="90" class="inp" value="7"></div>
+    </div>
+    <div class="mt-4 flex items-center justify-between">
+      <p class="text-[11.5px] text-mutedfg">Leave the bank blank to show "Contact admin" in the tenant app.</p>
+      <button type="submit" class="btn btn-ink">Save</button>
+    </div></form>`;
+}
+function modalInvoice(prefTenant) {
+  openModal(modalHead("Billing", "New invoice") + `
+    <form class="space-y-4 p-5" onsubmit="event.preventDefault(); this.reportValidity() && (INVOICES.push({ id: 'i' + Date.now(), number: 'INV-202611-000' + (INVOICES.length + 1), tenant: this.tenant.value, plan: 'Manual', period: '1 Nov - 30 Nov 2026', amount: parseInt(this.amount.value) || 0, status: 'ISSUED', due: '29 Nov 2026', paid: null }), closeModal(), toast('Invoice created'), render())">
+      <div class="space-y-1.5"><label class="lbl" for="inv-tenant">Tenant</label>
+        <select id="inv-tenant" class="inp" required><option value="">- select a tenant -</option>
+        ${TENANTS.map(t => `<option ${prefTenant === t.name ? "selected" : ""}>${t.name}</option>`).join("")}</select></div>
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div class="space-y-1.5"><label class="lbl" for="inv-plan">Plan</label><select id="inv-plan" class="inp"><option>Manual</option>${PLANS.map(p => `<option>${p.name}</option>`).join("")}</select></div>
+        <div class="space-y-1.5"><label class="lbl" for="inv-period">Period</label><input id="inv-period" type="month" class="inp" required value="2026-11"></div>
+      </div>
+      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div class="space-y-1.5"><label class="lbl" for="inv-amount">Amount (IDR)</label><input id="inv-amount" type="number" class="inp" required value="199000"></div>
+        <div class="space-y-1.5"><label class="lbl" for="inv-due">Due date</label><input id="inv-due" type="date" class="inp" value="2026-11-29"></div>
+      </div>
+      <div class="flex justify-end gap-2 pt-1"><button type="button" class="btn btn-line" onclick="closeModal()">Cancel</button>
+      <button type="submit" class="btn btn-ink">Create invoice</button></div>
+    </form>`);
+}
+
+function viewEmail() {
+  const configured = state.emailConfigured !== false;
+  return pageHead("Configuration", "Platform Email", "The default SMTP for all tenants. A tenant's own SMTP still takes precedence when configured.")
+    + (state.emailSaved ? `<div class="mb-4 rounded-xl border border-border border-l-2 border-l-ok bg-card px-5 py-3 text-[13px] text-ok">Platform SMTP saved. Tenants without their own SMTP now send through it.</div>` : "")
+    + `<div class="rounded-xl border border-border bg-card p-6">
+      <div class="mb-6 flex items-center gap-3">
+        <span class="flex h-10 w-10 items-center justify-center rounded-full bg-oksoft text-ok"><i class="ph-fill ph-envelope-simple text-xl"></i></span>
+        <div><p class="text-sm font-medium">${configured ? "Connected - SMTP (smtp.csq.id:587)" : "Not configured"}</p>
+        <p class="text-[13px] text-mutedfg">${configured ? "Sender: no-reply@csq.id" : "Staff invites and scenario Email modules do not send until this is configured (or the tenant sets its own SMTP)."}</p></div>
+        ${configured ? `<button class="btn btn-ghost danger ml-auto" onclick="state.emailConfigured = false; state.emailSaved = false; toast('Platform SMTP disconnected'); render()">Disconnect</button>` : ""}
+      </div>
+      <form class="max-w-xl space-y-4" onsubmit="event.preventDefault(); this.reportValidity() && (state.emailConfigured = true, state.emailSaved = true, toast('Platform SMTP saved'), render())">
+        <div><label class="lbl" for="smtp-host">SMTP host</label><input id="smtp-host" class="inp" required value="smtp.csq.id" placeholder="smtp.gmail.com"></div>
+        <div class="grid grid-cols-2 gap-4">
+          <div><label class="lbl" for="smtp-port">Port</label><input id="smtp-port" type="number" class="inp" required value="587" placeholder="587"></div>
+          <div><label class="lbl" for="smtp-secure">Security</label><select id="smtp-secure" class="inp"><option value="starttls">STARTTLS (587)</option><option value="ssl">SSL/TLS (465)</option></select></div>
+        </div>
+        <div><label class="lbl" for="smtp-username">Username</label><input id="smtp-username" class="inp" required value="no-reply@csq.id" placeholder="user@domain.com"></div>
+        <div><label class="lbl" for="smtp-password">Password ${configured ? '<span class="text-mutedfg">(leave blank to keep)</span>' : ""}</label>
+          <input id="smtp-password" type="password" class="inp" ${configured ? "" : "required"} placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;"></div>
+        <div><label class="lbl" for="smtp-from">From address</label><input id="smtp-from" type="email" class="inp" required value="no-reply@csq.id" placeholder="no-reply@csq.id"></div>
+        <div class="pt-2"><button type="submit" class="btn btn-ink">Save platform SMTP</button></div>
+      </form>
+    </div>
+    <div class="mt-6 rounded-xl border border-border bg-card p-6">
+      <p class="mb-1 text-sm font-medium">Send a test email</p>
+      <p class="mb-4 text-[13px] text-mutedfg">Sends one test message through the saved platform SMTP, to any address.</p>
+      <form class="flex max-w-xl items-end gap-3" onsubmit="event.preventDefault(); this.reportValidity() && (toast('Test email sent to ' + this.to.value + ' (ID: 3f2a1b0c)'), this.reset())">
+        <div class="flex-1"><label class="lbl" for="test-to">Recipient</label><input id="test-to" type="email" class="inp" required placeholder="name@example.com"></div>
+        <button type="submit" class="btn btn-line" ${configured ? "" : "disabled"}>Send test email</button>
+      </form>
+    </div>`;
+}
+
+function viewAdmins() {
+  return pageHead("Configuration", "Admins", `${ADMINS.length} platform operators`,
+      `<button class="btn btn-ink" onclick="modalAdmin()"><i class="ph ph-plus text-sm font-bold"></i>New admin</button>`)
+    + `<div class="ledger-wrap"><table class="ledger">
+      <thead><tr><th>Operator</th><th>Email</th><th>Since</th><th></th></tr></thead>
+      <tbody>${ADMINS.map(a => `<tr>
+        <td class="font-medium">${a.name}${a.id === "me" ? '<span class="ml-2 rounded-full bg-oksoft px-2 py-0.5 text-[11px] font-semibold text-ok">You</span>' : ""}</td>
+        <td class="text-[13px]">${a.email}</td>
+        <td class="font-mono text-[12.5px] text-mutedfg">${a.since}</td>
+        <td class="tr">${a.id !== "me" ? `<button class="btn btn-ghost danger" onclick="removeAdmin('${a.id}')">Remove</button>` : ""}</td></tr>`).join("")}
+      </tbody></table></div>`;
+}
+function modalAdmin() {
+  openModal(modalHead("Configuration", "New admin") + `
+    <form class="space-y-4 p-5" onsubmit="event.preventDefault(); this.reportValidity() && (ADMINS.push({ id: 'a' + Date.now(), name: this['a-name'].value, email: this['a-email'].value, since: '22 Nov 2026' }), closeModal(), toast('Admin added'), render())">
+      <div class="space-y-1.5"><label class="lbl" for="a-email">Email</label><input id="a-email" type="email" class="inp" required placeholder="operator@csq.id"></div>
+      <div class="space-y-1.5"><label class="lbl" for="a-name">Name</label><input id="a-name" class="inp" required placeholder="Operator name"></div>
+      <div class="space-y-1.5"><label class="lbl" for="a-pass">Password</label><input id="a-pass" type="password" class="inp" required minlength="8" placeholder="Minimum 8 characters"></div>
+      <div class="flex justify-end gap-2 pt-1"><button type="button" class="btn btn-line" onclick="closeModal()">Cancel</button>
+      <button type="submit" class="btn btn-ink">Add admin</button></div>
+    </form>`);
+}
+function removeAdmin(id) {
+  const a = ADMINS.find(x => x.id === id);
+  if (!confirm(`Remove admin ${a.name}?`)) return;
+  ADMINS.splice(ADMINS.indexOf(a), 1);
+  toast("Admin removed");
+  render();
+}
+
+/* ══════════ Boot ══════════ */
+let collapsed = false;
+function toggleSidebar() {
+  collapsed = !collapsed;
+  const sb = $("#sidebar");
+  sb.classList.toggle("w-14", collapsed); sb.classList.toggle("w-60", !collapsed);
+  document.querySelectorAll(".nav-label").forEach(el => el.classList.toggle("hidden", collapsed));
+  $("#sidebar-brand").classList.toggle("hidden", collapsed);
+}
+window.addEventListener("hashchange", route);
+route();
+</script>
+</body>
+</html>

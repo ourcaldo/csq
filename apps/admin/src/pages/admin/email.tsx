@@ -1,17 +1,13 @@
-import { type FormEvent, useEffect, useState } from "react";
-import type { ChangeEvent } from "react";
-import { EnvelopeSimple } from "@phosphor-icons/react";
+import { useEffect, useState } from "react";
+import type { ChangeEvent, FormEvent } from "react";
 import { AdminShell } from "@/components/admin-shell";
-import { Btn, PageHead } from "@/components/console";
+import { StatusLabel, btnPrimary, btnOutline } from "@/components/console";
+import { showToast } from "@/components/toast";
 import { withAdminAuth } from "@/lib/admin-auth";
 import { useAdminApi, adminFetch } from "@/lib/admin-api";
-import { Input } from "@csq/ui/components/ui/input";
-import { Label } from "@csq/ui/components/ui/label";
 
-// Platform email provider (owner request 2026-11-10): the platform SMTP.
-// Tenants with their own provider keep using it; every tenant without one
-// falls back to this. Staff invites and scenario Email nodes send through it.
-// Console copy is English (owner direction 2026-11-13).
+// Platform default SMTP (template viewEmail 1:1): two-column settings form,
+// connected status chip, disconnect + test send.
 
 type EmailStatus = {
   configured: boolean;
@@ -21,54 +17,36 @@ type EmailStatus = {
   port?: number;
   secure?: boolean;
   username?: string;
-  hasSecret?: boolean;
-};
-
-const EMPTY_FORM = {
-  host: "",
-  port: "587",
-  secure: false,
-  username: "",
-  password: "",
-  from: "",
 };
 
 export const getServerSideProps = withAdminAuth(async () => ({ props: {} }));
 
 export default function PlatformEmailPage() {
-  const { data, loading, error, refresh } = useAdminApi<EmailStatus>(
-    "/api/admin/email-settings"
-  );
-  const [form, setForm] = useState(EMPTY_FORM);
+  const { data, loading, error, refresh } = useAdminApi<EmailStatus>("/api/admin/email-settings");
+  const [form, setForm] = useState({ host: "", port: "587", secure: false, username: "", password: "", from: "" });
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
   const [testTo, setTestTo] = useState("");
   const [testing, setTesting] = useState(false);
   const [testInfo, setTestInfo] = useState<string | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
 
-  // Prefill non-secret fields from the saved config so editing the host or
-  // sender never requires re-entering the password.
   useEffect(() => {
-    if (data?.configured) {
-      setForm((f) => ({
-        ...f,
-        host: data.host ?? f.host,
-        port: data.port !== undefined ? String(data.port) : f.port,
-        secure: data.secure ?? f.secure,
-        username: data.username ?? f.username,
-        from: data.from ?? f.from,
-      }));
-    }
+    if (!data?.configured) return;
+    setForm((f) => ({
+      ...f,
+      host: data.host ?? f.host,
+      port: data.port !== undefined ? String(data.port) : f.port,
+      secure: data.secure ?? f.secure,
+      username: data.username ?? f.username,
+      from: data.from ?? f.from,
+    }));
   }, [data]);
 
-  async function save(e: FormEvent) {
+  async function save(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (busy) return;
     setBusy(true);
     setFormError(null);
-    setSaved(false);
     try {
       await adminFetch("/api/admin/email-settings", "PUT", {
         type: "SMTP",
@@ -76,12 +54,11 @@ export default function PlatformEmailPage() {
         port: form.port,
         secure: form.secure,
         username: form.username,
-        // Blank keeps the stored password server-side.
         ...(form.password ? { password: form.password } : {}),
         from: form.from,
       });
       setForm((f) => ({ ...f, password: "" }));
-      setSaved(true);
+      showToast("Platform SMTP saved");
       refresh();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Failed to save the platform SMTP.");
@@ -91,22 +68,21 @@ export default function PlatformEmailPage() {
   }
 
   async function disconnect() {
-    if (busy) return;
     setBusy(true);
     setFormError(null);
-    setSaved(false);
     try {
       await adminFetch("/api/admin/email-settings", "DELETE");
-      setForm(EMPTY_FORM);
+      setForm({ host: "", port: "587", secure: false, username: "", password: "", from: "" });
+      showToast("Platform SMTP disconnected");
       refresh();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Failed to disconnect the platform SMTP.");
+      setFormError(err instanceof Error ? err.message : "Failed to disconnect.");
     } finally {
       setBusy(false);
     }
   }
 
-  async function sendTest(e: FormEvent) {
+  async function sendTest(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (testing || !testTo.trim()) return;
     setTesting(true);
@@ -126,161 +102,197 @@ export default function PlatformEmailPage() {
     }
   }
 
+  const bind = (key: "host" | "port" | "username" | "password" | "from") => ({
+    value: form[key],
+    onChange: (e: ChangeEvent<HTMLInputElement>) => setForm({ ...form, [key]: e.target.value }),
+  });
+
   return (
-    <AdminShell title="Email">
-      <PageHead
-        eyebrow="Configuration"
-        title="Platform Email"
-        sub="The default SMTP for all tenants. A tenant's own SMTP still takes precedence when configured."
-      />
+    <AdminShell title="Platform Email">
+      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-5">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Platform Default SMTP</h1>
+          <p className="mt-1 text-xs text-slate-500">
+            Global fallback mail relay for tenant invitations, password resets, and scenario email actions.
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          {loading ? (
+            <StatusLabel tone="off">Loading...</StatusLabel>
+          ) : data?.configured ? (
+            <StatusLabel tone="ok">
+              Connected ({data.host}:{data.port})
+            </StatusLabel>
+          ) : (
+            <StatusLabel tone="warn">Not Configured</StatusLabel>
+          )}
+          {data?.configured && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void disconnect()}
+              className="text-xs font-medium text-red-600 hover:underline disabled:opacity-40"
+            >
+              Disconnect
+            </button>
+          )}
+        </div>
+      </div>
 
       {(formError || error) && (
-        <div className="mb-4 rounded-xl border border-border border-l-2 border-l-bad bg-card px-5 py-3 text-[13px] text-bad">
+        <div className="mt-5 rounded-md border border-slate-200 border-l-2 border-l-red-500 bg-card px-4 py-2.5 text-xs text-red-600">
           {formError ?? error}
         </div>
       )}
-      {saved && (
-        <div className="mb-4 rounded-xl border border-border border-l-2 border-l-ok bg-card px-5 py-3 text-[13px] text-ok">
-          Platform SMTP saved. Tenants without their own SMTP now send through it.
-        </div>
-      )}
 
-      <div className="rounded-xl border border-border bg-card p-6">
-        <div className="mb-6 flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-signal-soft text-primary">
-            <EnvelopeSimple size={20} weight="fill" />
-          </span>
-          <div>
-            <p className="text-sm font-medium">
-              {loading
-                ? "Loading..."
-                : data?.configured
-                  ? `Connected - ${data.type} ${data.host ? `(${data.host}:${data.port})` : ""}`
-                  : "Not configured"}
-            </p>
-            <p className="text-[13px] text-muted-foreground">
-              {data?.configured
-                ? `Sender: ${data.from}`
-                : "Staff invites and scenario Email modules do not send until this is configured (or the tenant sets its own SMTP)."}
+      <form onSubmit={save} className="divide-y divide-slate-200">
+        <div className="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
+          <div className="md:col-span-4">
+            <span className="text-xs font-semibold text-slate-900">SMTP Server Endpoint</span>
+            <p className="mt-1 text-xs leading-relaxed text-slate-500">
+              Tenant-level custom SMTP gateways still override this global relay when configured.
             </p>
           </div>
-          {data?.configured && (
-            <Btn variant="ghost" disabled={busy} onClick={() => void disconnect()} className="ml-auto hover:text-bad">
-              Disconnect
-            </Btn>
-          )}
-        </div>
-
-        <form onSubmit={save} className="max-w-xl space-y-4">
-          <div>
-            <Label htmlFor="smtp-host">SMTP host</Label>
-            <Input
-              id="smtp-host"
-              required
-              value={form.host}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, host: e.target.value }))}
-              placeholder="smtp.gmail.com"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="smtp-port">Port</Label>
-              <Input
-                id="smtp-port"
-                required
-                type="number"
-                value={form.port}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, port: e.target.value }))}
-                placeholder="587"
-              />
+          <div className="max-w-md space-y-3.5 md:col-span-8">
+            <div className="grid grid-cols-3 gap-3">
+              <div className="col-span-2">
+                <label htmlFor="smtp-host" className="block text-xs font-medium text-slate-700">
+                  SMTP Host <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="smtp-host"
+                  type="text"
+                  required
+                  placeholder="smtp.gmail.com"
+                  className="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-card px-3 font-mono text-xs text-slate-900 focus:border-emerald-600 focus:outline-none"
+                  {...bind("host")}
+                />
+              </div>
+              <div>
+                <label htmlFor="smtp-port" className="block text-xs font-medium text-slate-700">
+                  Port <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="smtp-port"
+                  type="number"
+                  required
+                  className="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-card px-3 font-mono text-xs text-slate-900 focus:border-emerald-600 focus:outline-none"
+                  {...bind("port")}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label htmlFor="smtp-username" className="block text-xs font-medium text-slate-700">
+                  Username <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="smtp-username"
+                  type="text"
+                  required
+                  placeholder="user@domain.com"
+                  className="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-card px-3 text-xs text-slate-900 focus:border-emerald-600 focus:outline-none"
+                  {...bind("username")}
+                />
+              </div>
+              <div>
+                <label htmlFor="smtp-password" className="block text-xs font-medium text-slate-700">
+                  Password {data?.configured ? <span className="text-slate-400">(leave blank to keep)</span> : <span className="text-red-500">*</span>}
+                </label>
+                <input
+                  id="smtp-password"
+                  type="password"
+                  required={!data?.configured}
+                  placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;"
+                  className="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-card px-3 text-xs text-slate-900 focus:border-emerald-600 focus:outline-none"
+                  {...bind("password")}
+                />
+              </div>
             </div>
             <div>
-              <Label htmlFor="smtp-secure">Security</Label>
+              <label htmlFor="smtp-secure" className="block text-xs font-medium text-slate-700">
+                Security
+              </label>
               <select
                 id="smtp-secure"
                 value={form.secure ? "ssl" : "starttls"}
-                onChange={(e: ChangeEvent<HTMLSelectElement>) => setForm((f) => ({ ...f, secure: e.target.value === "ssl" }))}
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                onChange={(e) => setForm({ ...form, secure: e.target.value === "ssl" })}
+                className="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-card px-3 text-xs text-slate-900 focus:border-emerald-600 focus:outline-none"
               >
                 <option value="starttls">STARTTLS (587)</option>
                 <option value="ssl">SSL/TLS (465)</option>
               </select>
             </div>
+            <div>
+              <label htmlFor="smtp-from" className="block text-xs font-medium text-slate-700">
+                Default From Address <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="smtp-from"
+                type="email"
+                required
+                placeholder="no-reply@csq.id"
+                className="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-card px-3 text-xs text-slate-900 focus:border-emerald-600 focus:outline-none"
+                {...bind("from")}
+              />
+            </div>
           </div>
-          <div>
-            <Label htmlFor="smtp-username">Username</Label>
-            <Input
-              id="smtp-username"
-              required
-              value={form.username}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, username: e.target.value }))}
-              placeholder="user@domain.com"
-            />
-          </div>
-          <div>
-            <Label htmlFor="smtp-password">
-              Password {data?.configured && <span className="text-muted-foreground">(leave blank to keep)</span>}
-            </Label>
-            <Input
-              id="smtp-password"
-              type="password"
-              required={!data?.configured}
-              value={form.password}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, password: e.target.value }))}
-              placeholder="••••••••"
-            />
-          </div>
-          <div>
-            <Label htmlFor="smtp-from">From address</Label>
-            <Input
-              id="smtp-from"
-              required
-              type="email"
-              value={form.from}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, from: e.target.value }))}
-              placeholder="no-reply@csq.id"
-            />
-          </div>
-          <div className="pt-2">
-            <Btn type="submit" disabled={busy}>
-              {busy ? "Saving..." : "Save platform SMTP"}
-            </Btn>
-          </div>
-        </form>
-      </div>
+        </div>
 
-      {/* Test-send through the saved platform SMTP - the exact provider every
-          tenant fallback send uses. */}
-      <div className="mt-6 rounded-xl border border-border bg-card p-6">
-        <p className="mb-1 text-sm font-medium">Send a test email</p>
-        <p className="mb-4 text-[13px] text-muted-foreground">
+        <div className="flex flex-wrap items-center justify-end gap-2.5 py-5">
+          <button
+            type="button"
+            disabled={!data?.configured}
+            onClick={() => {
+              setTestTo("");
+              setTestError(null);
+              setTestInfo(null);
+              document.getElementById("test-to")?.focus();
+            }}
+            className={btnOutline("px-3.5 py-2")}
+          >
+            Send Test Email
+          </button>
+          <button type="submit" disabled={busy} className={btnPrimary("px-4 py-2")}>
+            {busy ? "Saving..." : "Save Platform SMTP"}
+          </button>
+        </div>
+      </form>
+
+      {/* Test-send section */}
+      <div className="mt-6 rounded-md border border-slate-200 p-4">
+        <p className="text-xs font-semibold text-slate-900">Send a test email</p>
+        <p className="mt-0.5 text-xs text-slate-500">
           Sends one test message through the saved platform SMTP, to any address.
         </p>
         {testInfo && (
-          <div className="mb-4 rounded-md border border-ok/40 bg-ok/10 px-4 py-2 text-[13px] text-ok">
+          <div className="mt-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
             {testInfo}
           </div>
         )}
         {testError && (
-          <div className="mb-4 rounded-md border border-bad/40 bg-bad/10 px-4 py-2 text-[13px] text-bad">
+          <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
             {testError}
           </div>
         )}
-        <form onSubmit={sendTest} className="flex max-w-xl items-end gap-3">
+        <form onSubmit={sendTest} className="mt-3 flex max-w-xl items-end gap-2.5">
           <div className="flex-1">
-            <Label htmlFor="test-to">Recipient</Label>
-            <Input
+            <label htmlFor="test-to" className="block text-xs font-medium text-slate-700">
+              Recipient
+            </label>
+            <input
               id="test-to"
               type="email"
               required
               value={testTo}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setTestTo(e.target.value)}
+              onChange={(e) => setTestTo(e.target.value)}
               placeholder="name@example.com"
+              className="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-card px-3 text-xs text-slate-900 focus:border-emerald-600 focus:outline-none"
             />
           </div>
-          <Btn type="submit" variant="line" disabled={testing || !data?.configured}>
-            {testing ? "Sending..." : "Send test email"}
-          </Btn>
+          <button type="submit" disabled={testing || !data?.configured} className={btnOutline("px-3.5 py-2")}>
+            {testing ? "Sending..." : "Send Test"}
+          </button>
         </form>
       </div>
     </AdminShell>

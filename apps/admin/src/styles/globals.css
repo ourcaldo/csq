@@ -4,95 +4,60 @@
 @tailwind components;
 @tailwind utilities;
 
-/* CSQ Console - "Ledger" direction.
-   Warm paper, ink, hairline rules, mono numerals, one signal color (green).
-   No icon-in-a-box decoration, no soft shadow stacks. Information lives in
-   type and rules. */
+/* CSQ Admin Console - "Enterprise Control Plane" direction (2026-11-22,
+   owner-approved template docs/demo/csq_admin_console_enterprise_control_plane.html).
+   Sits on the shared @csq/ui slate+green token theme; this file only adds
+   the semantic state tokens the tailwind config maps (ok/warn/bad/panel/
+   signal) and the template's component CSS. */
+
 :root {
-  --background: 0 0% 96.5%;
-  --panel: 0 0% 98.5%;
-  --foreground: 222 10% 13%;
-  --card: 0 0% 100%;
-  --card-foreground: 222 10% 13%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 222 10% 13%;
-  --primary: 142 76% 36%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 220 6% 96.7%;
-  --secondary-foreground: 222 10% 13%;
-  --muted: 220 6% 96.7%;
-  --muted-foreground: 220 6% 47%;
-  --accent: 220 6% 96.7%;
-  --accent-foreground: 222 10% 13%;
-  --destructive: 0 72% 51%;
-  --destructive-foreground: 0 0% 100%;
-  --border: 220 6% 92.5%;
-  --input: 220 6% 90%;
-  --ring: 142 76% 36%;
-  --signal: 142 76% 36%;
-  --signal-soft: 145 60% 94%;
-  --ok: 142 76% 36%;
+  --panel: 210 40% 98%;
+  --signal: 142 71% 40%;
+  --signal-soft: 142 77% 94%;
+  --ok: 142 71% 40%;
   --warn: 38 92% 50%;
   --bad: 0 72% 51%;
-  --ink: 0 0% 100%;
-  --brand: 142 76% 36%;
-  --brand-soft: 145 60% 94%;
-  --brand-ink: 150 60% 18%;
 }
 
 body {
-  font-feature-settings: "ss02";
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(215 20% 78%);
+  border-radius: 9999px;
 }
 
 @layer components {
-  .eyebrow {
-    font-size: 10.5px;
+  /* Underline tab used by Billing and Audit (template .tab-btn). */
+  .tab-btn {
+    position: relative;
+    padding: 0.65rem 0.25rem;
+    font-size: 0.8125rem;
     font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.14em;
-    color: hsl(var(--muted-foreground));
+    color: hsl(215 16% 47%);
+    transition: color 0.15s ease;
+    cursor: pointer;
   }
-
-  /* The ledger table: the console's main surface. */
-  .ledger {
-    width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
-    overflow: hidden;
-    font-size: 14px;
-    background: hsl(var(--card));
-    border: 1px solid hsl(var(--border));
-    border-radius: 12px;
+  .tab-btn:hover {
+    color: hsl(222 47% 11%);
   }
-  .ledger th {
-    padding: 12px 20px;
-    border-bottom: 1px solid hsl(var(--border));
-    font-size: 10.5px;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: hsl(var(--muted-foreground));
-    text-align: left;
-    white-space: nowrap;
+  .tab-btn.active {
+    color: hsl(222 47% 11%);
+    font-weight: 600;
   }
-  /* Tailwind v3 has no cascade layers, so .ledger th (0,1,1) beats the
-     .text-right utility (0,1,0). Numeric headers need this explicit rule. */
-  .ledger th.text-right {
-    text-align: right;
-  }
-  .ledger td {
-    padding: 14px 20px;
-    border-bottom: 1px solid hsl(var(--border));
-    vertical-align: middle;
-  }
-  .ledger tbody tr:last-child td {
-    border-bottom: 0;
-  }
-  .ledger tbody tr {
-    transition: background-color 120ms;
-  }
-  .ledger tbody tr:hover {
-    background-color: hsl(var(--accent));
+  .tab-btn.active::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    background-color: hsl(var(--primary));
   }
 }
 
@@ -105,7 +70,7 @@ body {
     opacity: 0.35;
   }
 }
-.live {
+.live-dot {
   animation: pulse-dot 1.8s ease-in-out infinite;
 }
 
@@ -125,7 +90,7 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .rise,
-  .live {
+  .live-dot {
     animation: none;
   }
 }

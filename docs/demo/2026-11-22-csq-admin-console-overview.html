@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en" class="antialiased">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Overview — CSQ Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+          mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        },
+        colors: {
+          background: 'hsl(0 0% 96.5%)',
+          panel: 'hsl(0 0% 98.5%)',
+          card: 'hsl(0 0% 100%)',
+          foreground: 'hsl(222 10% 13%)',
+          muted: 'hsl(220 6% 96.7%)',
+          mutedfg: 'hsl(222 10% 47%)',
+          border: 'hsl(220 6% 92.5%)',
+          ok: 'hsl(142 76% 36%)',
+          oksoft: 'hsl(145 60% 94%)',
+          warn: 'hsl(38 92% 50%)',
+          bad: 'hsl(0 72% 51%)',
+        }
+      }
+    }
+  }
+</script>
+<style>
+  body { font-feature-settings: "ss02"; background: hsl(0 0% 96.5%); }
+  .eyebrow {
+    font-size: 10.5px; font-weight: 500; text-transform: uppercase;
+    letter-spacing: 0.14em; color: hsl(222 10% 47%);
+  }
+  .pill {
+    display: inline-flex; align-items: center; gap: 0.375rem;
+    border-radius: 9999px; padding: 0.125rem 0.5rem;
+    font-size: 11.5px; font-weight: 500; --tw-ring-offset-width: 0px;
+    box-shadow: 0 0 0 1px var(--ring-c, transparent);
+  }
+  .pill-ok   { background: hsl(145 60% 94%); color: hsl(142 76% 36%); --ring-c: hsl(142 76% 36% / 0.2); }
+  .pill-off  { background: hsl(220 6% 96.7%); color: hsl(222 10% 47%); --ring-c: hsl(220 6% 92.5%); }
+  .pill-warn { background: hsl(220 6% 96.7%); color: hsl(222 10% 13%); --ring-c: hsl(220 6% 92.5%); }
+  .pill-bad  { background: hsl(0 72% 51% / 0.08); color: hsl(0 72% 51%); --ring-c: hsl(0 72% 51% / 0.2); }
+  .dot { width: 0.375rem; height: 0.375rem; border-radius: 9999px; flex-shrink: 0; }
+  .nav-item {
+    display: flex; align-items: center; gap: 0.625rem; height: 2rem;
+    border-radius: 0.375rem; padding: 0 0.5rem; font-size: 13.5px;
+    color: hsl(222 10% 47%); transition: background-color 120ms, color 120ms;
+    cursor: pointer;
+  }
+  .nav-item:hover { background: hsl(220 6% 96.7% / 0.6); color: hsl(222 10% 13%); }
+  .nav-item.active {
+    background: hsl(0 0% 100%); color: hsl(222 10% 13%); font-weight: 500;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.06), 0 0 0 1px hsl(220 6% 92.5%);
+  }
+  .btn-ink  { background: hsl(222 10% 13%); color: hsl(0 0% 96.5%); }
+  .btn-ink:hover { background: hsl(222 10% 13% / 0.85); }
+  .btn-line { background: hsl(0 0% 100%); box-shadow: 0 0 0 1px hsl(220 6% 92.5%); }
+  .btn-line:hover { background: hsl(220 6% 96.7%); }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 0.375rem;
+    height: 2.25rem; border-radius: 9999px; padding: 0 1rem;
+    font-size: 13px; font-weight: 500; transition: background-color 120ms;
+    cursor: pointer;
+  }
+  .bar { transition: background-color 120ms; }
+  .bar:hover { background: hsl(222 10% 13% / 0.7); }
+  .bar-tip { display: none; }
+  .bar:hover + .bar-tip, .bar-tip:hover { display: block; }
+  @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+  .live { animation: pulse-dot 1.8s ease-in-out infinite; }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .rise { animation: rise 380ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+  @media (prefers-reduced-motion: reduce) { .rise, .live { animation: none; } }
+</style>
+</head>
+<body class="font-sans text-foreground">
+
+<div class="flex min-h-screen w-full bg-background p-2">
+
+  <!-- ══════════ Sidebar ══════════ -->
+  <aside id="sidebar" class="sticky top-2 hidden h-[calc(100vh-1rem)] w-60 shrink-0 flex-col transition-all duration-200 md:flex">
+    <div class="flex h-12 items-center gap-2 px-3">
+      <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-ok text-[11px] font-bold text-white">C</span>
+      <span id="sidebar-brand" class="text-[15px] font-semibold tracking-tight">CSQ <span class="font-normal text-mutedfg">Console</span></span>
+    </div>
+
+    <nav class="mt-3 flex-1 space-y-5 overflow-y-auto px-2">
+      <div class="mb-5">
+        <div class="eyebrow px-2 pb-1.5">Platform</div>
+        <div class="space-y-0.5">
+          <a class="nav-item active"><i class="ph ph-squares-four text-base"></i><span class="nav-label">Overview</span></a>
+          <a class="nav-item"><i class="ph ph-storefront text-base"></i><span class="nav-label">Tenants</span></a>
+          <a class="nav-item"><i class="ph ph-chat-circle-dots text-base"></i><span class="nav-label">Channels</span></a>
+        </div>
+      </div>
+      <div class="mb-5">
+        <div class="eyebrow px-2 pb-1.5">Operations</div>
+        <div class="space-y-0.5">
+          <a class="nav-item"><i class="ph ph-pulse text-base"></i><span class="nav-label">Operations</span></a>
+          <a class="nav-item"><i class="ph ph-shield-check text-base"></i><span class="nav-label">Guardrails</span></a>
+          <a class="nav-item"><i class="ph ph-scroll text-base"></i><span class="nav-label">Audit</span></a>
+        </div>
+      </div>
+      <div class="mb-5">
+        <div class="eyebrow px-2 pb-1.5">Configuration</div>
+        <div class="space-y-0.5">
+          <a class="nav-item"><i class="ph ph-key text-base"></i><span class="nav-label">API Keys</span></a>
+          <a class="nav-item"><i class="ph ph-tag text-base"></i><span class="nav-label">Plans &amp; Usage</span></a>
+          <a class="nav-item"><i class="ph ph-receipt text-base"></i><span class="nav-label">Billing</span></a>
+          <a class="nav-item"><i class="ph ph-envelope-simple text-base"></i><span class="nav-label">Email</span></a>
+          <a class="nav-item"><i class="ph ph-users-three text-base"></i><span class="nav-label">Admins</span></a>
+        </div>
+      </div>
+    </nav>
+
+    <div class="flex items-center gap-2.5 px-2 py-2">
+      <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-card text-[11px] font-semibold ring-1 ring-border">OP</span>
+      <span class="min-w-0 flex-1 nav-label">
+        <span class="block truncate text-[13px] font-medium">Operator Prima</span>
+        <span class="block truncate text-[11.5px] text-mutedfg">Administrator</span>
+      </span>
+      <button aria-label="Sign out" class="rounded-md p-1.5 text-mutedfg hover:bg-card hover:text-foreground">
+        <i class="ph ph-sign-out text-[15px]"></i>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ══════════ Main ══════════ -->
+  <div class="flex min-w-0 flex-1 flex-col md:pl-2">
+
+    <header class="flex h-12 items-center gap-3 px-2">
+      <button onclick="toggleSidebar()" aria-label="Toggle sidebar" class="hidden rounded-md p-1.5 text-mutedfg hover:bg-card hover:text-foreground md:block">
+        <i class="ph ph-sidebar-simple text-base"></i>
+      </button>
+      <span class="hidden h-4 w-px bg-border md:block"></span>
+      <div class="flex min-w-0 items-center gap-1.5 text-[13px]">
+        <span class="eyebrow hidden sm:block">Platform</span>
+        <i class="ph ph-caret-right text-[13px] hidden text-mutedfg sm:block"></i>
+        <span class="truncate font-medium">Overview</span>
+      </div>
+      <div class="ml-auto flex items-center gap-3">
+        <span class="hidden font-mono text-[11.5px] text-mutedfg lg:block">operator@csq.id</span>
+        <button aria-label="Sign out" class="rounded-full p-2 text-mutedfg hover:bg-card hover:text-foreground md:hidden">
+          <i class="ph ph-sign-out text-base"></i>
+        </button>
+      </div>
+    </header>
+
+    <main class="flex-1 rounded-2xl border border-border bg-panel p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] md:p-6">
+      <!-- mobile nav strip -->
+      <nav class="mb-5 flex gap-1 overflow-x-auto md:hidden">
+        <a class="whitespace-nowrap rounded-full bg-foreground px-3 py-1 text-[12.5px] font-medium text-background">Overview</a>
+        <a class="whitespace-nowrap rounded-full bg-card px-3 py-1 text-[12.5px] text-mutedfg ring-1 ring-border">Tenants</a>
+        <a class="whitespace-nowrap rounded-full bg-card px-3 py-1 text-[12.5px] text-mutedfg ring-1 ring-border">Channels</a>
+        <a class="whitespace-nowrap rounded-full bg-card px-3 py-1 text-[12.5px] text-mutedfg ring-1 ring-border">Operations</a>
+        <a class="whitespace-nowrap rounded-full bg-card px-3 py-1 text-[12.5px] text-mutedfg ring-1 ring-border">Audit</a>
+      </nav>
+
+      <div class="rise mx-auto max-w-[1240px]">
+
+        <!-- Page head -->
+        <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <div class="eyebrow mb-1.5">Platform</div>
+            <h1 class="text-[28px] font-bold leading-tight tracking-tight">Operator Prima, here is CSQ today</h1>
+            <p class="mt-1 text-[13.5px] text-mutedfg">A snapshot of today, and how the last 30 days are going.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <a class="btn btn-ink"><i class="ph ph-plus text-sm"></i>New tenant</a>
+          </div>
+        </div>
+
+        <!-- Top stats -->
+        <div class="mb-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
+          <div class="rounded-xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <div class="flex items-center gap-2.5">
+              <span class="flex h-7 w-7 items-center justify-center rounded-md ring-1 ring-border"><i class="ph ph-storefront text-sm"></i></span>
+              <span class="text-[10.5px] font-semibold uppercase tracking-[0.14em]">Active tenants</span>
+            </div>
+            <div class="mt-4 font-mono text-[30px] font-medium leading-none tracking-tight tabular-nums">14</div>
+            <div class="mt-2.5 text-[12px] text-mutedfg">2 suspended</div>
+          </div>
+          <div class="rounded-xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <div class="flex items-center gap-2.5">
+              <span class="flex h-7 w-7 items-center justify-center rounded-md ring-1 ring-border"><i class="ph ph-chat-circle-dots text-sm"></i></span>
+              <span class="text-[10.5px] font-semibold uppercase tracking-[0.14em]">Channels</span>
+            </div>
+            <div class="mt-4 font-mono text-[30px] font-medium leading-none tracking-tight tabular-nums">16</div>
+            <div class="mt-2.5 text-[12px] text-mutedfg">13 connected, 3 disconnected</div>
+          </div>
+          <div class="rounded-xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <div class="flex items-center gap-2.5">
+              <span class="flex h-7 w-7 items-center justify-center rounded-md ring-1 ring-border"><i class="ph ph-tray text-sm"></i></span>
+              <span class="text-[10.5px] font-semibold uppercase tracking-[0.14em]">Queue</span>
+            </div>
+            <div class="mt-4 font-mono text-[30px] font-medium leading-none tracking-tight tabular-nums">07</div>
+            <div class="mt-2.5 text-[12px] text-mutedfg">2 sending</div>
+          </div>
+          <div class="rounded-xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <div class="flex items-center gap-2.5">
+              <span class="flex h-7 w-7 items-center justify-center rounded-md ring-1 ring-border"><i class="ph ph-warning text-sm"></i></span>
+              <span class="text-[10.5px] font-semibold uppercase tracking-[0.14em]">Send failures</span>
+            </div>
+            <div class="mt-4 font-mono text-[30px] font-medium leading-none tracking-tight tabular-nums">03</div>
+            <div class="mt-2.5 text-[12px] text-mutedfg"><span class="text-bad font-medium">3 messages failed</span> - retry from Operations</div>
+          </div>
+        </div>
+
+        <!-- Current state KPIs -->
+        <div class="mb-4 rounded-2xl border border-border bg-panel p-4">
+          <div class="mb-3 flex items-center justify-between px-1">
+            <span class="eyebrow">Current state</span>
+            <span class="flex items-center gap-1.5 font-mono text-[11.5px] text-mutedfg"><span class="dot bg-ok live"></span>live</span>
+          </div>
+          <div class="grid grid-cols-2 gap-4 lg:grid-cols-5">
+            <div class="rounded-xl border border-border bg-card p-5">
+              <div class="flex items-center gap-2.5">
+                <span class="flex h-7 w-7 items-center justify-center rounded-md ring-1 ring-border"><i class="ph ph-user text-sm"></i></span>
+                <span class="text-[10.5px] font-semibold uppercase tracking-[0.14em]">Users</span>
+              </div>
+              <div class="mt-4 font-mono text-[30px] font-medium leading-none tracking-tight tabular-nums">38</div>
+              <div class="mt-2.5 text-[12px] text-mutedfg">Accounts across tenants</div>
+            </div>
+            <div class="rounded-xl border border-border bg-card p-5">
+              <div class="flex items-center gap-2.5">
+                <span class="flex h-7 w-7 items-center justify-center rounded-md ring-1 ring-border"><i class="ph ph-paper-plane-tilt text-sm"></i></span>
+                <span class="text-[10.5px] font-semibold uppercase tracking-[0.14em]">Messages (24h)</span>
+              </div>
+              <div class="mt-4 font-mono text-[30px] font-medium leading-none tracking-tight tabular-nums">412</div>
+              <div class="mt-2.5 text-[12px] text-mutedfg"><span class="font-medium text-foreground">37</span> new conversations</div>
+            </div>
+            <div class="rounded-xl border border-border bg-card p-5">
+              <div class="flex items-center gap-2.5">
+                <span class="flex h-7 w-7 items-center justify-center rounded-md ring-1 ring-border"><i class="ph ph-chat-circle-dots text-sm"></i></span>
+                <span class="text-[10.5px] font-semibold uppercase tracking-[0.14em]">Messages (7d)</span>
+              </div>
+              <div class="mt-4 font-mono text-[30px] font-medium leading-none tracking-tight tabular-nums">2,905</div>
+              <div class="mt-2.5 text-[12px] text-mutedfg"><span class="font-medium text-foreground">214</span> new conversations</div>
+            </div>
+            <div class="rounded-xl border border-border bg-card p-5">
+              <div class="flex items-center gap-2.5">
+                <span class="flex h-7 w-7 items-center justify-center rounded-md ring-1 ring-border"><i class="ph ph-tray text-sm"></i></span>
+                <span class="text-[10.5px] font-semibold uppercase tracking-[0.14em]">Command queue</span>
+              </div>
+              <div class="mt-4 font-mono text-[30px] font-medium leading-none tracking-tight tabular-nums">01</div>
+              <div class="mt-2.5 text-[12px] text-mutedfg">Channel commands waiting for the worker</div>
+            </div>
+            <div class="rounded-xl border border-border bg-card p-5">
+              <div class="flex items-center gap-2.5">
+                <span class="flex h-7 w-7 items-center justify-center rounded-md ring-1 ring-border"><i class="ph ph-clock text-sm"></i></span>
+                <span class="text-[10.5px] font-semibold uppercase tracking-[0.14em]">Scheduler leases</span>
+              </div>
+              <div class="mt-4 font-mono text-[30px] font-medium leading-none tracking-tight tabular-nums">00</div>
+              <div class="mt-2.5 text-[12px] text-mutedfg">Last tick 2m ago, 0 stale</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Last 30 days -->
+        <div class="mb-4 rounded-2xl border border-border bg-panel p-4">
+          <div class="mb-3 flex items-center justify-between px-1">
+            <span class="eyebrow">Last 30 days</span>
+          </div>
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div class="rounded-xl border border-border bg-card p-5">
+              <div class="flex items-center gap-2.5">
+                <span class="flex h-7 w-7 items-center justify-center rounded-md ring-1 ring-border"><i class="ph ph-paper-plane-tilt text-sm"></i></span>
+                <span class="text-[10.5px] font-semibold uppercase tracking-[0.14em]">Messages</span>
+              </div>
+              <div class="mt-4 font-mono text-[30px] font-medium leading-none tracking-tight tabular-nums">12,847</div>
+              <div class="mt-2.5 text-[12px] text-mutedfg"><span class="font-medium text-foreground">940</span> conversations served</div>
+            </div>
+            <div class="rounded-xl border border-border bg-card p-5">
+              <div class="flex items-center gap-2.5">
+                <span class="flex h-7 w-7 items-center justify-center rounded-md ring-1 ring-border"><i class="ph ph-robot text-sm"></i></span>
+                <span class="text-[10.5px] font-semibold uppercase tracking-[0.14em]">AI credits</span>
+              </div>
+              <div class="mt-4 font-mono text-[30px] font-medium leading-none tracking-tight tabular-nums">5,214</div>
+              <div class="mt-2.5 text-[12px] text-mutedfg"><span class="font-medium text-foreground">4,102</span> AI replies, <span class="font-medium text-foreground">9</span> scenario modules</div>
+            </div>
+            <div class="rounded-xl border border-border bg-card p-5">
+              <div class="flex items-center gap-2.5">
+                <span class="flex h-7 w-7 items-center justify-center rounded-md ring-1 ring-border"><i class="ph ph-folder-open text-sm"></i></span>
+                <span class="text-[10.5px] font-semibold uppercase tracking-[0.14em]">Media</span>
+              </div>
+              <div class="mt-4 font-mono text-[30px] font-medium leading-none tracking-tight tabular-nums">842.6<span class="text-[18px]"> MB</span></div>
+              <div class="mt-2.5 text-[12px] text-mutedfg">Total tenant media storage</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Chart -->
+        <div class="mb-4 rounded-xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <div class="mb-5 flex items-center justify-between">
+            <span class="eyebrow text-foreground">Messages per day</span>
+            <span class="font-mono text-[11.5px] text-mutedfg">12,847 messages in period</span>
+          </div>
+          <div class="flex gap-3" id="chart"></div>
+        </div>
+
+        <!-- Three columns -->
+        <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+
+          <!-- Needs attention -->
+          <div class="rounded-xl border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <div class="flex items-center justify-between border-b border-border px-5 py-3.5">
+              <span class="eyebrow text-foreground">Needs attention</span>
+              <a class="flex items-center gap-1 text-[12.5px] text-mutedfg hover:text-foreground">All channels <i class="ph ph-arrow-up-right text-[13px]"></i></a>
+            </div>
+            <div class="flex items-center gap-3 border-b border-border px-5 py-3">
+              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted ring-1 ring-border"><i class="ph ph-chat-circle-dots text-sm text-mutedfg"></i></span>
+              <div class="min-w-0 flex-1">
+                <div class="truncate text-[13.5px] font-medium">Toko Kopi Nusantara</div>
+                <div class="font-mono text-[11.5px] text-mutedfg">BAILEYS</div>
+              </div>
+              <span class="pill pill-warn"><span class="dot bg-warn"></span>CONNECTING</span>
+            </div>
+            <div class="flex items-center gap-3 border-b border-border px-5 py-3">
+              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted ring-1 ring-border"><i class="ph ph-chat-circle-dots text-sm text-mutedfg"></i></span>
+              <div class="min-w-0 flex-1">
+                <div class="truncate text-[13.5px] font-medium">Titik Nol English Course</div>
+                <div class="font-mono text-[11.5px] text-mutedfg">CLOUD_API</div>
+              </div>
+              <span class="pill pill-bad"><span class="dot bg-bad"></span>DISCONNECTED</span>
+            </div>
+            <div class="flex items-center gap-3 px-5 py-3">
+              <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted ring-1 ring-border"><i class="ph ph-chat-circle-dots text-sm text-mutedfg"></i></span>
+              <div class="min-w-0 flex-1">
+                <div class="truncate text-[13.5px] font-medium">Warung Sate Pak Man</div>
+                <div class="font-mono text-[11.5px] text-mutedfg">BAILEYS</div>
+              </div>
+              <span class="pill pill-bad"><span class="dot bg-bad"></span>DISCONNECTED</span>
+            </div>
+          </div>
+
+          <!-- Quotas -->
+          <div class="rounded-xl border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <div class="flex items-center justify-between border-b border-border px-5 py-3.5">
+              <span class="eyebrow text-foreground">Quotas</span>
+              <a class="flex items-center gap-1 text-[12.5px] text-mutedfg hover:text-foreground">Plans <i class="ph ph-arrow-up-right text-[13px]"></i></a>
+            </div>
+            <div class="flex items-center gap-3 border-b border-border px-5 py-3">
+              <div class="min-w-0 flex-1">
+                <div class="truncate text-[13.5px] font-medium">Toko Kopi Nusantara</div>
+                <div class="text-[11.5px] text-mutedfg">AI credits</div>
+              </div>
+              <span class="font-mono text-[11.5px] tabular-nums text-mutedfg">940/1,000</span>
+              <span class="pill pill-warn"><span class="dot bg-warn"></span>94%</span>
+            </div>
+            <div class="flex items-center gap-3 border-b border-border px-5 py-3">
+              <div class="min-w-0 flex-1">
+                <div class="truncate text-[13.5px] font-medium">Toko Kopi Nusantara</div>
+                <div class="text-[11.5px] text-mutedfg">MAU</div>
+              </div>
+              <span class="font-mono text-[11.5px] tabular-nums text-mutedfg">512/500</span>
+              <span class="pill pill-bad"><span class="dot bg-bad"></span>102%</span>
+            </div>
+            <div class="flex items-center gap-3 px-5 py-3">
+              <div class="min-w-0 flex-1">
+                <div class="truncate text-[13.5px] font-medium">Titik Nol English Course</div>
+                <div class="text-[11.5px] text-mutedfg">Staff</div>
+              </div>
+              <span class="font-mono text-[11.5px] tabular-nums text-mutedfg">9/10</span>
+              <span class="pill pill-warn"><span class="dot bg-warn"></span>90%</span>
+            </div>
+          </div>
+
+          <!-- Recent activity -->
+          <div class="rounded-xl border border-border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+            <div class="flex items-center justify-between border-b border-border px-5 py-3.5">
+              <span class="eyebrow text-foreground">Recent activity</span>
+              <a class="flex items-center gap-1 text-[12.5px] text-mutedfg hover:text-foreground">Audit log <i class="ph ph-arrow-up-right text-[13px]"></i></a>
+            </div>
+            <div class="flex items-center gap-3 border-b border-border px-5 py-3">
+              <span class="dot bg-mutedfg/50"></span>
+              <span class="flex-1 truncate font-mono text-[12px]">tenant.create</span>
+              <span class="font-mono text-[11.5px] text-mutedfg">14:02</span>
+            </div>
+            <div class="flex items-center gap-3 border-b border-border px-5 py-3">
+              <span class="dot bg-mutedfg/50"></span>
+              <span class="flex-1 truncate font-mono text-[12px]">plan.assign</span>
+              <span class="font-mono text-[11.5px] text-mutedfg">13:48</span>
+            </div>
+            <div class="flex items-center gap-3 border-b border-border px-5 py-3">
+              <span class="dot bg-bad"></span>
+              <span class="flex-1 truncate font-mono text-[12px]">outbox.send_error</span>
+              <span class="font-mono text-[11.5px] text-mutedfg">13:31</span>
+            </div>
+            <div class="flex items-center gap-3 border-b border-border px-5 py-3">
+              <span class="dot bg-mutedfg/50"></span>
+              <span class="flex-1 truncate font-mono text-[12px]">tenant.suspend</span>
+              <span class="font-mono text-[11.5px] text-mutedfg">11:17</span>
+            </div>
+            <div class="flex items-center gap-3 border-b border-border px-5 py-3">
+              <span class="dot bg-mutedfg/50"></span>
+              <span class="flex-1 truncate font-mono text-[12px]">channel.reconnect</span>
+              <span class="font-mono text-[11.5px] text-mutedfg">10:55</span>
+            </div>
+            <div class="flex items-center gap-3 px-5 py-3">
+              <span class="dot bg-mutedfg/50"></span>
+              <span class="flex-1 truncate font-mono text-[12px]">invoice.paid</span>
+              <span class="font-mono text-[11.5px] text-mutedfg">09:40</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Failed banner -->
+        <div class="mt-4 flex items-center justify-between gap-4 rounded-xl border border-l-2 border-l-bad border-border bg-card px-5 py-3">
+          <p class="text-[13px]"><span class="font-medium text-bad">3 messages failed</span> to send to customers.</p>
+          <a class="btn btn-line"><i class="ph ph-arrow-clockwise text-sm"></i>Retry</a>
+        </div>
+
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+  // Chart: 30 days of platform message counts, peak highlighted - same shape
+  // as the React overview page (top bar is the max, rounded up to /8).
+  const counts = [312, 388, 401, 295, 344, 420, 437, 402, 366, 351, 398, 442, 455, 389, 340, 327, 372, 410, 448, 396, 358, 349, 391, 430, 462, 478, 501, 415, 372, 412, 460];
+  counts.length = 30;
+  const chart = document.getElementById('chart');
+  const max = Math.max(...counts);
+  const top = Math.max(8, Math.ceil(max / 8) * 8);
+  const ticks = [top, top * 3 / 4, top / 2, top / 4, 0];
+  const peak = counts.indexOf(max);
+  const H = 180;
+
+  const axis = document.createElement('div');
+  axis.className = 'flex flex-col justify-between pb-7 text-right font-mono text-[10.5px] text-mutedfg';
+  axis.style.height = (H + 28) + 'px';
+  axis.innerHTML = ticks.map(t => `<span class="leading-none">${t}</span>`).join('');
+  chart.appendChild(axis);
+
+  const plot = document.createElement('div');
+  plot.className = 'relative flex-1';
+  const grid = document.createElement('div');
+  grid.className = 'absolute inset-x-0 top-0 flex flex-col justify-between';
+  grid.style.height = H + 'px';
+  grid.innerHTML = ticks.map(() => `<div class="border-t border-dashed border-border"></div>`).join('');
+  plot.appendChild(grid);
+
+  const bars = document.createElement('div');
+  bars.className = 'relative flex items-end gap-1.5';
+  bars.style.height = H + 'px';
+  bars.innerHTML = counts.map((c, i) => `
+    <div class="group relative flex h-full flex-1 items-end">
+      <div class="bar w-full rounded-full ${i === peak ? 'bg-foreground' : 'bg-muted ring-1 ring-border/60'}"
+           style="height:${Math.max(10, (c / top) * H)}px"></div>
+      <span class="pointer-events-none absolute -top-7 left-1/2 hidden -translate-x-1/2 rounded-md bg-foreground px-1.5 py-0.5 font-mono text-[10.5px] text-background group-hover:block">${c}</span>
+    </div>`).join('');
+  plot.appendChild(bars);
+
+  const labels = document.createElement('div');
+  labels.className = 'mt-2 flex gap-1.5 font-mono text-[10px] text-mutedfg';
+  const today = new Date();
+  labels.innerHTML = counts.map((_, i) => {
+    const d = new Date(today);
+    d.setUTCDate(d.getUTCDate() - (29 - i));
+    return `<span class="flex-1 text-center ${i % 3 === 0 ? '' : 'invisible'}">${d.getUTCDate()}</span>`;
+  }).join('');
+  plot.appendChild(labels);
+  chart.appendChild(plot);
+
+  let collapsed = false;
+  function toggleSidebar() {
+    collapsed = !collapsed;
+    const sb = document.getElementById('sidebar');
+    sb.classList.toggle('w-14', collapsed);
+    sb.classList.toggle('w-60', !collapsed);
+    document.querySelectorAll('.nav-label').forEach(el => el.classList.toggle('hidden', collapsed));
+    document.getElementById('sidebar-brand').classList.toggle('hidden', collapsed);
+  }
+</script>
+</body>
+</html>

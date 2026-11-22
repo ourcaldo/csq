@@ -117,14 +117,6 @@ export function withAdminAuth<P extends Record<string, unknown> = Record<string,
   };
 }
 
-export function respondAdminError(
-  res: NextApiResponse,
-  code: string,
-  message: string
-): void {
-  res.status(500).json(apiError(code as never, message));
-}
-
 // Audit an operator mutation (PRD 13: every admin write lands here with
 // actor + before/after). Call AFTER the mutation succeeds so the log never
 // records an action that did not happen.

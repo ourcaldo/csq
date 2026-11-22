@@ -1,39 +1,48 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { signOut, useSession } from "next-auth/react";
-import { cn } from "@csq/ui/lib/utils";
+import { useSession, signOut } from "next-auth/react";
 import {
   SquaresFour,
   Storefront,
   ChatCircleDots,
-  Pulse,
-  Scroll,
-  ShieldCheck,
   Key,
-  Receipt,
+  Pulse,
+  ShieldCheck,
+  Scroll,
   Tag,
+  Receipt,
   EnvelopeSimple,
   UsersThree,
-  SidebarSimple,
+  SlidersHorizontal,
   CaretRight,
-  SignOut,
+  ArrowLeft,
+  MagnifyingGlass,
+  Bell,
+  X,
+  List,
 } from "@phosphor-icons/react";
+import { cn } from "@csq/ui/lib/utils";
+import { ConfirmDialogHost } from "@/components/confirm-dialog";
+import { ToastHost } from "@/components/toast";
+import { useAdminApi } from "@/lib/admin-api";
 
-// Admin console shell (PRD 13), "Ledger" direction: the app sits on warm
-// paper, the content is one hairline-bounded panel, the sidebar is plain
-// type. Collapsible to an icon rail on desktop; a scrolling pill strip on
-// small screens. Console copy is English (owner direction 2026-11-13).
+// Admin shell - "Enterprise Control Plane" direction (owner-approved
+// template 2026-11-22). Fixed off-canvas sidebar that switches to a Settings
+// sub-nav on configuration routes, sticky utility header with quick-jump
+// search and live fleet pill, settings routes rendered with full-width
+// centered content.
 
-const NAV = [
+const MAIN_NAV: { group: string; items: { href: string; label: string; icon: ReactNode; countKey?: string }[] }[] = [
   {
     group: "Platform",
     items: [
       { href: "/admin", label: "Overview", icon: <SquaresFour size={16} /> },
-      { href: "/admin/tenants", label: "Tenants", icon: <Storefront size={16} /> },
-      { href: "/admin/channels", label: "Channels", icon: <ChatCircleDots size={16} /> },
+      { href: "/admin/tenants", label: "Tenants", icon: <Storefront size={16} />, countKey: "tenants" },
+      { href: "/admin/channels", label: "Channels", icon: <ChatCircleDots size={16} />, countKey: "channels" },
+      { href: "/admin/api-keys", label: "API Keys", icon: <Key size={16} />, countKey: "apiKeys" },
     ],
   },
   {
@@ -41,167 +50,341 @@ const NAV = [
     items: [
       { href: "/admin/operations", label: "Operations", icon: <Pulse size={16} /> },
       { href: "/admin/guardrails", label: "Guardrails", icon: <ShieldCheck size={16} /> },
-      { href: "/admin/audit", label: "Audit", icon: <Scroll size={16} /> },
-    ],
-  },
-  {
-    group: "Configuration",
-    items: [
-      { href: "/admin/api-keys", label: "API Keys", icon: <Key size={16} /> },
-      { href: "/admin/plans", label: "Plans & Usage", icon: <Tag size={16} /> },
-      { href: "/admin/billing", label: "Billing", icon: <Receipt size={16} /> },
-      { href: "/admin/email", label: "Email", icon: <EnvelopeSimple size={16} /> },
-      { href: "/admin/admins", label: "Admins", icon: <UsersThree size={16} /> },
+      { href: "/admin/audit", label: "Audit Log", icon: <Scroll size={16} /> },
     ],
   },
 ];
+
+const SETTINGS_NAV: { group: string; items: { href: string; label: string; icon: ReactNode }[] }[] = [
+  {
+    group: "Monetization & Quotas",
+    items: [
+      { href: "/admin/plans", label: "Plans & Usage", icon: <Tag size={16} /> },
+      { href: "/admin/billing", label: "Billing & Invoices", icon: <Receipt size={16} /> },
+    ],
+  },
+  {
+    group: "System & Access",
+    items: [
+      { href: "/admin/email", label: "Platform Email", icon: <EnvelopeSimple size={16} /> },
+      { href: "/admin/admins", label: "Operators & Admins", icon: <UsersThree size={16} /> },
+    ],
+  },
+];
+
+const SETTINGS_ROUTES = ["/admin/plans", "/admin/billing", "/admin/email", "/admin/admins"];
 
 function isActive(pathname: string, href: string): boolean {
   return href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
 }
 
+// Quick-jump: match a nav item or tenant by name/slug (template's handleQuickJump).
+function useQuickJump() {
+  const router = useRouter();
+  const { data: tenantsData } = useAdminApi<{ items: { id: string; name: string; slug: string }[] }>(
+    "/api/admin/tenants"
+  );
+  return (val: string) => {
+    const q = val.trim().toLowerCase();
+    if (!q) return;
+    const all = [...MAIN_NAV, ...SETTINGS_NAV].flatMap((g) => g.items);
+    const routeMatch = all.find(
+      (i) => i.label.toLowerCase().includes(q) || i.href.toLowerCase().includes(q.replace(/\s+/g, "-"))
+    );
+    if (routeMatch) {
+      router.push(routeMatch.href);
+      return;
+    }
+    const tenantMatch = (tenantsData?.items ?? []).find(
+      (t) => t.name.toLowerCase().includes(q) || t.slug.toLowerCase().includes(q)
+    );
+    if (tenantMatch) router.push(`/admin/tenants/${tenantMatch.id}`);
+  };
+}
+
 export function AdminShell({ title, children }: { title: string; children: ReactNode }) {
   const router = useRouter();
   const { data: session } = useSession();
-  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [jump, setJump] = useState("");
+  const quickJump = useQuickJump();
 
-  const group = NAV.find((g) => g.items.some((i) => isActive(router.pathname, i.href)));
-  const item = group?.items.find((i) => isActive(router.pathname, i.href));
-  const email = session?.user?.email ?? "";
-  const name = session?.user?.name ?? email;
-  const initials = name.slice(0, 2).toUpperCase();
+  const isSettings = SETTINGS_ROUTES.some((r) => isActive(router.pathname, r));
+
+  // Fleet counts + health for the sidebar badges and header pill.
+  const { data: tenantsData } = useAdminApi<{ items: { status: string }[] }>("/api/admin/tenants");
+  const { data: channelsData } = useAdminApi<{ items: { status: string }[] }>("/api/admin/channels");
+  const { data: apiKeysData } = useAdminApi<{ items: { revokedAt: string | null }[] }>("/api/admin/api-keys");
+  const { data: opsData } = useAdminApi<{ failedMessages: { id: string }[] }>("/api/admin/operations");
+
+  const counts = useMemo(() => ({
+    tenants: tenantsData?.items.length ?? 0,
+    channels: channelsData?.items.length ?? 0,
+    apiKeys: (apiKeysData?.items ?? []).filter((k) => !k.revokedAt).length,
+  }), [tenantsData, channelsData, apiKeysData]);
+  const failedCount = opsData?.failedMessages.length ?? 0;
+  const connected = (channelsData?.items ?? []).filter((c) => c.status === "CONNECTED").length;
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        document.getElementById("global-search")?.focus();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
+  useEffect(() => setMobileOpen(false), [router.pathname]);
+
+  const matchedGroup = [...MAIN_NAV, ...SETTINGS_NAV].find((g) =>
+    g.items.some((i) => isActive(router.pathname, i.href))
+  );
 
   return (
-    <div className="flex min-h-screen w-full bg-background p-2">
+    <div className="min-h-screen bg-background text-slate-900 selection:bg-emerald-100 selection:text-emerald-950">
       <Head>
-        <title>{title} - CSQ Console</title>
+        <title>{title} - CSQ Admin Console</title>
         <meta name="robots" content="noindex,nofollow" />
       </Head>
 
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-30 bg-slate-900/45 backdrop-blur-[2px] md:hidden" onClick={() => setMobileOpen(false)} />
+      )}
+
+      {/* Sidebar */}
       <aside
         className={cn(
-          "sticky top-2 hidden h-[calc(100vh-1rem)] shrink-0 flex-col transition-[width] md:flex",
-          collapsed ? "w-14" : "w-60"
+          "fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 flex-col border-r border-slate-200 bg-card transition-transform duration-200 md:translate-x-0",
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="flex h-12 items-center gap-2 px-3">
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary text-[11px] font-bold text-primary-foreground">
-            C
-          </span>
-          {!collapsed && (
-            <span className="text-[15px] font-semibold tracking-tight">
-              CSQ <span className="font-normal text-muted-foreground">Console</span>
-            </span>
-          )}
+        <div className="flex h-14 items-center justify-between border-b border-slate-100 px-5">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-600 text-white">
+              <i className="ph-fill ph-chat-circle-dots text-base" />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-lg font-bold tracking-tight">CSQ</span>
+              <span className="rounded border border-slate-200 bg-muted px-1.5 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-wider text-slate-600">
+                Admin
+              </span>
+            </div>
+          </div>
+          <button
+            onClick={() => setMobileOpen(false)}
+            aria-label="Close navigation"
+            className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 md:hidden"
+          >
+            <X size={16} />
+          </button>
         </div>
 
-        <nav className="mt-3 flex-1 overflow-y-auto px-2">
-          {NAV.map((g) => (
-            <div key={g.group} className="mb-5">
-              {!collapsed && <div className="eyebrow px-2 pb-1.5">{g.group}</div>}
-              {g.items.map((it) => {
-                const active = isActive(router.pathname, it.href);
-                return (
-                  <Link
-                    key={it.href}
-                    href={it.href}
-                    title={it.label}
-                    className={cn(
-                      "flex h-8 items-center gap-2.5 rounded-md px-2 text-[13.5px] transition-colors",
-                      active
-                        ? "bg-card font-medium text-foreground shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-border"
-                        : "text-muted-foreground hover:bg-card/60 hover:text-foreground"
-                    )}
-                  >
-                    <span className="shrink-0">{it.icon}</span>
-                    {!collapsed && <span className="truncate">{it.label}</span>}
-                  </Link>
-                );
-              })}
-            </div>
-          ))}
+        <div className="border-b border-slate-100 bg-muted/70 px-5 py-2.5">
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="flex items-center gap-1.5 font-medium text-slate-700">
+              <span className="live-dot h-1.5 w-1.5 rounded-full bg-emerald-500" />
+              <span>Control Plane</span>
+            </span>
+            <span className="font-mono text-[10px] text-slate-500">ap-southeast-3</span>
+          </div>
+        </div>
+
+        <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
+          {isSettings ? (
+            <>
+              <button
+                type="button"
+                onClick={() => router.push("/admin")}
+                className="mb-4 flex w-full items-center gap-2 rounded-md border border-slate-200 bg-muted px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+              >
+                <ArrowLeft size={14} />
+                <span>Back to Control Plane</span>
+              </button>
+              {SETTINGS_NAV.map((grp) => (
+                <div key={grp.group}>
+                  <p className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                    {grp.group}
+                  </p>
+                  <div className="space-y-0.5">
+                    {grp.items.map((item) => {
+                      const active = isActive(router.pathname, item.href);
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          className={cn(
+                            "flex items-center gap-2.5 rounded-lg px-3 py-1.8 text-[13px] font-medium transition-colors",
+                            active ? "bg-emerald-50 font-semibold text-emerald-700" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                          )}
+                        >
+                          <span className={active ? "text-emerald-600" : "text-slate-400"}>{item.icon}</span>
+                          {item.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </>
+          ) : (
+            MAIN_NAV.map((grp) => (
+              <div key={grp.group}>
+                <p className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  {grp.group}
+                </p>
+                <div className="space-y-0.5">
+                  {grp.items.map((item) => {
+                    const active = isActive(router.pathname, item.href);
+                    const count = item.countKey ? counts[item.countKey as keyof typeof counts] : null;
+                    const alert = item.href === "/admin/operations" && failedCount > 0;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={cn(
+                          "flex items-center justify-between gap-2.5 rounded-lg px-3 py-1.8 text-[13px] font-medium transition-colors",
+                          active ? "bg-emerald-50 font-semibold text-emerald-700" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                        )}
+                      >
+                        <span className="flex items-center gap-2.5">
+                          <span className={active ? "text-emerald-600" : "text-slate-400"}>{item.icon}</span>
+                          {item.label}
+                        </span>
+                        {count !== null ? (
+                          <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-600">
+                            {count}
+                          </span>
+                        ) : alert ? (
+                          <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+                        ) : null}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
+          )}
         </nav>
 
-        <div className="flex items-center gap-2.5 px-2 py-2">
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-card text-[11px] font-semibold ring-1 ring-border">
-            {initials}
-          </span>
-          {!collapsed && (
-            <>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13px] font-medium">{name}</span>
-                <span className="block truncate text-[11.5px] text-muted-foreground">
-                  Administrator
-                </span>
+        {!isSettings && (
+          <div className="border-t border-slate-200 p-3">
+            <Link
+              href="/admin/plans"
+              className="flex items-center justify-between rounded-lg px-3 py-1.8 text-[13px] font-medium text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900"
+            >
+              <span className="flex items-center gap-2.5">
+                <SlidersHorizontal size={16} className="text-slate-400" />
+                Platform Settings
               </span>
-              <button
-                onClick={() => void signOut({ callbackUrl: "/login" })}
-                aria-label="Sign out"
-                className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
-              >
-                <SignOut size={15} />
-              </button>
-            </>
-          )}
+              <CaretRight size={12} className="text-slate-400" />
+            </Link>
+          </div>
+        )}
+
+        <div className="border-t border-slate-200 p-3">
+          <div className="flex items-center justify-between gap-2 px-1.5 pt-1">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">
+                OP
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-xs font-semibold text-slate-900">
+                  {session?.user?.name ?? "Operator"}
+                </p>
+                <p className="truncate font-mono text-[10px] text-slate-500">
+                  {session?.user?.email ?? ""}
+                </p>
+              </div>
+            </div>
+            <span className="rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-emerald-700">
+              ROOT
+            </span>
+          </div>
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col md:pl-2">
-        <header className="flex h-12 items-center gap-3 px-2">
-          <button
-            onClick={() => setCollapsed((c) => !c)}
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className="hidden rounded-md p-1.5 text-muted-foreground hover:bg-card hover:text-foreground md:block"
-          >
-            <SidebarSimple size={16} />
-          </button>
-          <span className="hidden h-4 w-px bg-border md:block" />
-
-          <div className="flex min-w-0 items-center gap-1.5 text-[13px]">
-            <span className="eyebrow hidden sm:block">{group?.group ?? "Platform"}</span>
-            <CaretRight size={13} className="hidden text-muted-foreground sm:block" />
-            <span className="truncate font-medium">{item?.label ?? title}</span>
+      {/* Main workspace */}
+      <div className="flex min-h-screen min-w-0 flex-col md:pl-64">
+        <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-card/95 px-4 backdrop-blur md:px-8">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setMobileOpen(true)}
+              aria-label="Open menu"
+              className="rounded p-1.5 text-slate-600 hover:bg-slate-100 md:hidden"
+            >
+              <List size={18} />
+            </button>
+            <div className="hidden items-center gap-2 text-xs lg:flex">
+              <span className="text-slate-400">{matchedGroup?.group ?? "Platform"}</span>
+              <span className="text-slate-300">/</span>
+              <span className="font-semibold text-slate-900">{title}</span>
+            </div>
+            <div className="relative sm:ml-2">
+              <MagnifyingGlass size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                id="global-search"
+                type="text"
+                value={jump}
+                onChange={(e) => {
+                  setJump(e.target.value);
+                  quickJump(e.target.value);
+                }}
+                placeholder="Jump to view or search tenant... (Ctrl+K)"
+                className="h-8 w-56 rounded-md border border-slate-200 bg-muted pl-8 pr-3 text-xs text-slate-900 placeholder:text-slate-400 transition focus:w-80 focus:border-slate-300 focus:bg-card focus:outline-none"
+              />
+            </div>
           </div>
 
-          <div className="ml-auto flex items-center gap-3">
-            {email && (
-              <span className="hidden font-mono text-[11.5px] text-muted-foreground lg:block">
-                {email}
-              </span>
-            )}
-            <button
-              onClick={() => void signOut({ callbackUrl: "/login" })}
-              aria-label="Sign out"
-              className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-card hover:text-foreground md:hidden"
+          <div className="flex items-center gap-3">
+            <Link
+              href="/admin/operations"
+              className="hidden items-center gap-2 rounded-full border border-slate-200 bg-muted/80 px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-100 sm:inline-flex"
             >
-              <SignOut size={16} />
-            </button>
+              <span className="live-dot h-2 w-2 rounded-full bg-emerald-500" />
+              <span>Worker OK</span>
+              <span className="font-mono text-[10px] text-slate-400">{connected}/{counts.channels}</span>
+            </Link>
+            <Link
+              href="/admin/operations"
+              aria-label="Outbox alerts"
+              title="View outbox failures"
+              className="relative rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+            >
+              <Bell size={18} />
+              {failedCount > 0 && (
+                <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full border-2 border-card bg-red-500" />
+              )}
+            </Link>
+            <div className="h-4 w-px bg-slate-200" />
+            <div className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-600 text-xs font-semibold text-white">
+                OP
+              </div>
+              <div className="hidden text-left xl:block">
+                <p className="text-xs font-semibold leading-none text-slate-900">
+                  {session?.user?.name ?? "Operator"}
+                </p>
+                <button
+                  onClick={() => void signOut({ callbackUrl: "/login" })}
+                  className="mt-0.5 font-mono text-[10px] leading-none text-slate-400 hover:text-emerald-700"
+                >
+                  Super Admin - Sign out
+                </button>
+              </div>
+            </div>
           </div>
         </header>
 
-        <main className="flex-1 rounded-2xl border border-border bg-panel p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] md:p-6">
-          <nav className="mb-5 flex gap-1 overflow-x-auto md:hidden">
-            {NAV.flatMap((g) => g.items).map((it) => {
-              const active = isActive(router.pathname, it.href);
-              return (
-                <Link
-                  key={it.href}
-                  href={it.href}
-                  className={cn(
-                    "whitespace-nowrap rounded-full px-3 py-1 text-[12.5px] transition-colors",
-                    active
-                      ? "bg-foreground font-medium text-background"
-                      : "bg-card text-muted-foreground ring-1 ring-border"
-                  )}
-                >
-                  {it.label}
-                </Link>
-              );
-            })}
-          </nav>
-          <div className="rise mx-auto max-w-[1240px]">{children}</div>
+        <main className="flex-1 px-4 py-7 md:px-8">
+          <div className="w-full max-w-6xl">{children}</div>
         </main>
       </div>
+
+      <ConfirmDialogHost />
+      <ToastHost />
     </div>
   );
 }

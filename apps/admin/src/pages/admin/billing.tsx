@@ -1,66 +1,43 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import type { FormEvent } from "react";
 import Link from "next/link";
-import { Plus, X } from "@phosphor-icons/react";
-import { cn } from "@csq/ui/lib/utils";
+import { useRouter } from "next/router";
+import { Plus } from "@phosphor-icons/react";
 import { AdminShell } from "@/components/admin-shell";
-import {
-  Btn,
-  Empty,
-  PageHead,
-  Stat,
-  Status,
-  TableCard,
-  btnClass,
-} from "@/components/console";
-import { Dialog } from "@csq/ui/components/ui/dialog";
-import { Select } from "@csq/ui/components/ui/select";
+import { StatusLabel, idr, btnPrimary, btnOutline } from "@/components/console";
+import { confirmAction } from "@/components/confirm-dialog";
+import { showToast } from "@/components/toast";
 import { withAdminAuth } from "@/lib/admin-auth";
 import { useAdminApi, adminFetch } from "@/lib/admin-api";
-import { Input } from "@csq/ui/components/ui/input";
-import { Label } from "@csq/ui/components/ui/label";
+
+// Billing & revenue ledger (template viewBilling 1:1): financial telemetry
+// strip, tab navigation (invoices / upgrade requests / bank & terms), inline
+// settle-payment bar, destructive voids via the confirm dialog. The invoice
+// composer lives at /admin/billing/new-invoice.
 
 type Invoice = {
   id: string;
   number: string;
-  tenantId: string;
   tenantName: string;
   planName: string;
   periodStart: string;
   periodEnd: string;
   amountIdr: number;
   status: "ISSUED" | "PAID" | "VOID";
-  issuedAt: string;
   dueAt: string;
   paidAt: string | null;
-  method: string | null;
-  reference: string | null;
 };
-type Need = {
-  tenantId: string;
-  tenantName: string;
-  planId: string | null;
-  planName: string | null;
-  priceIdr: number;
-};
-type InvoiceList = { items: Invoice[]; needsInvoice: Need[]; monthStart: string };
-
+type Need = { tenantId: string; tenantName: string; planName: string | null; priceIdr: number };
 type Request = {
   id: string;
-  tenantId: string;
   tenantName: string;
   tenantSlug: string;
-  requestedPlanId: string;
   requestedPlanName: string;
   requestedPlanPrice: number;
   note: string | null;
   status: "NEW" | "CONTACTED" | "DONE" | "REJECTED";
   createdAt: string;
-  handledAt: string | null;
 };
-
-type Plan = { id: string; name: string; priceIdr: number };
-type UsageTenant = { tenantId: string; tenantName: string; planId: string | null; planName: string | null };
-
 type Settings = {
   bankName: string | null;
   bankAccountNumber: string | null;
@@ -69,79 +46,33 @@ type Settings = {
   graceDays: number;
 };
 
-type Tab = "invoices" | "requests" | "settings";
-
-const TABS: { key: Tab; label: string }[] = [
-  { key: "invoices", label: "Invoices" },
-  { key: "requests", label: "Plan requests" },
-  { key: "settings", label: "Settings" },
-];
-
 export const getServerSideProps = withAdminAuth(async () => ({ props: {} }));
 
-function idr(n: number): string {
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    maximumFractionDigits: 0,
-  }).format(n);
-}
-
-function date(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
-
-// Invoice periods are calendar dates stored at UTC boundaries; format in UTC
-// so the end date does not shift a day in WIB.
 function periodDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  });
+  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 }
-
-function monthValue(d = new Date()): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function dateInput(d: Date): string {
-  return d.toISOString().slice(0, 10);
+function date(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
 export default function BillingPage() {
-  const { data, loading, error, refresh } = useAdminApi<InvoiceList>("/api/admin/invoices");
-  const { data: requestsData, refresh: refreshRequests } =
-    useAdminApi<{ items: Request[] }>("/api/admin/plan-requests");
-  const { data: plansData } = useAdminApi<{ items: Plan[] }>("/api/admin/plans");
-  const { data: usageData } = useAdminApi<{ items: UsageTenant[] }>("/api/admin/usage");
-  const { data: settings, refresh: refreshSettings } =
-    useAdminApi<Settings>("/api/admin/billing-settings");
+  const router = useRouter();
+  const { data, loading, error, refresh } = useAdminApi<{
+    items: Invoice[];
+    needsInvoice: Need[];
+    monthStart: string;
+  }>("/api/admin/invoices");
+  const { data: requestsData, refresh: refreshRequests } = useAdminApi<{ items: Request[] }>(
+    "/api/admin/plan-requests"
+  );
+  const { data: settings, refresh: refreshSettings } = useAdminApi<Settings>("/api/admin/billing-settings");
 
-  const [tab, setTab] = useState<Tab>("invoices");
+  const [tab, setTab] = useState<"invoices" | "requests" | "settings">("invoices");
   const [busy, setBusy] = useState<string | null>(null);
+  const [payingId, setPayingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({
-    tenantId: "",
-    planId: "",
-    period: monthValue(),
-    amountIdr: "",
-    dueAt: "",
-  });
-  const [payInvoice, setPayInvoice] = useState<Invoice | null>(null);
-  const [payForm, setPayForm] = useState({ method: "TRANSFER", reference: "" });
   const [settingsForm, setSettingsForm] = useState({
-    bankName: "",
-    bankAccountNumber: "",
-    bankAccountHolder: "",
-    dueDays: "7",
-    graceDays: "7",
+    bankName: "", bankAccountNumber: "", bankAccountHolder: "", dueDays: "7", graceDays: "7",
   });
 
   useEffect(() => {
@@ -158,89 +89,29 @@ export default function BillingPage() {
   const invoices = data?.items ?? [];
   const needs = data?.needsInvoice ?? [];
   const requests = requestsData?.items ?? [];
-  const plans = plansData?.items ?? [];
-  const tenants = usageData?.items ?? [];
-
-  const outstanding = invoices
-    .filter((i) => i.status === "ISSUED")
-    .reduce((s, i) => s + i.amountIdr, 0);
-  const overdue = invoices.filter(
-    (i) => i.status === "ISSUED" && new Date(i.dueAt) < new Date()
-  ).length;
+  const now = new Date();
+  const outstanding = invoices.filter((i) => i.status === "ISSUED").reduce((s, i) => s + i.amountIdr, 0);
+  const overdueCount = invoices.filter((i) => i.status === "ISSUED" && new Date(i.dueAt) < now).length;
   const paidThisMonth = invoices
-    .filter(
-      (i) =>
-        i.status === "PAID" &&
-        i.paidAt !== null &&
-        new Date(i.paidAt) >= new Date(data?.monthStart ?? new Date())
-    )
+    .filter((i) => i.status === "PAID" && i.paidAt && new Date(i.paidAt) >= new Date(data?.monthStart ?? 0))
     .reduce((s, i) => s + i.amountIdr, 0);
 
-  function planPrice(planId: string): number {
-    return plans.find((p) => p.id === planId)?.priceIdr ?? 0;
-  }
-
-  function openCreate(prefill?: { tenantId: string; planId: string | null; priceIdr: number }) {
-    const planId = prefill?.planId ?? "";
-    setForm({
-      tenantId: prefill?.tenantId ?? "",
-      planId,
-      period: monthValue(),
-      amountIdr: String(prefill?.priceIdr ?? planPrice(planId)),
-      dueAt: dateInput(new Date(Date.now() + (settings?.dueDays ?? 7) * 86400000)),
-    });
-    setActionError(null);
-    setShowCreate(true);
-  }
-
-  function onTenantChange(tenantId: string) {
-    const tenant = tenants.find((t) => t.tenantId === tenantId);
-    const planId = tenant?.planId ?? "";
-    setForm((f) => ({
-      ...f,
-      tenantId,
-      planId,
-      amountIdr: String(planPrice(planId)),
-    }));
-  }
-
-  function onPlanChange(planId: string) {
-    setForm((f) => ({ ...f, planId, amountIdr: String(planPrice(planId)) }));
-  }
-
-  async function createInvoice(e: FormEvent) {
+  async function submitPayment(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setBusy("create");
-    setActionError(null);
-    try {
-      await adminFetch("/api/admin/invoices", "POST", {
-        tenantId: form.tenantId,
-        planId: form.planId || null,
-        period: form.period,
-        amountIdr: parseInt(form.amountIdr, 10) || 0,
-        dueAt: form.dueAt || undefined,
-      });
-      setShowCreate(false);
-      refresh();
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Failed to create the invoice.");
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function markPaid() {
-    if (!payInvoice) return;
-    setBusy(payInvoice.id);
+    const inv = invoices.find((i) => i.id === payingId);
+    if (!inv) return;
+    const f = e.currentTarget;
+    setBusy(inv.id);
     setActionError(null);
     try {
       await adminFetch("/api/admin/invoices", "PATCH", {
-        id: payInvoice.id,
+        id: inv.id,
         action: "paid",
-        method: payForm.method,
-        reference: payForm.reference.trim() || undefined,
+        method: (f.elements.namedItem("pay-method-inline") as HTMLSelectElement).value,
+        reference: (f.elements.namedItem("pay-ref-inline") as HTMLInputElement).value.trim() || undefined,
       });
-      setPayInvoice(null);
+      showToast(`Invoice ${inv.number} marked as Paid`);
+      setPayingId(null);
       refresh();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Failed to mark as paid.");
@@ -249,37 +120,38 @@ export default function BillingPage() {
     }
   }
 
-  async function voidInvoice(invoice: Invoice) {
-    if (!window.confirm(`Void invoice ${invoice.number}?`)) return;
-    setBusy(invoice.id);
-    setActionError(null);
-    try {
-      await adminFetch("/api/admin/invoices", "PATCH", {
-        id: invoice.id,
-        action: "void",
-      });
-      refresh();
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Failed to void the invoice.");
-    } finally {
-      setBusy(null);
-    }
+  function askVoid(inv: Invoice) {
+    confirmAction({
+      title: "Void Invoice",
+      desc: (
+        <>
+          Mark invoice <strong>{inv.number}</strong> ({idr(inv.amountIdr)}) for {inv.tenantName} as Void?
+        </>
+      ),
+      btnLabel: "Void Invoice",
+      onConfirm: () => {
+        void adminFetch("/api/admin/invoices", "PATCH", { id: inv.id, action: "void" })
+          .then(() => {
+            showToast(`Invoice ${inv.number} voided`);
+            refresh();
+          })
+          .catch((err: unknown) => setActionError(err instanceof Error ? err.message : "Failed to void."));
+      },
+    });
   }
 
-  async function setRequestStatus(id: string, status: "CONTACTED" | "DONE" | "REJECTED") {
+  async function updateRequest(id: string, status: "CONTACTED" | "DONE" | "REJECTED") {
     setBusy(id);
-    setActionError(null);
     try {
       await adminFetch("/api/admin/plan-requests", "PATCH", { id, status });
+      showToast(`Request marked ${status.toLowerCase()}`);
       refreshRequests();
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Failed to update the request.");
     } finally {
       setBusy(null);
     }
   }
 
-  async function saveSettings(e: FormEvent) {
+  async function saveSettings(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy("settings");
     setActionError(null);
@@ -291,6 +163,7 @@ export default function BillingPage() {
         dueDays: parseInt(settingsForm.dueDays, 10) || 7,
         graceDays: parseInt(settingsForm.graceDays, 10) || 0,
       });
+      showToast("Bank & payment terms saved");
       refreshSettings();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Failed to save the settings.");
@@ -299,511 +172,365 @@ export default function BillingPage() {
     }
   }
 
+  const inpCls = "mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-card px-3 text-xs text-slate-900 focus:border-emerald-600 focus:outline-none";
+
   return (
     <AdminShell title="Billing">
-      <PageHead
-        eyebrow="Configuration"
-        title="Billing"
-        sub="Invoices, plan requests, and payment settings"
-        action={
-          <>
-            <Link href="/admin/plans" className={btnClass("line")}>
-              Manage plans
-            </Link>
-            <Btn onClick={() => openCreate()}>
-              <Plus size={14} weight="bold" />
-              New invoice
-            </Btn>
-          </>
-        }
-      />
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Billing &amp; Revenue Ledger</h1>
+          <p className="mt-1 text-xs text-slate-500">
+            Issue tenant subscription invoices, settle bank transfers, and review upgrade requests.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Link href="/admin/plans" className={btnOutline()}>
+            Manage Plans
+          </Link>
+          <Link href="/admin/billing/new-invoice" className={btnPrimary()}>
+            <Plus size={14} />
+            Issue Invoice
+          </Link>
+        </div>
+      </div>
 
-      {(actionError || error) && (
-        <div className="mb-4 rounded-xl border border-border border-l-2 border-l-bad bg-card px-5 py-3 text-[13px] text-bad">
-          {actionError ?? error}
+      {/* Financial telemetry strip */}
+      <div className="mt-6 grid grid-cols-1 border-y border-slate-200 sm:grid-cols-3 sm:divide-x sm:divide-slate-200">
+        <div className="py-3.5 pr-4">
+          <p className="text-[11px] font-medium text-slate-400">Outstanding Receivables</p>
+          <p className="mt-1 font-mono text-lg font-semibold text-slate-900 tabular-nums">{idr(outstanding)}</p>
+        </div>
+        <div className="border-t border-slate-200 py-3.5 sm:border-t-0 sm:px-5">
+          <p className="text-[11px] font-medium text-slate-400">Overdue Invoices</p>
+          <p className={`mt-1 font-mono text-lg font-semibold tabular-nums ${overdueCount > 0 ? "text-red-600" : "text-slate-900"}`}>
+            {overdueCount}
+          </p>
+        </div>
+        <div className="border-t border-slate-200 py-3.5 sm:border-t-0 sm:pl-5">
+          <p className="text-[11px] font-medium text-slate-400">Settled Revenue</p>
+          <p className="mt-1 font-mono text-lg font-semibold text-emerald-700 tabular-nums">{idr(paidThisMonth)}</p>
+        </div>
+      </div>
+
+      {actionError && (
+        <div className="mt-5 rounded-md border border-slate-200 border-l-2 border-l-red-500 bg-card px-4 py-2.5 text-xs text-red-600">
+          {actionError}
+        </div>
+      )}
+      {error && (
+        <div className="mt-5 rounded-md border border-slate-200 border-l-2 border-l-red-500 bg-card px-4 py-2.5 text-xs text-red-600">
+          {error}
         </div>
       )}
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Stat
-          label="Outstanding"
-          value={idr(outstanding)}
-          note={`${invoices.filter((i) => i.status === "ISSUED").length} invoices`}
-        />
-        <Stat label="Overdue" value={overdue} note="Needs follow-up" />
-        <Stat label="Paid this month" value={idr(paidThisMonth)} note="Total paid invoices" />
-      </div>
-
-      <div className="mb-5 flex gap-5 border-b border-border">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={cn(
-              "-mb-px border-b-2 pb-2 text-[13px] transition-colors",
-              tab === t.key
-                ? "border-green-700 font-medium text-slate-900"
-                : "border-transparent text-slate-500 hover:text-slate-800"
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
+      {/* Sub-navigation tabs */}
+      <div className="mt-5 flex gap-6 border-b border-slate-200">
+        <button type="button" onClick={() => setTab("invoices")} className={`tab-btn ${tab === "invoices" ? "active" : ""}`}>
+          Invoices ({invoices.length})
+        </button>
+        <button type="button" onClick={() => setTab("requests")} className={`tab-btn ${tab === "requests" ? "active" : ""}`}>
+          Upgrade Requests ({requests.length})
+        </button>
+        <button type="button" onClick={() => setTab("settings")} className={`tab-btn ${tab === "settings" ? "active" : ""}`}>
+          Bank &amp; Terms
+        </button>
       </div>
 
       {tab === "invoices" && (
-        <div className="space-y-5">
+        <>
           {needs.length > 0 && (
-            <div className="panel overflow-hidden">
-              <div className="panel-h">
-                <h2 className="panel-t">Needs invoicing</h2>
-                <span className="text-[11px] text-slate-400">No invoice for this month yet</span>
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-md border border-slate-200 bg-muted/80 px-4 py-2.5 text-xs text-slate-700">
+              <div className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+                <span>
+                  <strong className="font-semibold text-slate-900">Unbilled Cycle:</strong> {needs[0].tenantName} (
+                  {needs[0].planName ?? "No plan"} - <span className="font-mono">{idr(needs[0].priceIdr)}</span>) has no
+                  invoice for the current period.
+                </span>
               </div>
-              <div className="divide-y divide-slate-100">
-                {needs.map((n) => (
-                  <div key={n.tenantId} className="flex items-center gap-4 px-4 py-2.5">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[13px] font-medium text-slate-900">{n.tenantName}</p>
-                      <p className="text-[11.5px] text-slate-400">
-                        {n.planName ?? "No plan"}, {idr(n.priceIdr)}
-                      </p>
-                    </div>
-                    <Btn
-                      variant="line"
-                      onClick={() =>
-                        openCreate({ tenantId: n.tenantId, planId: n.planId, priceIdr: n.priceIdr })
-                      }
-                    >
-                      Create
-                    </Btn>
-                  </div>
-                ))}
-              </div>
+              <Link
+                href={`/admin/billing/new-invoice?tenant=${encodeURIComponent(needs[0].tenantId)}`}
+                className="rounded-md border border-slate-300 bg-card px-2.5 py-1 text-xs font-medium text-slate-800 hover:bg-slate-50"
+              >
+                Create Invoice →
+              </Link>
             </div>
           )}
 
-          {!loading && invoices.length === 0 ? (
-            <Empty
-              title="No invoices yet"
-              hint="Create the first invoice from the needs-invoicing list or the button above."
-            />
-          ) : (
-            <TableCard>
-              <table className="ledger">
-                <thead>
+          {payingId && (
+            <form
+              onSubmit={submitPayment}
+              className="mt-5 flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-muted/80 px-4 py-3 text-xs"
+            >
+              <span className="font-semibold text-slate-900">
+                Settle Invoice <span className="font-mono">{invoices.find((x) => x.id === payingId)?.number}</span>:
+              </span>
+              <select id="pay-method-inline" className="h-8 rounded-md border border-slate-300 bg-card px-2.5 text-xs">
+                <option value="TRANSFER">Bank Transfer (BCA)</option>
+                <option value="CASH">Cash</option>
+                <option value="OTHER">Other</option>
+              </select>
+              <input
+                id="pay-ref-inline"
+                type="text"
+                placeholder="Transfer reference (optional)"
+                className="h-8 w-52 rounded-md border border-slate-300 bg-card px-2.5 font-mono text-xs"
+              />
+              <button
+                type="submit"
+                disabled={busy === payingId}
+                className="rounded-md bg-emerald-600 px-3 py-1.5 font-semibold text-white hover:bg-emerald-700 disabled:opacity-40"
+              >
+                {busy === payingId ? "Saving..." : "Confirm Paid"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setPayingId(null)}
+                className="rounded-md border border-slate-300 bg-card px-2.5 py-1.5 text-slate-600 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+            </form>
+          )}
+
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-y border-slate-200 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  <th className="py-3 pr-4">Invoice #</th>
+                  <th className="px-4 py-3">Tenant &amp; Tier</th>
+                  <th className="px-4 py-3">Billing Period</th>
+                  <th className="px-4 py-3 text-right">Amount</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3">Due / Paid Date</th>
+                  <th className="py-3 pl-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 border-b border-slate-200">
+                {loading && (
                   <tr>
-                    <th>Number</th>
-                    <th>Tenant</th>
-                    <th>Period</th>
-                    <th className="text-right">Amount</th>
-                    <th>Status</th>
-                    <th>Due</th>
-                    <th />
+                    <td colSpan={7} className="py-10 text-center text-xs text-slate-400">
+                      Loading...
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {invoices.map((i) => {
-                    const isOverdue = i.status === "ISSUED" && new Date(i.dueAt) < new Date();
-                    return (
-                      <tr key={i.id}>
-                        <td className="font-mono text-[12px]">{i.number}</td>
-                        <td>
-                          <div className="font-medium">{i.tenantName}</div>
-                          <div className="text-[12px] text-muted-foreground">{i.planName}</div>
-                        </td>
-                        <td className="whitespace-nowrap text-[12.5px] text-muted-foreground">
-                          {periodDate(i.periodStart)} - {periodDate(i.periodEnd)}
-                        </td>
-                        <td className="text-right font-mono tabular-nums">{idr(i.amountIdr)}</td>
-                        <td>
-                          <Status
-                            tone={
-                              i.status === "PAID"
-                                ? "ok"
-                                : i.status === "VOID"
-                                  ? "off"
-                                  : isOverdue
-                                    ? "bad"
-                                    : "warn"
-                            }
-                          >
-                            {i.status === "PAID"
-                              ? "Paid"
-                              : i.status === "VOID"
-                                ? "Void"
-                                : isOverdue
-                                  ? "Overdue"
-                                  : "Unpaid"}
-                          </Status>
-                        </td>
-                        <td className="whitespace-nowrap font-mono text-[12px] text-muted-foreground">
-                          {i.status === "PAID" && i.paidAt ? date(i.paidAt) : date(i.dueAt)}
-                        </td>
-                        <td className="text-right">
-                          {i.status === "ISSUED" && (
-                            <>
-                              <Btn
-                                variant="ghost"
-                                disabled={busy === i.id}
-                                onClick={() => {
-                                  setActionError(null);
-                                  setPayForm({ method: "TRANSFER", reference: "" });
-                                  setPayInvoice(i);
-                                }}
-                                className="hover:text-primary"
-                              >
-                                Mark paid
-                              </Btn>
-                              <Btn
-                                variant="ghost"
-                                disabled={busy === i.id}
-                                onClick={() => void voidInvoice(i)}
-                                className="hover:text-bad"
-                              >
-                                Void
-                              </Btn>
-                            </>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  {loading && (
-                    <tr>
-                      <td colSpan={7} className="py-12 text-center text-[13px] text-muted-foreground">
-                        Loading...
+                )}
+                {invoices.map((inv) => {
+                  const overdue = inv.status === "ISSUED" && new Date(inv.dueAt) < now;
+                  return (
+                    <tr key={inv.id} className="hover:bg-slate-50/80">
+                      <td className="py-3.5 pr-4 font-mono font-medium text-slate-700">{inv.number}</td>
+                      <td className="px-4 py-3.5">
+                        <p className="font-semibold text-slate-900">{inv.tenantName}</p>
+                        <p className="text-[11px] text-slate-400">{inv.planName}</p>
+                      </td>
+                      <td className="px-4 py-3.5 text-slate-600">
+                        {periodDate(inv.periodStart)} - {periodDate(inv.periodEnd)}
+                      </td>
+                      <td className="px-4 py-3.5 text-right font-mono font-semibold text-slate-900 tabular-nums">
+                        {idr(inv.amountIdr)}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <StatusLabel
+                          tone={inv.status === "PAID" ? "ok" : inv.status === "VOID" ? "off" : overdue ? "bad" : "warn"}
+                        >
+                          {inv.status === "PAID" ? "Paid" : inv.status === "VOID" ? "Void" : overdue ? "Overdue" : "Unpaid"}
+                        </StatusLabel>
+                      </td>
+                      <td className="px-4 py-3.5 font-mono text-slate-500">
+                        {inv.paidAt ? date(inv.paidAt) : date(inv.dueAt)}
+                      </td>
+                      <td className="py-3.5 pl-4 text-right">
+                        {inv.status === "ISSUED" ? (
+                          <div className="inline-flex items-center gap-3">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActionError(null);
+                                setPayingId(inv.id);
+                              }}
+                              className="font-semibold text-emerald-700 hover:underline"
+                            >
+                              Mark Paid
+                            </button>
+                            <button type="button" onClick={() => askVoid(inv)} className="font-medium text-red-600 hover:underline">
+                              Void
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-slate-300">-</span>
+                        )}
                       </td>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </TableCard>
-          )}
-        </div>
+                  );
+                })}
+                {!loading && invoices.length === 0 && !error && (
+                  <tr>
+                    <td colSpan={7} className="py-10 text-center text-xs text-slate-400">
+                      No invoices yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {tab === "requests" && (
-        <div>
-          {requests.length === 0 ? (
-            <Empty
-              title="No plan requests yet"
-              hint="Requests from the tenant's Plans page appear here."
-            />
-          ) : (
-            <TableCard>
-              <table className="ledger">
-                <thead>
-                  <tr>
-                    <th>Tenant</th>
-                    <th>Requested plan</th>
-                    <th>Note</th>
-                    <th>Status</th>
-                    <th>Created</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {requests.map((r) => (
-                    <tr key={r.id}>
-                      <td>
-                        <div className="font-medium">{r.tenantName}</div>
-                        <div className="text-[12px] text-muted-foreground">{r.tenantSlug}</div>
-                      </td>
-                      <td>
-                        <div>{r.requestedPlanName}</div>
-                        <div className="font-mono text-[12px] text-muted-foreground">
-                          {idr(r.requestedPlanPrice)}
-                        </div>
-                      </td>
-                      <td className="max-w-xs truncate text-[12.5px] text-muted-foreground">
-                        {r.note ?? "-"}
-                      </td>
-                      <td>
-                        <Status
-                          tone={
-                            r.status === "DONE"
-                              ? "ok"
-                              : r.status === "REJECTED"
-                                ? "off"
-                                : "warn"
-                          }
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead>
+              <tr className="border-y border-slate-200 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                <th className="py-3 pr-4">Tenant</th>
+                <th className="px-4 py-3">Requested Plan</th>
+                <th className="px-4 py-3">Operator Note</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Submitted</th>
+                <th className="py-3 pl-4 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 border-b border-slate-200">
+              {requests.map((r) => (
+                <tr key={r.id} className="hover:bg-slate-50/80">
+                  <td className="py-3.5 pr-4">
+                    <p className="font-semibold text-slate-900">{r.tenantName}</p>
+                    <p className="font-mono text-[11px] text-slate-400">{r.tenantSlug}</p>
+                  </td>
+                  <td className="px-4 py-3.5">
+                    <span className="font-semibold text-slate-900">{r.requestedPlanName}</span>{" "}
+                    <span className="ml-1 font-mono text-slate-500">({idr(r.requestedPlanPrice)})</span>
+                  </td>
+                  <td className="px-4 py-3.5 text-slate-600">{r.note || "-"}</td>
+                  <td className="px-4 py-3.5">
+                    <StatusLabel tone={r.status === "DONE" ? "ok" : r.status === "REJECTED" ? "off" : "warn"}>
+                      {r.status[0] + r.status.slice(1).toLowerCase()}
+                    </StatusLabel>
+                  </td>
+                  <td className="px-4 py-3.5 font-mono text-slate-500">{date(r.createdAt)}</td>
+                  <td className="py-3.5 pl-4 text-right">
+                    <div className="inline-flex items-center gap-3">
+                      {r.status === "NEW" && (
+                        <button
+                          type="button"
+                          disabled={busy === r.id}
+                          onClick={() => void updateRequest(r.id, "CONTACTED")}
+                          className="font-medium text-slate-700 hover:underline disabled:opacity-40"
                         >
-                          {r.status === "NEW"
-                            ? "New"
-                            : r.status === "CONTACTED"
-                              ? "Contacted"
-                              : r.status === "DONE"
-                                ? "Done"
-                                : "Rejected"}
-                        </Status>
-                      </td>
-                      <td className="whitespace-nowrap font-mono text-[12px] text-muted-foreground">
-                        {date(r.createdAt)}
-                      </td>
-                      <td className="text-right">
-                        {r.status === "NEW" && (
-                          <Btn
-                            variant="ghost"
+                          Contacted
+                        </button>
+                      )}
+                      {(r.status === "NEW" || r.status === "CONTACTED") && (
+                        <>
+                          <button
+                            type="button"
                             disabled={busy === r.id}
-                            onClick={() => void setRequestStatus(r.id, "CONTACTED")}
+                            onClick={() => void updateRequest(r.id, "DONE")}
+                            className="font-semibold text-emerald-700 hover:underline disabled:opacity-40"
                           >
-                            Contact
-                          </Btn>
-                        )}
-                        {(r.status === "NEW" || r.status === "CONTACTED") && (
-                          <>
-                            <Btn
-                              variant="ghost"
-                              disabled={busy === r.id}
-                              onClick={() => void setRequestStatus(r.id, "DONE")}
-                              className="hover:text-primary"
-                            >
-                              Done
-                            </Btn>
-                            <Btn
-                              variant="ghost"
-                              disabled={busy === r.id}
-                              onClick={() => void setRequestStatus(r.id, "REJECTED")}
-                              className="hover:text-bad"
-                            >
-                              Reject
-                            </Btn>
-                          </>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </TableCard>
-          )}
+                            Complete
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busy === r.id}
+                            onClick={() => void updateRequest(r.id, "REJECTED")}
+                            className="font-medium text-red-600 hover:underline disabled:opacity-40"
+                          >
+                            Reject
+                          </button>
+                        </>
+                      )}
+                      {(r.status === "DONE" || r.status === "REJECTED") && <span className="text-slate-300">-</span>}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
       {tab === "settings" && (
-        <form onSubmit={saveSettings} className="panel p-5">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="bank-name">Bank</Label>
-              <Input
-                id="bank-name"
-                value={settingsForm.bankName}
-                onChange={(e) => setSettingsForm({ ...settingsForm, bankName: e.target.value })}
-                placeholder="BCA"
-              />
+        <form onSubmit={saveSettings} className="divide-y divide-slate-200">
+          <div className="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
+            <div className="md:col-span-4">
+              <span className="text-xs font-semibold text-slate-900">Settlement Bank Account</span>
+              <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                Displayed on tenant billing pages for manual bank transfer settlement.
+              </p>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="bank-number">Account number</Label>
-              <Input
-                id="bank-number"
-                value={settingsForm.bankAccountNumber}
-                onChange={(e) =>
-                  setSettingsForm({ ...settingsForm, bankAccountNumber: e.target.value })
-                }
-                placeholder="1234567890"
-                className="font-mono"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="bank-holder">Account holder</Label>
-              <Input
-                id="bank-holder"
-                value={settingsForm.bankAccountHolder}
-                onChange={(e) =>
-                  setSettingsForm({ ...settingsForm, bankAccountHolder: e.target.value })
-                }
-                placeholder="PT CSQ Indonesia"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="due-days">Due days</Label>
-              <Input
-                id="due-days"
-                type="number"
-                min={1}
-                max={90}
-                value={settingsForm.dueDays}
-                onChange={(e) => setSettingsForm({ ...settingsForm, dueDays: e.target.value })}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="grace-days">Grace days</Label>
-              <Input
-                id="grace-days"
-                type="number"
-                min={0}
-                max={90}
-                value={settingsForm.graceDays}
-                onChange={(e) => setSettingsForm({ ...settingsForm, graceDays: e.target.value })}
-              />
-            </div>
-          </div>
-          <div className="mt-4 flex items-center justify-between">
-            <p className="text-[11.5px] text-muted-foreground">
-              Leave the bank blank to show "Contact admin" in the tenant app.
-            </p>
-            <Btn type="submit" disabled={busy === "settings"}>
-              {busy === "settings" ? "Saving..." : "Save"}
-            </Btn>
-          </div>
-        </form>
-      )}
-
-      <Dialog
-        open={showCreate}
-        onClose={() => setShowCreate(false)}
-        ariaLabel="New invoice"
-        className="max-w-lg rounded-2xl border-border bg-card p-0 shadow-[0_24px_64px_rgba(0,0,0,0.18)]"
-      >
-            <div className="flex items-start justify-between border-b border-border px-5 py-4">
+            <div className="grid max-w-2xl grid-cols-1 gap-3.5 sm:grid-cols-3 md:col-span-8">
               <div>
-                <div className="eyebrow mb-1">Billing</div>
-                <h2 className="text-[18px] font-semibold tracking-tight">New invoice</h2>
-              </div>
-              <button
-                onClick={() => setShowCreate(false)}
-                className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                aria-label="Close"
-              >
-                <X size={16} />
-              </button>
-            </div>
-            <form onSubmit={createInvoice} className="space-y-4 p-5">
-              <div className="space-y-1.5">
-                <Label htmlFor="inv-tenant">Tenant</Label>
-                <Select
-                  id="inv-tenant"
-                  required
-                  className="h-10 w-full rounded-md border border-input bg-card px-3 text-sm"
-                  value={form.tenantId}
-                  onChange={(e) => onTenantChange(e.target.value)}
-                >
-                  <option value="">- select a tenant -</option>
-                  {tenants.map((t) => (
-                    <option key={t.tenantId} value={t.tenantId}>
-                      {t.tenantName}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="inv-plan">Plan</Label>
-                  <Select
-                    id="inv-plan"
-                    className="h-10 w-full rounded-md border border-input bg-card px-3 text-sm"
-                    value={form.planId}
-                    onChange={(e) => onPlanChange(e.target.value)}
-                  >
-                    <option value="">Manual</option>
-                    {plans.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="inv-period">Period</Label>
-                  <Input
-                    id="inv-period"
-                    type="month"
-                    required
-                    value={form.period}
-                    onChange={(e) => setForm({ ...form, period: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="inv-amount">Amount (IDR)</Label>
-                  <Input
-                    id="inv-amount"
-                    type="number"
-                    required
-                    value={form.amountIdr}
-                    onChange={(e) => setForm({ ...form, amountIdr: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="inv-due">Due date</Label>
-                  <Input
-                    id="inv-due"
-                    type="date"
-                    value={form.dueAt}
-                    onChange={(e) => setForm({ ...form, dueAt: e.target.value })}
-                  />
-                </div>
-              </div>
-              {actionError && <p className="text-[13px] text-bad">{actionError}</p>}
-              <div className="flex justify-end gap-2 pt-1">
-                <Btn type="button" variant="line" onClick={() => setShowCreate(false)}>
-                  Cancel
-                </Btn>
-                <Btn type="submit" disabled={busy === "create"}>
-                  {busy === "create" ? "Creating..." : "Create invoice"}
-                </Btn>
-              </div>
-            </form>
-      </Dialog>
-
-      {payInvoice && (
-        <Dialog
-          open
-          onClose={() => setPayInvoice(null)}
-          ariaLabel="Mark as paid"
-          className="max-w-sm rounded-2xl border-border bg-card p-0 shadow-[0_24px_64px_rgba(0,0,0,0.18)]"
-        >
-            <div className="flex items-start justify-between border-b border-border px-5 py-4">
-              <div>
-                <div className="eyebrow mb-1">{payInvoice.number}</div>
-                <h2 className="text-[18px] font-semibold tracking-tight">Mark as paid</h2>
-                <p className="mt-0.5 text-[12.5px] text-muted-foreground">
-                  {payInvoice.tenantName}, {idr(payInvoice.amountIdr)}
-                </p>
-              </div>
-              <button
-                onClick={() => setPayInvoice(null)}
-                className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                aria-label="Close"
-              >
-                <X size={16} />
-              </button>
-            </div>
-            <div className="space-y-4 p-5">
-              <div className="space-y-1.5">
-                <Label htmlFor="pay-method">Method</Label>
-                <Select
-                  id="pay-method"
-                  className="h-10 w-full rounded-md border border-input bg-card px-3 text-sm"
-                  value={payForm.method}
-                  onChange={(e) => setPayForm({ ...payForm, method: e.target.value })}
-                >
-                  <option value="TRANSFER">Transfer</option>
-                  <option value="CASH">Cash</option>
-                  <option value="OTHER">Other</option>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="pay-ref">Reference (optional)</Label>
-                <Input
-                  id="pay-ref"
-                  value={payForm.reference}
-                  onChange={(e) => setPayForm({ ...payForm, reference: e.target.value })}
-                  placeholder="Transaction reference"
+                <label className="block text-xs font-medium text-slate-700">Bank Name</label>
+                <input
+                  type="text"
+                  value={settingsForm.bankName}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, bankName: e.target.value })}
+                  placeholder="BCA"
+                  className={inpCls}
                 />
               </div>
-              {actionError && <p className="text-[13px] text-bad">{actionError}</p>}
-              <div className="flex justify-end gap-2 pt-1">
-                <Btn type="button" variant="line" onClick={() => setPayInvoice(null)}>
-                  Cancel
-                </Btn>
-                <Btn onClick={() => void markPaid()} disabled={busy === payInvoice.id}>
-                  {busy === payInvoice.id ? "Saving..." : "Mark as paid"}
-                </Btn>
+              <div>
+                <label className="block text-xs font-medium text-slate-700">Account Number</label>
+                <input
+                  type="text"
+                  value={settingsForm.bankAccountNumber}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, bankAccountNumber: e.target.value })}
+                  placeholder="1234567890"
+                  className={`${inpCls} font-mono`}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700">Account Holder</label>
+                <input
+                  type="text"
+                  value={settingsForm.bankAccountHolder}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, bankAccountHolder: e.target.value })}
+                  placeholder="PT CSQ Indonesia"
+                  className={inpCls}
+                />
               </div>
             </div>
-        </Dialog>
+          </div>
+
+          <div className="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
+            <div className="md:col-span-4">
+              <span className="text-xs font-semibold text-slate-900">Net Payment &amp; Grace Window</span>
+              <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                Days before an issued invoice becomes overdue and grace period prior to auto-suspension.
+              </p>
+            </div>
+            <div className="grid max-w-xs grid-cols-2 gap-3.5 md:col-span-8">
+              <div>
+                <label className="block text-xs font-medium text-slate-700">Due Days</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={90}
+                  value={settingsForm.dueDays}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, dueDays: e.target.value })}
+                  className={`${inpCls} font-mono`}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-700">Grace Days</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={90}
+                  value={settingsForm.graceDays}
+                  onChange={(e) => setSettingsForm({ ...settingsForm, graceDays: e.target.value })}
+                  className={`${inpCls} font-mono`}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-5">
+            <button type="submit" disabled={busy === "settings"} className={btnPrimary("px-4 py-2")}>
+              {busy === "settings" ? "Saving..." : "Save Billing Settings"}
+            </button>
+          </div>
+        </form>
       )}
     </AdminShell>
   );

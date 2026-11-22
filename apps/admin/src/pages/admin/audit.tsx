@@ -1,254 +1,213 @@
 import { Fragment, useState } from "react";
+import { Funnel } from "@phosphor-icons/react";
 import { AdminShell } from "@/components/admin-shell";
-import { Btn, Empty, PageHead, TableCard } from "@/components/console";
 import { withAdminAuth } from "@/lib/admin-auth";
 import { useAdminApi } from "@/lib/admin-api";
-import { Input } from "@csq/ui/components/ui/input";
 
-// Audit (PRD 13 Phase 4). Console copy is English (owner direction
-// 2026-11-13).
+// Immutable audit trail (template viewAudit 1:1): tab switch between tenant
+// activity and operator actions, text filter, expandable before/after diffs.
 
 type AuditItem = {
   id: string;
   action: string;
-  entityType: string;
-  entityId: string | null;
-  customerPhone: string | null;
-  createdAt: string;
+  entityType?: string;
+  entityId?: string | null;
+  customerPhone?: string | null;
   tenantName?: string;
   adminEmail?: string;
-  adminName?: string;
+  adminName?: string | null;
   targetType?: string;
   targetId?: string | null;
   beforeValue?: unknown;
   afterValue?: unknown;
+  createdAt: string;
 };
-type AuditData = { items: AuditItem[]; total: number; page: number; pageSize: number };
 
 export const getServerSideProps = withAdminAuth(async () => ({ props: {} }));
 
 function Action({ value }: { value: string }) {
   const [prefix, ...rest] = value.split(".");
   const suffix = rest.join(".");
-  const tone = value.includes("error") ? "text-bad" : "text-foreground";
   return (
-    <span className={`font-mono text-[12.5px] ${tone}`}>
-      <span className="text-muted-foreground">{prefix}.</span>
+    <span className={`font-mono text-xs font-medium ${suffix.includes("error") ? "text-red-600" : "text-slate-900"}`}>
+      <span className="text-slate-400">{prefix}.</span>
       {suffix}
     </span>
   );
 }
 
-function JsonBlock({ label, value }: { label: string; value: unknown }) {
-  return (
-    <div className="min-w-0">
-      <p className="mb-1 text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">
-        {label}
-      </p>
-      <pre className="overflow-x-auto rounded-lg bg-muted p-3 font-mono text-[11.5px] text-muted-foreground">
-        {value === null || value === undefined ? "-" : JSON.stringify(value, null, 2)}
-      </pre>
-    </div>
-  );
-}
-
 export default function AuditPage() {
   const [tab, setTab] = useState<"tenant" | "admin">("tenant");
-  // ADM-3 (PRD 16): action text applies on submit, the date range instantly.
-  const [actionInput, setActionInput] = useState("");
-  const [action, setAction] = useState("");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
-  const params = new URLSearchParams();
-  if (tab === "admin") params.set("auditType", "admin");
-  if (action) params.set("action", action);
-  if (from) params.set("from", from);
-  if (to) params.set("to", to);
-  const qs = params.toString();
-  const { data, loading, error } = useAdminApi<AuditData>(`/api/admin/audit?${qs}`);
-  const items = data?.items ?? [];
-  const cols = tab === "tenant" ? 5 : 4;
+  const [q, setQ] = useState("");
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const { data, loading, error } = useAdminApi<{ items: AuditItem[]; total: number }>(
+    `/api/admin/audit?auditType=${tab}`
+  );
+
+  const items = (data?.items ?? []).filter((r) =>
+    !q || r.action.toLowerCase().includes(q.toLowerCase())
+  );
 
   return (
-    <AdminShell title="Audit">
-      <PageHead
-        eyebrow="Operations"
-        title="Audit"
-        sub="Activity log, newest first"
-        action={
-          <div className="flex rounded-full bg-card p-1 ring-1 ring-border">
-            {(
-              [
-                ["tenant", "Tenant activity"],
-                ["admin", "Admin actions"],
-              ] as const
-            ).map(([key, label]) => (
-              <button
-                key={key}
-                onClick={() => setTab(key)}
-                className={`rounded-full px-3 py-1 text-[13px] transition-colors ${
-                  tab === key
-                    ? "bg-foreground font-medium text-background"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        }
-      />
+    <AdminShell title="Audit Log">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Immutable Audit Trail</h1>
+          <p className="mt-1 text-xs text-slate-500">
+            Chronological record of tenant mutations and super-admin control plane operations.
+          </p>
+        </div>
+        <div className="relative">
+          <Funnel size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Filter event or actor..."
+            className="h-8 w-56 rounded-md border border-slate-300 bg-card pl-8 pr-3 text-xs text-slate-900 focus:border-emerald-600 focus:outline-none"
+          />
+        </div>
+      </div>
 
       {error && (
-        <div className="mb-4 rounded-xl border border-border border-l-2 border-l-bad bg-card px-5 py-3 text-[13px] text-bad">
+        <div className="mt-5 rounded-md border border-slate-200 border-l-2 border-l-red-500 bg-card px-4 py-2.5 text-xs text-red-600">
           {error}
         </div>
       )}
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          setAction(actionInput.trim());
-        }}
-        className="mb-4 flex flex-wrap items-center gap-2"
-      >
-        <Input
-          value={actionInput}
-          onChange={(e) => setActionInput(e.target.value)}
-          placeholder="Filter action (e.g. tenant)"
-          aria-label="Filter action"
-          className="h-9 w-56"
-        />
-        <Input
-          type="date"
-          value={from}
-          onChange={(e) => setFrom(e.target.value)}
-          aria-label="From date"
-          className="h-9 w-40"
-        />
-        <Input
-          type="date"
-          value={to}
-          onChange={(e) => setTo(e.target.value)}
-          aria-label="To date"
-          className="h-9 w-40"
-        />
-        <Btn type="submit" variant="line">
-          Apply
-        </Btn>
-      </form>
+      <div className="mt-5 flex items-center justify-between border-b border-slate-200">
+        <div className="flex gap-6">
+          <button
+            type="button"
+            onClick={() => {
+              setTab("tenant");
+              setExpanded(null);
+            }}
+            className={`tab-btn ${tab === "tenant" ? "active" : ""}`}
+          >
+            Tenant Activity
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setTab("admin");
+              setExpanded(null);
+            }}
+            className={`tab-btn ${tab === "admin" ? "active" : ""}`}
+          >
+            Operator Actions
+          </button>
+        </div>
+        <span className="font-mono text-[11px] text-slate-400">
+          Showing {items.length} of {data?.total ?? 0} entries
+        </span>
+      </div>
 
-      {!loading && items.length === 0 ? (
-        <Empty
-          title={tab === "admin" ? "No admin actions yet" : "No tenant activity yet"}
-          hint={
-            tab === "admin"
-              ? "Every change by an operator is recorded here."
-              : "Agent and staff activity will appear here."
-          }
-        />
-      ) : (
-        <TableCard>
-          <table className="ledger">
-            <thead>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-xs">
+          <thead>
+            <tr className="border-b border-slate-200 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              <th className="py-3 pr-4">Timestamp</th>
+              <th className="px-4 py-3">Event</th>
+              {tab === "tenant" ? (
+                <>
+                  <th className="px-4 py-3">Entity</th>
+                  <th className="px-4 py-3">Tenant</th>
+                </>
+              ) : (
+                <>
+                  <th className="px-4 py-3">Operator</th>
+                  <th className="px-4 py-3">Target</th>
+                </>
+              )}
+              <th className="py-3 pl-4 text-right">Diff</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200 border-b border-slate-200">
+            {loading && (
               <tr>
-                <th className="w-44">Time</th>
-                <th>Action</th>
-                {tab === "tenant" ? (
-                  <>
-                    <th>Entity</th>
-                    <th>Tenant</th>
-                    <th>Phone</th>
-                  </>
-                ) : (
-                  <>
-                    <th>Admin</th>
-                    <th>Target</th>
-                  </>
-                )}
+                <td colSpan={5} className="py-10 text-center text-xs text-slate-400">
+                  Loading...
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {items.map((a) => (
-                <Fragment key={a.id}>
-                  <tr>
-                    <td className="whitespace-nowrap font-mono text-[12.5px] text-muted-foreground">
-                      {new Date(a.createdAt).toLocaleString("en-GB", {
+            )}
+            {items.map((r) => {
+              const isOpen = expanded === r.id;
+              return (
+                <Fragment key={r.id}>
+                  <tr className="hover:bg-slate-50/80">
+                    <td className="whitespace-nowrap py-3.5 pr-4 font-mono text-slate-500">
+                      {new Date(r.createdAt).toLocaleString("en-GB", {
                         day: "2-digit",
                         month: "short",
                         hour: "2-digit",
                         minute: "2-digit",
                       })}
                     </td>
-                    <td>
-                      <Action value={a.action} />
+                    <td className="px-4 py-3.5">
+                      <Action value={r.action} />
                     </td>
                     {tab === "tenant" ? (
                       <>
-                        <td className="text-[12.5px]">
-                          {a.entityType}{" "}
-                          <span className="font-mono text-muted-foreground">
-                            {a.entityId ? `#${a.entityId.slice(0, 8)}` : ""}
-                          </span>
-                        </td>
-                        <td className="text-[12.5px] text-muted-foreground">{a.tenantName}</td>
-                        <td className="font-mono text-[12px] text-muted-foreground">
-                          {a.customerPhone ?? "-"}
+                        <td className="px-4 py-3.5 text-slate-800">{r.entityType ?? "-"}</td>
+                        <td className="px-4 py-3.5 text-slate-500">
+                          {r.tenantName} <span className="font-mono text-[11px]">({r.customerPhone ?? "-"})</span>
                         </td>
                       </>
                     ) : (
                       <>
-                        <td>
-                          <div className="text-[13px] font-medium">{a.adminName}</div>
-                          <div className="text-[11.5px] text-muted-foreground">{a.adminEmail}</div>
+                        <td className="px-4 py-3.5">
+                          <span className="font-semibold text-slate-900">{r.adminName ?? "-"}</span>{" "}
+                          <span className="font-mono text-[11px] text-slate-400">{r.adminEmail ?? ""}</span>
                         </td>
-                        <td className="text-[12.5px] text-muted-foreground">
-                          {a.targetType}{" "}
-                          <span className="font-mono">
-                            {a.targetId ? `#${a.targetId.slice(0, 8)}` : ""}
-                          </span>
+                        <td className="px-4 py-3.5 text-slate-600">
+                          {r.targetType} {r.targetId ? <span className="font-mono">#{r.targetId.slice(0, 8)}</span> : null}
                         </td>
                       </>
                     )}
+                    <td className="py-3.5 pl-4 text-right">
+                      <button
+                        type="button"
+                        onClick={() => setExpanded(isOpen ? null : r.id)}
+                        className="font-medium text-emerald-700 hover:underline"
+                      >
+                        {isOpen ? "Close" : "Values"}
+                      </button>
+                    </td>
                   </tr>
-                  {(a.beforeValue !== null && a.beforeValue !== undefined) ||
-                    (a.afterValue !== null && a.afterValue !== undefined) ? (
-                    <tr>
-                      <td colSpan={cols} className="border-t-0 pt-0 pb-3">
-                        <details>
-                          <summary className="cursor-pointer select-none text-[11.5px] text-muted-foreground transition-colors hover:text-foreground">
-                            Before / after values
-                          </summary>
-                          <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                            <JsonBlock label="Before" value={a.beforeValue} />
-                            <JsonBlock label="After" value={a.afterValue} />
+                  {isOpen && (
+                    <tr className="bg-muted/80">
+                      <td colSpan={5} className="px-4 py-3">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                          <div>
+                            <p className="mb-1 font-mono text-[10px] font-semibold uppercase text-slate-400">Before</p>
+                            <pre className="rounded border border-slate-200 bg-card p-2.5 font-mono text-[11px] text-slate-600">
+                              {r.beforeValue ? JSON.stringify(r.beforeValue, null, 2) : "null"}
+                            </pre>
                           </div>
-                        </details>
+                          <div>
+                            <p className="mb-1 font-mono text-[10px] font-semibold uppercase text-slate-400">After</p>
+                            <pre className="rounded border border-slate-200 bg-card p-2.5 font-mono text-[11px] text-slate-800">
+                              {r.afterValue ? JSON.stringify(r.afterValue, null, 2) : "null"}
+                            </pre>
+                          </div>
+                        </div>
                       </td>
                     </tr>
-                  ) : null}
+                  )}
                 </Fragment>
-              ))}
-              {loading && (
-                <tr>
-                  <td
-                    colSpan={cols}
-                    className="py-12 text-center text-[13px] text-muted-foreground"
-                  >
-                    Loading...
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </TableCard>
-      )}
-
-      {data && data.total > data.pageSize && (
-        <p className="mt-3 font-mono text-[11.5px] text-muted-foreground">
-          Showing {items.length} of {data.total} entries
-        </p>
-      )}
+              );
+            })}
+            {!loading && items.length === 0 && !error && (
+              <tr>
+                <td colSpan={5} className="py-10 text-center text-xs text-slate-400">
+                  No entries.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </AdminShell>
   );
 }

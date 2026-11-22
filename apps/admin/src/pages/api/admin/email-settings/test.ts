@@ -19,7 +19,7 @@ type TestResponse = { sent: true; to: string; messageId: string };
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<ApiResponse<TestResponse>>
+  res: NextApiResponse<ApiResponse<unknown>>
 ) {
   if (req.method !== "POST") {
     return res.status(405).json(apiError("METHOD_NOT_ALLOWED", "Method not allowed."));

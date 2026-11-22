@@ -1,208 +1,217 @@
-import { type FormEvent, useState } from "react";
+import { useState } from "react";
+import type { FormEvent } from "react";
 import { useSession } from "next-auth/react";
-import { Plus, X } from "@phosphor-icons/react";
+import { UserPlus } from "@phosphor-icons/react";
 import { AdminShell } from "@/components/admin-shell";
-import { Btn, PageHead, TableCard } from "@/components/console";
-import { Dialog } from "@csq/ui/components/ui/dialog";
+import { btnPrimary } from "@/components/console";
+import { confirmAction } from "@/components/confirm-dialog";
+import { showToast } from "@/components/toast";
 import { withAdminAuth } from "@/lib/admin-auth";
 import { useAdminApi, adminFetch } from "@/lib/admin-api";
-import { Input } from "@csq/ui/components/ui/input";
-import { Label } from "@csq/ui/components/ui/label";
 
-// Operators (PRD 13 Phase 4). Console copy is English (owner direction
-// 2026-11-13).
+// Platform operators (template viewAdmins 1:1): inline add bar, remove via
+// the shared destructive confirm dialog.
 
 type Admin = { id: string; email: string; name: string; createdAt: string };
-type AdminList = { items: Admin[] };
-
-const EMPTY_FORM = { email: "", name: "", password: "" };
 
 export const getServerSideProps = withAdminAuth(async () => ({ props: {} }));
 
 export default function AdminsPage() {
   const { data: session } = useSession();
-  const { data, loading, error, refresh } = useAdminApi<AdminList>("/api/admin/admins");
-  const [showCreate, setShowCreate] = useState(false);
+  const { data, loading, error, refresh } = useAdminApi<{ items: Admin[] }>("/api/admin/admins");
+  const [showAdd, setShowAdd] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
-  const [form, setForm] = useState(EMPTY_FORM);
+
   const items = data?.items ?? [];
   const myId = session?.user?.id;
 
-  async function createAdmin(e: FormEvent) {
+  async function addAdmin(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const f = e.currentTarget;
     setBusy("create");
     setFormError(null);
     try {
-      await adminFetch("/api/admin/admins", "POST", form);
-      setShowCreate(false);
-      setForm(EMPTY_FORM);
+      await adminFetch("/api/admin/admins", "POST", {
+        email: (f.elements.namedItem("na-email") as HTMLInputElement).value,
+        name: (f.elements.namedItem("na-name") as HTMLInputElement).value,
+        password: (f.elements.namedItem("na-pass") as HTMLInputElement).value,
+      });
+      setShowAdd(false);
+      showToast("Platform operator added");
       refresh();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Failed to add the admin.");
+      setFormError(err instanceof Error ? err.message : "Failed to add the operator.");
     } finally {
       setBusy(null);
     }
   }
 
-  async function removeAdmin(id: string) {
-    setBusy(id);
-    setFormError(null);
-    try {
-      await adminFetch(`/api/admin/admins?id=${id}`, "DELETE");
-      refresh();
-    } catch (err) {
-      setFormError(err instanceof Error ? err.message : "Failed to remove the admin.");
-    } finally {
-      setBusy(null);
-    }
+  function askRemove(a: Admin) {
+    confirmAction({
+      title: "Remove Platform Operator",
+      desc: (
+        <>
+          Revoke Control Plane access for <strong>{a.name}</strong> (
+          <code className="font-mono text-xs">{a.email}</code>)?
+        </>
+      ),
+      btnLabel: "Remove Operator",
+      onConfirm: () => {
+        setBusy(a.id);
+        void adminFetch(`/api/admin/admins?id=${a.id}`, "DELETE")
+          .then(() => {
+            showToast(`Operator ${a.name} removed`);
+            refresh();
+          })
+          .catch((err: unknown) => setFormError(err instanceof Error ? err.message : "Failed to remove."))
+          .finally(() => setBusy(null));
+      },
+    });
   }
 
   return (
     <AdminShell title="Admins">
-      <PageHead
-        eyebrow="Configuration"
-        title="Admins"
-        sub={`${items.length} platform operators`}
-        action={
-          <Btn onClick={() => setShowCreate(true)}>
-            <Plus size={14} weight="bold" />
-            New admin
-          </Btn>
-        }
-      />
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight text-slate-900">Platform Operators</h1>
+          <p className="mt-1 text-xs text-slate-500">
+            Manage root-level administrators authorized to access the CSQ Control Plane.
+          </p>
+        </div>
+        <button type="button" onClick={() => setShowAdd(!showAdd)} className={btnPrimary()}>
+          <UserPlus size={14} />
+          Add Operator
+        </button>
+      </div>
 
       {(formError || error) && (
-        <div className="mb-4 rounded-xl border border-border border-l-2 border-l-bad bg-card px-5 py-3 text-[13px] text-bad">
+        <div className="mt-5 rounded-md border border-slate-200 border-l-2 border-l-red-500 bg-card px-4 py-2.5 text-xs text-red-600">
           {formError ?? error}
         </div>
       )}
 
-      <TableCard>
-        <table className="ledger">
+      {showAdd && (
+        <form onSubmit={addAdmin} className="mt-5 border-y border-slate-200 bg-muted/70 px-4 py-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-12 sm:items-end">
+            <div className="sm:col-span-3">
+              <label htmlFor="na-name" className="block text-xs font-medium text-slate-700">
+                Operator Name
+              </label>
+              <input
+                id="na-name"
+                name="na-name"
+                type="text"
+                required
+                placeholder="Full name"
+                className="mt-1 h-8 w-full rounded-md border border-slate-300 bg-card px-2.5 text-xs"
+              />
+            </div>
+            <div className="sm:col-span-3">
+              <label htmlFor="na-email" className="block text-xs font-medium text-slate-700">
+                Email Address
+              </label>
+              <input
+                id="na-email"
+                name="na-email"
+                type="email"
+                required
+                placeholder="name@csq.id"
+                className="mt-1 h-8 w-full rounded-md border border-slate-300 bg-card px-2.5 text-xs"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label htmlFor="na-pass" className="block text-xs font-medium text-slate-700">
+                Password
+              </label>
+              <input
+                id="na-pass"
+                name="na-pass"
+                type="password"
+                required
+                minLength={8}
+                placeholder="Min. 8 chars"
+                className="mt-1 h-8 w-full rounded-md border border-slate-300 bg-card px-2.5 font-mono text-xs"
+              />
+            </div>
+            <div className="flex items-center gap-2 sm:col-span-4">
+              <button
+                type="submit"
+                disabled={busy === "create"}
+                className="h-8 rounded-md bg-emerald-600 px-3.5 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-40"
+              >
+                Create
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAdd(false)}
+                className="h-8 rounded-md border border-slate-300 bg-card px-3 text-xs text-slate-600 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </form>
+      )}
+
+      <div className="mt-6 overflow-x-auto">
+        <table className="w-full text-left text-sm">
           <thead>
-            <tr>
-              <th>Operator</th>
-              <th>Email</th>
-              <th>Since</th>
-              <th />
+            <tr className="border-y border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+              <th className="py-3 pr-4">Operator</th>
+              <th className="px-4 py-3">Email</th>
+              <th className="px-4 py-3">Provisioned</th>
+              <th className="py-3 pl-4 text-right">Action</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="divide-y divide-slate-200 border-b border-slate-200">
+            {loading && (
+              <tr>
+                <td colSpan={4} className="py-10 text-center text-xs text-slate-400">
+                  Loading...
+                </td>
+              </tr>
+            )}
             {items.map((a) => (
-              <tr key={a.id}>
-                <td className="font-medium">
+              <tr key={a.id} className="hover:bg-slate-50/80">
+                <td className="py-3.5 pr-4 text-xs font-semibold text-slate-900">
                   {a.name}
                   {a.id === myId && (
-                    <span className="ml-2 rounded-full bg-signal-soft px-2 py-0.5 text-[11px] font-semibold text-primary">
+                    <span className="ml-2 rounded bg-emerald-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-emerald-700">
                       You
                     </span>
                   )}
                 </td>
-                <td className="text-[13px]">{a.email}</td>
-                <td className="font-mono text-[12.5px] text-muted-foreground">
-                  {new Date(a.createdAt).toLocaleDateString("en-GB", {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })}
+                <td className="px-4 py-3.5 font-mono text-xs text-slate-500">{a.email}</td>
+                <td className="px-4 py-3.5 font-mono text-xs text-slate-500">
+                  {new Date(a.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                 </td>
-                <td className="text-right">
-                  {a.id !== myId && (
-                    <Btn
-                      variant="ghost"
+                <td className="py-3.5 pl-4 text-right">
+                  {a.id !== myId ? (
+                    <button
+                      type="button"
                       disabled={busy === a.id}
-                      onClick={() => void removeAdmin(a.id)}
-                      className="hover:text-bad"
+                      onClick={() => askRemove(a)}
+                      className="text-xs font-medium text-red-600 hover:underline disabled:opacity-40"
                     >
                       Remove
-                    </Btn>
+                    </button>
+                  ) : (
+                    <span className="font-mono text-[11px] text-slate-400">Active Session</span>
                   )}
                 </td>
               </tr>
             ))}
-            {!loading && items.length === 0 && (
+            {!loading && items.length === 0 && !error && (
               <tr>
-                <td colSpan={4} className="py-12 text-center text-[13px] text-muted-foreground">
-                  No admins.
-                </td>
-              </tr>
-            )}
-            {loading && (
-              <tr>
-                <td colSpan={4} className="py-12 text-center text-[13px] text-muted-foreground">
-                  Loading...
+                <td colSpan={4} className="py-10 text-center text-xs text-slate-400">
+                  No operators.
                 </td>
               </tr>
             )}
           </tbody>
         </table>
-      </TableCard>
-
-      <Dialog
-        open={showCreate}
-        onClose={() => setShowCreate(false)}
-        ariaLabel="New admin"
-        className="max-w-sm rounded-2xl border-border bg-card p-0 shadow-[0_24px_64px_rgba(0,0,0,0.18)]"
-      >
-            <div className="flex items-start justify-between border-b border-border px-5 py-4">
-              <div>
-                <div className="eyebrow mb-1">Configuration</div>
-                <h2 className="text-[18px] font-semibold tracking-tight">New admin</h2>
-              </div>
-              <button
-                onClick={() => setShowCreate(false)}
-                className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                aria-label="Close"
-              >
-                <X size={16} />
-              </button>
-            </div>
-            <form onSubmit={createAdmin} className="space-y-4 p-5">
-              <div className="space-y-1.5">
-                <Label htmlFor="a-email">Email</Label>
-                <Input
-                  id="a-email"
-                  type="email"
-                  required
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  placeholder="operator@csq.id"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="a-name">Name</Label>
-                <Input
-                  id="a-name"
-                  required
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="Operator name"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="a-pass">Password</Label>
-                <Input
-                  id="a-pass"
-                  type="password"
-                  required
-                  minLength={8}
-                  value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  placeholder="Minimum 8 characters"
-                />
-              </div>
-              {formError && <p className="text-[13px] text-bad">{formError}</p>}
-              <div className="flex justify-end gap-2 pt-1">
-                <Btn type="button" variant="line" onClick={() => setShowCreate(false)}>
-                  Cancel
-                </Btn>
-                <Btn type="submit" disabled={busy === "create"}>
-                  {busy === "create" ? "Adding..." : "Add admin"}
-                </Btn>
-              </div>
-            </form>
-      </Dialog>
+      </div>
     </AdminShell>
   );
 }
