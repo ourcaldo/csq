@@ -8,9 +8,10 @@ import type { ReactNode } from "react";
 export function FlushPage({ children }: { children: ReactNode }) {
   return (
     <div className="scrollbar-slim min-h-0 flex-1 overflow-y-auto">
-      {/* Left-aligned like every enterprise template (no mx-auto): the canvas
-          hugs the sidebar instead of floating centered on wide screens. */}
-      <div className="w-full max-w-6xl px-4 py-7 md:px-8">{children}</div>
+      {/* Full-width canvas like the owner's request (2026-11-22): no
+          max-width cap, no centering - content fills the space beside the
+          sidebar on any screen size. */}
+      <div className="w-full px-4 py-7 md:px-8">{children}</div>
     </div>
   );
 }
