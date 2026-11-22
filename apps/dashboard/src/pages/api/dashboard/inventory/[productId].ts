@@ -42,22 +42,27 @@ export default async function handler(
       if (!parsed.success) {
         return respondError(res, "VALIDATION_ERROR", parsed.error.message);
       }
-      // Verify the inventory row belongs to this tenant before mutating.
+      // Verify the inventory row belongs to this tenant before mutating;
+      // a product just created has no Inventory row yet - upsert it.
       const existing = await prisma.inventory.findFirst({
         where: { productId, tenantId },
       });
-      if (!existing) {
-        return respondError(res, "NOT_FOUND", "Inventaris tidak ditemukan.");
-      }
-      const inventory = await prisma.inventory.update({
+      const inventory = await prisma.inventory.upsert({
         where: { productId },
-        data: parsed.data,
+        create: {
+          tenantId,
+          productId,
+          quantity: parsed.data.quantity,
+          ...(parsed.data.source ? { source: parsed.data.source } : {}),
+          ...(parsed.data.sourceRef ? { sourceRef: parsed.data.sourceRef } : {}),
+        },
+        update: parsed.data,
       });
       await logHuman({
         tenantId,
         action: "inventory.update",
         entityType: "Inventory",
-        entityId: existing.id,
+        entityId: inventory.id,
         beforeValue: existing,
         afterValue: inventory,
       });

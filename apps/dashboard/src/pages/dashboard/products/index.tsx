@@ -71,10 +71,8 @@ export default function ProductsPage() {
   const { data, loading, error, refresh } = useApi<ListResult<Product>>(url);
 
   // KPI strip + stock filter computed over ALL products (pageSize=100 fetch).
-  const { data: allData } = useApi<ListResult<Product>>(
-    "/api/dashboard/products?page=1&pageSize=100"
-  );
-  const allProducts = useMemo(() => allData?.items ?? [], [allData]);
+  const all = useApi<ListResult<Product>>("/api/dashboard/products?page=1&pageSize=100");
+  const allProducts = useMemo(() => all.data?.items ?? [], [all.data]);
   const kpi = useMemo(() => {
     const inStock = allProducts.filter((p) => (p.inventory?.quantity ?? 0) > 0);
     const oos = allProducts.filter((p) => (p.inventory?.quantity ?? 0) <= 0);
@@ -140,6 +138,7 @@ export default function ProductsPage() {
       setFormOpen(false);
       showToast(editing ? `Perubahan pada "${form.name}" disimpan` : `Produk "${form.name}" ditambahkan ke katalog`);
       refresh();
+      all.refresh();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Gagal menyimpan produk.");
     } finally {
@@ -155,6 +154,7 @@ export default function ProductsPage() {
       setToDelete(null);
       showToast("Produk dihapus dari katalog");
       refresh();
+      all.refresh();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Gagal menghapus produk.");
     } finally {

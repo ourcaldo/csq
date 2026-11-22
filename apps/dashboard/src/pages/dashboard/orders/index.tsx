@@ -62,6 +62,9 @@ export default function OrdersPage() {
     statusFilter ? `&status=${statusFilter}` : ""
   }`;
   const { data, loading, error, refresh } = useApi<ListResult<Order>>(ordersUrl);
+  // KPI strip always shows the OVERALL ledger (template semantics), so it
+  // reads the unfiltered set, not the tab-filtered one.
+  const all = useApi<ListResult<Order>>("/api/dashboard/orders?page=1&pageSize=1");
   const { data: productsData } = useApi<ListResult<Product>>(
     "/api/dashboard/products?page=1&pageSize=100"
   );
@@ -86,6 +89,7 @@ export default function OrdersPage() {
         `Pesanan ${orderNumber(order.id)} ditandai ${status === "CONFIRMED" ? "Dikonfirmasi" : "Dibatalkan"}`
       );
       refresh();
+      all.refresh();
     } catch (err) {
       setToast({ tone: "error", msg: err instanceof Error ? err.message : "Gagal memperbarui status." });
       setTimeout(() => setToast(null), 2600);
@@ -125,6 +129,7 @@ export default function OrdersPage() {
       setComposerOpen(false);
       showToast(`Pesanan baru ${orderNumber(created.id)} berhasil dibuat`);
       refresh();
+      all.refresh();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : "Gagal membuat pesanan.");
     } finally {
@@ -133,12 +138,12 @@ export default function OrdersPage() {
   }
 
   const kpi = useMemo(() => {
-    const items = data?.items ?? [];
-    const pending = items.filter((o) => o.status === "PENDING").length;
-    const confirmed = items.filter((o) => o.status === "CONFIRMED");
+    const total = all.data?.total ?? 0;
+    const pendingCount = (data?.items ?? []).filter((o) => o.status === "PENDING").length;
+    const confirmed = (data?.items ?? []).filter((o) => o.status === "CONFIRMED");
     const rev = confirmed.reduce((s, o) => s + Number(o.totalAmount), 0);
-    return { total: data?.total ?? items.length, pending, confirmed: confirmed.length, rev };
-  }, [data]);
+    return { total, pending: pendingCount, confirmed: confirmed.length, rev };
+  }, [all.data, data]);
 
   const statusTabs: { key: "" | OrderStatus; label: string }[] = [
     { key: "", label: "Semua" },
