@@ -433,15 +433,11 @@ export default function AgentsPage() {
                 <span className="text-slate-300">/</span>
                 <span className="font-medium text-slate-700">{detail.name}</span>
               </div>
-              <h1 className="mt-2 flex items-center gap-2.5 text-xl font-semibold tracking-tight text-slate-900">
+              <h1 className="mt-4 flex items-center gap-2.5 text-xl font-semibold tracking-tight text-slate-900">
                 <AgentTile status={detail.status} />
                 {detail.name} <StatusBadge status={detail.status} />
               </h1>
-              <p className="mt-2 max-w-3xl text-xs leading-relaxed text-slate-500">
-                {detail.instructions ??
-                  "Belum ada instruksi - agent akan menjawab tanpa persona khusus."}
-              </p>
-              <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 font-mono text-[11px] text-slate-400">
+              <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 font-mono text-[11px] text-slate-400">
                 <span>
                   ID: {detail.id.slice(0, 8)}
                 </span>
@@ -462,6 +458,10 @@ export default function AgentsPage() {
                   })}
                 </span>
               </div>
+              <p className="mt-3 max-w-3xl text-xs leading-relaxed text-slate-500">
+                {detail.instructions ??
+                  "Belum ada instruksi - agent akan menjawab tanpa persona khusus."}
+              </p>
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-2">
               {isOwner && (
