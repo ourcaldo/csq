@@ -1,7 +1,16 @@
 import Link from "next/link";
 import { Pulse, Plus } from "@phosphor-icons/react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { AdminShell } from "@/components/admin-shell";
-import { StatusLabel, StatCell, btnPrimary, btnOutline } from "@/components/console";
+import { StatusLabel, btnPrimary, btnOutline } from "@/components/console";
 import { withAdminAuth } from "@/lib/admin-auth";
 import { useAdminApi } from "@/lib/admin-api";
 
@@ -83,7 +92,7 @@ export default function AdminOverview() {
         </div>
       </div>
 
-      {/* 30-day throughput chart */}
+      {/* 30-day throughput chart (Recharts - shadcn's chart library) */}
       <div className="border-b border-slate-200 py-6">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <div>
@@ -98,30 +107,46 @@ export default function AdminOverview() {
             Peak: <strong className="text-slate-900">{maxChart}</strong> msgs/day
           </span>
         </div>
-        <div className="mt-4 flex h-24 items-end gap-1 pt-2">
-          {daily.map((d, idx) => {
-            const pct = Math.max(8, Math.round((d.count / maxChart) * 100));
-            const isRecent = idx >= daily.length - 3;
-            return (
-              <div
-                key={d.date}
-                className="group relative flex h-full flex-1 flex-col justify-end"
-                title={`${d.date}: ${d.count} messages`}
-              >
-                <div
-                  className={`w-full rounded-sm transition-colors ${
-                    isRecent ? "bg-emerald-600 group-hover:bg-emerald-700" : "bg-slate-200 group-hover:bg-emerald-500"
-                  }`}
-                  style={{ height: `${pct}%` }}
-                />
-              </div>
-            );
-          })}
-        </div>
-        <div className="mt-2 flex justify-between font-mono text-[10px] text-slate-400">
-          <span>30 days ago</span>
-          <span>15 days ago</span>
-          <span>Today</span>
+        <div className="mt-4 h-40">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={daily} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+              <CartesianGrid vertical={false} stroke="#e2e8f0" strokeDasharray="3 3" />
+              <XAxis
+                dataKey="date"
+                tickLine={false}
+                axisLine={false}
+                tick={{ fontSize: 10, fill: "#94a3b8", fontFamily: "JetBrains Mono, monospace" }}
+                tickFormatter={(v: string) => {
+                  const parts = v.split("-");
+                  return parts.length === 3 ? `${parts[2]}/${parts[1]}` : v;
+                }}
+                interval={4}
+                minTickGap={12}
+              />
+              <YAxis
+                width={36}
+                tickLine={false}
+                axisLine={false}
+                tick={{ fontSize: 10, fill: "#94a3b8", fontFamily: "JetBrains Mono, monospace" }}
+                allowDecimals={false}
+              />
+              <Tooltip
+                cursor={{ fill: "rgba(148, 163, 184, 0.12)" }}
+                contentStyle={{
+                  borderRadius: 6,
+                  border: "1px solid #e2e8f0",
+                  fontSize: 11,
+                  fontFamily: "JetBrains Mono, monospace",
+                  boxShadow: "0 4px 12px rgba(15, 23, 42, 0.08)",
+                }}
+                formatter={(value) => [`${Number(value ?? 0).toLocaleString("en-GB")} messages`, "Volume"]}
+                labelFormatter={(label) =>
+                  new Date(String(label)).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+                }
+              />
+              <Bar dataKey="count" fill="#16a34a" radius={[3, 3, 0, 0]} maxBarSize={16} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
 
