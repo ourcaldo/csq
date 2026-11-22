@@ -107,6 +107,116 @@ export async function findOrCreateConversation(
   }
 }
 
+// LID reconciliation (2026-11-22 incident): a chat whose first message(s)
+// arrived as "<lid>@lid" with no remoteJidAlt created a LID-keyed thread
+// even though the person's digits thread existed (or was created later).
+// When a lid -> pn mapping is learned, fold the LID thread into the digits
+// one: move messages, the deal, reads, tags and the approval link, then
+// delete the LID conversation. Deleting cascades ConversationRead,
+// ConversationTag, ScenarioRun and the Deal's history rows; those are moved
+// first, so only the empty shell drops. Idempotent and safe to re-fire.
+export async function reconcileLidConversation(input: {
+  tenantId: string;
+  channelId: string;
+  lidUser: string;
+  pnUser: string;
+}): Promise<void> {
+  return withTenantContext(input.tenantId, async () => {
+    const lidPhone = `${input.lidUser}@lid`;
+    const lidConv = await prisma.conversation.findUnique({
+      where: { tenantId_customerPhone: { tenantId: input.tenantId, customerPhone: lidPhone } },
+    });
+    if (!lidConv) return;
+
+    const digitsConv = await prisma.conversation.findUnique({
+      where: { tenantId_customerPhone: { tenantId: input.tenantId, customerPhone: input.pnUser } },
+    });
+    if (!digitsConv) {
+      // No digits thread yet: the LID thread IS the thread - just rename it.
+      await prisma.conversation.update({
+        where: { id: lidConv.id },
+        data: { customerPhone: input.pnUser },
+      });
+      await prisma.contact.updateMany({
+        where: { tenantId: input.tenantId, phone: lidPhone },
+        data: { phone: input.pnUser },
+      });
+      console.log(
+        `[inbox] lid reconciliation: renamed ${lidPhone} -> ${input.pnUser}`
+      );
+      return;
+    }
+
+    await prisma.message.updateMany({
+      where: { conversationId: lidConv.id },
+      data: { conversationId: digitsConv.id },
+    });
+    await prisma.approval.updateMany({
+      where: { conversationId: lidConv.id },
+      data: { conversationId: digitsConv.id },
+    }).catch(() => undefined);
+    await prisma.scenarioRun.updateMany({
+      where: { conversationId: lidConv.id },
+      data: { conversationId: digitsConv.id },
+    }).catch(() => undefined);
+    // ConversationTag is unique per (conversation, tag): move rows that do
+    // not collide; colliding + unmentioned ones cascade with the shell.
+    const lidTags = await prisma.conversationTag.findMany({
+      where: { conversationId: lidConv.id },
+      select: { tagId: true },
+    });
+    for (const t of lidTags) {
+      await prisma.conversationTag
+        .upsert({
+          where: { conversationId_tagId: { conversationId: digitsConv.id, tagId: t.tagId } },
+          create: { tenantId: input.tenantId, conversationId: digitsConv.id, tagId: t.tagId },
+          update: {},
+        })
+        .catch(() => undefined);
+    }
+    // Deal is unique per conversation: move the LID thread's deal over only
+    // when the digits thread has none; otherwise it cascades away with the
+    // empty LID shell (history rows follow their deal).
+    const digitsDeal = await prisma.deal.findUnique({
+      where: { conversationId: digitsConv.id },
+      select: { id: true },
+    });
+    if (!digitsDeal) {
+      await prisma.deal.updateMany({
+        where: { conversationId: lidConv.id },
+        data: { conversationId: digitsConv.id },
+      }).catch(() => undefined);
+    }
+    // Digits thread wins: keep its channel/assignment/status. lastMessageAt:
+    // max of the two.
+    await prisma.conversation.update({
+      where: { id: digitsConv.id },
+      data: {
+        lastMessageAt: new Date(
+          Math.max(
+            digitsConv.lastMessageAt?.getTime() ?? 0,
+            lidConv.lastMessageAt?.getTime() ?? 0
+          )
+        ),
+      },
+    });
+    await prisma.conversation.delete({ where: { id: lidConv.id } });
+    // Two contacts existed (one per identity). The rename only lands when the
+    // digits contact does not; otherwise the unique constraint rejects it and
+    // the deleteMany below removes the LID shell.
+    await prisma.contact.updateMany({
+      where: { tenantId: input.tenantId, phone: lidPhone },
+      data: { phone: input.pnUser },
+    }).catch(() => undefined);
+    await prisma.contact.deleteMany({
+      where: { tenantId: input.tenantId, phone: lidPhone },
+    }).catch(() => undefined);
+    console.log(
+      `[inbox] lid reconciliation: merged ${lidPhone} into ${input.pnUser}`
+    );
+  });
+}
+
 // Lead source (pipeline revamp 2026-11-16): where a customer came from, e.g.
 // "Placement Test" declared by an API integration, an API key name, or
 // "Input Manual". An explicit source overwrites; a fallback only fills an

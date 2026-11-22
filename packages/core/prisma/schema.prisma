@@ -520,6 +520,9 @@ model LidMapping {
   updatedAt DateTime @updatedAt
 
   @@id([channelId, lid])
+  // Send-side reverse lookup (pn -> lid): one indexed hit instead of a scan
+  // per outbound message on a Baileys channel.
+  @@index([channelId, pn])
 }
 
 // ─────────────── Enterprise worker queue (PRD 23C, Phase 6) ───────────────

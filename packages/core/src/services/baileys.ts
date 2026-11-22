@@ -17,7 +17,8 @@ import { ingestInboundMessage } from "@csq/core/lib/inbox";
 import { processInboundWithAgent } from "@csq/core/lib/agent-loop";
 import { replyToNonText } from "@csq/core/lib/agent-outbox";
 import { isVisionImage } from "@csq/core/lib/vision";
-import { loadDbAuthState, getPnForLid, storeLidPnMapping } from "@csq/core/lib/baileys-auth-db";
+import { loadDbAuthState, getPnForLid, getLidForPn, storeLidPnMapping } from "@csq/core/lib/baileys-auth-db";
+import { reconcileLidConversation } from "@csq/core/lib/inbox";
 import { acquireSystemLease, releaseSystemLease } from "@csq/core/lib/system-lock";
 import type { Channel } from "@prisma/client";
 import type {
@@ -187,28 +188,57 @@ export function toJid(number: string): string {
   return `${normalized}@s.whatsapp.net`;
 }
 
-// Canonical conversation identity for an inbound Baileys chat (one thread per
-// customer, owner request 2026-11-10):
-// - a "@s.whatsapp.net" JID -> bare phone digits (the same form the Cloud API
-//   stores, so the two channels share ONE thread);
-// - a "@lid" JID -> the real phone digits from key.remoteJidAlt (Baileys 7
-//   carries the PN JID there; 6.x called it senderPn), else the raw LID JID
-//   (last resort; sends still resolve via the LID mapping).
-export function canonicalIdentity(
-  remoteJid: string,
-  altJid: string | null | undefined
-): string {
-  const bare = (jid: string): string => jid.split("@")[0].split(":")[0];
-  if (remoteJid.endsWith("@lid")) {
-    return altJid ? bare(altJid) : remoteJid;
-  }
-  if (remoteJid.endsWith("@s.whatsapp.net")) return bare(remoteJid);
-  return remoteJid;
-}
-
 // Bare number from a JID (strip @s.whatsapp.net / @lid).
 function fromJid(jid: string | undefined | null): string {
   return (jid ?? "").split("@")[0];
+}
+
+// Canonical conversation identity for an inbound Baileys chat (one thread per
+// customer). Baileys 7 carries the alt JID (the PN when the chat is
+// LID-addressed) on the message key - but NOT on every message. When it is
+// absent, fall back to the stored LidMapping row so the same person still
+// lands on their digits identity instead of splitting into a "<lid>@lid"
+// thread. Unknown LID with no mapping: keep the raw LID JID; the thread is
+// merged into the digits one by reconcileLidConversation when the mapping
+// lands.
+export async function resolveInboundIdentity(
+  channelId: string,
+  remoteJid: string,
+  altJid: string | null
+): Promise<{
+  from: string;
+  lidUser: string | null;
+  pnUser: string | null;
+  lidChanged: boolean;
+} | null> {
+  if (!remoteJid) return null;
+  if (remoteJid.endsWith("@lid")) {
+    const lidUser = remoteJid.split("@")[0].split(":")[0];
+    let pnUser = altJid
+      ? altJid.split("@")[0].split(":")[0]
+      : await getPnForLid(channelId, remoteJid).catch(() => null);
+    let lidChanged = false;
+    if (altJid && lidUser && pnUser) {
+      // Await: the mapping must exist before the ingest lookup, or a
+      // first-message race stores a LID-keyed thread that a later message
+      // splits (the 2026-11-22 duplicate-thread incident).
+      const stored = await storeLidPnMapping(channelId, lidUser, pnUser);
+      lidChanged = stored.changed;
+    }
+    if (pnUser) {
+      return { from: pnUser, lidUser, pnUser, lidChanged };
+    }
+    return { from: remoteJid, lidUser, pnUser: null, lidChanged };
+  }
+  if (remoteJid.endsWith("@s.whatsapp.net")) {
+    return {
+      from: remoteJid.split("@")[0].split(":")[0],
+      lidUser: null,
+      pnUser: null,
+      lidChanged: false,
+    };
+  }
+  return { from: remoteJid, lidUser: null, pnUser: null, lidChanged: false };
 }
 
 // @hapi/boom error shape, parsed with Zod at the boundary (no `as` casts).
@@ -507,7 +537,7 @@ async function connectBaileysChannelInner(
       }
     });
 
-    sock.ev.on("messages.upsert", (event) => {
+    sock.ev.on("messages.upsert", async (event) => {
       console.log(
         `[baileys:${channel.id}] messages.upsert type=${event.type} count=${event.messages?.length ?? 0}`
       );
@@ -540,31 +570,30 @@ async function connectBaileysChannelInner(
           console.log(`[baileys:${channel.id}] skip empty body`);
           continue;
         }
-        // Store the FULL remoteJid for the LID mapping and reply routing; the
-        // CONVERSATION identity is the canonical form (bare phone digits when
-        // known) so one person never splits into a LID thread and a phone
-        // thread.
-        const remoteJid = m.key.remoteJid ?? "";
-        if (!remoteJid) continue;
-        // Baileys 7 carries the alternative JID (the PN when the chat is
-        // LID-addressed) on the message key. Capture the LID -> phone-number
-        // mapping from it; kept for legacy LID-keyed conversations and the
-        // provider's send re-route.
-        const altJid = m.key.remoteJidAlt ?? m.key.participantAlt ?? null;
-        if (remoteJid.endsWith("@lid") && altJid) {
-          const lidUser = remoteJid.split("@")[0].split(":")[0];
-          const pnUser = altJid.split("@")[0].split(":")[0];
-          if (lidUser && pnUser) {
-            void storeLidPnMapping(channel.id, lidUser, pnUser).catch(
-              (err: unknown) =>
-                console.error(
-                  `[baileys:${channel.id}] lid-mapping store failed:`,
-                  err
-                )
-            );
-          }
+        // Resolve the canonical identity BEFORE the async ingest below:
+        // LID-chats may need a mapping lookup, and the whole loop body must
+        // stay in order (the await below is what closes the first-message
+        // split-thread race).
+        const resolved = await resolveInboundIdentity(
+          channel.id,
+          m.key.remoteJid ?? "",
+          m.key.remoteJidAlt ?? m.key.participantAlt ?? null
+        );
+        if (!resolved) continue;
+        const { from } = resolved;
+        if (resolved.lidChanged && resolved.lidUser && resolved.pnUser) {
+          void reconcileLidConversation({
+            tenantId: channel.tenantId,
+            channelId: channel.id,
+            lidUser: resolved.lidUser,
+            pnUser: resolved.pnUser,
+          }).catch((err: unknown) =>
+            console.error(
+              `[baileys:${channel.id}] lid reconciliation failed for ${resolved.lidUser}:`,
+              err
+            )
+          );
         }
-        const from = canonicalIdentity(remoteJid, altJid);
         const tenantId = channel.tenantId;
         void (async () => {
           // Inbound image: download the bytes (bounded - 10 MB cap, best
@@ -785,13 +814,16 @@ export async function shutdownBaileysChannels(): Promise<void> {
   }
 }
 
-// Pure send-destination rewrite (self-check covered): a "<lid>@lid"
-// destination is rewritten to the real phone number when the mapping is
-// known. Phone-JID sends are the proven delivery path; raw LID sends are
-// accepted by WhatsApp but never delivered on Baileys 6.7.x
-// (WhiskeySockets/Baileys#1950, #1964).
-export function resolveSendJid(jid: string, pn: string | null): string {
-  return jid.endsWith("@lid") && pn ? `${pn}@s.whatsapp.net` : jid;
+// Pure send-destination rewrite (self-check covered). Baileys 7 rule
+// (WhiskeySockets/Baileys#2205, wiki "JIDs"): reply in the SAME JID form the
+// chat is addressed with - lid -> lid, pn -> pn. A cross-form send (pn JID
+// into a LID-addressed chat) renders as "Menunggu pesan ini" on the
+// recipient. So: a LID destination passes through untouched, and a phone
+// destination upgrades to its LID when a mapping exists.
+export function resolveSendJid(jid: string, lid: string | null): string {
+  if (jid.endsWith("@lid")) return jid;
+  if (lid) return `${lid}@lid`;
+  return jid;
 }
 
 export class BaileysProvider implements WhatsAppProvider {
@@ -801,18 +833,20 @@ export class BaileysProvider implements WhatsAppProvider {
     this.channelId = channelId;
   }
 
-  // Resolve the send destination: a LID JID is rewritten to the sender's
-  // real phone number when we captured the mapping from an inbound
-  // (key.senderPn). Without a mapping the raw LID is kept - last resort,
-  // WhatsApp drops it silently.
+  // Resolve the send destination. Baileys 7 wire rule: reply in the JID
+  // form the chat is addressed with. A LID JID passes through (lid -> lid);
+  // a phone-number destination upgrades to its LID when the mapping exists
+  // (pn -> lid), because a pn-form send into a LID chat renders as
+  // "Menunggu pesan ini". No mapping: keep the phone JID.
   private async destination(to: string): Promise<string> {
     const jid = toJid(to);
-    if (!jid.endsWith("@lid")) return jid;
-    const pn = await getPnForLid(this.channelId, jid).catch(() => null);
-    const resolved = resolveSendJid(jid, pn);
+    if (jid.endsWith("@lid")) return jid;
+    const pnUser = jid.split("@")[0].split(":")[0];
+    const lid = await getLidForPn(this.channelId, pnUser).catch(() => null);
+    const resolved = resolveSendJid(jid, lid);
     if (resolved !== jid) {
       console.log(
-        `[baileys:${this.channelId}] lid ${jid} -> pn ${resolved}`
+        `[baileys:${this.channelId}] pn ${jid} -> lid ${resolved}`
       );
     }
     return resolved;

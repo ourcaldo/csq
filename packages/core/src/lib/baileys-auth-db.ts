@@ -41,6 +41,20 @@ export async function getPnForLid(
   return row?.pn ?? null;
 }
 
+// Reverse lookup (send side): the LID for a known phone number, so a reply
+// into a LID-addressed chat dials the lid JID - WhatsApp's cross-form send
+// (pn JID into a lid chat) shows as "Menunggu pesan ini" on the recipient.
+export async function getLidForPn(
+  channelId: string,
+  pnUser: string
+): Promise<string | null> {
+  const row = await prisma.lidMapping.findFirst({
+    where: { channelId, pn: pnUser },
+    orderBy: { updatedAt: "desc" },
+  });
+  return row?.lid ?? null;
+}
+
 // In-memory change detection: an active chat fires one upsert per message,
 // and the DB write should only happen when the mapping is new or changed.
 const knownLidMappings = new Map<string, string>(); // key: `${channelId}:${lid}`
@@ -54,15 +68,20 @@ export async function storeLidPnMapping(
   channelId: string,
   lidUser: string,
   pnUser: string
-): Promise<void> {
+): Promise<{ changed: boolean }> {
   const key = `${channelId}:${lidUser}`;
-  if (knownLidMappings.get(key) === pnUser) return;
+  if (knownLidMappings.get(key) === pnUser) return { changed: false };
+  const existing = await prisma.lidMapping.findUnique({
+    where: { channelId_lid: { channelId, lid: lidUser } },
+  });
+  const changed = existing?.pn !== pnUser;
   await prisma.lidMapping.upsert({
     where: { channelId_lid: { channelId, lid: lidUser } },
     create: { channelId, lid: lidUser, pn: pnUser },
     update: { pn: pnUser },
   });
   knownLidMappings.set(key, pnUser);
+  return { changed };
 }
 
 export async function loadDbAuthState(

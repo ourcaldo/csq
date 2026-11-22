@@ -22,12 +22,15 @@ const checks: Array<[string, string, string]> = [
   ["120363023070965411@g.us", "120363023070965411@g.us", "group JID unchanged"],
 ];
 
-// LID->PN rewrite at send time (Baileys 6.7.x drops raw LID sends).
+// Send-side JID form matching (Baileys 7: reply in the chat's addressing
+// form - lid -> lid, pn -> lid when mapped; a cross-form send renders as
+// "Menunggu pesan ini" on the recipient).
 const lidChecks: Array<[string, string | null, string, string]> = [
-  // [lidJid, pn, expected, name]
-  ["127642938413286@lid", "6281234567890", "6281234567890@s.whatsapp.net", "known LID mapping -> phone JID"],
-  ["127642938413286@lid", null, "127642938413286@lid", "unknown LID stays raw (last resort)"],
-  ["6281234567890@s.whatsapp.net", "6281234567890", "6281234567890@s.whatsapp.net", "phone JID never rewritten"],
+  // [jid, lid, expected, name]
+  ["127642938413286@lid", "6281234567890", "127642938413286@lid", "LID JID never rewritten"],
+  ["127642938413286@lid", null, "127642938413286@lid", "LID JID passes through with no mapping"],
+  ["6281234567890@s.whatsapp.net", "127642938413286", "127642938413286@lid", "known pn -> lid upgrade"],
+  ["6281234567890@s.whatsapp.net", null, "6281234567890@s.whatsapp.net", "unmapped pn stays a phone JID"],
 ];
 
 let failed = 0;
