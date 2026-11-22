@@ -13,6 +13,7 @@ import { useApi } from "@/hooks/use-api";
 import type { Category, ListResult, Tag } from "@csq/core/types/dashboard";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { StateNotice } from "@/components/dashboard/state-notice";
+import { FlushPage } from "@/components/dashboard/flush-page";
 import { Pagination } from "@/components/dashboard/pagination";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import { Toast } from "@/components/dashboard/channels/toast";
@@ -245,7 +246,7 @@ export default function TagsPage() {
 
   return (
     <DashboardShell title="Tag" flush>
-      <div className="mx-auto w-full max-w-6xl px-4 py-7 md:px-8">
+      <FlushPage>
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-slate-900">Tag &amp; Taksonomi Kontak</h1>
           <p className="mt-1 text-xs text-slate-500">
@@ -424,7 +425,7 @@ export default function TagsPage() {
             )}
           </section>
         )}
-      </div>
+      </FlushPage>
 
       <ConfirmDialog
         open={toDelete !== null}

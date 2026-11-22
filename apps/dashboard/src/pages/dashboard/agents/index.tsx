@@ -22,6 +22,7 @@ import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { StateNotice } from "@/components/dashboard/state-notice";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import { TelemetryStrip } from "@/components/dashboard/telemetry-strip";
+import { FlushPage } from "@/components/dashboard/flush-page";
 import { Toast } from "@/components/dashboard/channels/toast";
 import type { ToastState } from "@/components/dashboard/channels/types";
 import {
@@ -289,7 +290,7 @@ export default function AgentsPage() {
   if (formOpen) {
     return (
       <DashboardShell title={editingId ? "Edit Agent" : "Buat Agent"} flush>
-        <div className="mx-auto w-full max-w-6xl px-4 py-7 md:px-8">
+        <FlushPage>
           <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-6">
             <div>
               <div className="flex items-center gap-2 text-xs text-slate-500">
@@ -398,7 +399,7 @@ export default function AgentsPage() {
               </button>
             </div>
           </form>
-        </div>
+        </FlushPage>
       </DashboardShell>
     );
   }
@@ -418,7 +419,7 @@ export default function AgentsPage() {
     );
     return (
       <DashboardShell title={detail.name} flush>
-        <div className="mx-auto w-full max-w-6xl px-4 py-7 md:px-8">
+        <FlushPage>
           <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-6">
             <div>
               <div className="flex items-center gap-2 text-xs text-slate-500">
@@ -622,7 +623,7 @@ export default function AgentsPage() {
               </p>
             )}
           </div>
-        </div>
+        </FlushPage>
         <Toast toast={toast} />
       </DashboardShell>
     );
@@ -631,7 +632,7 @@ export default function AgentsPage() {
   // ─── List view ───
   return (
     <DashboardShell title="Agent" flush>
-      <div className="mx-auto w-full max-w-6xl px-4 py-7 md:px-8">
+      <FlushPage>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-xl font-semibold tracking-tight text-slate-900">Agent</h1>
@@ -768,7 +769,7 @@ export default function AgentsPage() {
             </table>
           </div>
         )}
-      </div>
+      </FlushPage>
 
       <ConfirmDialog
         open={toDelete !== null}

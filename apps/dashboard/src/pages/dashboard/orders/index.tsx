@@ -14,6 +14,7 @@ import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { StateNotice } from "@/components/dashboard/state-notice";
 import { Pagination } from "@/components/dashboard/pagination";
 import { TelemetryStrip } from "@/components/dashboard/telemetry-strip";
+import { FlushPage } from "@/components/dashboard/flush-page";
 import { Toast } from "@/components/dashboard/channels/toast";
 import type { ToastState } from "@/components/dashboard/channels/types";
 
@@ -343,7 +344,7 @@ export default function OrdersPage() {
   // ─── List view ───
   return (
     <DashboardShell title="Pesanan" flush>
-      <div className="mx-auto w-full max-w-6xl px-4 py-7 md:px-8">
+      <FlushPage>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-xl font-semibold tracking-tight text-slate-900">Pesanan</h1>
@@ -506,7 +507,7 @@ export default function OrdersPage() {
             )}
           </>
         )}
-      </div>
+      </FlushPage>
       <Toast toast={toast} />
     </DashboardShell>
   );

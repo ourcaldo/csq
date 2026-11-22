@@ -14,6 +14,7 @@ import { StateNotice } from "@/components/dashboard/state-notice";
 import { Pagination } from "@/components/dashboard/pagination";
 import { ConfirmDialog } from "@/components/dashboard/confirm-dialog";
 import { TelemetryStrip } from "@/components/dashboard/telemetry-strip";
+import { FlushPage } from "@/components/dashboard/flush-page";
 import { Toast } from "@/components/dashboard/channels/toast";
 import type { ToastState } from "@/components/dashboard/channels/types";
 
@@ -347,7 +348,7 @@ export default function ProductsPage() {
   // ─── List view ───
   return (
     <DashboardShell title="Produk" flush>
-      <div className="mx-auto w-full max-w-6xl px-4 py-7 md:px-8">
+      <FlushPage>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-xl font-semibold tracking-tight text-slate-900">Produk</h1>
@@ -496,7 +497,7 @@ export default function ProductsPage() {
             )}
           </>
         )}
-      </div>
+      </FlushPage>
 
       <ConfirmDialog
         open={toDelete !== null}
