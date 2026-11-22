@@ -290,7 +290,7 @@ export default function AgentsPage() {
     return (
       <DashboardShell title={editingId ? "Edit Agent" : "Buat Agent"} flush>
         <div className="mx-auto w-full max-w-6xl px-4 py-7 md:px-8">
-          <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-5">
+          <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-6">
             <div>
               <div className="flex items-center gap-2 text-xs text-slate-500">
                 <button
@@ -305,10 +305,10 @@ export default function AgentsPage() {
                   {editingId ? "Edit Persona" : "Buat Agent"}
                 </span>
               </div>
-              <h1 className="mt-1.5 text-xl font-semibold tracking-tight text-slate-900">
+              <h1 className="mt-2 text-xl font-semibold tracking-tight text-slate-900">
                 {editingId ? `Edit Agent - ${formName}` : "Buat Agent Baru"}
               </h1>
-              <p className="mt-1 text-xs text-slate-500">
+              <p className="mt-2 text-xs text-slate-500">
                 {editingId
                   ? "Ubah nama dan instruksi (persona) agent."
                   : "Agent baru dibuat sebagai draf. Deploy untuk mengaktifkannya."}
@@ -406,10 +406,20 @@ export default function AgentsPage() {
   // ─── Full-page detail view ───
   if (detail) {
     const caps = capabilityMap(detail);
+    const allowedTools = TOOL_GROUPS.flatMap((g) => g.tools).filter(
+      (tool) =>
+        caps[tool]?.allowed ?? defaults.get(tool)?.defaultPermission.allowed ?? false
+    );
+    const approvalTools = TOOL_GROUPS.flatMap((g) => g.tools).filter(
+      (tool) =>
+        caps[tool]?.requiresApproval ??
+        defaults.get(tool)?.defaultPermission.requiresApproval ??
+        false
+    );
     return (
       <DashboardShell title={detail.name} flush>
         <div className="mx-auto w-full max-w-6xl px-4 py-7 md:px-8">
-          <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-5">
+          <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-6">
             <div>
               <div className="flex items-center gap-2 text-xs text-slate-500">
                 <button
@@ -422,14 +432,35 @@ export default function AgentsPage() {
                 <span className="text-slate-300">/</span>
                 <span className="font-medium text-slate-700">{detail.name}</span>
               </div>
-              <h1 className="mt-1.5 flex items-center gap-2.5 text-xl font-semibold tracking-tight text-slate-900">
+              <h1 className="mt-2 flex items-center gap-2.5 text-xl font-semibold tracking-tight text-slate-900">
                 <AgentTile status={detail.status} />
                 {detail.name} <StatusBadge status={detail.status} />
               </h1>
-              <p className="mt-1.5 max-w-3xl text-xs leading-relaxed text-slate-500">
+              <p className="mt-2 max-w-3xl text-xs leading-relaxed text-slate-500">
                 {detail.instructions ??
                   "Belum ada instruksi - agent akan menjawab tanpa persona khusus."}
               </p>
+              <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 font-mono text-[11px] text-slate-400">
+                <span>
+                  ID: {detail.id.slice(0, 8)}
+                </span>
+                <span>
+                  Dibuat:{" "}
+                  {new Date(detail.createdAt).toLocaleDateString("id-ID", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </span>
+                <span>
+                  Diperbarui:{" "}
+                  {new Date(detail.updatedAt).toLocaleDateString("id-ID", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </span>
+              </div>
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-2">
               {isOwner && (
@@ -474,12 +505,38 @@ export default function AgentsPage() {
           </div>
 
           {pageError && (
-            <p className="mt-4 rounded-md border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-700">
+            <p className="mt-5 rounded-md border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-700">
               {pageError}
             </p>
           )}
 
-          <div className="mt-6">
+          {/* Capability summary strip */}
+          <div className="mt-6 grid grid-cols-2 border-y border-slate-200 sm:grid-cols-4 sm:divide-x sm:divide-slate-200">
+            <div className="py-3.5 pr-4">
+              <p className="text-[11px] font-medium text-slate-400">Total Alat Registry</p>
+              <p className="mt-1 font-mono text-lg font-semibold text-slate-900">{TOTAL_TOOLS}</p>
+            </div>
+            <div className="py-3.5 sm:px-5">
+              <p className="text-[11px] font-medium text-slate-400">Diizinkan</p>
+              <p className="mt-1 font-mono text-lg font-semibold text-green-700">
+                {allowedTools.length}
+              </p>
+            </div>
+            <div className="border-t border-slate-200 py-3.5 pr-4 sm:border-t-0 sm:px-5">
+              <p className="text-[11px] font-medium text-slate-400">Butuh Approval</p>
+              <p className="mt-1 font-mono text-lg font-semibold text-amber-600">
+                {approvalTools.length}
+              </p>
+            </div>
+            <div className="border-t border-slate-200 py-3.5 sm:border-t-0 sm:pl-5">
+              <p className="text-[11px] font-medium text-slate-400">Override Kustom</p>
+              <p className="mt-1 font-mono text-lg font-semibold text-slate-900">
+                {Object.keys(caps).length}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-8">
             <div className="mb-3 flex items-center gap-2">
               <Sparkle size={14} weight="fill" className="text-green-600" />
               <h2 className="text-sm font-semibold text-slate-900">Kapabilitas Alat</h2>
@@ -491,10 +548,10 @@ export default function AgentsPage() {
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                    <th className="px-4 py-2.5">Alat</th>
-                    <th className="w-40 px-4 py-2.5">Diizinkan</th>
-                    <th className="w-48 px-4 py-2.5">Butuh Approval</th>
-                    <th className="hidden px-4 py-2.5 sm:table-cell">Default Registry</th>
+                    <th className="px-4 py-3">Alat</th>
+                    <th className="w-40 px-4 py-3">Diizinkan</th>
+                    <th className="w-48 px-4 py-3">Butuh Approval</th>
+                    <th className="hidden px-4 py-3 sm:table-cell">Default Registry</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
@@ -521,10 +578,10 @@ export default function AgentsPage() {
                         const saving = savingCaps.has(`${detail.id}:${tool}`);
                         return (
                           <tr key={tool} className="hover:bg-slate-50/60">
-                            <td className="px-4 py-2.5 font-mono text-xs text-slate-800">
+                            <td className="px-4 py-3 font-mono text-xs text-slate-800">
                               {tool}
                             </td>
-                            <td className="px-4 py-2.5">
+                            <td className="px-4 py-3">
                               <Toggle
                                 label={`Diizinkan ${tool}`}
                                 checked={allowed}
@@ -534,7 +591,7 @@ export default function AgentsPage() {
                                 }
                               />
                             </td>
-                            <td className="px-4 py-2.5">
+                            <td className="px-4 py-3">
                               <Toggle
                                 label={`Butuh approval ${tool}`}
                                 checked={requiresApproval}
@@ -544,7 +601,7 @@ export default function AgentsPage() {
                                 }
                               />
                             </td>
-                            <td className="hidden px-4 py-2.5 sm:table-cell">
+                            <td className="hidden px-4 py-3 sm:table-cell">
                               <span
                                 className={`font-mono text-[11px] ${cap ? "text-green-700" : "text-slate-400"}`}
                               >
@@ -579,8 +636,8 @@ export default function AgentsPage() {
           <div>
             <h1 className="text-xl font-semibold tracking-tight text-slate-900">Agent</h1>
             <p className="mt-1 text-xs text-slate-500">
-              Kelola agent AI: status deploy dan kapabilitas per alat. Klik agent untuk membuka
-              detail dan matriks izin.
+              Kelola agent AI: status deploy dan kapabilitas per alat. Buka detail agent untuk
+              matriks izin lengkap.
             </p>
           </div>
           {isOwner && (
@@ -638,11 +695,7 @@ export default function AgentsPage() {
                   </tr>
                 )}
                 {agents.map((a) => (
-                  <tr
-                    key={a.id}
-                    className="cursor-pointer hover:bg-slate-50/80"
-                    onClick={() => setDetailId(a.id)}
-                  >
+                  <tr key={a.id} className="hover:bg-slate-50/80">
                     <td className="py-3.5 pr-4">
                       <div className="flex items-start gap-3">
                         <AgentTile status={a.status} />
@@ -675,30 +728,39 @@ export default function AgentsPage() {
                         year: "numeric",
                       })}
                     </td>
-                    <td className="py-3.5 pl-4 text-right" onClick={(e) => e.stopPropagation()}>
-                      {isOwner && (
-                        <div className="inline-flex items-center gap-3">
-                          <button
-                            type="button"
-                            disabled={actioningId === a.id}
-                            onClick={() => void onToggleStatus(a)}
-                            className={
-                              a.status === "ACTIVE"
-                                ? "text-xs font-medium text-amber-700 hover:underline disabled:opacity-50"
-                                : "text-xs font-semibold text-green-700 hover:underline disabled:opacity-50"
-                            }
-                          >
-                            {a.status === "ACTIVE" ? "Jeda" : "Deploy"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setToDelete(a)}
-                            className="text-xs font-medium text-red-600 hover:underline"
-                          >
-                            Hapus
-                          </button>
-                        </div>
-                      )}
+                    <td className="py-3.5 pl-4 text-right">
+                      <div className="inline-flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setDetailId(a.id)}
+                          className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                        >
+                          Detail
+                        </button>
+                        {isOwner && (
+                          <>
+                            <button
+                              type="button"
+                              disabled={actioningId === a.id}
+                              onClick={() => void onToggleStatus(a)}
+                              className={
+                                a.status === "ACTIVE"
+                                  ? "text-xs font-medium text-amber-700 hover:underline disabled:opacity-50"
+                                  : "text-xs font-semibold text-green-700 hover:underline disabled:opacity-50"
+                              }
+                            >
+                              {a.status === "ACTIVE" ? "Jeda" : "Deploy"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setToDelete(a)}
+                              className="text-xs font-medium text-red-600 hover:underline"
+                            >
+                              Hapus
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
