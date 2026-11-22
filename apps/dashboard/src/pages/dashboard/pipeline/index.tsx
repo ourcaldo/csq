@@ -495,8 +495,11 @@ export default function PipelinePage() {
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
                               <div className="flex items-center gap-1.5">
+                                {/* Name-first (owner request 2026-11-22): the
+                                    top line is the contact / WhatsApp name,
+                                    the number only when no name exists. */}
                                 <span className="truncate text-sm font-bold text-slate-900 group-hover:text-green-700">
-                                  {d.conversation.customerPhoneDisplay}
+                                  {contactName ?? d.conversation.customerPhoneDisplay}
                                 </span>
                                 {d.unreadCount > 0 && (
                                   <span className="rounded-full bg-green-600 px-1.5 text-[10px] font-bold text-white">
@@ -505,10 +508,12 @@ export default function PipelinePage() {
                                 )}
                               </div>
                               <p className="truncate text-xs text-slate-500">
-                                {contactName ?? "Pelanggan baru"}
-                                {d.conversation.contact?.source
-                                  ? ` - ${d.conversation.contact.source}`
-                                  : ""}
+                                {contactName
+                                  ? d.conversation.customerPhoneDisplay +
+                                    (d.conversation.contact?.email
+                                      ? ` - ${d.conversation.contact.email}`
+                                      : "")
+                                  : d.conversation.contact?.source ?? "Pelanggan baru"}
                               </p>
                             </div>
                             <span className="whitespace-nowrap text-[11px] text-slate-400">
