@@ -22,14 +22,13 @@ type CapabilitiesResult = { ok: true };
 // PUT (OWNER-only): set an explicit AgentCapability override for an agent.
 // Tenant-scoped via requireTenant; the agent is verified to belong to the
 // tenant before grantCapability is called.
+// DELETE (OWNER-only): remove ALL overrides for the agent so every tool
+// reverts to its registry defaultPermission (template 2026-11-22 "Pulihkan
+// Default Registry").
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<ApiResponse<CapabilitiesResult>>
 ) {
-  if (req.method !== "PUT") {
-    return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
-  }
-
   const session = await getAuthSession(req, res);
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
   if (!requireRole(session, "OWNER")) {
@@ -45,15 +44,34 @@ export default async function handler(
     const id = strQuery(req.query, "id");
     if (!id) return respondError(res, "VALIDATION_ERROR", "ID agent tidak valid.");
 
+    // Verify the agent belongs to this tenant before mutating capabilities.
+    const agent = await prisma.agent.findFirst({ where: { id, tenantId } });
+    if (!agent) return respondError(res, "NOT_FOUND", "Agent tidak ditemukan.");
+
+    if (req.method === "DELETE") {
+      const removed = await prisma.agentCapability.deleteMany({
+        where: { tenantId, agentId: agent.id },
+      });
+      await logHuman({
+        tenantId,
+        action: "agent.capability.reset",
+        entityType: "AgentCapability",
+        entityId: agent.id,
+        beforeValue: { removed: removed.count },
+        afterValue: { note: "semua override dihapus, kembali ke default registry" },
+      });
+      return res.status(200).json(apiOk({ ok: true }));
+    }
+
+    if (req.method !== "PUT") {
+      return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
+    }
+
     const parsed = capabilitySchema.safeParse(req.body);
     if (!parsed.success) {
       return respondError(res, "VALIDATION_ERROR", parsed.error.message);
     }
     const { tool, allowed, requiresApproval } = parsed.data;
-
-    // Verify the agent belongs to this tenant before mutating capabilities.
-    const agent = await prisma.agent.findFirst({ where: { id, tenantId } });
-    if (!agent) return respondError(res, "NOT_FOUND", "Agent tidak ditemukan.");
 
     const before = await prisma.agentCapability.findUnique({
       where: { agentId_tool: { agentId: agent.id, tool } },

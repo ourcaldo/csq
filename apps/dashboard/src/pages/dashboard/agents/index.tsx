@@ -1,17 +1,19 @@
-// /dashboard/agents - enterprise revamp (template 2026-11-22, agent_csq_
-// enterprise.html): telemetry strip, agent table, FULL-PAGE detail with the
-// capability matrix, and a FULL-PAGE persona form. Pop-ups removed except
+// /dashboard/agents - enterprise revamp v2 (template 2026-11-22 update):
+// search + status pill filters, Saluran column (real Channel.agentId link),
+// rich capability matrix (label, key, desc, Ya/Tidak, Otomatis/Wajib
+// Approval), Pulihkan Default Registry, Simulator dry-run tab, and the
+// create/edit form with channel select + prompt presets. No pop-ups except
 // the destructive delete confirm.
 import { Fragment, useMemo, useState } from "react";
+import type { FormEvent } from "react";
 import type { GetServerSideProps } from "next";
-import { useSession } from "next-auth/react";
 import {
+  ArrowCounterClockwise,
   ArrowLeft,
   Pause,
   PencilSimple,
   Play,
   Plus,
-  Robot,
   Sparkle,
   Trash,
 } from "@phosphor-icons/react";
@@ -29,17 +31,37 @@ import {
   capabilityMap,
   statusLabel,
   statusTone,
-  TOOL_GROUPS,
   type AgentWithCapabilities,
   type AgentsList,
 } from "@/components/dashboard/agents/types";
 
-const TOTAL_TOOLS = TOOL_GROUPS.reduce((s, g) => s + g.tools.length, 0);
+// Channel row as returned by /api/dashboard/channels (sanitized view).
+type ChannelView = {
+  id: string;
+  provider: "CLOUD_API" | "BAILEYS";
+  status: string;
+  label: string;
+  agentId: string | null;
+  phoneNumber: string | null;
+};
 
-function StatusBadge({ status }: { status: string }) {
-  const tone = statusTone(
-    status === "ACTIVE" || status === "PAUSED" ? status : "DRAFT"
-  );
+type StatusFilter = "ALL" | "ACTIVE" | "PAUSED" | "DRAFT";
+
+const CATEGORY_LABEL: Record<string, string> = {
+  product: "Produk",
+  inventory: "Inventaris",
+  order: "Pesanan",
+  customer: "Kontak",
+  knowledge: "Pengetahuan",
+  conversation: "Percakapan",
+  memory: "Ingatan",
+  source: "Sumber Data",
+  deal: "Pipeline",
+  support: "Dukungan",
+};
+
+function StatusPill({ status }: { status: string }) {
+  const tone = statusTone(status === "ACTIVE" || status === "PAUSED" ? status : "DRAFT");
   const dot =
     tone === "green" ? "bg-green-500" : tone === "amber" ? "bg-amber-400" : "bg-slate-300";
   const text =
@@ -49,42 +71,28 @@ function StatusBadge({ status }: { status: string }) {
         ? "text-amber-700"
         : "text-slate-500";
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${text}`}>
+    <span className={`inline-flex items-center gap-1.5 font-mono text-xs font-medium ${text}`}>
       <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
       {statusLabel(status === "ACTIVE" || status === "PAUSED" ? status : "DRAFT")}
     </span>
   );
 }
 
-function AgentTile({ status }: { status: string }) {
-  const bg =
-    status === "ACTIVE"
-      ? "bg-green-600"
-      : status === "PAUSED"
-        ? "bg-amber-500"
-        : "bg-slate-300";
-  return (
-    <span
-      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${bg} text-white`}
-    >
-      <Robot size={18} weight="fill" />
-    </span>
-  );
-}
-
-function Toggle({
+function Switch({
   checked,
   disabled,
+  amber,
   onChange,
   label,
 }: {
   checked: boolean;
   disabled?: boolean;
+  amber?: boolean;
   onChange: (v: boolean) => void;
   label: string;
 }) {
   return (
-    <label className="relative inline-block h-5 w-9 shrink-0">
+    <label className="relative inline-block h-5 w-[34px] shrink-0">
       <input
         type="checkbox"
         role="switch"
@@ -95,13 +103,13 @@ function Toggle({
         className="peer sr-only"
       />
       <span
-        className={`absolute inset-0 cursor-pointer rounded-full transition-colors peer-disabled:cursor-not-allowed peer-disabled:opacity-45 ${
-          checked ? "bg-green-600" : "bg-slate-300"
+        className={`absolute inset-0 cursor-pointer rounded-full transition-colors peer-disabled:cursor-not-allowed peer-disabled:opacity-40 ${
+          checked ? (amber ? "bg-amber-600" : "bg-green-600") : "bg-slate-300"
         }`}
       >
         <span
           className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
-            checked ? "translate-x-4" : ""
+            checked ? "translate-x-[14px]" : ""
           }`}
         />
       </span>
@@ -109,41 +117,92 @@ function Toggle({
   );
 }
 
-export default function AgentsPage() {
-  const { data: session } = useSession();
-  const isOwner = session?.user?.role === "OWNER";
+const PRESETS: Record<string, string> = {
+  cs: "Kamu adalah staf Customer Service yang ramah dan solutif. Jawab pertanyaan pelanggan berdasarkan katalog produk dan basis pengetahuan resmi. Jangan pernah menjanjikan diskon di luar daftar harga.",
+  order: "Bantu pelanggan mengecek stok produk secara real-time dan catat detail pesanan (nama, nomor WhatsApp, daftar SKU, dan jumlah) ke dalam draf pesanan untuk dikonfirmasi admin.",
+};
 
+function formatDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+}
+
+export default function AgentsPage() {
   const { data, loading, error, refresh } = useApi<AgentsList>("/api/dashboard/agents");
+  const { data: channelsData } = useApi<{ items: ChannelView[] }>(
+    "/api/dashboard/channels"
+  );
+
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
+  const [search, setSearch] = useState("");
 
   const [pageError, setPageError] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
   const [actioningId, setActioningId] = useState<string | null>(null);
   const [savingCaps, setSavingCaps] = useState<Set<string>>(new Set());
 
-  // View state: null = list, {id} = detail, true = persona form.
+  // View state.
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [detailTab, setDetailTab] = useState<"matrix" | "sandbox">("matrix");
+  const [sandboxOut, setSandboxOut] = useState<{ prompt: string; tool: string; verdict: string } | null>(null);
+
+  // Form state.
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formName, setFormName] = useState("");
   const [formInstructions, setFormInstructions] = useState("");
+  const [formChannelId, setFormChannelId] = useState("");
   const [savingForm, setSavingForm] = useState(false);
 
   const [toDelete, setToDelete] = useState<AgentWithCapabilities | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   const agents = useMemo(() => data?.items ?? [], [data]);
+  const tools = useMemo(() => data?.tools ?? [], [data]);
+  const channels = useMemo(() => channelsData?.items ?? [], [channelsData]);
   const detail = useMemo(
     () => agents.find((a) => a.id === detailId) ?? null,
     [agents, detailId]
   );
-  const defaults = useMemo(
-    () => new Map((data?.tools ?? []).map((t) => [t.name, t])),
-    [data]
-  );
+
+  // Channel name for an agent (first linked channel), for the list/detail.
+  const channelByAgent = useMemo(() => {
+    const map = new Map<string, ChannelView>();
+    for (const ch of channels) {
+      if (ch.agentId && !map.has(ch.agentId)) map.set(ch.agentId, ch);
+    }
+    return map;
+  }, [channels]);
+
+  const groupedTools = useMemo(() => {
+    const groups = new Map<string, typeof tools>();
+    for (const t of tools) {
+      const cat = t.category;
+      if (!groups.has(cat)) groups.set(cat, []);
+      groups.get(cat)!.push(t);
+    }
+    return Array.from(groups.entries());
+  }, [tools]);
+
+  function effCaps(agent: AgentWithCapabilities) {
+    const caps = capabilityMap(agent);
+    const rows = tools.map((t) => {
+      const cap = caps[t.name];
+      return {
+        tool: t,
+        cap,
+        allowed: cap?.allowed ?? t.defaultPermission.allowed,
+        approval: cap?.requiresApproval ?? t.defaultPermission.requiresApproval,
+        isCustom: !!cap,
+      };
+    });
+    return rows;
+  }
 
   function showToast(msg: string) {
     setToast({ tone: "success", msg });
-    setTimeout(() => setToast(null), 2600);
+    setTimeout(() => setToast(null), 2500);
   }
 
   async function onToggleStatus(agent: AgentWithCapabilities) {
@@ -152,10 +211,10 @@ export default function AgentsPage() {
     try {
       if (agent.status === "ACTIVE") {
         await apiSend(`/api/dashboard/agents/${agent.id}/pause`, "POST");
-        showToast(`Agent "${agent.name}" dijeda - tidak membalas percakapan baru`);
+        showToast(`Agent "${agent.name}" dijeda`);
       } else {
         await apiSend(`/api/dashboard/agents/${agent.id}/deploy`, "POST");
-        showToast(`Agent "${agent.name}" berhasil di-deploy dan aktif`);
+        showToast(`Agent "${agent.name}" di-deploy dan aktif`);
       }
       refresh();
     } catch (err) {
@@ -173,13 +232,13 @@ export default function AgentsPage() {
   ) {
     const caps = capabilityMap(agent);
     const current = caps[tool];
-    const def = defaults.get(tool);
+    const def = tools.find((t) => t.name === tool)?.defaultPermission;
     const nextAllowed =
-      field === "allowed" ? value : current?.allowed ?? def?.defaultPermission.allowed ?? false;
+      field === "allowed" ? value : current?.allowed ?? def?.allowed ?? false;
     const nextApproval =
       field === "requiresApproval"
         ? value
-        : current?.requiresApproval ?? def?.defaultPermission.requiresApproval ?? false;
+        : current?.requiresApproval ?? def?.requiresApproval ?? false;
 
     const key = `${agent.id}:${tool}`;
     setSavingCaps((prev) => new Set(prev).add(key));
@@ -190,7 +249,7 @@ export default function AgentsPage() {
         allowed: nextAllowed,
         requiresApproval: nextApproval,
       });
-      showToast(`Kapabilitas ${tool} diperbarui`);
+      showToast(`Izin "${tool}" diperbarui`);
       refresh();
     } catch (err) {
       setPageError(err instanceof Error ? err.message : "Gagal mengubah kapabilitas.");
@@ -203,10 +262,27 @@ export default function AgentsPage() {
     }
   }
 
+  async function onResetCaps() {
+    if (!detail) return;
+    setActioningId(detail.id);
+    setPageError(null);
+    try {
+      await apiSend(`/api/dashboard/agents/${detail.id}/capabilities`, "DELETE");
+      showToast("Seluruh kapabilitas dipulihkan ke default registry");
+      refresh();
+    } catch (err) {
+      setPageError(err instanceof Error ? err.message : "Gagal memulihkan default.");
+    } finally {
+      setActioningId(null);
+    }
+  }
+
   function openCreate() {
     setEditingId(null);
     setFormName("");
     setFormInstructions("");
+    const firstLinked = channels.find((c) => !c.agentId);
+    setFormChannelId(firstLinked?.id ?? "");
     setFormOpen(true);
   }
 
@@ -214,10 +290,19 @@ export default function AgentsPage() {
     setEditingId(agent.id);
     setFormName(agent.name);
     setFormInstructions(agent.instructions ?? "");
+    const linked = channels.find((c) => c.agentId === agent.id);
+    setFormChannelId(linked?.id ?? "");
     setFormOpen(true);
   }
 
-  async function onSaveForm() {
+  function applyPreset(kind: keyof typeof PRESETS) {
+    setFormInstructions((prev) =>
+      prev.trim() ? `${prev.trim()}\n\n${PRESETS[kind]}` : PRESETS[kind]
+    );
+  }
+
+  async function onSaveForm(e: FormEvent) {
+    e.preventDefault();
     setSavingForm(true);
     setPageError(null);
     try {
@@ -227,13 +312,34 @@ export default function AgentsPage() {
       };
       if (editingId) {
         await apiSend(`/api/dashboard/agents/${editingId}/edit`, "PUT", payload);
-        showToast(`Perubahan pada "${formName}" disimpan`);
+        // Channel assignment follows the form select (template 2026-11-22).
+        const target = formChannelId || null;
+        const current = channels.find((c) => c.agentId === editingId);
+        if (current && current.id !== formChannelId) {
+          await apiSend(`/api/dashboard/channels/${current.id}`, "PATCH", {
+            agentId: null,
+          }).catch(() => undefined);
+        }
+        if (target) {
+          const owner = channels.find((c) => c.id === target);
+          if (owner && owner.agentId !== editingId) {
+            await apiSend(`/api/dashboard/channels/${target}`, "PATCH", {
+              agentId: editingId,
+            }).catch(() => undefined);
+          }
+        }
+        showToast(`Persona "${formName}" diperbarui`);
       } else {
         const created = await apiSend<AgentWithCapabilities>(
           "/api/dashboard/agents",
           "POST",
           payload
         );
+        if (formChannelId) {
+          await apiSend(`/api/dashboard/channels/${formChannelId}`, "PATCH", {
+            agentId: created.id,
+          }).catch(() => undefined);
+        }
         setDetailId(created.id);
         showToast(`Agent "${formName}" dibuat sebagai draf`);
       }
@@ -263,15 +369,29 @@ export default function AgentsPage() {
     }
   }
 
-  function allowedCount(agent: AgentWithCapabilities): number {
-    let n = 0;
-    for (const g of TOOL_GROUPS) {
-      for (const tool of g.tools) {
-        const cap = capabilityMap(agent)[tool];
-        if (cap?.allowed ?? defaults.get(tool)?.defaultPermission.allowed ?? false) n += 1;
-      }
+  // Sandbox: honest dry-run - keyword-maps the message to a candidate tool
+  // and reports what the capability matrix would decide. No LLM call.
+  function runSandbox(promptText: string) {
+    if (!detail) return;
+    const lower = promptText.toLowerCase();
+    let tool = tools.find((t) => t.name === "knowledge.search") ?? tools[0];
+    if (lower.includes("stok") || lower.includes("berapa")) {
+      tool = tools.find((t) => t.name === "inventory.read") ?? tool;
+    } else if (lower.includes("pesan") || lower.includes("order") || lower.includes("beli")) {
+      tool = tools.find((t) => t.name === "order.create") ?? tool;
+    } else if (lower.includes("refund") || lower.includes("kembali")) {
+      tool = tools.find((t) => t.name === "order.refund") ?? tool;
+    } else if (lower.includes("komplain") || lower.includes("rusak") || lower.includes("tiket")) {
+      tool = tools.find((t) => t.name === "support.create_ticket") ?? tool;
+    } else if (lower.includes("harga") || lower.includes("produk")) {
+      tool = tools.find((t) => t.name === "product.search") ?? tool;
     }
-    return n;
+    const caps = capabilityMap(detail);
+    const allowed = caps[tool.name]?.allowed ?? tool.defaultPermission.allowed;
+    const approval =
+      caps[tool.name]?.requiresApproval ?? tool.defaultPermission.requiresApproval;
+    const verdict = !allowed ? "blocked" : approval ? "approval" : "auto";
+    setSandboxOut({ prompt: promptText, tool: tool.name, verdict });
   }
 
   const counts = useMemo(() => {
@@ -286,7 +406,26 @@ export default function AgentsPage() {
     return { active, paused, draft };
   }, [agents]);
 
-  // ─── Full-page persona form view ───
+  const filteredAgents = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return agents.filter((a) => {
+      const matchStatus = statusFilter === "ALL" || a.status === statusFilter;
+      const matchQuery =
+        !q ||
+        a.name.toLowerCase().includes(q) ||
+        (a.instructions ?? "").toLowerCase().includes(q);
+      return matchStatus && matchQuery;
+    });
+  }, [agents, statusFilter, search]);
+
+  const statusPills: { key: StatusFilter; label: string }[] = [
+    { key: "ALL", label: "Semua" },
+    { key: "ACTIVE", label: "Aktif" },
+    { key: "PAUSED", label: "Dijeda" },
+    { key: "DRAFT", label: "Draf" },
+  ];
+
+  // ─── View 3: full-page create/edit form ───
   if (formOpen) {
     return (
       <DashboardShell title={editingId ? "Edit Agent" : "Buat Agent"} flush>
@@ -303,16 +442,16 @@ export default function AgentsPage() {
                 </button>
                 <span className="text-slate-300">/</span>
                 <span className="font-medium text-slate-700">
-                  {editingId ? "Edit Persona" : "Buat Agent"}
+                  {editingId ? `Edit - ${formName}` : "Buat Agent"}
                 </span>
               </div>
-              <h1 className="mt-2 text-xl font-semibold tracking-tight text-slate-900">
-                {editingId ? `Edit Agent - ${formName}` : "Buat Agent Baru"}
+              <h1 className="mt-3 text-xl font-semibold tracking-tight text-slate-900">
+                {editingId ? `Edit Persona - ${formName}` : "Buat Agent Baru"}
               </h1>
               <p className="mt-2 text-xs text-slate-500">
                 {editingId
-                  ? "Ubah nama dan instruksi (persona) agent."
-                  : "Agent baru dibuat sebagai draf. Deploy untuk mengaktifkannya."}
+                  ? "Perubahan instruksi sistem dan saluran langsung berlaku pada percakapan aktif."
+                  : "Agent baru dibuat sebagai draf. Deploy untuk mengaktifkannya pada saluran pelanggan."}
               </p>
             </div>
             <button
@@ -324,58 +463,95 @@ export default function AgentsPage() {
             </button>
           </div>
 
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              void onSaveForm();
-            }}
-            className="divide-y divide-slate-200"
-          >
+          <form onSubmit={onSaveForm} className="divide-y divide-slate-200">
             <div className="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
               <div className="md:col-span-4">
-                <span className="text-xs font-semibold text-slate-900">Identitas Agent</span>
+                <span className="text-xs font-semibold text-slate-900">Identitas &amp; Saluran</span>
                 <p className="mt-1 text-xs leading-relaxed text-slate-500">
-                  Nama tampilan agent di dashboard dan audit log.
+                  Nama tampilan agent di dashboard, audit log, dan saluran WhatsApp yang ditugaskan.
                 </p>
               </div>
-              <div className="md:col-span-8">
-                <label htmlFor="af-name" className="block text-xs font-medium text-slate-700">
-                  Nama Agent <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="af-name"
-                  type="text"
-                  required
-                  maxLength={100}
-                  placeholder="mis. Customer Service Utama"
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                  className="mt-1.5 h-9 w-full max-w-md rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/15"
-                />
+              <div className="max-w-lg space-y-3.5 md:col-span-8">
+                <div>
+                  <label htmlFor="af-name" className="block text-xs font-medium text-slate-700">
+                    Nama Agent <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    id="af-name"
+                    type="text"
+                    required
+                    placeholder="mis. CS Utama Toko Kopi"
+                    value={formName}
+                    onChange={(e) => setFormName(e.target.value)}
+                    className="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/15"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="af-channel" className="block text-xs font-medium text-slate-700">
+                    Saluran Terhubung
+                  </label>
+                  <select
+                    id="af-channel"
+                    value={formChannelId}
+                    onChange={(e) => setFormChannelId(e.target.value)}
+                    className="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-green-600 focus:outline-none"
+                  >
+                    <option value="">Belum ditugaskan</option>
+                    {channels.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.label || c.phoneNumber || c.id.slice(0, 8)} ({c.provider === "CLOUD_API" ? "Cloud API" : "Baileys"})
+                        {c.agentId && c.agentId !== editingId ? " (sudah dipakai agent lain)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
 
             <div className="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
               <div className="md:col-span-4">
-                <span className="text-xs font-semibold text-slate-900">Instruksi (Persona)</span>
+                <span className="text-xs font-semibold text-slate-900">Persona &amp; Instruksi Sistem</span>
                 <p className="mt-1 text-xs leading-relaxed text-slate-500">
-                  Instruksi ini menjadi system prompt agent pada setiap percakapan. Jaga agar
-                  ringkas dan spesifik - pengetahuan produk diambil agent lewat alat pencarian,
-                  bukan lewat prompt.
+                  Gaya bahasa, batasan kebijakan, dan panduan eskalasi ke staf manusia.
                 </p>
+                <div className="mt-3 space-y-1.5">
+                  <p className="text-[11px] font-medium text-slate-400">Sisipkan Template Cepat:</p>
+                  <button
+                    type="button"
+                    onClick={() => applyPreset("cs")}
+                    className="block rounded border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-100"
+                  >
+                    + Customer Service &amp; Katalog
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyPreset("order")}
+                    className="block rounded border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-100"
+                  >
+                    + Asisten Pemesanan &amp; Stok
+                  </button>
+                </div>
               </div>
-              <div className="md:col-span-8">
+              <div className="max-w-2xl md:col-span-8">
+                <div className="flex items-center justify-between">
+                  <label htmlFor="af-instructions" className="block text-xs font-medium text-slate-700">
+                    System Prompt <span className="text-red-500">*</span>
+                  </label>
+                  <span className="font-mono text-[11px] text-slate-400">
+                    {formInstructions.length} karakter
+                  </span>
+                </div>
                 <textarea
                   id="af-instructions"
                   rows={7}
-                  placeholder="Kamu adalah customer service Toko Kopi Nusantara. Jawab dengan ramah dalam Bahasa Indonesia..."
+                  required
                   value={formInstructions}
                   onChange={(e) => setFormInstructions(e.target.value)}
-                  className="w-full max-w-xl rounded-md border border-slate-300 bg-white px-3 py-2 text-sm leading-relaxed text-slate-900 focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/15"
+                  placeholder="Tuliskan peran, nada bicara, dan aturan operasional agent…"
+                  className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-xs leading-relaxed text-slate-900 focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/15"
                 />
                 <p className="mt-1.5 text-[11px] text-slate-400">
-                  Tipe agent: Customer Service. Tipe khusus lain (Sales, Inventaris) dapat
-                  ditambahkan kemudian.
+                  Guardrail keamanan CSQ aktif secara otomatis untuk mencegah kebocoran prompt internal dan halusinasi harga.
                 </p>
               </div>
             </div>
@@ -392,10 +568,14 @@ export default function AgentsPage() {
               </button>
               <button
                 type="submit"
-                disabled={savingForm || !formName.trim()}
+                disabled={savingForm || !formName.trim() || !formInstructions.trim()}
                 className="rounded-md bg-green-600 px-4 py-2 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-60"
               >
-                {savingForm ? "Menyimpan…" : editingId ? "Simpan Perubahan" : "Buat Agent"}
+                {savingForm
+                  ? "Menyimpan…"
+                  : editingId
+                    ? "Simpan Perubahan"
+                    : "Simpan sebagai Draf"}
               </button>
             </div>
           </form>
@@ -404,19 +584,13 @@ export default function AgentsPage() {
     );
   }
 
-  // ─── Full-page detail view ───
+  // ─── View 2: full-page detail ───
   if (detail) {
-    const caps = capabilityMap(detail);
-    const allowedTools = TOOL_GROUPS.flatMap((g) => g.tools).filter(
-      (tool) =>
-        caps[tool]?.allowed ?? defaults.get(tool)?.defaultPermission.allowed ?? false
-    );
-    const approvalTools = TOOL_GROUPS.flatMap((g) => g.tools).filter(
-      (tool) =>
-        caps[tool]?.requiresApproval ??
-        defaults.get(tool)?.defaultPermission.requiresApproval ??
-        false
-    );
+    const rows = effCaps(detail);
+    const allowedCount = rows.filter((r) => r.allowed).length;
+    const approvalCount = rows.filter((r) => r.allowed && r.approval).length;
+    const overrideCount = rows.filter((r) => r.isCustom).length;
+    const linkedChannel = channelByAgent.get(detail.id);
     return (
       <DashboardShell title={detail.name} flush>
         <FlushPage>
@@ -433,75 +607,55 @@ export default function AgentsPage() {
                 <span className="text-slate-300">/</span>
                 <span className="font-medium text-slate-700">{detail.name}</span>
               </div>
-              <h1 className="mt-4 flex items-center gap-2.5 text-xl font-semibold tracking-tight text-slate-900">
-                <AgentTile status={detail.status} />
-                {detail.name} <StatusBadge status={detail.status} />
-              </h1>
-              <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 font-mono text-[11px] text-slate-400">
-                <span>
-                  ID: {detail.id.slice(0, 8)}
-                </span>
-                <span>
-                  Dibuat:{" "}
-                  {new Date(detail.createdAt).toLocaleDateString("id-ID", {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })}
-                </span>
-                <span>
-                  Diperbarui:{" "}
-                  {new Date(detail.updatedAt).toLocaleDateString("id-ID", {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })}
-                </span>
+              <div className="mt-3 flex flex-wrap items-center gap-2.5 text-xl font-semibold tracking-tight text-slate-900">
+                {detail.name} <StatusPill status={detail.status} />
               </div>
-              <p className="mt-3 max-w-3xl text-xs leading-relaxed text-slate-500">
+              <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 font-mono text-[11px] text-slate-400">
+                <span>ID: {detail.id.slice(0, 8)}</span>
+                <span>Saluran: {linkedChannel ? linkedChannel.label || linkedChannel.phoneNumber || "-" : "Belum ditugaskan"}</span>
+                <span>Dibuat: {formatDate(detail.createdAt)}</span>
+                <span>Diperbarui: {formatDate(detail.updatedAt)}</span>
+              </div>
+              <p className="mt-3 max-w-3xl text-xs leading-relaxed text-slate-600">
                 {detail.instructions ??
                   "Belum ada instruksi - agent akan menjawab tanpa persona khusus."}
               </p>
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-2">
-              {isOwner && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => openEdit(detail)}
-                    className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                  >
-                    <PencilSimple size={12} />Edit Persona
-                  </button>
-                  <button
-                    type="button"
-                    disabled={actioningId === detail.id}
-                    onClick={() => void onToggleStatus(detail)}
-                    className={
-                      detail.status === "ACTIVE"
-                        ? "inline-flex h-8 items-center gap-1.5 rounded-md bg-amber-500 px-3 text-xs font-semibold text-white hover:bg-amber-600 disabled:opacity-60"
-                        : "inline-flex h-8 items-center gap-1.5 rounded-md bg-green-600 px-3 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-60"
-                    }
-                  >
-                    {detail.status === "ACTIVE" ? (
-                      <>
-                        <Pause size={12} />Jeda Agent
-                      </>
-                    ) : (
-                      <>
-                        <Play size={12} />Deploy Agent
-                      </>
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setToDelete(detail)}
-                    className="inline-flex h-8 items-center gap-1.5 rounded-md border border-red-200 bg-white px-3 text-xs font-medium text-red-600 hover:bg-red-50"
-                  >
-                    <Trash size={12} />Hapus
-                  </button>
-                </>
-              )}
+              <button
+                type="button"
+                onClick={() => openEdit(detail)}
+                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50"
+              >
+                <PencilSimple size={12} />Edit Persona
+              </button>
+              <button
+                type="button"
+                disabled={actioningId === detail.id}
+                onClick={() => void onToggleStatus(detail)}
+                className={
+                  detail.status === "ACTIVE"
+                    ? "inline-flex h-8 items-center gap-1.5 rounded-md bg-amber-600 px-3 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
+                    : "inline-flex h-8 items-center gap-1.5 rounded-md bg-green-600 px-3 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-60"
+                }
+              >
+                {detail.status === "ACTIVE" ? (
+                  <>
+                    <Pause size={12} />Jeda Agent
+                  </>
+                ) : (
+                  <>
+                    <Play size={12} />Deploy Agent
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => setToDelete(detail)}
+                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-red-200 bg-white px-3 text-xs font-medium text-red-600 hover:bg-red-50"
+              >
+                <Trash size={12} />Hapus
+              </button>
             </div>
           </div>
 
@@ -511,125 +665,291 @@ export default function AgentsPage() {
             </p>
           )}
 
-          {/* Capability summary strip */}
-          <div className="mt-6 grid grid-cols-2 border-y border-slate-200 sm:grid-cols-4 sm:divide-x sm:divide-slate-200">
-            <div className="py-3.5 pr-4">
-              <p className="text-[11px] font-medium text-slate-400">Total Alat Registry</p>
-              <p className="mt-1 font-mono text-lg font-semibold text-slate-900">{TOTAL_TOOLS}</p>
-            </div>
-            <div className="py-3.5 sm:px-5">
-              <p className="text-[11px] font-medium text-slate-400">Diizinkan</p>
-              <p className="mt-1 font-mono text-lg font-semibold text-green-700">
-                {allowedTools.length}
-              </p>
-            </div>
-            <div className="border-t border-slate-200 py-3.5 pr-4 sm:border-t-0 sm:px-5">
-              <p className="text-[11px] font-medium text-slate-400">Butuh Approval</p>
-              <p className="mt-1 font-mono text-lg font-semibold text-amber-600">
-                {approvalTools.length}
-              </p>
-            </div>
-            <div className="border-t border-slate-200 py-3.5 sm:border-t-0 sm:pl-5">
-              <p className="text-[11px] font-medium text-slate-400">Override Kustom</p>
-              <p className="mt-1 font-mono text-lg font-semibold text-slate-900">
-                {Object.keys(caps).length}
-              </p>
-            </div>
-          </div>
+          <TelemetryStrip
+            cells={[
+              { label: "Total Alat Registry", value: String(rows.length) },
+              { label: "Diizinkan", value: String(allowedCount), valueClass: "text-green-700" },
+              { label: "Butuh Approval", value: String(approvalCount), valueClass: "text-amber-600" },
+              { label: "Override Kustom", value: String(overrideCount) },
+            ]}
+          />
 
-          <div className="mt-8">
-            <div className="mb-3 flex items-center gap-2">
-              <Sparkle size={14} weight="fill" className="text-green-600" />
-              <h2 className="text-sm font-semibold text-slate-900">Kapabilitas Alat</h2>
-              <span className="font-mono text-[11px] text-slate-400">
-                Izin per alat - diubah langsung dari matriks
-              </span>
+          {/* Detail sub-tabs */}
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200">
+            <div className="flex gap-6">
+              <button
+                type="button"
+                onClick={() => setDetailTab("matrix")}
+                className={
+                  detailTab === "matrix"
+                    ? "relative py-2.5 text-xs font-semibold text-slate-900 after:absolute after:inset-x-0 after:bottom-[-1px] after:h-0.5 after:bg-green-600"
+                    : "relative py-2.5 text-xs font-medium text-slate-500 hover:text-slate-900"
+                }
+              >
+                Matriks Kapabilitas Alat
+              </button>
+              <button
+                type="button"
+                onClick={() => setDetailTab("sandbox")}
+                className={
+                  detailTab === "sandbox"
+                    ? "relative py-2.5 text-xs font-semibold text-slate-900 after:absolute after:inset-x-0 after:bottom-[-1px] after:h-0.5 after:bg-green-600"
+                    : "relative py-2.5 text-xs font-medium text-slate-500 hover:text-slate-900"
+                }
+              >
+                Simulator &amp; Uji Prompt
+              </button>
             </div>
-            <div className="overflow-x-auto border-y border-slate-200">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                    <th className="px-4 py-3">Alat</th>
-                    <th className="w-40 px-4 py-3">Diizinkan</th>
-                    <th className="w-48 px-4 py-3">Butuh Approval</th>
-                    <th className="hidden px-4 py-3 sm:table-cell">Default Registry</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {TOOL_GROUPS.map((group, gi) => (
-                    <Fragment key={group.label}>
-                      {gi > 0 && (
-                        <tr>
-                          <td colSpan={4} className="bg-slate-50/60 px-4 py-1.5">
-                            <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                              {group.label}
-                            </span>
-                          </td>
-                        </tr>
-                      )}
-                      {group.tools.map((tool) => {
-                        const cap = caps[tool];
-                        const def = defaults.get(tool);
-                        const allowed =
-                          cap?.allowed ?? def?.defaultPermission.allowed ?? false;
-                        const requiresApproval =
-                          cap?.requiresApproval ??
-                          def?.defaultPermission.requiresApproval ??
-                          false;
-                        const saving = savingCaps.has(`${detail.id}:${tool}`);
-                        return (
-                          <tr key={tool} className="hover:bg-slate-50/60">
-                            <td className="px-4 py-3 font-mono text-xs text-slate-800">
-                              {tool}
-                            </td>
-                            <td className="px-4 py-3">
-                              <Toggle
-                                label={`Diizinkan ${tool}`}
-                                checked={allowed}
-                                disabled={!isOwner || saving}
-                                onChange={(v) =>
-                                  void onCapabilityChange(detail, tool, "allowed", v)
-                                }
-                              />
-                            </td>
-                            <td className="px-4 py-3">
-                              <Toggle
-                                label={`Butuh approval ${tool}`}
-                                checked={requiresApproval}
-                                disabled={!isOwner || saving || !allowed}
-                                onChange={(v) =>
-                                  void onCapabilityChange(detail, tool, "requiresApproval", v)
-                                }
-                              />
-                            </td>
-                            <td className="hidden px-4 py-3 sm:table-cell">
-                              <span
-                                className={`font-mono text-[11px] ${cap ? "text-green-700" : "text-slate-400"}`}
-                              >
-                                {cap ? "override" : "default"}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </Fragment>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {!isOwner && (
-              <p className="mt-3 text-xs text-slate-400">
-                Kapabilitas hanya dapat diubah oleh owner.
-              </p>
+            {overrideCount > 0 && detailTab === "matrix" && (
+              <button
+                type="button"
+                disabled={actioningId === detail.id}
+                onClick={() => void onResetCaps()}
+                className="pb-1.5 text-xs font-medium text-slate-500 hover:text-slate-900 disabled:opacity-50"
+              >
+                <ArrowCounterClockwise size={12} className="mr-1 inline" />
+                Pulihkan Default Registry
+              </button>
             )}
           </div>
+
+          {detailTab === "matrix" && (
+            <div className="mt-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Sparkle size={14} weight="fill" className="text-green-600" />
+                  <h2 className="text-sm font-semibold text-slate-900">Izin Eksekusi per Alat</h2>
+                  <span className="font-mono text-[11px] text-slate-400">
+                    Perubahan diterapkan real-time pada turn berikutnya
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 text-[11px] text-slate-500">
+                  <span className="inline-flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-full bg-green-500" />Eksekusi Langsung
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-full bg-amber-500" />Antrean Approval Manusia
+                  </span>
+                </div>
+              </div>
+              <div className="overflow-x-auto border-y border-slate-200">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                      <th className="px-4 py-3">Alat &amp; Deskripsi</th>
+                      <th className="w-36 px-4 py-3">Diizinkan</th>
+                      <th className="w-44 px-4 py-3">Butuh Approval</th>
+                      <th className="hidden px-4 py-3 sm:table-cell">Default Registry</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {rows.map(({ tool, allowed, approval, isCustom }) => (
+                      <tr key={tool.name} className="hover:bg-slate-50/80">
+                        <td className="px-4 py-3.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs font-semibold text-slate-900">
+                              {CATEGORY_LABEL[tool.category] ?? tool.category}
+                            </span>
+                            <span className="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">
+                              {tool.name}
+                            </span>
+                            {isCustom && (
+                              <span className="rounded bg-amber-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-amber-700">
+                                Override
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-0.5 text-[11px] text-slate-500">{tool.description}</p>
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <label className="inline-flex items-center gap-2.5">
+                            <Switch
+                              label={`Diizinkan ${tool.name}`}
+                              checked={allowed}
+                              disabled={savingCaps.has(`${detail.id}:${tool.name}`)}
+                              onChange={(v) => void onCapabilityChange(detail, tool.name, "allowed", v)}
+                            />
+                            <span
+                              className={`font-mono text-[11px] ${allowed ? "font-semibold text-green-700" : "text-slate-400"}`}
+                            >
+                              {allowed ? "Ya" : "Tidak"}
+                            </span>
+                          </label>
+                        </td>
+                        <td className="px-4 py-3.5">
+                          <label className="inline-flex items-center gap-2.5">
+                            <Switch
+                              amber
+                              label={`Butuh approval ${tool.name}`}
+                              checked={approval}
+                              disabled={!allowed || savingCaps.has(`${detail.id}:${tool.name}`)}
+                              onChange={(v) =>
+                                void onCapabilityChange(detail, tool.name, "requiresApproval", v)
+                              }
+                            />
+                            <span
+                              className={`font-mono text-[11px] ${!allowed ? "text-slate-300" : approval ? "font-semibold text-amber-700" : "text-slate-500"}`}
+                            >
+                              {!allowed ? "Nonaktif" : approval ? "Wajib Approval" : "Otomatis"}
+                            </span>
+                          </label>
+                        </td>
+                        <td className="hidden px-4 py-3.5 font-mono text-[11px] text-slate-500 sm:table-cell">
+                          {tool.defaultPermission.allowed
+                            ? tool.defaultPermission.requiresApproval
+                              ? "Diizinkan - Approval"
+                              : "Diizinkan - Otomatis"
+                            : "Diblokir"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {detailTab === "sandbox" && (
+            <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-12">
+              <div className="space-y-3 lg:col-span-5">
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  Uji Skenario Percakapan
+                </h3>
+                <p className="text-xs leading-relaxed text-slate-500">
+                  Simulasikan pesan pelanggan untuk memverifikasi alat mana yang akan dipanggil
+                  oleh agent beserta status approval-nya.
+                </p>
+                <div className="space-y-1.5 pt-1">
+                  {[
+                    "Halo, stok Kopi Gayo 250g masih ada berapa ya?",
+                    "Tolong buatkan pesanan 2 bungkus Kopi Gayo 250g atas nama Budi",
+                    "Saya mau komplain paket rusak, tolong refund dana saya",
+                  ].map((p) => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => runSandbox(p)}
+                      className="block w-full rounded-md border border-slate-200 bg-slate-50/70 px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-100"
+                    >
+                      &quot;{p}&quot;
+                    </button>
+                  ))}
+                </div>
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const el = e.currentTarget.querySelector("input");
+                    if (el && el.value.trim()) {
+                      runSandbox(el.value.trim());
+                      el.value = "";
+                    }
+                  }}
+                  className="pt-2"
+                >
+                  <label className="block text-xs font-medium text-slate-700">Pesan Kustom</label>
+                  <div className="mt-1.5 flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Ketik pesan simulasi…"
+                      className="h-9 flex-1 rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-green-600 focus:outline-none"
+                    />
+                    <button
+                      type="submit"
+                      className="h-9 rounded-md bg-green-600 px-3.5 text-xs font-semibold text-white hover:bg-green-700"
+                    >
+                      Uji
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              <div className="lg:col-span-7">
+                <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
+                  <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
+                    <span className="font-mono text-[11px] font-semibold uppercase text-slate-500">
+                      Execution Trace Preview
+                    </span>
+                    <span className="font-mono text-[11px] text-green-700">Dry-Run (0 Kredit)</span>
+                  </div>
+                  <div className="mt-3 space-y-3 text-xs text-slate-600">
+                    {!sandboxOut && (
+                      <p className="py-6 text-center text-slate-400">
+                        Pilih contoh pesan di sebelah kiri atau ketik pesan baru untuk melihat
+                        jejak pemanggilan alat.
+                      </p>
+                    )}
+                    {sandboxOut && (
+                      <>
+                        <div className="rounded border border-slate-200 bg-white p-3">
+                          <p className="font-mono text-[10px] uppercase text-slate-400">
+                            Input Pelanggan
+                          </p>
+                          <p className="mt-1 font-medium text-slate-900">&quot;{sandboxOut.prompt}&quot;</p>
+                        </div>
+                        <div className="rounded border border-slate-200 bg-white p-3">
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono text-[10px] uppercase text-slate-400">
+                              Kandidat Alat
+                            </span>
+                            <span className="font-mono text-[11px] font-semibold text-slate-800">
+                              {sandboxOut.tool}
+                            </span>
+                          </div>
+                          <div className="mt-2">
+                            {sandboxOut.verdict === "blocked" && (
+                              <>
+                                <span className="rounded bg-red-50 px-2 py-0.5 font-mono text-[11px] font-semibold text-red-700">
+                                  DIBLOKIR OLEH MATRIKS IZIN
+                                </span>
+                                <p className="mt-1.5 text-slate-600">
+                                  Agent dilarang memanggil{" "}
+                                  <code className="font-mono">{sandboxOut.tool}</code>. Agent akan
+                                  menjawab secara sopan bahwa tindakan tersebut memerlukan bantuan
+                                  staf.
+                                </p>
+                              </>
+                            )}
+                            {sandboxOut.verdict === "approval" && (
+                              <>
+                                <span className="rounded bg-amber-50 px-2 py-0.5 font-mono text-[11px] font-semibold text-amber-700">
+                                  DIALIHKAN KE ANTREAN APPROVAL
+                                </span>
+                                <p className="mt-1.5 text-slate-600">
+                                  Agent menyusun payload untuk{" "}
+                                  <code className="font-mono">{sandboxOut.tool}</code> dan menahan
+                                  eksekusi hingga Owner/Staff menyetujui di menu{" "}
+                                  <strong>Approval</strong>.
+                                </p>
+                              </>
+                            )}
+                            {sandboxOut.verdict === "auto" && (
+                              <>
+                                <span className="rounded bg-green-50 px-2 py-0.5 font-mono text-[11px] font-semibold text-green-700">
+                                  EKSEKUSI OTOMATIS DIIZINKAN
+                                </span>
+                                <p className="mt-1.5 text-slate-600">
+                                  Agent langsung mengeksekusi{" "}
+                                  <code className="font-mono">{sandboxOut.tool}</code> dan menyusun
+                                  balasan terverifikasi.
+                                </p>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </FlushPage>
         <Toast toast={toast} />
       </DashboardShell>
     );
   }
 
-  // ─── List view ───
+  // ─── View 1: list ───
   return (
     <DashboardShell title="Agent" flush>
       <FlushPage>
@@ -637,134 +957,178 @@ export default function AgentsPage() {
           <div>
             <h1 className="text-xl font-semibold tracking-tight text-slate-900">Agent</h1>
             <p className="mt-1 text-xs text-slate-500">
-              Kelola agent AI: status deploy dan kapabilitas per alat. Buka detail agent untuk
-              matriks izin lengkap.
+              Kelola agent AI: status deploy, saluran terhubung, dan matriks izin per alat.
             </p>
           </div>
-          {isOwner && (
-            <button
-              type="button"
-              onClick={openCreate}
-              className="inline-flex h-9 items-center gap-1.5 rounded-md bg-green-600 px-3.5 text-xs font-semibold text-white transition hover:bg-green-700"
-            >
-              <Plus size={14} />Buat Agent
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={openCreate}
+            className="inline-flex h-9 items-center gap-1.5 rounded-md bg-green-600 px-3.5 text-xs font-semibold text-white transition hover:bg-green-700"
+          >
+            <Plus size={14} />Buat Agent
+          </button>
         </div>
 
         <TelemetryStrip
           cells={[
             { label: "Total Agent", value: String(agents.length) },
-            { label: "Aktif", value: String(counts.active), valueClass: "text-green-700" },
+            { label: "Aktif (Deployed)", value: String(counts.active), valueClass: "text-green-700" },
             { label: "Dijeda", value: String(counts.paused), valueClass: "text-amber-600" },
             { label: "Draf", value: String(counts.draft) },
           ]}
         />
+
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <input
+              type="text"
+              placeholder="Filter nama atau instruksi…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-8 w-60 rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-900 placeholder-slate-400 focus:border-green-600 focus:outline-none"
+            />
+            <div className="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5 text-xs">
+              {statusPills.map((pill) => (
+                <button
+                  key={pill.key}
+                  type="button"
+                  onClick={() => setStatusFilter(pill.key)}
+                  className={
+                    statusFilter === pill.key
+                      ? "rounded bg-white px-2.5 py-1 font-semibold text-slate-900 shadow-sm"
+                      : "rounded px-2.5 py-1 font-medium text-slate-600 hover:text-slate-900"
+                  }
+                >
+                  {pill.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <span className="font-mono text-[11px] text-slate-400">
+            Registry: {tools.length} Tools
+          </span>
+        </div>
 
         {pageError && (
           <p className="mt-4 rounded-md border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-700">
             {pageError}
           </p>
         )}
-        {!isOwner && (
-          <p className="mt-4 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700">
-            Hanya owner yang dapat men-deploy agent atau mengubah kapabilitas. Anda dapat melihat
-            dalam mode baca-saja.
-          </p>
-        )}
-
-        {loading && <StateNotice variant="loading" message="Memuat agent…" className="mt-5" />}
-        {error && <StateNotice variant="error" message={error} className="mt-5" />}
+        {loading && <StateNotice variant="loading" message="Memuat agent…" className="mt-4" />}
+        {error && <StateNotice variant="error" message={error} className="mt-4" />}
         {!loading && !error && (
-          <div className="mt-5 overflow-x-auto">
+          <div className="mt-4 overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-y border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                   <th className="py-3 pr-4">Agent</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="hidden px-4 py-3 md:table-cell">Alat Diizinkan</th>
-                  <th className="hidden px-4 py-3 lg:table-cell">Diperbarui</th>
+                  <th className="hidden px-4 py-3 lg:table-cell">Saluran</th>
+                  <th className="hidden px-4 py-3 xl:table-cell">Diperbarui</th>
                   <th className="py-3 pl-4 text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 border-b border-slate-200">
-                {agents.length === 0 && (
+                {filteredAgents.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="py-10 text-center text-xs text-slate-400">
-                      Belum ada agent. Klik &quot;Buat Agent&quot; untuk menambahkan.
+                    <td colSpan={6} className="py-10 text-center text-xs text-slate-400">
+                      Tidak ada agent yang cocok dengan kriteria filter.
                     </td>
                   </tr>
                 )}
-                {agents.map((a) => (
-                  <tr key={a.id} className="hover:bg-slate-50/80">
-                    <td className="py-3.5 pr-4">
-                      <div className="flex items-start gap-3">
-                        <AgentTile status={a.status} />
-                        <div className="min-w-0">
-                          <p className="text-xs font-semibold text-slate-900">{a.name}</p>
-                          {a.instructions ? (
-                            <p className="mt-0.5 line-clamp-1 max-w-md text-[11px] text-slate-500">
-                              {a.instructions}
-                            </p>
-                          ) : (
-                            <p className="mt-0.5 text-[11px] italic text-slate-400">
-                              Belum ada instruksi.
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <StatusBadge status={a.status} />
-                    </td>
-                    <td className="hidden px-4 py-3.5 md:table-cell">
-                      <span className="font-mono text-xs tabular-nums text-slate-700">
-                        {allowedCount(a)}/{TOTAL_TOOLS} alat
-                      </span>
-                    </td>
-                    <td className="hidden px-4 py-3.5 font-mono text-xs text-slate-500 lg:table-cell">
-                      {new Date(a.updatedAt).toLocaleDateString("id-ID", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </td>
-                    <td className="py-3.5 pl-4 text-right">
-                      <div className="inline-flex items-center gap-3">
+                {filteredAgents.map((a) => {
+                  const caps = effCaps(a);
+                  const linked = channelByAgent.get(a.id);
+                  return (
+                    <tr key={a.id} className="hover:bg-slate-50/80">
+                      <td className="py-3.5 pr-4">
                         <button
                           type="button"
-                          onClick={() => setDetailId(a.id)}
-                          className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                          onClick={() => {
+                            setDetailId(a.id);
+                            setDetailTab("matrix");
+                            setSandboxOut(null);
+                          }}
+                          className="text-left text-xs font-semibold text-slate-900 hover:text-green-700"
                         >
-                          Detail
+                          {a.name}
                         </button>
-                        {isOwner && (
-                          <>
-                            <button
-                              type="button"
-                              disabled={actioningId === a.id}
-                              onClick={() => void onToggleStatus(a)}
-                              className={
-                                a.status === "ACTIVE"
-                                  ? "text-xs font-medium text-amber-700 hover:underline disabled:opacity-50"
-                                  : "text-xs font-semibold text-green-700 hover:underline disabled:opacity-50"
-                              }
-                            >
-                              {a.status === "ACTIVE" ? "Jeda" : "Deploy"}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setToDelete(a)}
-                              className="text-xs font-medium text-red-600 hover:underline"
-                            >
-                              Hapus
-                            </button>
-                          </>
+                        {a.instructions ? (
+                          <p className="mt-0.5 line-clamp-1 max-w-md text-[11px] text-slate-500">
+                            {a.instructions}
+                          </p>
+                        ) : (
+                          <p className="mt-0.5 text-[11px] italic text-slate-400">
+                            Belum ada instruksi.
+                          </p>
                         )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-4 py-3.5">
+                        <StatusPill status={a.status} />
+                      </td>
+                      <td className="hidden px-4 py-3.5 md:table-cell">
+                        <span className="font-mono text-xs font-semibold tabular-nums text-slate-900">
+                          {caps.filter((r) => r.allowed).length}
+                        </span>
+                        <span className="font-mono text-xs text-slate-400">
+                          {" "}/ {tools.length} alat
+                        </span>
+                      </td>
+                      <td className="hidden px-4 py-3.5 lg:table-cell">
+                        {linked ? (
+                          <>
+                            <p className="text-xs text-slate-700">
+                              {linked.label || linked.phoneNumber || "Saluran"}
+                            </p>
+                            <p className="font-mono text-[10px] text-slate-400">
+                              {linked.provider === "CLOUD_API" ? "Cloud API" : "Baileys"}
+                            </p>
+                          </>
+                        ) : (
+                          <p className="text-xs italic text-slate-400">Belum ditugaskan</p>
+                        )}
+                      </td>
+                      <td className="hidden px-4 py-3.5 font-mono text-xs text-slate-500 xl:table-cell">
+                        {formatDate(a.updatedAt)}
+                      </td>
+                      <td className="py-3.5 pl-4 text-right">
+                        <div className="inline-flex items-center gap-2.5">
+                          <button
+                            type="button"
+                            disabled={actioningId === a.id}
+                            onClick={() => void onToggleStatus(a)}
+                            className={
+                              a.status === "ACTIVE"
+                                ? "rounded border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                                : "rounded border border-green-200 bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700 transition hover:bg-green-100 disabled:opacity-50"
+                            }
+                          >
+                            {a.status === "ACTIVE" ? "Jeda" : "Deploy"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDetailId(a.id);
+                              setDetailTab("matrix");
+                              setSandboxOut(null);
+                            }}
+                            className="text-xs font-semibold text-green-700 hover:underline"
+                          >
+                            Matriks &amp; Detail
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setToDelete(a)}
+                            className="text-xs font-medium text-red-600 hover:underline"
+                          >
+                            Hapus
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -773,8 +1137,8 @@ export default function AgentsPage() {
 
       <ConfirmDialog
         open={toDelete !== null}
-        title="Hapus Agent"
-        description={`Yakin ingin menghapus agent "${toDelete?.name ?? ""}"? Kapabilitas dan memorinya ikut terhapus. Tindakan ini tidak dapat dibatalkan.`}
+        title="Hapus Agent AI"
+        description={`Apakah Anda yakin ingin menghapus agent "${toDelete?.name ?? ""}" beserta konfigurasi matriks kapabilitasnya secara permanen?`}
         confirmLabel="Hapus Permanen"
         destructive
         loading={deleting}
