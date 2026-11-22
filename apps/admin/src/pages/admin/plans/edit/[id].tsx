@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { useRouter } from "next/router";
+import { PLAN_FEATURE_KEYS, PLAN_FEATURE_LABELS, type PlanFeature } from "@csq/core/types/entitlements";
 import { AdminShell } from "@/components/admin-shell";
 import { btnPrimary, btnOutline } from "@/components/console";
 import { showToast } from "@/components/toast";
@@ -21,15 +22,11 @@ type Plan = {
   features: string[];
 };
 
-const FEATURE_LABELS: Record<string, string> = {
-  KNOWLEDGE_BASE: "Knowledge Base",
-  SHEETS_SYNC: "Google Sheets Sync",
-  CAMPAIGNS: "Campaigns",
-  PIPELINE: "Pipeline",
-  API_ACCESS: "API Access",
-  PRIORITY_SUPPORT: "Priority Support",
-};
-const FEATURE_KEYS = Object.keys(FEATURE_LABELS);
+// The feature checkboxes come from the SHARED entitlement catalog
+// (PLAN_FEATURE_KEYS) - the same enum the API validates against. A stale
+// local list once offered keys like KNOWLEDGE_BASE that the API rejected.
+const FEATURE_KEYS: readonly PlanFeature[] = PLAN_FEATURE_KEYS;
+const FEATURE_LABELS: Record<PlanFeature, string> = PLAN_FEATURE_LABELS;
 
 export const getServerSideProps = withAdminAuth<{ editId?: string }>(async (ctx) => ({
   props: { editId: ctx.params?.id ? String(ctx.params.id) : undefined },
@@ -50,7 +47,7 @@ export default function PlanEditorPage({ editId }: { editId?: string }) {
     staff: "",
     channels: "",
   });
-  const [features, setFeatures] = useState<string[]>([]);
+  const [features, setFeatures] = useState<PlanFeature[]>([]);
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -64,7 +61,13 @@ export default function PlanEditorPage({ editId }: { editId?: string }) {
       staff: existing.staffLimit === null ? "" : String(existing.staffLimit),
       channels: existing.channelLimit === null ? "" : String(existing.channelLimit),
     });
-    setFeatures(existing.features);
+    setFeatures(
+      // Drop legacy keys that are no longer in the catalog (e.g. an old
+      // KNOWLEDGE_BASE row) so resubmitting passes API validation.
+      existing.features.filter((f): f is PlanFeature =>
+        (PLAN_FEATURE_KEYS as readonly string[]).includes(f)
+      )
+    );
   }, [existing]);
 
   // Known plan not found yet -> keep the form empty rather than flashing wrong data.
