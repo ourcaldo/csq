@@ -42,9 +42,12 @@ export default function TenantDetailPage({ id }: { id: string }) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [resetUser, setResetUser] = useState<{ id: string; email: string } | null>(null);
   const [resetting, setResetting] = useState(false);
+  const [statusBusy, setStatusBusy] = useState(false);
 
   async function toggleStatus() {
-    if (!data) return;
+    if (!data || statusBusy) return;
+    setStatusBusy(true);
+    setActionError(null);
     try {
       await adminFetch(`/api/admin/tenants/${id}`, "POST", {
         action: data.status === "ACTIVE" ? "suspend" : "activate",
@@ -52,6 +55,8 @@ export default function TenantDetailPage({ id }: { id: string }) {
       refresh();
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Failed to change the status.");
+    } finally {
+      setStatusBusy(false);
     }
   }
 
@@ -151,11 +156,6 @@ export default function TenantDetailPage({ id }: { id: string }) {
           )}
         </div>
         <div className="flex items-center gap-2">
-          {d && (
-            <button type="button" onClick={() => void toggleStatus()} className={btnOutline("h-8")}>
-              {d.status === "ACTIVE" ? "Suspend Workspace" : "Activate Workspace"}
-            </button>
-          )}
           <button type="button" onClick={() => router.push("/admin/tenants")} className={btnOutline("h-8")}>
             Back
           </button>
@@ -323,22 +323,46 @@ export default function TenantDetailPage({ id }: { id: string }) {
             </div>
           </div>
 
-          {/* Danger zone */}
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-md border border-red-200 bg-red-50/30 px-4 py-3.5">
-            <div>
-              <p className="text-xs font-semibold text-red-800">Permanent Workspace Deletion</p>
-              <p className="mt-0.5 text-xs text-slate-600">
-                Deletes all users, conversations, messages, orders, media, and disconnects WhatsApp sessions
-                irreversibly.
-              </p>
+          {/* Danger zone: destructive and service-impacting actions live here,
+              never in list rows (owner request 2026-11-22). */}
+          <div className="mt-6 space-y-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-4 rounded-md border border-amber-200 bg-amber-50/40 px-4 py-3.5">
+              <div>
+                <p className="text-xs font-semibold text-amber-800">
+                  {d.status === "ACTIVE" ? "Suspend Workspace" : "Activate Workspace"}
+                </p>
+                <p className="mt-0.5 text-xs text-slate-600">
+                  {d.status === "ACTIVE"
+                    ? "Suspension stops the agent loop, campaigns, and API tokens; inbound keeps ingesting so no data is lost."
+                    : "Re-enables login, the agent loop, campaigns, and API tokens for this workspace."}
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={statusBusy}
+                onClick={() => void toggleStatus()}
+                className="rounded-md border border-amber-300 bg-card px-3.5 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-50 disabled:opacity-40"
+              >
+                {statusBusy ? "Applying..." : d.status === "ACTIVE" ? "Suspend" : "Activate"}
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={askDelete}
-              className="rounded-md bg-red-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
-            >
-              Delete Workspace
-            </button>
+
+            <div className="flex flex-wrap items-center justify-between gap-4 rounded-md border border-red-200 bg-red-50/30 px-4 py-3.5">
+              <div>
+                <p className="text-xs font-semibold text-red-800">Permanent Workspace Deletion</p>
+                <p className="mt-0.5 text-xs text-slate-600">
+                  Deletes all users, conversations, messages, orders, media, and disconnects WhatsApp sessions
+                  irreversibly.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={askDelete}
+                className="rounded-md bg-red-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-red-700"
+              >
+                Delete Workspace
+              </button>
+            </div>
           </div>
         </>
       )}

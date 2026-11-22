@@ -4,7 +4,7 @@ import { Plus, MagnifyingGlass, X } from "@phosphor-icons/react";
 import { AdminShell } from "@/components/admin-shell";
 import { StatusLabel, Segmented, btnPrimary } from "@/components/console";
 import { withAdminAuth } from "@/lib/admin-auth";
-import { useAdminApi, adminFetch } from "@/lib/admin-api";
+import { useAdminApi } from "@/lib/admin-api";
 
 // Tenant directory (template viewTenants 1:1): instant filter box, segmented
 // status filter, inline suspend/activate. Provisioning lives at /admin/tenants/new.
@@ -24,12 +24,10 @@ type TenantList = { items: Tenant[] };
 export const getServerSideProps = withAdminAuth(async () => ({ props: {} }));
 
 export default function TenantsPage() {
-  const { data, loading, error, refresh } = useAdminApi<TenantList>("/api/admin/tenants");
+  const { data, loading, error } = useAdminApi<TenantList>("/api/admin/tenants");
   const [q, setQ] = useState("");
   const [status, setStatus] = useState("");
-  const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     const n = sessionStorage.getItem("tenant-notice");
@@ -47,21 +45,6 @@ export default function TenantsPage() {
       return matchesText && matchesStatus;
     });
   }, [data, q, status]);
-
-  async function toggleStatus(id: string, current: string) {
-    setBusy(id);
-    setActionError(null);
-    try {
-      await adminFetch(`/api/admin/tenants/${id}`, "POST", {
-        action: current === "ACTIVE" ? "suspend" : "activate",
-      });
-      refresh();
-    } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Failed to change the status.");
-    } finally {
-      setBusy(null);
-    }
-  }
 
   return (
     <AdminShell title="Tenants">
@@ -89,9 +72,9 @@ export default function TenantsPage() {
           </button>
         </div>
       )}
-      {(actionError || error) && (
+      {error && (
         <div className="mt-5 rounded-md border border-slate-200 border-l-2 border-l-red-500 bg-card px-4 py-2.5 text-xs text-red-600">
-          {actionError ?? error}
+          {error}
         </div>
       )}
 
@@ -173,21 +156,9 @@ export default function TenantsPage() {
                   {new Date(t.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                 </td>
                 <td className="py-3.5 pl-4 text-right">
-                  <div className="inline-flex items-center gap-3 text-xs">
-                    <Link href={`/admin/tenants/${t.id}`} className="font-semibold text-emerald-700 hover:underline">
-                      Inspect
-                    </Link>
-                    <button
-                      type="button"
-                      disabled={busy === t.id}
-                      onClick={() => void toggleStatus(t.id, t.status)}
-                      className={`font-medium hover:underline disabled:opacity-40 ${
-                        t.status === "ACTIVE" ? "text-amber-700" : "text-slate-700"
-                      }`}
-                    >
-                      {t.status === "ACTIVE" ? "Suspend" : "Activate"}
-                    </button>
-                  </div>
+                  <Link href={`/admin/tenants/${t.id}`} className="font-semibold text-emerald-700 hover:underline">
+                    Inspect
+                  </Link>
                 </td>
               </tr>
             ))}
