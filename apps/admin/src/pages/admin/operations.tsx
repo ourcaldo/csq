@@ -79,63 +79,58 @@ export default function OperationsPage() {
 
       {data && (
         <>
-          {/* Infrastructure probes strip */}
-          <div className="mt-6 grid grid-cols-2 border-y border-slate-200 sm:grid-cols-5 sm:divide-x sm:divide-slate-200">
-            {data.health.services.map((s, idx) => (
-              <div key={s.name} className={`py-3.5 ${idx > 0 ? "sm:px-4" : "pr-4"}`}>
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-medium text-slate-400">{s.name}</span>
-                  <span className={`h-1.5 w-1.5 rounded-full ${s.ok ? "bg-emerald-500" : "bg-red-500"}`} />
+          {/* Infrastructure probes strip: uniform cells, label row aligned
+              across every column (label + status dot left, metric below).
+              The DB probe joins the services array so the grid stays one
+              even row instead of wrapping a lonely 6th cell. */}
+          <div className="mt-6 grid grid-cols-2 border-y border-slate-200 sm:grid-cols-3 lg:grid-cols-6">
+            {[...data.health.services.map((s) => ({
+                name: s.name,
+                ok: s.ok,
+                metric: s.ok ? `${s.ms} ms` : "No answer",
+                sub: s.ok ? `${PROBE_SUB[s.name] ?? "HTTP"} ${s.status ?? ""}` : "no answer within 5s",
+              })),
+              ...(data.health.services.length < 5 ? [] : [{
+                name: "PostgreSQL",
+                ok: data.health.db.ok,
+                metric: data.health.db.ok ? `${data.health.db.ms} ms` : "Failed",
+                sub: data.health.db.ok ? "SELECT 1" : "unreachable",
+              }]),
+            ].map((p, idx, all) => (
+              <div
+                key={p.name}
+                className={`border-slate-200 py-3.5 pr-4 ${idx > 0 ? "sm:border-l sm:pl-4" : ""} ${
+                  idx >= 2 ? "border-t sm:border-t-0" : ""
+                } ${idx >= 3 ? "lg:border-t lg:border-t-0" : ""}`}
+              >
+                <div className="flex items-center gap-1.5">
+                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${p.ok ? "bg-emerald-500" : "bg-red-500"}`} />
+                  <span className="truncate text-[11px] font-medium text-slate-400">{p.name}</span>
                 </div>
-                <p className="mt-1 font-mono text-base font-semibold text-slate-900">
-                  {s.ok ? `${s.ms} ms` : "No answer"}
-                </p>
-                <p className={`mt-0.5 font-mono text-[10px] ${s.ok ? "text-emerald-700" : "text-red-600"}`}>
-                  {s.ok ? `${PROBE_SUB[s.name] ?? "HTTP"} ${s.status ?? ""}` : "no answer within 5s"}
+                <p className="mt-1.5 font-mono text-base font-semibold tabular-nums text-slate-900">{p.metric}</p>
+                <p className={`mt-0.5 truncate font-mono text-[10px] ${p.ok ? "text-emerald-700" : "text-red-600"}`}>
+                  {p.sub}
                 </p>
               </div>
             ))}
-            <div className="border-t border-slate-200 py-3.5 pr-4 sm:border-t-0 sm:px-4">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-medium text-slate-400">PostgreSQL</span>
-                <span className={`h-1.5 w-1.5 rounded-full ${data.health.db.ok ? "bg-emerald-500" : "bg-red-500"}`} />
-              </div>
-              <p className="mt-1 font-mono text-base font-semibold text-slate-900">
-                {data.health.db.ok ? `${data.health.db.ms} ms` : "Failed"}
-              </p>
-              <p className={`mt-0.5 font-mono text-[10px] ${data.health.db.ok ? "text-emerald-700" : "text-red-600"}`}>
-                {data.health.db.ok ? "SELECT 1" : "unreachable"}
-              </p>
-            </div>
           </div>
 
-          {/* AI latency & outbox row */}
-          <div className="grid grid-cols-2 border-b border-slate-200 py-4 sm:grid-cols-4 sm:divide-x sm:divide-slate-200">
-            <div className="pr-4">
-              <p className="text-[11px] text-slate-400">AI Avg Latency (24h)</p>
-              <p className="mt-1 font-mono text-lg font-semibold text-slate-900">
-                {data.aiResponse.hours24.avgSeconds !== null ? `${data.aiResponse.hours24.avgSeconds.toFixed(1)}s` : "-"}{" "}
-                <span className="text-xs font-normal text-slate-400">
-                  (p95: {data.aiResponse.hours24.p95Seconds !== null ? `${data.aiResponse.hours24.p95Seconds.toFixed(1)}s` : "-"})
-                </span>
-              </p>
-            </div>
-            <div className="sm:px-5">
-              <p className="text-[11px] text-slate-400">AI Replies (24h)</p>
-              <p className="mt-1 font-mono text-lg font-semibold text-slate-900">{pad(data.aiResponse.hours24.count)}</p>
-            </div>
-            <div className="mt-3 sm:mt-0 sm:px-5">
-              <p className="text-[11px] text-slate-400">Outbox Delivered</p>
-              <p className="mt-1 font-mono text-lg font-semibold text-emerald-700">
-                {outboxCount("SENT").toLocaleString("en-GB")}
-              </p>
-            </div>
-            <div className="mt-3 sm:mt-0 sm:pl-5">
-              <p className="text-[11px] text-slate-400">Outbox Failed</p>
-              <p className={`mt-1 font-mono text-lg font-semibold ${failed.length > 0 ? "text-red-600" : "text-slate-900"}`}>
-                {pad(failed.length)}
-              </p>
-            </div>
+          {/* AI latency & outbox row: same cell rhythm as the probe strip. */}
+          <div className="grid grid-cols-2 border-b border-slate-200 sm:grid-cols-4">
+            {[
+              { label: "AI Avg Latency (24h)", value: <>{data.aiResponse.hours24.avgSeconds !== null ? `${data.aiResponse.hours24.avgSeconds.toFixed(1)}s` : "-"} <span className="text-xs font-normal text-slate-400">p95 {data.aiResponse.hours24.p95Seconds !== null ? `${data.aiResponse.hours24.p95Seconds.toFixed(1)}s` : "-"}</span></>, tone: "text-slate-900" },
+              { label: "AI Replies (24h)", value: pad(data.aiResponse.hours24.count), tone: "text-slate-900" },
+              { label: "Outbox Delivered", value: outboxCount("SENT").toLocaleString("en-GB"), tone: "text-emerald-700" },
+              { label: "Outbox Failed", value: pad(failed.length), tone: failed.length > 0 ? "text-red-600" : "text-slate-900" },
+            ].map((c, idx) => (
+              <div
+                key={c.label}
+                className={`border-slate-200 py-3.5 pr-4 ${idx > 0 ? "sm:border-l sm:pl-4" : ""} ${idx >= 2 ? "border-t sm:border-t-0" : ""}`}
+              >
+                <p className="text-[11px] font-medium text-slate-400">{c.label}</p>
+                <p className={`mt-1.5 font-mono text-lg font-semibold tabular-nums ${c.tone}`}>{c.value}</p>
+              </div>
+            ))}
           </div>
 
           {/* Failed outbound messages */}

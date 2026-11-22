@@ -392,7 +392,6 @@ export function AdminShell({ title, children }: { title: string; children: React
                 <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full border-2 border-card bg-red-500" />
               )}
             </Link>
-            <div className="h-4 w-px bg-slate-200" />
           </div>
         </header>
 
