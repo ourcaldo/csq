@@ -26,7 +26,7 @@ export function TelemetryStrip({ cells }: { cells: TelemetryCell[] }) {
             i % 2 === 1 && "sm:px-5"
           )}
         >
-          <p className="text-[11px] font-medium text-slate-400">{c.label}</p>
+          <p className="text-xs font-medium text-slate-400">{c.label}</p>
           <p
             className={cn(
               "mt-1 font-mono text-lg font-semibold tabular-nums",

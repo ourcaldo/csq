@@ -71,7 +71,7 @@ function StatusPill({ status }: { status: string }) {
         ? "text-amber-700"
         : "text-slate-500";
   return (
-    <span className={`inline-flex items-center gap-1.5 font-mono text-xs font-medium ${text}`}>
+    <span className={`inline-flex items-center gap-1.5 font-mono text-sm font-medium ${text}`}>
       <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
       {statusLabel(status === "ACTIVE" || status === "PAUSED" ? status : "DRAFT")}
     </span>
@@ -432,7 +432,7 @@ export default function AgentsPage() {
         <FlushPage>
           <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-6">
             <div>
-              <div className="flex items-center gap-2 text-xs text-slate-500">
+              <div className="flex items-center gap-2 text-sm text-slate-500">
                 <button
                   type="button"
                   onClick={() => setFormOpen(false)}
@@ -448,7 +448,7 @@ export default function AgentsPage() {
               <h1 className="mt-3 text-xl font-semibold tracking-tight text-slate-900">
                 {editingId ? `Edit Persona - ${formName}` : "Buat Agent Baru"}
               </h1>
-              <p className="mt-2 text-xs text-slate-500">
+              <p className="mt-2 text-sm text-slate-500">
                 {editingId
                   ? "Perubahan instruksi sistem dan saluran langsung berlaku pada percakapan aktif."
                   : "Agent baru dibuat sebagai draf. Deploy untuk mengaktifkannya pada saluran pelanggan."}
@@ -457,7 +457,7 @@ export default function AgentsPage() {
             <button
               type="button"
               onClick={() => setFormOpen(false)}
-              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50"
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
               Batal
             </button>
@@ -466,14 +466,14 @@ export default function AgentsPage() {
           <form onSubmit={onSaveForm} className="divide-y divide-slate-200">
             <div className="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
               <div className="md:col-span-4">
-                <span className="text-xs font-semibold text-slate-900">Identitas &amp; Saluran</span>
-                <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                <span className="text-sm font-semibold text-slate-900">Identitas &amp; Saluran</span>
+                <p className="mt-1 text-sm leading-relaxed text-slate-500">
                   Nama tampilan agent di dashboard, audit log, dan saluran WhatsApp yang ditugaskan.
                 </p>
               </div>
               <div className="max-w-lg space-y-3.5 md:col-span-8">
                 <div>
-                  <label htmlFor="af-name" className="block text-xs font-medium text-slate-700">
+                  <label htmlFor="af-name" className="block text-sm font-medium text-slate-700">
                     Nama Agent <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -487,14 +487,14 @@ export default function AgentsPage() {
                   />
                 </div>
                 <div>
-                  <label htmlFor="af-channel" className="block text-xs font-medium text-slate-700">
+                  <label htmlFor="af-channel" className="block text-sm font-medium text-slate-700">
                     Saluran Terhubung
                   </label>
                   <select
                     id="af-channel"
                     value={formChannelId}
                     onChange={(e) => setFormChannelId(e.target.value)}
-                    className="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-green-600 focus:outline-none"
+                    className="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-green-600 focus:outline-none"
                   >
                     <option value="">Belum ditugaskan</option>
                     {channels.map((c) => (
@@ -510,23 +510,23 @@ export default function AgentsPage() {
 
             <div className="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
               <div className="md:col-span-4">
-                <span className="text-xs font-semibold text-slate-900">Persona &amp; Instruksi Sistem</span>
-                <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                <span className="text-sm font-semibold text-slate-900">Persona &amp; Instruksi Sistem</span>
+                <p className="mt-1 text-sm leading-relaxed text-slate-500">
                   Gaya bahasa, batasan kebijakan, dan panduan eskalasi ke staf manusia.
                 </p>
                 <div className="mt-3 space-y-1.5">
-                  <p className="text-[11px] font-medium text-slate-400">Sisipkan Template Cepat:</p>
+                  <p className="text-xs font-medium text-slate-400">Sisipkan Template Cepat:</p>
                   <button
                     type="button"
                     onClick={() => applyPreset("cs")}
-                    className="block rounded border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-100"
+                    className="block rounded border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
                   >
                     + Customer Service &amp; Katalog
                   </button>
                   <button
                     type="button"
                     onClick={() => applyPreset("order")}
-                    className="block rounded border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-100"
+                    className="block rounded border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
                   >
                     + Asisten Pemesanan &amp; Stok
                   </button>
@@ -534,10 +534,10 @@ export default function AgentsPage() {
               </div>
               <div className="max-w-2xl md:col-span-8">
                 <div className="flex items-center justify-between">
-                  <label htmlFor="af-instructions" className="block text-xs font-medium text-slate-700">
+                  <label htmlFor="af-instructions" className="block text-sm font-medium text-slate-700">
                     System Prompt <span className="text-red-500">*</span>
                   </label>
-                  <span className="font-mono text-[11px] text-slate-400">
+                  <span className="font-mono text-xs text-slate-400">
                     {formInstructions.length} karakter
                   </span>
                 </div>
@@ -548,28 +548,28 @@ export default function AgentsPage() {
                   value={formInstructions}
                   onChange={(e) => setFormInstructions(e.target.value)}
                   placeholder="Tuliskan peran, nada bicara, dan aturan operasional agent…"
-                  className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-xs leading-relaxed text-slate-900 focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/15"
+                  className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-sm leading-relaxed text-slate-900 focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/15"
                 />
-                <p className="mt-1.5 text-[11px] text-slate-400">
+                <p className="mt-1.5 text-xs text-slate-400">
                   Guardrail keamanan CSQ aktif secara otomatis untuk mencegah kebocoran prompt internal dan halusinasi harga.
                 </p>
               </div>
             </div>
 
-            {pageError && <p className="pb-2 text-xs text-red-600">{pageError}</p>}
+            {pageError && <p className="pb-2 text-sm text-red-600">{pageError}</p>}
 
             <div className="flex items-center justify-end gap-2.5 pt-5">
               <button
                 type="button"
                 onClick={() => setFormOpen(false)}
-                className="rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
               >
                 Batal
               </button>
               <button
                 type="submit"
                 disabled={savingForm || !formName.trim() || !formInstructions.trim()}
-                className="rounded-md bg-green-600 px-4 py-2 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-60"
+                className="rounded-md bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60"
               >
                 {savingForm
                   ? "Menyimpan…"
@@ -596,7 +596,7 @@ export default function AgentsPage() {
         <FlushPage>
           <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-6">
             <div>
-              <div className="flex items-center gap-2 text-xs text-slate-500">
+              <div className="flex items-center gap-2 text-sm text-slate-500">
                 <button
                   type="button"
                   onClick={() => setDetailId(null)}
@@ -610,13 +610,13 @@ export default function AgentsPage() {
               <div className="mt-3 flex flex-wrap items-center gap-2.5 text-xl font-semibold tracking-tight text-slate-900">
                 {detail.name} <StatusPill status={detail.status} />
               </div>
-              <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 font-mono text-[11px] text-slate-400">
+              <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 font-mono text-xs text-slate-400">
                 <span>ID: {detail.id.slice(0, 8)}</span>
                 <span>Saluran: {linkedChannel ? linkedChannel.label || linkedChannel.phoneNumber || "-" : "Belum ditugaskan"}</span>
                 <span>Dibuat: {formatDate(detail.createdAt)}</span>
                 <span>Diperbarui: {formatDate(detail.updatedAt)}</span>
               </div>
-              <p className="mt-3 max-w-3xl text-xs leading-relaxed text-slate-600">
+              <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-600">
                 {detail.instructions ??
                   "Belum ada instruksi - agent akan menjawab tanpa persona khusus."}
               </p>
@@ -625,7 +625,7 @@ export default function AgentsPage() {
               <button
                 type="button"
                 onClick={() => openEdit(detail)}
-                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50"
               >
                 <PencilSimple size={12} />Edit Persona
               </button>
@@ -635,8 +635,8 @@ export default function AgentsPage() {
                 onClick={() => void onToggleStatus(detail)}
                 className={
                   detail.status === "ACTIVE"
-                    ? "inline-flex h-8 items-center gap-1.5 rounded-md bg-amber-600 px-3 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
-                    : "inline-flex h-8 items-center gap-1.5 rounded-md bg-green-600 px-3 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-60"
+                    ? "inline-flex h-8 items-center gap-1.5 rounded-md bg-amber-600 px-3 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
+                    : "inline-flex h-8 items-center gap-1.5 rounded-md bg-green-600 px-3 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-60"
                 }
               >
                 {detail.status === "ACTIVE" ? (
@@ -652,7 +652,7 @@ export default function AgentsPage() {
               <button
                 type="button"
                 onClick={() => setToDelete(detail)}
-                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-red-200 bg-white px-3 text-xs font-medium text-red-600 hover:bg-red-50"
+                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-red-200 bg-white px-3 text-sm font-medium text-red-600 hover:bg-red-50"
               >
                 <Trash size={12} />Hapus
               </button>
@@ -660,7 +660,7 @@ export default function AgentsPage() {
           </div>
 
           {pageError && (
-            <p className="mt-5 rounded-md border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-700">
+            <p className="mt-5 rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-700">
               {pageError}
             </p>
           )}
@@ -682,8 +682,8 @@ export default function AgentsPage() {
                 onClick={() => setDetailTab("matrix")}
                 className={
                   detailTab === "matrix"
-                    ? "relative py-2.5 text-xs font-semibold text-slate-900 after:absolute after:inset-x-0 after:bottom-[-1px] after:h-0.5 after:bg-green-600"
-                    : "relative py-2.5 text-xs font-medium text-slate-500 hover:text-slate-900"
+                    ? "relative py-2.5 text-sm font-semibold text-slate-900 after:absolute after:inset-x-0 after:bottom-[-1px] after:h-0.5 after:bg-green-600"
+                    : "relative py-2.5 text-sm font-medium text-slate-500 hover:text-slate-900"
                 }
               >
                 Matriks Kapabilitas Alat
@@ -693,8 +693,8 @@ export default function AgentsPage() {
                 onClick={() => setDetailTab("sandbox")}
                 className={
                   detailTab === "sandbox"
-                    ? "relative py-2.5 text-xs font-semibold text-slate-900 after:absolute after:inset-x-0 after:bottom-[-1px] after:h-0.5 after:bg-green-600"
-                    : "relative py-2.5 text-xs font-medium text-slate-500 hover:text-slate-900"
+                    ? "relative py-2.5 text-sm font-semibold text-slate-900 after:absolute after:inset-x-0 after:bottom-[-1px] after:h-0.5 after:bg-green-600"
+                    : "relative py-2.5 text-sm font-medium text-slate-500 hover:text-slate-900"
                 }
               >
                 Simulator &amp; Uji Prompt
@@ -705,7 +705,7 @@ export default function AgentsPage() {
                 type="button"
                 disabled={actioningId === detail.id}
                 onClick={() => void onResetCaps()}
-                className="pb-1.5 text-xs font-medium text-slate-500 hover:text-slate-900 disabled:opacity-50"
+                className="pb-1.5 text-sm font-medium text-slate-500 hover:text-slate-900 disabled:opacity-50"
               >
                 <ArrowCounterClockwise size={12} className="mr-1 inline" />
                 Pulihkan Default Registry
@@ -719,11 +719,11 @@ export default function AgentsPage() {
                 <div className="flex items-center gap-2">
                   <Sparkle size={14} weight="fill" className="text-green-600" />
                   <h2 className="text-sm font-semibold text-slate-900">Izin Eksekusi per Alat</h2>
-                  <span className="font-mono text-[11px] text-slate-400">
+                  <span className="font-mono text-xs text-slate-400">
                     Perubahan diterapkan real-time pada turn berikutnya
                   </span>
                 </div>
-                <div className="flex items-center gap-3 text-[11px] text-slate-500">
+                <div className="flex items-center gap-3 text-xs text-slate-500">
                   <span className="inline-flex items-center gap-1">
                     <span className="h-2 w-2 rounded-full bg-green-500" />Eksekusi Langsung
                   </span>
@@ -735,7 +735,7 @@ export default function AgentsPage() {
               <div className="overflow-x-auto border-y border-slate-200">
                 <table className="w-full text-left text-sm">
                   <thead>
-                    <tr className="border-b border-slate-200 bg-slate-50/70 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                    <tr className="border-b border-slate-200 bg-slate-50/70 text-xs font-semibold uppercase tracking-wider text-slate-400">
                       <th className="px-4 py-3">Alat &amp; Deskripsi</th>
                       <th className="w-36 px-4 py-3">Diizinkan</th>
                       <th className="w-44 px-4 py-3">Butuh Approval</th>
@@ -747,19 +747,19 @@ export default function AgentsPage() {
                       <tr key={tool.name} className="hover:bg-slate-50/80">
                         <td className="px-4 py-3.5">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-xs font-semibold text-slate-900">
+                            <span className="text-sm font-semibold text-slate-900">
                               {CATEGORY_LABEL[tool.category] ?? tool.category}
                             </span>
-                            <span className="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">
+                            <span className="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[11px] text-slate-500">
                               {tool.name}
                             </span>
                             {isCustom && (
-                              <span className="rounded bg-amber-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-amber-700">
+                              <span className="rounded bg-amber-50 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-amber-700">
                                 Override
                               </span>
                             )}
                           </div>
-                          <p className="mt-0.5 text-[11px] text-slate-500">{tool.description}</p>
+                          <p className="mt-0.5 text-xs text-slate-500">{tool.description}</p>
                         </td>
                         <td className="px-4 py-3.5">
                           <label className="inline-flex items-center gap-2.5">
@@ -770,7 +770,7 @@ export default function AgentsPage() {
                               onChange={(v) => void onCapabilityChange(detail, tool.name, "allowed", v)}
                             />
                             <span
-                              className={`font-mono text-[11px] ${allowed ? "font-semibold text-green-700" : "text-slate-400"}`}
+                              className={`font-mono text-xs ${allowed ? "font-semibold text-green-700" : "text-slate-400"}`}
                             >
                               {allowed ? "Ya" : "Tidak"}
                             </span>
@@ -788,13 +788,13 @@ export default function AgentsPage() {
                               }
                             />
                             <span
-                              className={`font-mono text-[11px] ${!allowed ? "text-slate-300" : approval ? "font-semibold text-amber-700" : "text-slate-500"}`}
+                              className={`font-mono text-xs ${!allowed ? "text-slate-300" : approval ? "font-semibold text-amber-700" : "text-slate-500"}`}
                             >
                               {!allowed ? "Nonaktif" : approval ? "Wajib Approval" : "Otomatis"}
                             </span>
                           </label>
                         </td>
-                        <td className="hidden px-4 py-3.5 font-mono text-[11px] text-slate-500 sm:table-cell">
+                        <td className="hidden px-4 py-3.5 font-mono text-xs text-slate-500 sm:table-cell">
                           {tool.defaultPermission.allowed
                             ? tool.defaultPermission.requiresApproval
                               ? "Diizinkan - Approval"
@@ -812,10 +812,10 @@ export default function AgentsPage() {
           {detailTab === "sandbox" && (
             <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-12">
               <div className="space-y-3 lg:col-span-5">
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-500">
                   Uji Skenario Percakapan
                 </h3>
-                <p className="text-xs leading-relaxed text-slate-500">
+                <p className="text-sm leading-relaxed text-slate-500">
                   Simulasikan pesan pelanggan untuk memverifikasi alat mana yang akan dipanggil
                   oleh agent beserta status approval-nya.
                 </p>
@@ -829,7 +829,7 @@ export default function AgentsPage() {
                       key={p}
                       type="button"
                       onClick={() => runSandbox(p)}
-                      className="block w-full rounded-md border border-slate-200 bg-slate-50/70 px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-100"
+                      className="block w-full rounded-md border border-slate-200 bg-slate-50/70 px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100"
                     >
                       &quot;{p}&quot;
                     </button>
@@ -846,16 +846,16 @@ export default function AgentsPage() {
                   }}
                   className="pt-2"
                 >
-                  <label className="block text-xs font-medium text-slate-700">Pesan Kustom</label>
+                  <label className="block text-sm font-medium text-slate-700">Pesan Kustom</label>
                   <div className="mt-1.5 flex gap-2">
                     <input
                       type="text"
                       placeholder="Ketik pesan simulasi…"
-                      className="h-9 flex-1 rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-green-600 focus:outline-none"
+                      className="h-9 flex-1 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-green-600 focus:outline-none"
                     />
                     <button
                       type="submit"
-                      className="h-9 rounded-md bg-green-600 px-3.5 text-xs font-semibold text-white hover:bg-green-700"
+                      className="h-9 rounded-md bg-green-600 px-3.5 text-sm font-semibold text-white hover:bg-green-700"
                     >
                       Uji
                     </button>
@@ -866,12 +866,12 @@ export default function AgentsPage() {
               <div className="lg:col-span-7">
                 <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
                   <div className="flex items-center justify-between border-b border-slate-200 pb-2.5">
-                    <span className="font-mono text-[11px] font-semibold uppercase text-slate-500">
+                    <span className="font-mono text-xs font-semibold uppercase text-slate-500">
                       Execution Trace Preview
                     </span>
-                    <span className="font-mono text-[11px] text-green-700">Dry-Run (0 Kredit)</span>
+                    <span className="font-mono text-xs text-green-700">Dry-Run (0 Kredit)</span>
                   </div>
-                  <div className="mt-3 space-y-3 text-xs text-slate-600">
+                  <div className="mt-3 space-y-3 text-sm text-slate-600">
                     {!sandboxOut && (
                       <p className="py-6 text-center text-slate-400">
                         Pilih contoh pesan di sebelah kiri atau ketik pesan baru untuk melihat
@@ -881,24 +881,24 @@ export default function AgentsPage() {
                     {sandboxOut && (
                       <>
                         <div className="rounded border border-slate-200 bg-white p-3">
-                          <p className="font-mono text-[10px] uppercase text-slate-400">
+                          <p className="font-mono text-[11px] uppercase text-slate-400">
                             Input Pelanggan
                           </p>
                           <p className="mt-1 font-medium text-slate-900">&quot;{sandboxOut.prompt}&quot;</p>
                         </div>
                         <div className="rounded border border-slate-200 bg-white p-3">
                           <div className="flex items-center justify-between">
-                            <span className="font-mono text-[10px] uppercase text-slate-400">
+                            <span className="font-mono text-[11px] uppercase text-slate-400">
                               Kandidat Alat
                             </span>
-                            <span className="font-mono text-[11px] font-semibold text-slate-800">
+                            <span className="font-mono text-xs font-semibold text-slate-800">
                               {sandboxOut.tool}
                             </span>
                           </div>
                           <div className="mt-2">
                             {sandboxOut.verdict === "blocked" && (
                               <>
-                                <span className="rounded bg-red-50 px-2 py-0.5 font-mono text-[11px] font-semibold text-red-700">
+                                <span className="rounded bg-red-50 px-2 py-0.5 font-mono text-xs font-semibold text-red-700">
                                   DIBLOKIR OLEH MATRIKS IZIN
                                 </span>
                                 <p className="mt-1.5 text-slate-600">
@@ -911,7 +911,7 @@ export default function AgentsPage() {
                             )}
                             {sandboxOut.verdict === "approval" && (
                               <>
-                                <span className="rounded bg-amber-50 px-2 py-0.5 font-mono text-[11px] font-semibold text-amber-700">
+                                <span className="rounded bg-amber-50 px-2 py-0.5 font-mono text-xs font-semibold text-amber-700">
                                   DIALIHKAN KE ANTREAN APPROVAL
                                 </span>
                                 <p className="mt-1.5 text-slate-600">
@@ -924,7 +924,7 @@ export default function AgentsPage() {
                             )}
                             {sandboxOut.verdict === "auto" && (
                               <>
-                                <span className="rounded bg-green-50 px-2 py-0.5 font-mono text-[11px] font-semibold text-green-700">
+                                <span className="rounded bg-green-50 px-2 py-0.5 font-mono text-xs font-semibold text-green-700">
                                   EKSEKUSI OTOMATIS DIIZINKAN
                                 </span>
                                 <p className="mt-1.5 text-slate-600">
@@ -956,14 +956,14 @@ export default function AgentsPage() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-xl font-semibold tracking-tight text-slate-900">Agent</h1>
-            <p className="mt-1 text-xs text-slate-500">
+            <p className="mt-1 text-sm text-slate-500">
               Kelola agent AI: status deploy, saluran terhubung, dan matriks izin per alat.
             </p>
           </div>
           <button
             type="button"
             onClick={openCreate}
-            className="inline-flex h-9 items-center gap-1.5 rounded-md bg-green-600 px-3.5 text-xs font-semibold text-white transition hover:bg-green-700"
+            className="inline-flex h-9 items-center gap-1.5 rounded-md bg-green-600 px-3.5 text-sm font-semibold text-white transition hover:bg-green-700"
           >
             <Plus size={14} />Buat Agent
           </button>
@@ -985,9 +985,9 @@ export default function AgentsPage() {
               placeholder="Filter nama atau instruksi…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="h-8 w-60 rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-900 placeholder-slate-400 focus:border-green-600 focus:outline-none"
+              className="h-8 w-60 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 placeholder-slate-400 focus:border-green-600 focus:outline-none"
             />
-            <div className="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5 text-xs">
+            <div className="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5 text-sm">
               {statusPills.map((pill) => (
                 <button
                   key={pill.key}
@@ -1004,13 +1004,13 @@ export default function AgentsPage() {
               ))}
             </div>
           </div>
-          <span className="font-mono text-[11px] text-slate-400">
+          <span className="font-mono text-xs text-slate-400">
             Registry: {tools.length} Tools
           </span>
         </div>
 
         {pageError && (
-          <p className="mt-4 rounded-md border border-red-500/40 bg-red-500/10 p-3 text-xs text-red-700">
+          <p className="mt-4 rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-700">
             {pageError}
           </p>
         )}
@@ -1020,7 +1020,7 @@ export default function AgentsPage() {
           <div className="mt-4 overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-y border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                <tr className="border-y border-slate-200 text-xs font-semibold uppercase tracking-wider text-slate-400">
                   <th className="py-3 pr-4">Agent</th>
                   <th className="px-4 py-3">Status</th>
                   <th className="hidden px-4 py-3 md:table-cell">Alat Diizinkan</th>
@@ -1032,7 +1032,7 @@ export default function AgentsPage() {
               <tbody className="divide-y divide-slate-200 border-b border-slate-200">
                 {filteredAgents.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="py-10 text-center text-xs text-slate-400">
+                    <td colSpan={6} className="py-10 text-center text-sm text-slate-400">
                       Tidak ada agent yang cocok dengan kriteria filter.
                     </td>
                   </tr>
@@ -1050,16 +1050,16 @@ export default function AgentsPage() {
                             setDetailTab("matrix");
                             setSandboxOut(null);
                           }}
-                          className="text-left text-xs font-semibold text-slate-900 hover:text-green-700"
+                          className="text-left text-sm font-semibold text-slate-900 hover:text-green-700"
                         >
                           {a.name}
                         </button>
                         {a.instructions ? (
-                          <p className="mt-0.5 line-clamp-1 max-w-md text-[11px] text-slate-500">
+                          <p className="mt-0.5 line-clamp-1 max-w-md text-xs text-slate-500">
                             {a.instructions}
                           </p>
                         ) : (
-                          <p className="mt-0.5 text-[11px] italic text-slate-400">
+                          <p className="mt-0.5 text-xs italic text-slate-400">
                             Belum ada instruksi.
                           </p>
                         )}
@@ -1068,28 +1068,28 @@ export default function AgentsPage() {
                         <StatusPill status={a.status} />
                       </td>
                       <td className="hidden px-4 py-3.5 md:table-cell">
-                        <span className="font-mono text-xs font-semibold tabular-nums text-slate-900">
+                        <span className="font-mono text-sm font-semibold tabular-nums text-slate-900">
                           {caps.filter((r) => r.allowed).length}
                         </span>
-                        <span className="font-mono text-xs text-slate-400">
+                        <span className="font-mono text-sm text-slate-400">
                           {" "}/ {tools.length} alat
                         </span>
                       </td>
                       <td className="hidden px-4 py-3.5 lg:table-cell">
                         {linked ? (
                           <>
-                            <p className="text-xs text-slate-700">
+                            <p className="text-sm text-slate-700">
                               {linked.label || linked.phoneNumber || "Saluran"}
                             </p>
-                            <p className="font-mono text-[10px] text-slate-400">
+                            <p className="font-mono text-[11px] text-slate-400">
                               {linked.provider === "CLOUD_API" ? "Cloud API" : "Baileys"}
                             </p>
                           </>
                         ) : (
-                          <p className="text-xs italic text-slate-400">Belum ditugaskan</p>
+                          <p className="text-sm italic text-slate-400">Belum ditugaskan</p>
                         )}
                       </td>
-                      <td className="hidden px-4 py-3.5 font-mono text-xs text-slate-500 xl:table-cell">
+                      <td className="hidden px-4 py-3.5 font-mono text-sm text-slate-500 xl:table-cell">
                         {formatDate(a.updatedAt)}
                       </td>
                       <td className="py-3.5 pl-4 text-right">
@@ -1100,11 +1100,19 @@ export default function AgentsPage() {
                             onClick={() => void onToggleStatus(a)}
                             className={
                               a.status === "ACTIVE"
-                                ? "rounded border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
-                                : "rounded border border-green-200 bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700 transition hover:bg-green-100 disabled:opacity-50"
+                                ? "inline-flex items-center gap-1 rounded border border-slate-200 bg-white px-2.5 py-1 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50"
+                                : "inline-flex items-center gap-1 rounded border border-green-200 bg-green-50 px-2.5 py-1 text-sm font-semibold text-green-700 transition hover:bg-green-100 disabled:opacity-50"
                             }
                           >
-                            {a.status === "ACTIVE" ? "Jeda" : "Deploy"}
+                            {a.status === "ACTIVE" ? (
+                              <>
+                                <Pause size={12} />Jeda
+                              </>
+                            ) : (
+                              <>
+                                <Play size={12} weight="fill" />Deploy
+                              </>
+                            )}
                           </button>
                           <button
                             type="button"
@@ -1113,16 +1121,9 @@ export default function AgentsPage() {
                               setDetailTab("matrix");
                               setSandboxOut(null);
                             }}
-                            className="text-xs font-semibold text-green-700 hover:underline"
+                            className="text-sm font-semibold text-green-700 hover:underline"
                           >
-                            Matriks &amp; Detail
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setToDelete(a)}
-                            className="text-xs font-medium text-red-600 hover:underline"
-                          >
-                            Hapus
+                            Lihat Detail
                           </button>
                         </div>
                       </td>
