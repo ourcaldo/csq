@@ -9,28 +9,31 @@ import { useAdminApi } from "@/lib/admin-api";
 // 30-day throughput chart with the last-3-days highlight, tenant workspaces
 // quick ledger. Console copy is English (owner direction 2026-11-13).
 
-type Tenant = { id: string; name: string; slug: string; status: string; plan?: string; msgs30d?: number };
+type Tenant = { id: string; name: string; slug: string; status: string; createdAt: string; messageCount30d: number };
 type Channel = { id: string; status: string };
 type Usage = {
   items: { tenantId: string; tenantName: string; planName: string | null }[];
   daily: { date: string; count: number }[];
+  monthStart: string;
 };
 
 export const getServerSideProps = withAdminAuth(async () => ({ props: {} }));
 
 export default function AdminOverview() {
-  const { data: tenantsData } = useAdminApi<{ items: (Tenant & { planName?: string | null; msgs30d?: number })[] }>(
-    "/api/admin/tenants"
-  );
+  const { data: tenantsData } = useAdminApi<{ items: Tenant[] }>("/api/admin/tenants");
   const { data: channelsData } = useAdminApi<{ items: Channel[] }>("/api/admin/channels");
   const { data: usageData } = useAdminApi<Usage>("/api/admin/usage");
 
   const tenants = tenantsData?.items ?? [];
   const channels = channelsData?.items ?? [];
   const daily = usageData?.daily ?? [];
+  const planById = new Map((usageData?.items ?? []).map((u) => [u.tenantName, u.planName]));
   const connected = channels.filter((c) => c.status === "CONNECTED").length;
-  const totalMsgs30d = tenants.reduce((s, t) => s + (t.msgs30d ?? 0), 0);
+  const totalMsgs30d = tenants.reduce((s, t) => s + t.messageCount30d, 0);
   const maxChart = Math.max(...daily.map((d) => d.count), 1);
+  const monthStart = usageData
+    ? new Date(usageData.monthStart).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })
+    : "-";
 
   return (
     <AdminShell title="Overview">
@@ -76,7 +79,7 @@ export default function AdminOverview() {
         </div>
         <div className="border-t border-slate-200 py-3.5 sm:border-t-0 sm:pl-5">
           <p className="text-[11px] font-medium text-slate-400">Cycle Start</p>
-          <p className="mt-1 font-mono text-lg font-semibold text-slate-900 tabular-nums">1 Nov</p>
+          <p className="mt-1 font-mono text-lg font-semibold text-slate-900 tabular-nums">{monthStart}</p>
         </div>
       </div>
 
@@ -106,7 +109,7 @@ export default function AdminOverview() {
                 title={`${d.date}: ${d.count} messages`}
               >
                 <div
-                  className={`w-full rounded-xs transition-colors ${
+                  className={`w-full rounded-sm transition-colors ${
                     isRecent ? "bg-emerald-600 group-hover:bg-emerald-700" : "bg-slate-200 group-hover:bg-emerald-500"
                   }`}
                   style={{ height: `${pct}%` }}
@@ -150,14 +153,14 @@ export default function AdminOverview() {
                     <p className="font-semibold text-slate-900">{t.name}</p>
                     <p className="font-mono text-[11px] text-slate-400">{t.slug}</p>
                   </td>
-                  <td className="px-4 py-3 font-medium text-slate-700">{t.planName ?? "None"}</td>
+                  <td className="px-4 py-3 font-medium text-slate-700">{planById.get(t.name) ?? "None"}</td>
                   <td className="px-4 py-3">
                     <StatusLabel tone={t.status === "ACTIVE" ? "ok" : "bad"}>
                       {t.status === "ACTIVE" ? "Active" : "Suspended"}
                     </StatusLabel>
                   </td>
                   <td className="px-4 py-3 text-right font-mono text-slate-800 tabular-nums">
-                    {(t.msgs30d ?? 0).toLocaleString("en-GB")}
+                    {t.messageCount30d.toLocaleString("en-GB")}
                   </td>
                   <td className="py-3 pl-4 text-right">
                     <Link href={`/admin/tenants/${t.id}`} className="font-semibold text-emerald-700 hover:underline">

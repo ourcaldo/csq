@@ -23,6 +23,7 @@ import {
   Bell,
   X,
   List,
+  SignOut,
 } from "@phosphor-icons/react";
 import { cn } from "@csq/ui/lib/utils";
 import { ConfirmDialogHost } from "@/components/confirm-dialog";
@@ -115,7 +116,10 @@ export function AdminShell({ title, children }: { title: string; children: React
   const { data: tenantsData } = useAdminApi<{ items: { status: string }[] }>("/api/admin/tenants");
   const { data: channelsData } = useAdminApi<{ items: { status: string }[] }>("/api/admin/channels");
   const { data: apiKeysData } = useAdminApi<{ items: { revokedAt: string | null }[] }>("/api/admin/api-keys");
-  const { data: opsData } = useAdminApi<{ failedMessages: { id: string }[] }>("/api/admin/operations");
+  const { data: opsData } = useAdminApi<{
+    failedMessages: { id: string }[];
+    health: { db: { ok: boolean; ms: number } };
+  }>("/api/admin/operations");
 
   const counts = useMemo(() => ({
     tenants: tenantsData?.items.length ?? 0,
@@ -124,6 +128,9 @@ export function AdminShell({ title, children }: { title: string; children: React
   }), [tenantsData, channelsData, apiKeysData]);
   const failedCount = opsData?.failedMessages.length ?? 0;
   const connected = (channelsData?.items ?? []).filter((c) => c.status === "CONNECTED").length;
+  const dbMs = opsData?.health.db.ok ? `${opsData.health.db.ms}ms DB` : "DB down";
+  const name = session?.user?.name ?? "Operator";
+  const initials = name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -163,8 +170,8 @@ export function AdminShell({ title, children }: { title: string; children: React
       >
         <div className="flex h-14 items-center justify-between border-b border-slate-100 px-5">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-600 text-white">
-              <i className="ph-fill ph-chat-circle-dots text-base" />
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-green-600 text-white">
+              <ChatCircleDots size={17} weight="fill" />
             </div>
             <div className="flex items-center gap-1.5">
               <span className="text-lg font-bold tracking-tight">CSQ</span>
@@ -185,10 +192,10 @@ export function AdminShell({ title, children }: { title: string; children: React
         <div className="border-b border-slate-100 bg-muted/70 px-5 py-2.5">
           <div className="flex items-center justify-between text-[11px]">
             <span className="flex items-center gap-1.5 font-medium text-slate-700">
-              <span className="live-dot h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              <span>Control Plane</span>
+              <span className={`h-1.5 w-1.5 rounded-full ${failedCount === 0 ? "live-dot bg-emerald-500" : "bg-red-500"}`} />
+              <span>{failedCount === 0 ? "All systems operational" : `${failedCount} failed sends`}</span>
             </span>
-            <span className="font-mono text-[10px] text-slate-500">ap-southeast-3</span>
+            <span className="font-mono text-[10px] text-slate-500">{connected}/{counts.channels} channels up</span>
           </div>
         </div>
 
@@ -216,7 +223,7 @@ export function AdminShell({ title, children }: { title: string; children: React
                           key={item.href}
                           href={item.href}
                           className={cn(
-                            "flex items-center gap-2.5 rounded-lg px-3 py-1.8 text-[13px] font-medium transition-colors",
+                            "flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
                             active ? "bg-emerald-50 font-semibold text-emerald-700" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                           )}
                         >
@@ -245,7 +252,7 @@ export function AdminShell({ title, children }: { title: string; children: React
                         key={item.href}
                         href={item.href}
                         className={cn(
-                          "flex items-center justify-between gap-2.5 rounded-lg px-3 py-1.8 text-[13px] font-medium transition-colors",
+                          "flex items-center justify-between gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
                           active ? "bg-emerald-50 font-semibold text-emerald-700" : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
                         )}
                       >
@@ -273,7 +280,7 @@ export function AdminShell({ title, children }: { title: string; children: React
           <div className="border-t border-slate-200 p-3">
             <Link
               href="/admin/plans"
-              className="flex items-center justify-between rounded-lg px-3 py-1.8 text-[13px] font-medium text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900"
+              className="flex items-center justify-between rounded-lg px-3 py-2 text-[13px] font-medium text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900"
             >
               <span className="flex items-center gap-2.5">
                 <SlidersHorizontal size={16} className="text-slate-400" />
@@ -288,7 +295,7 @@ export function AdminShell({ title, children }: { title: string; children: React
           <div className="flex items-center justify-between gap-2 px-1.5 pt-1">
             <div className="flex min-w-0 items-center gap-2.5">
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-semibold text-white">
-                OP
+                {initials}
               </div>
               <div className="min-w-0">
                 <p className="truncate text-xs font-semibold text-slate-900">
@@ -299,9 +306,13 @@ export function AdminShell({ title, children }: { title: string; children: React
                 </p>
               </div>
             </div>
-            <span className="rounded border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-emerald-700">
-              ROOT
-            </span>
+            <button
+              onClick={() => void signOut({ callbackUrl: "/login" })}
+              aria-label="Sign out"
+              className="rounded-md p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+            >
+              <SignOut size={14} />
+            </button>
           </div>
         </div>
       </aside>
@@ -343,9 +354,9 @@ export function AdminShell({ title, children }: { title: string; children: React
               href="/admin/operations"
               className="hidden items-center gap-2 rounded-full border border-slate-200 bg-muted/80 px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-100 sm:inline-flex"
             >
-              <span className="live-dot h-2 w-2 rounded-full bg-emerald-500" />
-              <span>Worker OK</span>
-              <span className="font-mono text-[10px] text-slate-400">{connected}/{counts.channels}</span>
+              <span className={`h-2 w-2 rounded-full ${failedCount === 0 ? "live-dot bg-emerald-500" : "bg-red-500"}`} />
+              <span>{failedCount === 0 ? "Worker OK" : "Needs attention"}</span>
+              <span className="font-mono text-[10px] text-slate-400">{dbMs}</span>
             </Link>
             <Link
               href="/admin/operations"
@@ -361,17 +372,15 @@ export function AdminShell({ title, children }: { title: string; children: React
             <div className="h-4 w-px bg-slate-200" />
             <div className="flex items-center gap-2">
               <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-600 text-xs font-semibold text-white">
-                OP
+                {initials}
               </div>
               <div className="hidden text-left xl:block">
-                <p className="text-xs font-semibold leading-none text-slate-900">
-                  {session?.user?.name ?? "Operator"}
-                </p>
+                <p className="text-xs font-semibold leading-none text-slate-900">{name}</p>
                 <button
                   onClick={() => void signOut({ callbackUrl: "/login" })}
                   className="mt-0.5 font-mono text-[10px] leading-none text-slate-400 hover:text-emerald-700"
                 >
-                  Super Admin - Sign out
+                  Sign out
                 </button>
               </div>
             </div>

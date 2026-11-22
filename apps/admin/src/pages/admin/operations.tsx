@@ -103,7 +103,9 @@ export default function OperationsPage() {
               <p className="mt-1 font-mono text-base font-semibold text-slate-900">
                 {data.health.db.ok ? `${data.health.db.ms} ms` : "Failed"}
               </p>
-              <p className="mt-0.5 font-mono text-[10px] text-emerald-700">SELECT 1</p>
+              <p className={`mt-0.5 font-mono text-[10px] ${data.health.db.ok ? "text-emerald-700" : "text-red-600"}`}>
+                {data.health.db.ok ? "SELECT 1" : "unreachable"}
+              </p>
             </div>
           </div>
 
