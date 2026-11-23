@@ -102,6 +102,16 @@ export const authOptions: NextAuthOptions = {
         token.permissions = user.permissions;
         token.passwordChangedAt = user.passwordChangedAt;
         token.mustChangePassword = user.mustChangePassword;
+      } else if (token.userId) {
+        // PRD 29: refresh the realm claims on every request. Two birds:
+        // sessions signed in BEFORE the PRD 29 deploy carry no isOwner /
+        // permissions claims (the UI would hide everything but Ringkasan),
+        // and a role edit must reach the UI without a re-login.
+        const fresh = await loadAuthUser(token.userId);
+        if (fresh) {
+          token.isOwner = fresh.isOwner;
+          token.permissions = fresh.permissions;
+        }
       }
       return token;
     },
