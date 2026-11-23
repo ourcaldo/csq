@@ -49,8 +49,10 @@ UPDATE "User" SET "isOwner" = true WHERE "role" = 'OWNER';
 
 -- 4. Seed the system roles per tenant (PRD 29 section 4, owner decisions
 -- 2026-11-23: Akses Penuh = everything except owner-only; Admin Chat =
--- full powers on the conversation surfaces, not read-only).
-INSERT INTO "Role" ("id", "tenantId", "name", "description", "isSystem", "permissions")
+-- full powers on the conversation surfaces, not read-only). updatedAt is
+-- set explicitly: Prisma's @updatedAt is client-side, the column has no
+-- DB default.
+INSERT INTO "Role" ("id", "tenantId", "name", "description", "isSystem", "permissions", "updatedAt")
 SELECT gen_random_uuid()::text, t."id", 'Akses Penuh',
        'Semua akses kecuali khusus pemilik.', true,
        ARRAY['inbox.lihat','inbox.balas','inbox.tugaskan','inbox.catatan','inbox.tag','inbox.template_kirim','inbox.media',
@@ -62,14 +64,16 @@ SELECT gen_random_uuid()::text, t."id", 'Akses Penuh',
              'agent.lihat','agent.kelola','skenario.lihat','skenario.kelola',
              'approval.lihat','approval.putuskan','tiket.lihat','tiket.kelola',
              'kpi.lihat','aktivitas.lihat',
-             'saluran.lihat','saluran.tambah','saluran.ubah','saluran.hapus','webhook.lihat']
+             'saluran.lihat','saluran.tambah','saluran.ubah','saluran.hapus','webhook.lihat'],
+       CURRENT_TIMESTAMP
 FROM "Tenant" t;
 
-INSERT INTO "Role" ("id", "tenantId", "name", "description", "isSystem", "permissions")
+INSERT INTO "Role" ("id", "tenantId", "name", "description", "isSystem", "permissions", "updatedAt")
 SELECT gen_random_uuid()::text, t."id", 'Admin Chat',
        'Operator chat: aksi penuh di percakapan, kontak, pipeline, tiket, dan template.', true,
        ARRAY['inbox.lihat','inbox.balas','inbox.tugaskan','inbox.catatan','inbox.tag','inbox.template_kirim','inbox.media',
-             'kontak.kelola','pipeline.kelola','tiket.kelola','template.kelola','aktivitas.lihat']
+             'kontak.kelola','pipeline.kelola','tiket.kelola','template.kelola','aktivitas.lihat'],
+       CURRENT_TIMESTAMP
 FROM "Tenant" t;
 
 -- 5. Legacy STAFF users and open invites map to Akses Penuh (owner decision
