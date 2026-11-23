@@ -1,7 +1,7 @@
 ﻿import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
@@ -52,7 +52,7 @@ export default async function handler(
     }
 
     if (req.method === "POST") {
-      if (!requireRole(session, "OWNER")) {
+      if (!requirePermission(session, "agent.lihat")) {
         return respondError(
           res,
           "PERMISSION_DENIED",

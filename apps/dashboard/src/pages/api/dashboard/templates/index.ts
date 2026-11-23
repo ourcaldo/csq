@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
@@ -42,7 +42,7 @@ export default async function handler(
         .json(apiOk({ items, systemKeys: SYSTEM_TEMPLATE_KEYS }));
     }
 
-    if (!requireRole(session, "OWNER")) {
+    if (!requirePermission(session, "template.lihat")) {
       return respondError(res, "PERMISSION_DENIED", "Hanya owner.");
     }
 

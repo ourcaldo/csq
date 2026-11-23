@@ -1,10 +1,11 @@
-// PATCH (OWNER-only): assign or unassign an agent to a channel
-// (template 2026-11-22: the Agent form's "Saluran Terhubung" select).
-// agentId: null detaches. Tenant-scoped; the agent must belong to the same
-// tenant before the link is written.
+// PATCH: assign or unassign an agent to a channel (template 2026-11-22: the
+// Agent form's "Saluran Terhubung" select). agentId: null detaches.
+// PRD 29 section 6.1: agent binding is a config edit -> saluran.ubah
+// (role-level), NOT per-channel KELOLA. Tenant-scoped; the agent must
+// belong to the same tenant before the link is written.
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { logHuman } from "@csq/core/lib/audit";
 import { requireTenant, respondError, strQuery } from "@csq/core/lib/queries";
@@ -25,8 +26,8 @@ export default async function handler(
 
   const session = await getAuthSession(req, res);
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
-  if (!requireRole(session, "OWNER")) {
-    return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengatur saluran agent.");
+  if (!requirePermission(session, "saluran.ubah")) {
+    return respondError(res, "PERMISSION_DENIED", "Tidak punya izin mengubah saluran.");
   }
   const tenantId = requireTenant(session);
 

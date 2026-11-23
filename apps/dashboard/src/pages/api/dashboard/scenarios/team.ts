@@ -19,7 +19,7 @@ import type { ListResult } from "@csq/core/types/dashboard";
 export type ScenarioTeamMember = {
   id: string;
   name: string;
-  role: "OWNER" | "STAFF";
+  isOwner: boolean;
 };
 
 export default async function handler(
@@ -42,7 +42,7 @@ export default async function handler(
       where: { tenantId },
       orderBy: { createdAt: "asc" },
       take: 500,
-      select: { id: true, name: true, email: true, role: true },
+      select: { id: true, name: true, email: true, isOwner: true },
     });
 
     const items: ScenarioTeamMember[] = rows.map((u) => ({
@@ -50,8 +50,7 @@ export default async function handler(
       // Display label for the dropdown/node card; email keeps it identifiable
       // when a member has no name set.
       name: u.name ?? u.email,
-      // Narrow the Prisma UserRole enum to the literal union without `as`.
-      role: u.role === "OWNER" ? "OWNER" : "STAFF",
+      isOwner: u.isOwner,
     }));
 
     return res

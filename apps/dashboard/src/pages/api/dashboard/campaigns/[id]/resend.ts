@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import { requireFeatureApi } from "@csq/core/lib/feature-guard";
 import prisma from "@csq/core/lib/db";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
@@ -35,7 +35,7 @@ export default async function handler(
     if (req.method !== "POST") {
       return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
     }
-    if (!requireRole(session, "OWNER")) {
+    if (!requirePermission(session, "kampanye.kelola")) {
       return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengirim ulang.");
     }
 

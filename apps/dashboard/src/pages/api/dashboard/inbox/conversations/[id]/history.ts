@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getAuthSession } from "@csq/core/lib/auth";
+import { visibleChannelIds } from "@csq/core/lib/channel-access";
 import prisma from "@csq/core/lib/db";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
@@ -51,8 +52,11 @@ export default async function handler(
       return respondError(res, "VALIDATION_ERROR", "ID percakapan tidak valid.");
     }
 
+    // PRD 29 section 6: only conversations on visible channels.
+    const visibleCh = await visibleChannelIds(session);
+    const channelScope = visibleCh ? { channelId: { in: visibleCh } } : {};
     const conversation = await prisma.conversation.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId, ...channelScope },
       select: {
         id: true,
         createdAt: true,

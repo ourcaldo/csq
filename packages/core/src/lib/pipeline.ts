@@ -96,6 +96,9 @@ export async function findStageByName(
 // dashboard PATCH. Creates the Deal lazily on first placement, writes a
 // DealStageHistory row on every real transition, and audits. Terminal stages
 // (WON/LOST) can't be moved out of.
+// One card per customer (PRD 29 section 6.3): the deal is resolved by the
+// conversation's CONTACT, never by the thread - an agent running in the
+// customer's channel-2 thread moves the same card the channel-1 thread moved.
 export async function setConversationStage(args: {
   tenantId: string;
   conversationId: string;
@@ -112,24 +115,22 @@ export async function setConversationStage(args: {
   // findStageByName throws if not found; stage is defined here.
   if (!stage) throw new HttpError("NOT_FOUND", "Tahap tidak ditemukan.");
 
-  const existing = await prisma.deal.findUnique({
-    where: { conversationId },
+  const conversation = await prisma.conversation.findFirst({
+    where: { id: conversationId, tenantId },
+    select: { id: true, contactId: true },
   });
+  if (!conversation) {
+    throw new HttpError("NOT_FOUND", "Percakapan tidak ditemukan.");
+  }
+  const existing = conversation.contactId
+    ? await prisma.deal.findUnique({
+        where: { tenantId_contactId: { tenantId, contactId: conversation.contactId } },
+      })
+    : await prisma.deal.findUnique({
+        where: { conversationId },
+      });
   if (existing && existing.tenantId !== tenantId) {
     throw new HttpError("NOT_FOUND", "Deal tidak ditemukan untuk tenant ini.");
-  }
-  // Lazy create (PRD 25 API can move a conversation that has no deal yet):
-  // verify the conversation exists and belongs to the tenant BEFORE the
-  // create, otherwise a foreign/nonexistent conversationId 500s on the FK -
-  // or worse, links another tenant's conversation.
-  if (!existing) {
-    const conversation = await prisma.conversation.findFirst({
-      where: { id: conversationId, tenantId },
-      select: { id: true },
-    });
-    if (!conversation) {
-      throw new HttpError("NOT_FOUND", "Percakapan tidak ditemukan.");
-    }
   }
   const fromStage = existing
     ? pipeline.stages.find((s) => s.id === existing.stageId) ?? null
@@ -146,10 +147,19 @@ export async function setConversationStage(args: {
   const deal = existing
     ? await prisma.deal.update({
         where: { id: existing.id },
-        data: { stageId: stage.id },
+        data: {
+          stageId: stage.id,
+          // The card's thread pointer follows the customer's active thread.
+          conversationId,
+        },
       })
     : await prisma.deal.create({
-        data: { tenantId, conversationId, stageId: stage.id },
+        data: {
+          tenantId,
+          conversationId,
+          contactId: conversation.contactId,
+          stageId: stage.id,
+        },
       });
 
   // Record a history row + audit only on a real transition.
@@ -182,14 +192,35 @@ export async function setConversationStage(args: {
 
 // Every new conversation is a new lead, so it belongs on the pipeline's first
 // stage immediately (owner report 2026-11-16: an API send created the chat but
-// nothing appeared in the Pipeline). Deals used to exist only after the AI or
-// a human moved a card, so an outbound-only conversation (API send, campaign,
-// scenario) never showed up. Idempotent: setConversationStage no-ops when the
-// deal is already on that stage.
+// nothing appeared in the Pipeline). One card per customer (PRD 29 section
+// 6.3): when the contact already has a card, it is only RE-POINTED to this
+// new thread - the stage is never touched, and a returning customer keeps
+// their stage until a human, the agent tool, or a scenario moves it.
 export async function ensureInitialDeal(args: {
   tenantId: string;
   conversationId: string;
 }): Promise<void> {
+  const conversation = await prisma.conversation.findFirst({
+    where: { id: args.conversationId, tenantId: args.tenantId },
+    select: { contactId: true },
+  });
+  if (conversation?.contactId) {
+    const existing = await prisma.deal.findUnique({
+      where: {
+        tenantId_contactId: { tenantId: args.tenantId, contactId: conversation.contactId },
+      },
+      select: { id: true },
+    });
+    if (existing) {
+      await prisma.deal
+        .update({
+          where: { id: existing.id },
+          data: { conversationId: args.conversationId },
+        })
+        .catch(() => undefined);
+      return;
+    }
+  }
   const pipeline = await getOrCreatePipeline(args.tenantId);
   const first =
     pipeline.stages.find((s) => s.kind === "OPENING") ?? pipeline.stages[0];
@@ -216,14 +247,20 @@ export async function setDealValue(args: {
   }
   const conversation = await prisma.conversation.findFirst({
     where: { id: args.conversationId, tenantId: args.tenantId },
-    select: { id: true },
+    select: { id: true, contactId: true },
   });
   if (!conversation) {
     throw new HttpError("NOT_FOUND", "Percakapan tidak ditemukan.");
   }
-  const existing = await prisma.deal.findUnique({
-    where: { conversationId: args.conversationId },
-  });
+  // One card per customer (PRD 29 section 6.3): resolve by contact so the
+  // value lands on the shared card whichever thread the caller holds.
+  const existing = conversation.contactId
+    ? await prisma.deal.findUnique({
+        where: { tenantId_contactId: { tenantId: args.tenantId, contactId: conversation.contactId } },
+      })
+    : await prisma.deal.findUnique({
+        where: { conversationId: args.conversationId },
+      });
   if (!existing) {
     await ensureInitialDeal({
       tenantId: args.tenantId,

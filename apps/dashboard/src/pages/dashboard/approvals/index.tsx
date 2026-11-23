@@ -107,7 +107,7 @@ function toItems(
 
 export default function ApprovalsPage() {
   const { data: session } = useSession();
-  const isOwner = session?.user?.role === "OWNER";
+  const canManage = !!session?.user?.isOwner || !!session?.user?.permissions?.includes("approval.putuskan");
 
   // FEA-6 (PRD 16): both list sources are always loaded - the tabs just
   // switch which one renders. Approve/reject refreshes both (an item moves
@@ -162,7 +162,7 @@ export default function ApprovalsPage() {
 
   // Non-owners: the API returns PERMISSION_DENIED; show a clear notice and
   // skip rendering the queue.
-  if (!isOwner) {
+  if (!canManage) {
     return (
       <DashboardShell
         title="Approval"

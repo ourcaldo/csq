@@ -47,8 +47,10 @@ export function LeadDrawer(props: Props) {
   const conversation = deal.conversation;
   const contact = conversation.contact;
   const session = useSession();
-  // Contact notes are owner-only (PUT /api/dashboard/contacts/[id]).
-  const canEditNote = session.data?.user?.role === "OWNER";
+  // Contact notes need kontak.kelola (PUT /api/dashboard/contacts/[id]).
+  const canEditNote =
+    !!session.data?.user?.isOwner ||
+    !!session.data?.user?.permissions?.includes("kontak.kelola");
 
   const [messages, setMessages] = useState<Message[] | null>(null);
   const [messagesError, setMessagesError] = useState<string | null>(null);

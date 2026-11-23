@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession } from "@csq/core/lib/auth";
+import { canManageChannel } from "@csq/core/lib/channel-access";
 import prisma from "@csq/core/lib/db";
 import { enqueueOutbound, awaitOutbound } from "@csq/core/lib/outbox";
 import { requireTenant, respondError, strQuery } from "@csq/core/lib/queries";
@@ -26,9 +27,6 @@ export default async function handler(
 
   const session = await getAuthSession(req, res);
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
-  if (!requireRole(session, "OWNER")) {
-    return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengetes channel.");
-  }
   const tenantId = requireTenant(session);
 
   return withTenantContext(tenantId, async () => {
@@ -42,6 +40,10 @@ export default async function handler(
 
     const channel = await prisma.channel.findFirst({ where: { id, tenantId } });
     if (!channel) return respondError(res, "NOT_FOUND", "Channel tidak ditemukan.");
+    // PRD 29 section 6.1: a test send is a per-channel KELOLA power.
+    if (!(await canManageChannel(session, channel.id))) {
+      return respondError(res, "PERMISSION_DENIED", "Tidak punya akses kelola saluran ini.");
+    }
     if (channel.status !== "CONNECTED") {
       return respondError(res, "VALIDATION_ERROR", "Channel belum terhubung.");
     }

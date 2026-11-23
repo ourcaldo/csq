@@ -46,7 +46,7 @@ export default async function handler(
         prisma.mediaAsset.groupBy({ by: ["tenantId"], _sum: { byteSize: true } }),
         prisma.user.groupBy({
           by: ["tenantId"],
-          where: { role: "STAFF" },
+          where: { isOwner: false },
           _count: { id: true },
         }),
         prisma.channel.groupBy({

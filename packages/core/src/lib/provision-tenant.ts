@@ -1,10 +1,12 @@
 import prisma from "@csq/core/lib/db";
 import { hashPassword } from "@csq/core/lib/password";
+import { AKSES_PENUH_KEYS, ADMIN_CHAT_KEYS } from "@csq/core/lib/permissions-catalog";
 
 // Shared tenant provisioning (PRD 16 ADM-8): dashboard register and admin
 // tenant-create both go through this helper so every tenant starts with
 // identical defaults. Callers must already hold a withSystemContext wrap -
 // the create crosses no tenant yet, so it runs in the bypass context.
+// PRD 29: every new tenant is seeded with the two system roles.
 
 export type ProvisionTenantInput = {
   name: string;
@@ -24,12 +26,28 @@ export async function createTenantWithOwner(
       slug: input.slug,
       status: "ACTIVE",
       settings: { sourcePriority: ["MANUAL", "GOOGLE_SHEETS", "EXCEL", "MEMORY"] },
+      roles: {
+        create: [
+          {
+            name: "Akses Penuh",
+            description: "Semua akses kecuali khusus pemilik.",
+            isSystem: true,
+            permissions: [...AKSES_PENUH_KEYS],
+          },
+          {
+            name: "Admin Chat",
+            description:
+              "Operator chat: aksi penuh di percakapan, kontak, pipeline, tiket, dan template.",
+            isSystem: true,
+            permissions: [...ADMIN_CHAT_KEYS],
+          },
+        ],
+      },
       users: {
         create: {
           email: input.ownerEmail,
           name: input.ownerName,
-          role: "OWNER",
-          canRunCampaigns: true,
+          isOwner: true,
           passwordHash,
           // Audit run-3: the emailed bootstrap password is single-use by
           // policy - the owner rotates it at first login.

@@ -40,7 +40,7 @@ function errMsg(e: unknown, fallback: string): string {
 
 export default function TemplatesPage() {
   const { data: session } = useSession();
-  const isOwner = session?.user?.role === "OWNER";
+  const canManage = !!session?.user?.isOwner || !!session?.user?.permissions?.includes("template.kelola");
 
   const { data, loading, error, refresh } = useApi<ListResult>("/api/dashboard/templates");
   const templates = useMemo(() => data?.items ?? [], [data]);
@@ -209,7 +209,7 @@ export default function TemplatesPage() {
       title="Template Pesan"
       description="Kelola template pesan CSQ (teks bebas dalam window 24 jam) dan template Meta (wajib di-approve di Meta untuk pesan proaktif di luar window)."
       actions={
-        isOwner ? (
+        canManage ? (
           <button
             onClick={() => openForm(null)}
             className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-green-600 px-3.5 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-green-700 active:scale-[0.99]"
@@ -224,7 +224,7 @@ export default function TemplatesPage() {
       {loading && <LoadingSkeleton rows={3} />}
 
       {/* Staff read-only notice */}
-      {!loading && !isOwner && (
+      {!loading && !canManage && (
         <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-slate-200 bg-white p-3.5 text-xs text-slate-600 shadow-xs">
           <LockSimple size={16} weight="fill" className="mt-0.5 shrink-0 text-slate-400" />
           <div>
@@ -372,9 +372,9 @@ export default function TemplatesPage() {
                       onClick={() => copyContent(t)}
                       className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-500 transition hover:bg-slate-100 hover:text-slate-900"
                     >
-                      <Copy size={14} /> {isOwner ? "Salin" : "Salin Isi"}
+                      <Copy size={14} /> {canManage ? "Salin" : "Salin Isi"}
                     </button>
-                    {isOwner ? (
+                    {canManage ? (
                       <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => openForm(t)}

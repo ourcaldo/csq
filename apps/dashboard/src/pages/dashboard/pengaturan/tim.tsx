@@ -3,8 +3,9 @@
 // telemetry strip, tabs: Anggota Aktif / Riwayat Undangan / Matriks Peran.
 // All wired to the existing team APIs.
 import { useMemo, useState } from "react";
-import type { ChangeEvent, FormEvent } from "react";
+import type { FormEvent } from "react";
 import type { GetServerSideProps } from "next";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { CheckCircle, Funnel, UserPlus, X } from "@phosphor-icons/react";
 import { withAuth } from "@csq/core/lib/auth";
@@ -17,15 +18,22 @@ type TeamMember = {
   id: string;
   email: string;
   name: string | null;
-  role: "OWNER" | "STAFF";
-  canRunCampaigns: boolean;
+  isOwner: boolean;
+  roleId: string | null;
+  roleName: string | null;
   createdAt: string;
+};
+
+type RoleOption = {
+  id: string;
+  name: string;
+  isSystem: boolean;
 };
 
 type InviteResult = {
   inviteId: string;
   email: string;
-  role: "STAFF";
+  roleId: string;
   emailed: boolean;
   inviteLink?: string;
   note?: string;
@@ -34,6 +42,8 @@ type InviteResult = {
 type InviteView = {
   id: string;
   email: string;
+  roleId: string | null;
+  roleName: string | null;
   status: "PENDING" | "EXPIRED" | "ACCEPTED";
   createdAt: string;
   expiresAt: string;
@@ -60,7 +70,7 @@ function initials(name: string | null, email: string): string {
 
 export default function PengaturanTimPage() {
   const { data: session } = useSession();
-  const isOwner = session?.user?.role === "OWNER";
+  const isOwner = !!session?.user?.isOwner;
 
   const { data, loading, error, refresh } = useApi<{ items: TeamMember[] }>(
     `/api/dashboard/team?page=1&pageSize=${PAGE_SIZE}`
@@ -68,12 +78,14 @@ export default function PengaturanTimPage() {
   const invitesApi = useApi<{ items: InviteView[] }>("/api/dashboard/team/invites");
   const invites = invitesApi.data?.items ?? [];
   const members = useMemo(() => data?.items ?? [], [data]);
+  const rolesApi = useApi<{ items: RoleOption[] }>("/api/dashboard/roles");
+  const roles = useMemo(() => rolesApi.data?.items ?? [], [rolesApi.data]);
 
   const [tab, setTab] = useState<"members" | "invites" | "roles">("members");
   const [search, setSearch] = useState("");
   const [inviteOpen, setInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteCampaignPerm, setInviteCampaignPerm] = useState(false);
+  const [inviteRoleId, setInviteRoleId] = useState<string>("");
   const [inviting, setInviting] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteResult, setInviteResult] = useState<InviteResult | null>(null);
@@ -96,24 +108,25 @@ export default function PengaturanTimPage() {
 
   const kpis = {
     total: members.length,
-    owners: members.filter((m) => m.role === "OWNER").length,
-    campaignAccess: members.filter((m) => m.role === "OWNER" || m.canRunCampaigns).length,
+    owners: members.filter((m) => m.isOwner).length,
+    roles: roles.length,
     pending: invites.filter((i) => i.status === "PENDING").length,
   };
 
   async function submitInvitation(e: FormEvent) {
     e.preventDefault();
-    if (inviting || !inviteEmail.trim()) return;
+    if (inviting || !inviteEmail.trim() || !inviteRoleId) return;
     setInviting(true);
     setInviteError(null);
     try {
       const result = await apiSend<InviteResult>("/api/dashboard/team/invite", "POST", {
         name: inviteEmail.split("@")[0],
         email: inviteEmail,
+        roleId: inviteRoleId,
       });
       setInviteOpen(false);
       setInviteEmail("");
-      setInviteCampaignPerm(false);
+      setInviteRoleId("");
       setInviteResult(result);
       refresh();
       invitesApi.refresh();
@@ -124,13 +137,17 @@ export default function PengaturanTimPage() {
     }
   }
 
-  async function toggleCampaignPerm(m: TeamMember, checked: boolean) {
+  async function changeMemberRole(m: TeamMember, roleId: string) {
     setActionError(null);
+    setBusyId(m.id);
     try {
-      await apiSend(`/api/dashboard/team/${m.id}`, "PUT", { canRunCampaigns: checked });
+      await apiSend(`/api/dashboard/team/${m.id}`, "PUT", { roleId });
       refresh();
+      showToast("Peran anggota diperbarui.");
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : "Gagal mengubah izin kampanye.");
+      setActionError(err instanceof Error ? err.message : "Gagal mengubah peran.");
+    } finally {
+      setBusyId(null);
     }
   }
 
@@ -233,21 +250,31 @@ export default function PengaturanTimPage() {
                 />
               </div>
               <div className="md:col-span-3">
-                <label className="block text-xs font-medium text-slate-700">Peran Organisasi</label>
-                <div className="mt-1.5 flex h-9 items-center rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-500">
-                  Staff (Agen Operasional)
-                </div>
+                <label htmlFor="invite-role" className="block text-xs font-medium text-slate-700">
+                  Peran
+                </label>
+                <select
+                  id="invite-role"
+                  required
+                  value={inviteRoleId}
+                  onChange={(e) => setInviteRoleId(e.target.value)}
+                  className="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-xs text-slate-900 focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/15"
+                >
+                  <option value="" disabled>
+                    Pilih peran...
+                  </option>
+                  {roles.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="md:col-span-4">
-                <label className="flex h-9 cursor-pointer items-center gap-2 rounded-md border border-slate-200 bg-white px-3 text-xs text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={inviteCampaignPerm}
-                    onChange={(e: ChangeEvent<HTMLInputElement>) => setInviteCampaignPerm(e.target.checked)}
-                    className="h-3.5 w-3.5 rounded border-slate-300 text-green-600 focus:ring-green-600"
-                  />
-                  <span className="truncate font-medium">Boleh jalankan kampanye</span>
-                </label>
+                <p className="text-[11px] leading-relaxed text-slate-500">
+                  Tautan undangan berlaku 7 hari, sekali pakai, dan dikirim ke email penerima.
+                  Ubah isi peran kapan saja di menu Peran &amp; Izin.
+                </p>
               </div>
             </div>
             {inviteError && <p className="text-xs font-medium text-red-600">{inviteError}</p>}
@@ -312,8 +339,8 @@ export default function PengaturanTimPage() {
           <p className="mt-1 font-mono text-lg font-semibold text-slate-900">{kpis.owners}</p>
         </div>
         <div className="border-t border-slate-200 py-3.5 pr-4 sm:border-t-0 sm:px-5">
-          <p className="text-[11px] font-medium text-slate-400">Akses Kampanye</p>
-          <p className="mt-1 font-mono text-lg font-semibold text-green-700">{kpis.campaignAccess}</p>
+          <p className="text-[11px] font-medium text-slate-400">Peran Tersedia</p>
+          <p className="mt-1 font-mono text-lg font-semibold text-green-700">{kpis.roles}</p>
         </div>
         <div className="border-t border-slate-200 py-3.5 sm:border-t-0 sm:pl-5">
           <p className="text-[11px] font-medium text-slate-400">Undangan Tertunda</p>
@@ -406,35 +433,34 @@ export default function PengaturanTimPage() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <span
-                      className={cn(
-                        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium",
-                        m.role === "OWNER"
-                          ? "bg-green-50 text-green-700"
-                          : "bg-slate-100 text-slate-600"
-                      )}
-                    >
-                      {m.role === "OWNER" ? "Owner" : "Staff"}
-                    </span>
+                    {m.isOwner ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700">
+                        Pemilik
+                      </span>
+                    ) : isOwner && m.id !== session?.user?.id ? (
+                      <select
+                        value={m.roleId ?? ""}
+                        disabled={busyId === m.id}
+                        onChange={(e) => void changeMemberRole(m, e.target.value)}
+                        className="h-8 rounded-md border border-slate-300 bg-white px-2 text-xs text-slate-900 focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/15"
+                      >
+                        <option value="" disabled>
+                          Tanpa peran
+                        </option>
+                        {roles.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+                        {m.roleName ?? "Tanpa peran"}
+                      </span>
+                    )}
                   </td>
                   <td className="hidden px-4 py-3 text-xs text-slate-500 md:table-cell">
                     {fmtDate(m.createdAt)}
-                  </td>
-                  <td className="px-4 py-3">
-                    {m.role === "OWNER" ? (
-                      <span className="text-xs text-slate-400">Selalu (owner)</span>
-                    ) : (
-                      <label className="flex items-center gap-2 text-xs">
-                        <input
-                          type="checkbox"
-                          checked={m.canRunCampaigns}
-                          disabled={!isOwner || busyId === m.id}
-                          onChange={(e) => void toggleCampaignPerm(m, e.target.checked)}
-                          className="h-3.5 w-3.5 rounded border-slate-300 text-green-600 focus:ring-green-600"
-                        />
-                        Boleh jalankan
-                      </label>
-                    )}
                   </td>
                   <td className="py-3 pl-4 text-right">
                     {isOwner && m.id !== session?.user?.id && (
@@ -531,48 +557,56 @@ export default function PengaturanTimPage() {
         </div>
       )}
 
-      {/* TAB: roles matrix */}
+      {/* TAB: roles matrix -> pointer to the PRD 29 role editor */}
       {tab === "roles" && (
         <div className="pt-6">
           <div className="mb-4">
-            <h2 className="text-sm font-semibold text-slate-900">Matriks Hak Akses Bawaan</h2>
+            <h2 className="text-sm font-semibold text-slate-900">Peran &amp; Izin Kustom</h2>
             <p className="mt-0.5 text-xs text-slate-500">
-              Perbandingan kapabilitas antara peran Owner dan Staff di seluruh modul CSQ.
+              Sejak pembaruan ini, izin diatur per peran kustom - bukan lagi
+              matriks tetap Owner/Staff. Buat peran, atur izinnya per modul,
+              lalu tugaskan ke anggota di tab Anggota Aktif.
             </p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
-                  <th className="py-3 pr-4">Modul & Kapabilitas</th>
-                  <th className="w-40 px-4 py-3">Owner</th>
-                  <th className="w-48 px-4 py-3">Staff</th>
+                  <th className="py-3 pr-4">Peran</th>
+                  <th className="w-32 px-4 py-3">Anggota</th>
+                  <th className="w-32 px-4 py-3">Jumlah Izin</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 border-b border-slate-200 text-slate-700">
-                <tr>
-                  <td className="py-3 pr-4 font-medium text-slate-900">Percakapan, Tiket & Kontak Pelanggan</td>
-                  <td className="px-4 py-3 font-mono text-green-700">Akses Penuh</td>
-                  <td className="px-4 py-3 font-mono text-green-700">Akses Penuh</td>
-                </tr>
-                <tr>
-                  <td className="py-3 pr-4 font-medium text-slate-900">Eksekusi & Penjadwalan Kampanye Broadcast</td>
-                  <td className="px-4 py-3 font-mono text-green-700">Selalu Diizinkan</td>
-                  <td className="px-4 py-3 font-mono text-amber-700">Opsional (Per Anggota)</td>
-                </tr>
-                <tr>
-                  <td className="py-3 pr-4 font-medium text-slate-900">Konfigurasi Agent AI, Memori & Sumber Data</td>
-                  <td className="px-4 py-3 font-mono text-green-700">Akses Penuh</td>
-                  <td className="px-4 py-3 font-mono text-slate-500">Baca Saja</td>
-                </tr>
-                <tr>
-                  <td className="py-3 pr-4 font-medium text-slate-900">Manajemen Tim, Kunci API & Billing Kuota</td>
-                  <td className="px-4 py-3 font-mono text-green-700">Akses Penuh</td>
-                  <td className="px-4 py-3 font-mono text-slate-400">Tidak Diizinkan</td>
-                </tr>
+                {roles.map((r) => (
+                  <tr key={r.id}>
+                    <td className="py-3 pr-4 font-medium text-slate-900">
+                      <Link href="/dashboard/pengaturan/peran" className="hover:underline">
+                        {r.name}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 font-mono">
+                      {members.filter((m) => m.roleId === r.id).length}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-green-700">-</td>
+                  </tr>
+                ))}
+                {roles.length === 0 && (
+                  <tr>
+                    <td colSpan={3} className="py-10 text-center text-slate-400">
+                      Belum ada peran.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
+          <Link
+            href="/dashboard/pengaturan/peran"
+            className="mt-4 inline-flex h-9 items-center gap-2 rounded-md bg-green-600 px-3.5 text-xs font-semibold text-white transition hover:bg-green-700"
+          >
+            Kelola Peran &amp; Izin
+          </Link>
         </div>
       )}
 
@@ -589,5 +623,5 @@ export default function PengaturanTimPage() {
 
 export const getServerSideProps: GetServerSideProps = withAuth(
   async () => ({ props: {} }),
-  { requiredRole: "OWNER" }
+  { requiredPermission: "pengaturan.tim" }
 );

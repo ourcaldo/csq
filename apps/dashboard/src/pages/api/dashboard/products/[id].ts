@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Product } from "@prisma/client";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { logHuman } from "@csq/core/lib/audit";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
@@ -29,7 +29,7 @@ export default async function handler(
     }
 
     if (req.method === "PUT") {
-      if (!requireRole(session, "OWNER")) {
+      if (!requirePermission(session, "produk.lihat")) {
         return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengubah produk.");
       }
       const parsed = productUpdateSchema.safeParse(req.body);
@@ -52,7 +52,7 @@ export default async function handler(
     }
 
     if (req.method === "DELETE") {
-      if (!requireRole(session, "OWNER")) {
+      if (!requirePermission(session, "produk.kelola")) {
         return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat menghapus produk.");
       }
       // Hard delete for MVP (PRD §15 note - YAGNI soft delete). Cascades inventory.

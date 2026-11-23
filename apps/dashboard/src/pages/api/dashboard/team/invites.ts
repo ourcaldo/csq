@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createHash, randomBytes } from "crypto";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { withTenantContext, withSystemTransaction } from "@csq/core/lib/tenant-context";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
@@ -24,6 +24,8 @@ function hashToken(token: string): string {
 type InviteView = {
   id: string;
   email: string;
+  roleId: string | null;
+  roleName: string | null;
   status: "PENDING" | "EXPIRED" | "ACCEPTED";
   createdAt: string;
   expiresAt: string;
@@ -36,7 +38,7 @@ export default async function handler(
 ) {
   const session = await getAuthSession(req, res);
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
-  if (!requireRole(session, "OWNER")) {
+  if (!requirePermission(session, "pengaturan.tim")) {
     return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengelola undangan.");
   }
   const tenantId = requireTenant(session);
@@ -47,11 +49,14 @@ export default async function handler(
         where: { tenantId },
         orderBy: { createdAt: "desc" },
         take: 100,
+        include: { role: { select: { name: true } } },
       });
       const now = new Date();
       const items: InviteView[] = rows.map((i) => ({
         id: i.id,
         email: i.email,
+        roleId: i.roleId,
+        roleName: i.role?.name ?? null,
         status: i.acceptedAt ? "ACCEPTED" : i.expiresAt <= now ? "EXPIRED" : "PENDING",
         createdAt: i.createdAt.toISOString(),
         expiresAt: i.expiresAt.toISOString(),

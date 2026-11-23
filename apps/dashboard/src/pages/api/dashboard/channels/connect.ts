@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
+import { canManageChannel } from "@csq/core/lib/channel-access";
 import prisma from "@csq/core/lib/db";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { withTenantContext, withSystemContext } from "@csq/core/lib/tenant-context";
@@ -87,8 +88,13 @@ export default async function handler(
 
   const session = await getAuthSession(req, res);
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
-  if (!requireRole(session, "OWNER")) {
-    return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengatur channel.");
+  // PRD 29: adding a channel needs saluran.tambah, reconfiguring an
+  // existing one saluran.ubah - refined per case after the body parses.
+  if (
+    !requirePermission(session, "saluran.tambah") &&
+    !requirePermission(session, "saluran.ubah")
+  ) {
+    return respondError(res, "PERMISSION_DENIED", "Tidak punya izin mengelola saluran.");
   }
   const tenantId = requireTenant(session);
 
@@ -98,6 +104,18 @@ export default async function handler(
       return respondError(res, "VALIDATION_ERROR", parsed.error.message);
     }
     const { provider, channelId, label, agentId } = parsed.data;
+    if (channelId && !requirePermission(session, "saluran.ubah")) {
+      // shortcut: KELOLA grantees may re-pair their own channel (the branch
+      // QR-scan scenario, PRD 29 section 6.1); grant saluran.ubah for full
+      // reconfig (agent binding, provider switch) without KELOLA.
+      const chan = await prisma.channel.findFirst({ where: { id: channelId, tenantId } });
+      if (!chan || !(await canManageChannel(session, chan.id))) {
+        return respondError(res, "PERMISSION_DENIED", "Tidak punya izin mengubah saluran.");
+      }
+    }
+    if (!channelId && !requirePermission(session, "saluran.tambah")) {
+      return respondError(res, "PERMISSION_DENIED", "Tidak punya izin menambah saluran.");
+    }
 
     // Existing row only when reconfiguring that specific channel.
     const existing = channelId

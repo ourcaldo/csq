@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import { executeApprovedAction } from "@csq/core/tools/execute";
 import { sendApprovalFollowUp } from "@csq/core/lib/agent-outbox";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
@@ -22,7 +22,7 @@ export default async function handler(
   if (!session) {
     return res.status(401).json(apiError("UNAUTHORIZED", "Authentication required"));
   }
-  if (!requireRole(session, "OWNER")) {
+  if (!requirePermission(session, "approval.putuskan")) {
     return res
       .status(403)
       .json(apiError("PERMISSION_DENIED", "Only owners can approve actions"));

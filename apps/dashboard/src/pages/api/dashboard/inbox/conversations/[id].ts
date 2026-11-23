@@ -1,7 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
+import { visibleChannelIds, composeChannelIds } from "@csq/core/lib/channel-access";
 import prisma from "@csq/core/lib/db";
 import {
   HttpError,
@@ -18,7 +19,7 @@ type Detail = Prisma.ConversationGetPayload<{
   include: {
     contact: true;
     assignedAgent: { select: { id: true; name: true; status: true } };
-    assignee: { select: { id: true; name: true; email: true; role: true } };
+    assignee: { select: { id: true; name: true; email: true; isOwner: true } };
     tags: { include: { tag: true } };
     messages: true;
   };
@@ -34,7 +35,7 @@ const DETAIL_INCLUDE = {
     },
   },
   assignedAgent: { select: { id: true, name: true, status: true } },
-  assignee: { select: { id: true, name: true, email: true, role: true } },
+  assignee: { select: { id: true, name: true, email: true, isOwner: true } },
   tags: { include: { tag: true } },
 } satisfies Prisma.ConversationInclude;
 
@@ -62,11 +63,15 @@ export default async function handler(
     if (typeof id !== "string") {
       return respondError(res, "VALIDATION_ERROR", "ID percakapan tidak valid.");
     }
+    // PRD 29 section 6: a user only reaches conversations on channels their
+    // grants let them see (owner / Akses Penuh -> null = unrestricted).
+    const visible = await visibleChannelIds(session);
+    const scope = visible ? { channelId: { in: visible } } : {};
 
     if (req.method === "GET") {
       const { skip, take } = paginate(req.query);
       const conv = await prisma.conversation.findFirst({
-        where: { id, tenantId },
+        where: { id, tenantId, ...scope },
         include: {
           ...DETAIL_INCLUDE,
           // Newest last (asc by time) for chat-panel rendering.
@@ -80,15 +85,11 @@ export default async function handler(
     if (req.method === "POST") {
       // Mark-as-read: upsert the caller's ConversationRead watermark to now.
       // Called when the user opens a conversation - clears the unread badge.
-      if (!requireRole(session, "OWNER", "STAFF")) {
-        return respondError(
-          res,
-          "PERMISSION_DENIED",
-          "Hanya owner atau staff yang dapat membuka percakapan."
-        );
+      if (!requirePermission(session, "inbox.lihat")) {
+        return respondError(res, "PERMISSION_DENIED", "Tidak punya akses percakapan.");
       }
       const existing = await prisma.conversation.findFirst({
-        where: { id, tenantId },
+        where: { id, tenantId, ...scope },
         select: { id: true },
       });
       if (!existing) return respondError(res, "NOT_FOUND", "Percakapan tidak ditemukan.");
@@ -102,22 +103,24 @@ export default async function handler(
     }
 
     if (req.method === "PATCH") {
-      // OWNER + STAFF can update status / assignment (FR-AU-009, FR-IC-005).
-      if (!requireRole(session, "OWNER", "STAFF")) {
-        return respondError(
-          res,
-          "PERMISSION_DENIED",
-          "Hanya owner atau staff yang dapat mengubah percakapan."
-        );
+      if (!requirePermission(session, "inbox.lihat")) {
+        return respondError(res, "PERMISSION_DENIED", "Tidak punya akses percakapan.");
       }
       const parsed = conversationPatchSchema.safeParse(req.body);
       if (!parsed.success) {
         return respondError(res, "VALIDATION_ERROR", parsed.error.message);
       }
       const { status, assignedAgentId, assigneeUserId, replyChannelId } = parsed.data;
+      // PRD 29: assignment is its own permission (inbox.tugaskan).
+      if (
+        (assignedAgentId !== undefined || assigneeUserId !== undefined) &&
+        !requirePermission(session, "inbox.tugaskan")
+      ) {
+        return respondError(res, "PERMISSION_DENIED", "Tidak punya izin menugaskan percakapan.");
+      }
 
       const existing = await prisma.conversation.findFirst({
-        where: { id, tenantId },
+        where: { id, tenantId, ...scope },
       });
       if (!existing) {
         return respondError(res, "NOT_FOUND", "Percakapan tidak ditemukan.");
@@ -176,8 +179,10 @@ export default async function handler(
             data: { status },
           });
         }
-        // PRD 28 Part A: persist / clear the reply-channel override. Merge
-        // into the existing settings Json (session-close flags live there).
+        // PRD 28 Part A + PRD 29: persist / clear the reply-channel override.
+        // The override target must be a channel the user can compose on.
+        // Merge into the existing settings Json (session-close flags live
+        // there).
         if (replyChannelId !== undefined) {
           if (replyChannelId !== null) {
             const ch = await prisma.channel.findFirst({
@@ -186,6 +191,10 @@ export default async function handler(
             });
             if (!ch) {
               return respondError(res, "VALIDATION_ERROR", "Saluran tidak ditemukan dalam tenant ini.");
+            }
+            const compose = await composeChannelIds(session);
+            if (compose !== null && !compose.includes(replyChannelId)) {
+              return respondError(res, "PERMISSION_DENIED", "Tidak punya izin mengirim di saluran itu.");
             }
           }
           const merged = {
@@ -205,7 +214,7 @@ export default async function handler(
       }
 
       const conv = await prisma.conversation.findFirst({
-        where: { id, tenantId },
+        where: { id, tenantId, ...scope },
         include: {
           ...DETAIL_INCLUDE,
           messages: { orderBy: { createdAt: "asc" } },

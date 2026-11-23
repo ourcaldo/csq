@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import { withSystemContext } from "@csq/core/lib/tenant-context";
 import { respondError } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
@@ -40,7 +40,7 @@ export default async function handler(
     respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
     return;
   }
-  if (!requireRole(session, "OWNER")) {
+  if (!requirePermission(session, "webhook.lihat")) {
     respondError(res, "PERMISSION_DENIED", "Hanya owner.");
     return;
   }

@@ -381,5 +381,5 @@ export const getServerSideProps: GetServerSideProps = withAuth<{ tenantId: strin
       },
     };
   },
-  { requiredRole: "OWNER" }
+  { requiredPermission: "pengaturan.kelola" }
 );

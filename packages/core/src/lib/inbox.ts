@@ -21,11 +21,12 @@ import { events } from "@csq/core/lib/events";
 // Baileys has no such restriction. Shared with src/lib/agent-outbox.ts.
 export const CLOUD_API_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-// Upsert Contact (tenantId+phone unique) and Conversation (tenantId+phone
-// unique - ONE thread per customer identity, across channels: the thread
-// follows the channel of the latest inbound), then stamp lastMessageAt.
-// Returns the conversation row + whether it was newly created (so callers can
-// fire a `conversation.new` scenario trigger only on the first inbound, not on
+// Upsert Contact (tenantId+phone unique) and Conversation
+// (tenantId+phone+channelId unique - PRD 29 section 6.2: ONE thread per
+// customer per channel, bound at birth; a customer on a second channel
+// opens a second thread), then stamp lastMessageAt. Returns the
+// conversation row + whether it was newly created (so callers can fire a
+// `conversation.new` scenario trigger only on the first inbound, not on
 // every subsequent message to an existing thread). Race-safe: if two
 // first-messages arrive concurrently, the unique constraint makes one create
 // fail P2002 and fall through to an update as existing. Used by the webhook
@@ -44,7 +45,7 @@ export async function findOrCreateConversation(
 
   const existing = await prisma.conversation.findUnique({
     where: {
-      tenantId_customerPhone: { tenantId, customerPhone },
+      tenantId_customerPhone_channelId: { tenantId, customerPhone, channelId },
     },
   });
   if (existing) {
@@ -53,10 +54,8 @@ export async function findOrCreateConversation(
       data: {
         lastMessageAt: new Date(),
         contactId: contact.id,
-        // The customer may write on a different number (Pribadi <-> Resmi):
-        // the thread follows the channel of the LATEST message so replies go
-        // out the channel they last used.
-        channelId,
+        // channelId is immutable per thread (PRD 29 section 6.2) - never
+        // rewritten here; replies always go out the thread's own channel.
         // Auto session close (PRD 03 amendment 2026-11-11) may have RESOLVED
         // this chat; a new customer message reopens it. PENDING is a human
         // judgment and stays untouched.
@@ -97,9 +96,9 @@ export async function findOrCreateConversation(
     ) {
       const conversation = await prisma.conversation.update({
         where: {
-          tenantId_customerPhone: { tenantId, customerPhone },
+          tenantId_customerPhone_channelId: { tenantId, customerPhone, channelId },
         },
-        data: { lastMessageAt: new Date(), contactId: contact.id, channelId },
+        data: { lastMessageAt: new Date(), contactId: contact.id },
       });
       return { conversation, created: false };
     }
@@ -124,12 +123,24 @@ export async function reconcileLidConversation(input: {
   return withTenantContext(input.tenantId, async () => {
     const lidPhone = `${input.lidUser}@lid`;
     const lidConv = await prisma.conversation.findUnique({
-      where: { tenantId_customerPhone: { tenantId: input.tenantId, customerPhone: lidPhone } },
+      where: {
+        tenantId_customerPhone_channelId: {
+          tenantId: input.tenantId,
+          customerPhone: lidPhone,
+          channelId: input.channelId,
+        },
+      },
     });
     if (!lidConv) return;
 
     const digitsConv = await prisma.conversation.findUnique({
-      where: { tenantId_customerPhone: { tenantId: input.tenantId, customerPhone: input.pnUser } },
+      where: {
+        tenantId_customerPhone_channelId: {
+          tenantId: input.tenantId,
+          customerPhone: input.pnUser,
+          channelId: input.channelId,
+        },
+      },
     });
     if (!digitsConv) {
       // No digits thread yet: the LID thread IS the thread - just rename it.
@@ -174,19 +185,15 @@ export async function reconcileLidConversation(input: {
         })
         .catch(() => undefined);
     }
-    // Deal is unique per conversation: move the LID thread's deal over only
-    // when the digits thread has none; otherwise it cascades away with the
-    // empty LID shell (history rows follow their deal).
-    const digitsDeal = await prisma.deal.findUnique({
-      where: { conversationId: digitsConv.id },
-      select: { id: true },
-    });
-    if (!digitsDeal) {
-      await prisma.deal.updateMany({
-        where: { conversationId: lidConv.id },
-        data: { conversationId: digitsConv.id },
-      }).catch(() => undefined);
-    }
+    // One card per customer (PRD 29 section 6.3): the contact's single deal
+    // may point at either thread - re-point it to the surviving digits
+    // thread; if that one already holds the card, the unique constraint
+    // rejects the move and the empty LID shell cascades away (history rows
+    // follow their deal).
+    await prisma.deal.updateMany({
+      where: { conversationId: lidConv.id },
+      data: { conversationId: digitsConv.id },
+    }).catch(() => undefined);
     // Digits thread wins: keep its channel/assignment/status. lastMessageAt:
     // max of the two.
     await prisma.conversation.update({

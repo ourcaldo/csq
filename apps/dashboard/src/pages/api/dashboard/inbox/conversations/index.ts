@@ -1,7 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { ConversationStatus, Prisma } from "@prisma/client";
 import { z } from "zod";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
+import { visibleChannelIds, composeChannelIds } from "@csq/core/lib/channel-access";
 import prisma from "@csq/core/lib/db";
 import { paginate, requireTenant, respondError, strQuery, HttpError } from "@csq/core/lib/queries";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
@@ -17,7 +18,7 @@ type Item = Prisma.ConversationGetPayload<{
     // Audit run-3: masked selects - full rows leaked passwordHash and agent
     // instructions.
     assignedAgent: { select: { id: true, name: true, status: true } };
-    assignee: { select: { id: true; name: true; email: true; role: true } };
+    assignee: { select: { id: true; name: true; email: true; isOwner: true } };
     tags: { include: { tag: true } };
     deal: { include: { stage: true } };
   };
@@ -77,6 +78,11 @@ export default async function handler(
   const userId = session.user.id;
 
   return withTenantContext(tenantId, async () => {
+    // PRD 29 section 6: the inbox list is channel-scoped - a user sees only
+    // conversations on channels their grants let them see.
+    const visible = await visibleChannelIds(session);
+    const channelScope = visible ? { channelId: { in: visible } } : {};
+
     if (req.method === "GET") {
       const { skip, take, page, pageSize } = paginate(req.query);
       const statusKey = strQuery(req.query, "status");
@@ -89,6 +95,7 @@ export default async function handler(
 
       const where: Prisma.ConversationWhereInput = {
         tenantId,
+        ...channelScope,
         ...(status ? { status } : {}),
         ...(assignedAgentId ? { assignedAgentId } : {}),
         ...(assigneeUserId ? { assigneeUserId } : {}),
@@ -116,7 +123,7 @@ export default async function handler(
             // instructions leaked through `true`. Select exactly what the
             // client types declare (types/inbox.ts User / Agent).
             assignedAgent: { select: { id: true, name: true, status: true } },
-            assignee: { select: { id: true, name: true, email: true, role: true } },
+            assignee: { select: { id: true, name: true, email: true, isOwner: true } },
             tags: { include: { tag: true } },
             deal: { include: { stage: true } },
             messages: { take: 1, orderBy: { createdAt: "desc" }, select: { body: true, senderType: true, kind: true } },
@@ -201,7 +208,7 @@ export default async function handler(
       // Chat Baru (owner request 2026-11-18): start a chat with a number
       // before the customer writes in. Same find-or-create as inbound, so a
       // known number reopens its existing thread instead of duplicating.
-      if (!requireRole(session, "OWNER", "STAFF")) {
+      if (!requirePermission(session, "inbox.balas")) {
         return respondError(
           res,
           "PERMISSION_DENIED",
@@ -213,14 +220,17 @@ export default async function handler(
         return respondError(res, "VALIDATION_ERROR", parsed.error.message);
       }
       // Same channel choice as Tambah Lead: the connected channel, else the
-      // first channel (the chat must have a channel to be sendable at all).
+      // first channel (the chat must have a channel to be sendable at all) -
+      // restricted to the channels the user may compose on (PRD 29).
+      const compose = await composeChannelIds(session);
+      const channelScope2 = compose ? { id: { in: compose } } : {};
       const channel =
         (await prisma.channel.findFirst({
-          where: { tenantId, status: "CONNECTED" },
+          where: { tenantId, status: "CONNECTED", ...channelScope2 },
           orderBy: { createdAt: "asc" },
         })) ??
         (await prisma.channel.findFirst({
-          where: { tenantId },
+          where: { tenantId, ...channelScope2 },
           orderBy: { createdAt: "asc" },
         }));
       if (!channel) {

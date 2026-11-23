@@ -130,6 +130,6 @@ export default function PengaturanAuditPage() {
 
 export const getServerSideProps: GetServerSideProps = withAuth<Record<string, never>>(
   async () => ({ props: {} }),
-  { requiredRole: "OWNER" }
+  { requiredPermission: "audit.lihat" }
 );
 

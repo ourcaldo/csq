@@ -890,4 +890,4 @@ function DrawerFooter({ children }: { children: React.ReactNode }) {
 
 export const getServerSideProps: GetServerSideProps = withAuth<
   Record<string, unknown>
->(async () => ({ props: {} }), { requiredRole: "OWNER" });
+>(async () => ({ props: {} }), { requiredPermission: "kpi.lihat" });

@@ -92,7 +92,7 @@ export default async function handler(
     // Now one transaction with a tenant advisory lock serializes the seat
     // check + create, so the limit holds under concurrency.
     const entitlements = await getTenantEntitlements(invite.tenantId);
-    if (entitlements.staffLimit !== null && invite.role === "STAFF") {
+    if (entitlements.staffLimit !== null) {
       const staffLimit = entitlements.staffLimit;
       const tenantLockKey = (BigInt(
         // Stable 63-bit key from the tenant UUID (fnv-ish fold of both halves).
@@ -102,7 +102,7 @@ export default async function handler(
       const user = await withSystemTransaction(async (tx) => {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(${tenantLockKey})`;
         const staff = await tx.user.count({
-          where: { tenantId: invite.tenantId, role: "STAFF" },
+          where: { tenantId: invite.tenantId, isOwner: false },
         });
         if (staff >= staffLimit) {
           return null;
@@ -112,7 +112,7 @@ export default async function handler(
             email: invite.email,
             name: parsed.data.name ?? null,
             passwordHash: await hashPassword(parsed.data.password),
-            role: invite.role,
+            roleId: invite.roleId,
             tenantId: invite.tenantId,
             // Audit run-3: stamp the self-chosen password so any forged
             // pre-accept session material cannot exist.
@@ -137,7 +137,7 @@ export default async function handler(
         entityType: "User",
         entityId: user.id,
         beforeValue: { inviteId: invite.id, email: invite.email, acceptedAt: null },
-        afterValue: { inviteId: invite.id, userId: user.id, role: user.role },
+        afterValue: { inviteId: invite.id, userId: user.id, roleId: user.roleId },
       });
       return res.status(201).json(apiOk({ userId: user.id }));
     }
@@ -147,7 +147,7 @@ export default async function handler(
         email: invite.email,
         name: parsed.data.name ?? null,
         passwordHash: await hashPassword(parsed.data.password),
-        role: invite.role,
+        roleId: invite.roleId,
         tenantId: invite.tenantId,
         passwordChangedAt: new Date(),
       },
@@ -162,7 +162,7 @@ export default async function handler(
       entityType: "User",
       entityId: user.id,
       beforeValue: { inviteId: invite.id, email: invite.email, acceptedAt: null },
-      afterValue: { inviteId: invite.id, userId: user.id, role: user.role },
+      afterValue: { inviteId: invite.id, userId: user.id, roleId: user.roleId },
     });
 
     return res.status(201).json(apiOk({ userId: user.id }));

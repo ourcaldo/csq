@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { DataSource } from "@prisma/client";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { logHuman } from "@csq/core/lib/audit";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
@@ -28,7 +28,7 @@ export default async function handler(
     }
 
     if (req.method === "DELETE") {
-      if (!requireRole(session, "OWNER")) {
+      if (!requirePermission(session, "sumberdata.kelola")) {
         return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat menghapus sumber data.");
       }
       // "Disconnect" a source: hard delete the record. Credentials stored in

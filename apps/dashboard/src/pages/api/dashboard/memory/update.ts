@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Memory } from "@prisma/client";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { logHuman } from "@csq/core/lib/audit";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
@@ -21,7 +21,7 @@ export default async function handler(
       return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
     }
 
-    if (!requireRole(session, "OWNER")) {
+    if (!requirePermission(session, "memori.kelola")) {
       return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengubah memory.");
     }
 

@@ -26,7 +26,8 @@ type FilterTab = "ALL" | "ACTIVE" | "PAUSED" | "DRAFT";
 export default function CampaignsPage() {
   const router = useRouter();
   const { data: session } = useSession();
-  const canManage = session?.user.role === "OWNER" || !!session?.user.canRunCampaigns;
+  const canManage =
+    !!session?.user?.isOwner || !!session?.user?.permissions?.includes("kampanye.kelola");
 
   const campaigns = useApi<{ items: CampaignRow[]; stats?: { active: number; sentThisMonth: number } }>(
     "/api/dashboard/campaigns"

@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import { requireFeatureApi } from "@csq/core/lib/feature-guard";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
@@ -39,7 +39,7 @@ export default async function handler(
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
 
   if (!(await requireFeatureApi(session, res, "pipeline"))) return;
-  if (!requireRole(session, "OWNER", "STAFF")) {
+  if (!requirePermission(session, "pipeline.kelola")) {
     return respondError(res, "PERMISSION_DENIED", "Hanya owner/staff yang dapat mengelola tahap.");
   }
   const tenantId = requireTenant(session);

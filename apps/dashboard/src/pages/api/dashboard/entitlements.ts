@@ -27,9 +27,8 @@ export default async function handler(
       getTenantUsage(tenantId, monthStartUtc()),
     ]);
 
-    // Billing facts are owner-only; STAFF never see an overdue banner.
-    const overdue =
-      session.user.role === "OWNER"
+    // Billing facts are owner-only; other members never see an overdue banner.
+    const overdue = session.user.isOwner
         ? await prisma.invoice.count({
             where: { tenantId, status: "ISSUED", dueAt: { lt: new Date() } },
           })

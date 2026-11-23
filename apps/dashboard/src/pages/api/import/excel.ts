@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import { parseFile, detectColumns, type ColumnMapping } from "@csq/core/services/excel";
 import { excelUploadSchema } from "@csq/core/types/import";
 import { apiError, apiOk, type ApiResponse } from "@csq/core/types/api";
@@ -29,7 +29,7 @@ export default async function handler(
   // every other route in the import family is OWNER-only; the preview parses
   // the same business data and drives the exceljs parser, so it carries the
   // same gate.
-  if (!requireRole(session, "OWNER")) {
+  if (!requirePermission(session, "impor.kelola")) {
     return res.status(403).json(apiError("PERMISSION_DENIED", "Hanya owner yang dapat mengubah data bisnis."));
   }
 

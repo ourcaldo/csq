@@ -87,7 +87,7 @@ export async function getTenantUsage(
         startedAt: { gte: since },
       },
     }),
-    prisma.user.count({ where: { tenantId, role: "STAFF" } }),
+    prisma.user.count({ where: { tenantId, isOwner: false } }),
     prisma.channel.count({ where: { tenantId, status: "CONNECTED" } }),
     tenantRaw(
       tenantId,

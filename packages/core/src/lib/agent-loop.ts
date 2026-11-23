@@ -494,7 +494,7 @@ async function escalateToHuman(args: {
   reason: string;
 }): Promise<void> {
   const owner = await prisma.user.findFirst({
-    where: { tenantId: args.tenantId, role: "OWNER" },
+    where: { tenantId: args.tenantId, isOwner: true },
     orderBy: { createdAt: "asc" },
   });
   if (!owner) {

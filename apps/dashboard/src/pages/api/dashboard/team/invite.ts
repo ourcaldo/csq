@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "crypto";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import { getTenantEntitlements } from "@csq/core/lib/entitlements";
 import prisma from "@csq/core/lib/db";
 import { logHuman } from "@csq/core/lib/audit";
@@ -23,12 +23,14 @@ const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const inviteSchema = z.object({
   email: z.string().email().min(1),
   name: z.string().min(1).max(120),
+  // PRD 29: the role the invitee will hold (must belong to this tenant).
+  roleId: z.string().uuid().min(1),
 });
 
 const inviteResultSchema = z.object({
   inviteId: z.string(),
   email: z.string(),
-  role: z.literal("STAFF"),
+  roleId: z.string(),
   emailed: z.boolean(),
   inviteLink: z.string().optional(),
   note: z.string().optional(),
@@ -49,7 +51,7 @@ export default async function handler(
 
   const session = await getAuthSession(req, res);
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
-  if (!requireRole(session, "OWNER")) {
+  if (!requirePermission(session, "pengaturan.tim")) {
     return respondError(
       res,
       "PERMISSION_DENIED",
@@ -69,6 +71,15 @@ export default async function handler(
     }
 
     const email = parsed.data.email.toLowerCase();
+
+    // PRD 29: the invite carries a role from this tenant's catalog.
+    const role = await prisma.role.findFirst({
+      where: { id: parsed.data.roleId, tenantId },
+      select: { id: true },
+    });
+    if (!role) {
+      return respondError(res, "VALIDATION_ERROR", "Peran tidak ditemukan.");
+    }
 
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
@@ -96,7 +107,7 @@ export default async function handler(
       const inviteRow = await withSystemTransaction(async (tx) => {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(${tenantLockKey})`;
         const [staff, pending] = await Promise.all([
-          tx.user.count({ where: { tenantId, role: "STAFF" } }),
+          tx.user.count({ where: { tenantId, isOwner: false } }),
           tx.teamInvite.count({
             where: { tenantId, acceptedAt: null, expiresAt: { gt: new Date() } },
           }),
@@ -108,7 +119,7 @@ export default async function handler(
           data: {
             tenantId,
             email,
-            role: "STAFF",
+            roleId: parsed.data.roleId,
             tokenHash: hashToken(token),
             expiresAt: new Date(Date.now() + INVITE_TTL_MS),
             invitedById: session.user.id,
@@ -128,7 +139,7 @@ export default async function handler(
         data: {
           tenantId,
           email,
-          role: "STAFF",
+          roleId: parsed.data.roleId,
           tokenHash: hashToken(token),
           expiresAt: new Date(Date.now() + INVITE_TTL_MS),
           invitedById: session.user.id,
@@ -168,16 +179,16 @@ export default async function handler(
       action: "user.invited",
       entityType: "TeamInvite",
       entityId: invite.id,
-      afterValue: { email, role: "STAFF", emailed, expiresAt: invite.expiresAt.toISOString() },
+      afterValue: { email, roleId: parsed.data.roleId, emailed, expiresAt: invite.expiresAt.toISOString() },
     });
 
     const result = inviteResultSchema.parse(
       emailed
-        ? { inviteId: invite.id, email, role: "STAFF", emailed }
+        ? { inviteId: invite.id, email, roleId: parsed.data.roleId, emailed }
         : {
             inviteId: invite.id,
             email,
-            role: "STAFF",
+            roleId: parsed.data.roleId,
             emailed,
             inviteLink,
             note: "Email belum dikonfigurasi - bagikan tautan ini secara manual.",

@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { getAuthUrl } from "@csq/core/services/sheets";
@@ -12,7 +12,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
   // SEC-2 (PRD 16): business-data imports and Google connections are
   // OWNER-only (PRD 18.1).
-  if (!requireRole(session, "OWNER")) {
+  if (!requirePermission(session, "impor.kelola")) {
     return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengubah data bisnis.");
   }
   const tenantId = requireTenant(session);

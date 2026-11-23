@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { requireFeatureApi } from "@csq/core/lib/feature-guard";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
@@ -168,7 +168,7 @@ export default async function handler(
     }
 
     if (req.method === "POST") {
-      if (!requireRole(session, "OWNER", "STAFF")) {
+      if (!requirePermission(session, "pipeline.kelola")) {
         return respondError(
           res,
           "PERMISSION_DENIED",

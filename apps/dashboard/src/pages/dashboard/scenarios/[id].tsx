@@ -139,8 +139,8 @@ type RunItem = {
 function Builder({ id }: { id: string }) {
   const router = useRouter();
   const { data: session } = useSession();
-  const isOwner = session?.user?.role === "OWNER";
-  const canEdit = isOwner || session?.user?.role === "STAFF";
+  const isOwner = !!session?.user?.isOwner;
+  const canEdit = isOwner || !!session?.user?.permissions?.includes("skenario.kelola");
 
   const { data: scenario, loading, error, refresh } = useApi<Scenario>(
     `/api/dashboard/scenarios/${id}`

@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import { getTenantEntitlements, getTenantUsage, monthStartUtc } from "@csq/core/lib/entitlements";
 import { logAction } from "@csq/core/lib/audit";
 import prisma from "@csq/core/lib/db";
@@ -24,7 +24,7 @@ export default async function handler(
 ) {
   const session = await getAuthSession(req, res);
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
-  if (!requireRole(session, "OWNER")) {
+  if (!requirePermission(session, "billing.lihat")) {
     return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat melihat tagihan.");
   }
   const tenantId = requireTenant(session);

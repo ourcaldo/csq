@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
@@ -21,7 +21,7 @@ export default async function handler(
   }
   const session = await getAuthSession(req, res);
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
-  if (!requireRole(session, "OWNER")) {
+  if (!requirePermission(session, "sumberdata.kelola")) {
     return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat memutuskan akun Google.");
   }
   const tenantId = requireTenant(session);

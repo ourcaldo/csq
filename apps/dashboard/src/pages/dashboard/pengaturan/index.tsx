@@ -8,7 +8,7 @@ export const getServerSideProps: GetServerSideProps = withAuth<Record<string, ne
     redirect: { destination: "/dashboard/pengaturan/umum", permanent: false },
     props: {},
   }),
-  { requiredRole: "OWNER" }
+  { requiredPermission: "pengaturan.kelola" }
 );
 
 export default function NeverRendered() {

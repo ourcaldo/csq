@@ -193,5 +193,5 @@ export default function PengaturanSumberDataPage() {
 
 export const getServerSideProps: GetServerSideProps = withAuth(
   async () => ({ props: {} }),
-  { requiredRole: "OWNER" }
+  { requiredPermission: "sumberdata.kelola" }
 );

@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
 import { getAuthSession } from "@csq/core/lib/auth";
+import { manageChannelIds } from "@csq/core/lib/channel-access";
 import prisma from "@csq/core/lib/db";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
@@ -27,6 +28,9 @@ export type ChannelView = {
   archivedAt: string | null;
   phoneNumberId?: string;
   tosAcknowledged?: boolean;
+  // PRD 29 section 6.1: whether the requesting user holds KELOLA on this
+  // channel (QR scan, disconnect, test) - drives the Saluran page buttons.
+  canManage?: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -70,6 +74,7 @@ function sanitize(channel: RawChannel): ChannelView {
     archivedAt: channel.archivedAt ? channel.archivedAt.toISOString() : null,
     phoneNumberId,
     tosAcknowledged,
+    canManage: false,
     createdAt: channel.createdAt.toISOString(),
     updatedAt: channel.updatedAt.toISOString(),
   };
@@ -97,8 +102,15 @@ export default async function handler(
       orderBy: { createdAt: "asc" },
     });
 
+    // PRD 29: per-channel KELOLA for the requesting user, one grant lookup.
+    const manageIds = await manageChannelIds(session);
+    const items = channels.map((c) => ({
+      ...sanitize(c),
+      canManage: manageIds === null || manageIds.includes(c.id),
+    }));
+
     return res
       .status(200)
-      .json(apiOk({ items: channels.map(sanitize) }));
+      .json(apiOk({ items }));
   });
 }

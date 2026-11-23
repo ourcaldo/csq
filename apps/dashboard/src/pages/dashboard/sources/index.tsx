@@ -404,5 +404,5 @@ export default function SourcesPage() {
 export const getServerSideProps: GetServerSideProps = withAuth<Record<string, unknown>>(
   async () => ({ props: {} }),
   // SEC-3 (PRD 16): configuration pages are OWNER-only (PRD 15.9).
-  { requiredRole: "OWNER" }
+  { requiredPermission: "sumberdata.kelola" }
 );

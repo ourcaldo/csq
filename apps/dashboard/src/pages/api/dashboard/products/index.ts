@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Prisma, Product } from "@prisma/client";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { logHuman } from "@csq/core/lib/audit";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
@@ -48,7 +48,7 @@ export default async function handler(
     }
 
     if (req.method === "POST") {
-      if (!requireRole(session, "OWNER")) {
+      if (!requirePermission(session, "produk.kelola")) {
         return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat membuat produk.");
       }
       const parsed = productCreateSchema.safeParse(req.body);

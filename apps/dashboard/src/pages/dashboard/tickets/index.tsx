@@ -56,7 +56,7 @@ function errMsg(e: unknown, fallback: string): string {
 export default function TicketsPage() {
   const router = useRouter();
   const { data: session } = useSession();
-  const isOwner = session?.user?.role === "OWNER";
+  const canManage = !!session?.user?.isOwner || !!session?.user?.permissions?.includes("tiket.kelola");
 
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<"ALL" | "OPEN" | "RESOLVED">("ALL");
@@ -132,7 +132,7 @@ export default function TicketsPage() {
       {loading && <LoadingSkeleton rows={4} />}
 
       {/* Staff read-only notice */}
-      {!loading && !isOwner && (
+      {!loading && !canManage && (
         <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-slate-200 bg-white p-3.5 text-xs text-slate-600 shadow-xs">
           <LockSimple size={16} weight="fill" className="mt-0.5 shrink-0 text-slate-400" />
           <div>
@@ -291,7 +291,7 @@ export default function TicketsPage() {
                           >
                             Detail
                           </button>
-                          {isOwner && t.status === "OPEN" && (
+                          {canManage && t.status === "OPEN" && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -450,7 +450,7 @@ export default function TicketsPage() {
               ) : (
                 <span className="text-xs text-slate-400">Tidak ada percakapan tertaut</span>
               )}
-              {isOwner && detail.status === "OPEN" ? (
+              {canManage && detail.status === "OPEN" ? (
                 <button
                   type="button"
                   onClick={() => void closeTicket(detail)}

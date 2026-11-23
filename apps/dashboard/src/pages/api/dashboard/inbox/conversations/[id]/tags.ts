@@ -1,7 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { ConversationTag } from "@prisma/client";
 import { z } from "zod";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
+import { visibleChannelIds } from "@csq/core/lib/channel-access";
 import prisma from "@csq/core/lib/db";
 import { requireTenant, respondError, strQuery } from "@csq/core/lib/queries";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
@@ -26,7 +27,7 @@ export default async function handler(
     }
 
     // OWNER + STAFF manage tags on a conversation (FR-IC-005).
-    if (!requireRole(session, "OWNER", "STAFF")) {
+    if (!requirePermission(session, "inbox.tag")) {
       return respondError(
         res,
         "PERMISSION_DENIED",
@@ -35,8 +36,11 @@ export default async function handler(
     }
 
     // Ensure the conversation belongs to this tenant.
+    // PRD 29 section 6: only conversations on visible channels.
+    const visibleCh = await visibleChannelIds(session);
+    const channelScope = visibleCh ? { channelId: { in: visibleCh } } : {};
     const conversation = await prisma.conversation.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId, ...channelScope },
     });
     if (!conversation) {
       return respondError(res, "NOT_FOUND", "Percakapan tidak ditemukan.");

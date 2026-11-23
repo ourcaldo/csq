@@ -275,5 +275,5 @@ export const getServerSideProps: GetServerSideProps = withAuth<{ apiBaseUrl: str
     ).replace(/\/$/, "");
     return { props: { apiBaseUrl: apiBase || fallback } };
   },
-  { requiredRole: "OWNER" }
+  { requiredPermission: "apikeys.kelola" }
 );

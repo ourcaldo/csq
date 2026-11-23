@@ -1,0 +1,1357 @@
+<!DOCTYPE html>
+<html lang="id" class="antialiased">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Data Bisnis — CSQ Enterprise</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+          mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        },
+      }
+    }
+  }
+</script>
+<style>
+  body { font-feature-settings: "cv02", "cv03", "cv04", "cv11"; }
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+  .nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.45rem 0.75rem;
+    border-radius: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: rgb(71 85 105);
+    transition: background-color 0.12s ease, color 0.12s ease;
+  }
+  .nav-link:hover {
+    background-color: rgb(248 250 252);
+    color: rgb(15 23 42);
+  }
+  .nav-link.active {
+    background-color: rgb(240 253 244);
+    color: rgb(21 128 61);
+    font-weight: 600;
+  }
+  .tab-btn {
+    position: relative;
+    padding: 0.65rem 0.25rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: rgb(100 116 139);
+    transition: color 0.15s ease;
+  }
+  .tab-btn:hover { color: rgb(15 23 42); }
+  .tab-btn.active {
+    color: rgb(15 23 42);
+    font-weight: 600;
+  }
+  .tab-btn.active::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    background-color: rgb(22 163 74);
+  }
+  .modal-backdrop { background: rgba(15, 23, 42, 0.45); backdrop-filter: blur(2px); }
+</style>
+</head>
+<body class="bg-white text-slate-900 selection:bg-emerald-100 selection:text-emerald-950">
+
+<!-- ══════════ Mobile Overlay ══════════ -->
+<div id="mobile-overlay" onclick="toggleSidebar(false)" class="modal-backdrop fixed inset-0 z-30 hidden md:hidden"></div>
+
+<!-- ══════════ Application Sidebar ══════════ -->
+<aside id="app-sidebar" class="fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 -translate-x-full flex-col border-r border-slate-200 bg-white transition-transform duration-200 md:translate-x-0">
+  <div class="flex h-14 items-center justify-between border-b border-slate-100 px-5">
+    <div class="flex items-center gap-2.5">
+      <div class="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-600 text-white">
+        <i class="ph-fill ph-chat-circle-dots text-base"></i>
+      </div>
+      <span class="text-lg font-bold tracking-tight text-slate-900">CSQ</span>
+    </div>
+    <button onclick="toggleSidebar(false)" aria-label="Tutup menu" class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 md:hidden">
+      <i class="ph ph-x text-base"></i>
+    </button>
+  </div>
+
+  <nav class="flex-1 space-y-5 overflow-y-auto px-3 py-4">
+    <div>
+      <p class="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Utama</p>
+      <div class="space-y-0.5">
+        <a href="#ringkasan" onclick="return false" class="nav-link"><i class="ph ph-chart-bar text-base text-slate-400"></i>Ringkasan</a>
+        <a href="#percakapan" onclick="return false" class="nav-link"><i class="ph ph-chat-circle-dots text-base text-slate-400"></i>Percakapan</a>
+        <a href="#tiket" onclick="return false" class="nav-link"><i class="ph ph-lifebuoy text-base text-slate-400"></i>Tiket</a>
+        <a href="#kampanye" onclick="return false" class="nav-link"><i class="ph ph-megaphone text-base text-slate-400"></i>Kampanye</a>
+        <a href="#template" onclick="return false" class="nav-link"><i class="ph ph-notepad text-base text-slate-400"></i>Template Pesan</a>
+        <a href="#saluran" onclick="return false" class="nav-link"><i class="ph ph-whatsapp-logo text-base text-slate-400"></i>Saluran</a>
+      </div>
+    </div>
+
+    <div>
+      <p class="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Data Bisnis</p>
+      <div class="space-y-0.5">
+        <a id="nav-produk" onclick="switchView('produk')" class="nav-link active cursor-pointer"><i class="ph ph-package text-base text-emerald-600"></i>Produk</a>
+        <a id="nav-inventaris" onclick="switchView('inventaris')" class="nav-link cursor-pointer"><i class="ph ph-stack text-base text-slate-400"></i>Inventaris</a>
+        <a id="nav-pesanan" onclick="switchView('pesanan')" class="nav-link cursor-pointer"><i class="ph ph-shopping-cart text-base text-slate-400"></i>Pesanan</a>
+        <a href="#kontak" onclick="return false" class="nav-link"><i class="ph ph-address-book text-base text-slate-400"></i>Kontak</a>
+        <a id="nav-tag" onclick="switchView('tag')" class="nav-link cursor-pointer"><i class="ph ph-tag text-base text-slate-400"></i>Tag</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="space-y-0.5 border-t border-slate-200 p-3">
+    <a href="#pengaturan" onclick="return false" class="nav-link"><i class="ph ph-gear text-base text-slate-400"></i>Pengaturan</a>
+    <a href="#tim" onclick="return false" class="nav-link"><i class="ph ph-users text-base text-slate-400"></i>Tim</a>
+    <a href="#kuota" onclick="return false" class="nav-link"><i class="ph ph-wallet text-base text-slate-400"></i>Paket &amp; Kuota</a>
+  </div>
+</aside>
+
+<!-- ══════════ Main Workspace ══════════ -->
+<div class="flex min-h-screen min-w-0 flex-col md:pl-64">
+
+  <!-- Sticky Top Utility Bar -->
+  <header class="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur-xs md:px-8">
+    <div class="flex items-center gap-3">
+      <button onclick="toggleSidebar(true)" aria-label="Buka menu" class="rounded p-1.5 text-slate-600 hover:bg-slate-100 md:hidden">
+        <i class="ph ph-list text-lg"></i>
+      </button>
+      <div class="relative hidden sm:block">
+        <i class="ph ph-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400"></i>
+        <input id="global-cmd" type="text" placeholder="Cari atau ketik perintah… (⌘K)" class="h-8 w-64 rounded-md border border-slate-200 bg-slate-50 pl-8 pr-3 text-xs text-slate-900 placeholder-slate-400 transition focus:w-80 focus:border-slate-300 focus:bg-white focus:outline-none" />
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <div class="hidden items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50/80 px-2.5 py-1 text-xs font-medium text-slate-600 sm:inline-flex">
+        <i class="ph-fill ph-shield-check text-emerald-600"></i><span>Akses Owner</span>
+      </div>
+      <button aria-label="Notifikasi" class="relative rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800">
+        <i class="ph ph-bell text-lg"></i>
+        <span class="absolute right-1.5 top-1.5 h-2 w-2 rounded-full border-2 border-white bg-red-500"></span>
+      </button>
+      <div class="h-4 w-px bg-slate-200"></div>
+      <div class="flex items-center gap-2">
+        <div class="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-600 text-xs font-semibold text-white">B</div>
+        <div class="hidden text-left lg:block">
+          <p class="text-xs font-semibold leading-none text-slate-900">Bu Ratih</p>
+          <p class="mt-0.5 font-mono text-[10px] leading-none text-slate-400">Owner</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Left-Aligned Enterprise Page Canvas -->
+  <main class="flex-1 px-4 py-7 md:px-8">
+    <div class="w-full max-w-6xl">
+
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <!-- VIEW 1A: PRODUK (KATALOG & HARGA)                                  -->
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <div id="view-produk">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 class="text-xl font-semibold tracking-tight text-slate-900">Produk</h1>
+            <p class="mt-1 text-xs text-slate-500">Kelola master katalog SKU, struktur harga dasar, dan ketersediaan item untuk Agent AI maupun pesanan manual.</p>
+          </div>
+          <button type="button" onclick="openProductForm(null)" class="inline-flex h-9 items-center gap-1.5 rounded-md bg-emerald-600 px-3.5 text-xs font-semibold text-white transition hover:bg-emerald-700">
+            <i class="ph ph-plus text-sm"></i>Tambah Produk
+          </button>
+        </div>
+
+        <!-- Operational Telemetry Strip -->
+        <div class="mt-6 grid grid-cols-2 border-y border-slate-200 sm:grid-cols-4 sm:divide-x sm:divide-slate-200">
+          <div class="py-3.5 pr-4">
+            <p class="text-[11px] font-medium text-slate-400">Total SKU Terdaftar</p>
+            <p id="kpi-prod-total" class="mt-1 font-mono text-lg font-semibold text-slate-900">3</p>
+          </div>
+          <div class="py-3.5 sm:px-5">
+            <p class="text-[11px] font-medium text-slate-400">Tersedia (In Stock)</p>
+            <p id="kpi-prod-instock" class="mt-1 font-mono text-lg font-semibold text-emerald-700">2</p>
+          </div>
+          <div class="border-t border-slate-200 py-3.5 pr-4 sm:border-t-0 sm:px-5">
+            <p class="text-[11px] font-medium text-slate-400">Stok Kosong (Out of Stock)</p>
+            <p id="kpi-prod-oos" class="mt-1 font-mono text-lg font-semibold text-red-600">1</p>
+          </div>
+          <div class="border-t border-slate-200 py-3.5 sm:border-t-0 sm:pl-5">
+            <p class="text-[11px] font-medium text-slate-400">Nilai Valuasi Inventaris</p>
+            <p id="kpi-prod-val" class="mt-1 font-mono text-lg font-semibold text-slate-900">Rp 6.400.000</p>
+          </div>
+        </div>
+
+        <!-- Filter & Search Bar -->
+        <div class="mt-5 flex flex-wrap items-center justify-between gap-3">
+          <div class="flex flex-wrap items-center gap-3">
+            <div class="relative">
+              <i class="ph ph-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400"></i>
+              <input id="prod-search" type="text" oninput="renderProducts()" placeholder="Cari nama produk atau SKU…" class="h-8 w-64 rounded-md border border-slate-300 bg-white pl-8 pr-3 text-xs text-slate-900 placeholder-slate-400 focus:border-emerald-600 focus:outline-none" />
+            </div>
+            <!-- Segmented Pill Filter (Zero Dropdowns) -->
+            <div class="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5 text-xs">
+              <button type="button" data-pstock="ALL" onclick="setProductStockFilter('ALL')" class="prod-stock-pill rounded bg-white px-2.5 py-1 font-semibold text-slate-900 shadow-2xs">Semua</button>
+              <button type="button" data-pstock="IN_STOCK" onclick="setProductStockFilter('IN_STOCK')" class="prod-stock-pill rounded px-2.5 py-1 font-medium text-slate-600 hover:text-slate-900">Tersedia (&gt; 0)</button>
+              <button type="button" data-pstock="OUT_OF_STOCK" onclick="setProductStockFilter('OUT_OF_STOCK')" class="prod-stock-pill rounded px-2.5 py-1 font-medium text-slate-600 hover:text-slate-900">Stok Kosong (0)</button>
+            </div>
+          </div>
+          <span class="font-mono text-[11px] text-slate-400">Mata uang: IDR</span>
+        </div>
+
+        <!-- Flat Hairline Table -->
+        <div class="mt-4 overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead>
+              <tr class="border-y border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                <th class="py-3 pr-4">Produk</th>
+                <th class="px-4 py-3">Kode SKU</th>
+                <th class="px-4 py-3 text-right">Harga Satuan</th>
+                <th class="px-4 py-3 text-right">Stok</th>
+                <th class="hidden px-4 py-3 md:table-cell">Dibuat</th>
+                <th class="py-3 pl-4 text-right">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="products-tbody" class="divide-y divide-slate-200 border-b border-slate-200"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <!-- VIEW 1B: FULL-PAGE PRODUCT EDITOR (NO POP-UP MODAL)                -->
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <div id="view-produk-form" class="hidden">
+        <div class="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-5">
+          <div>
+            <div class="flex items-center gap-2 text-xs text-slate-500">
+              <button type="button" onclick="switchView('produk')" class="inline-flex items-center gap-1 hover:text-slate-900">
+                <i class="ph ph-arrow-left text-xs"></i>Produk
+              </button>
+              <span class="text-slate-300">/</span>
+              <span id="prod-form-breadcrumb" class="font-medium text-slate-700">Tambah Produk</span>
+            </div>
+            <h1 id="prod-form-title" class="mt-1.5 text-xl font-semibold tracking-tight text-slate-900">Tambah Produk Baru</h1>
+            <p class="mt-1 text-xs text-slate-500">Data produk langsung tersedia untuk referensi jawaban Agent AI dan pembuatan pesanan pelanggan.</p>
+          </div>
+          <button type="button" onclick="switchView('produk')" class="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">
+            Batal
+          </button>
+        </div>
+
+        <form onsubmit="saveProductForm(event)" class="divide-y divide-slate-200">
+          <div class="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
+            <div class="md:col-span-4">
+              <label for="pf-name" class="text-xs font-semibold text-slate-900">Identitas Produk</label>
+              <p class="mt-1 text-xs leading-relaxed text-slate-500">Nama item yang jelas beserta kode SKU unik untuk sinkronisasi Excel &amp; Google Sheets.</p>
+            </div>
+            <div class="space-y-3.5 md:col-span-8">
+              <div>
+                <label for="pf-name" class="block text-xs font-medium text-slate-700">Nama Produk <span class="text-red-500">*</span></label>
+                <input id="pf-name" type="text" required placeholder="mis. Kopi Gayo 250g" class="mt-1.5 h-9 w-full max-w-md rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15" />
+              </div>
+              <div>
+                <label for="pf-sku" class="block text-xs font-medium text-slate-700">Kode SKU</label>
+                <input id="pf-sku" type="text" placeholder="mis. KPG-250" class="mt-1.5 h-9 w-full max-w-xs rounded-md border border-slate-300 bg-white px-3 font-mono text-xs text-slate-900 uppercase focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15" />
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
+            <div class="md:col-span-4">
+              <label for="pf-price" class="text-xs font-semibold text-slate-900">Harga &amp; Stok Awal</label>
+              <p class="mt-1 text-xs leading-relaxed text-slate-500">Harga jual satuan dalam Rupiah dan kuantitas stok awal pada gudang manual.</p>
+            </div>
+            <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-2 md:col-span-8 max-w-md">
+              <div>
+                <label for="pf-price" class="block text-xs font-medium text-slate-700">Harga Jual (Rp) <span class="text-red-500">*</span></label>
+                <input id="pf-price" type="number" min="0" step="100" required placeholder="85000" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 font-mono text-sm text-slate-900 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15" />
+              </div>
+              <div id="pf-stock-wrap">
+                <label for="pf-stock" class="block text-xs font-medium text-slate-700">Stok Awal</label>
+                <input id="pf-stock" type="number" min="0" step="1" value="0" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 font-mono text-sm text-slate-900 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15" />
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
+            <div class="md:col-span-4">
+              <label for="pf-desc" class="text-xs font-semibold text-slate-900">Deskripsi &amp; Konteks AI</label>
+              <p class="mt-1 text-xs leading-relaxed text-slate-500">Spesifikasi produk, catatan rasa, atau varian yang digunakan AI saat menjawab pertanyaan pembeli.</p>
+            </div>
+            <div class="md:col-span-8">
+              <textarea id="pf-desc" rows="4" placeholder="Tulis spesifikasi singkat produk…" class="w-full max-w-xl rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15"></textarea>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-end gap-2.5 pt-5">
+            <button type="button" onclick="switchView('produk')" class="rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
+              Batal
+            </button>
+            <button type="submit" id="pf-submit-btn" class="rounded-md bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700">
+              Simpan Produk
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <!-- VIEW 2A: INVENTARIS (MULTI-SOURCE LEDGER)                          -->
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <div id="view-inventaris" class="hidden">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 class="text-xl font-semibold tracking-tight text-slate-900">Inventaris</h1>
+            <p class="mt-1 text-xs text-slate-500">Pantau posisi stok lintas sumber (Excel, Google Sheets, Manual) dan kelola penyesuaian kuantitas pada halaman detail.</p>
+          </div>
+          <span class="inline-flex items-center gap-1.5 font-mono text-[11px] text-slate-500">
+            <span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>Prioritas: Excel → Google Sheets → Manual
+          </span>
+        </div>
+
+        <!-- Inventory Search -->
+        <div class="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-5">
+          <div class="relative">
+            <i class="ph ph-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400"></i>
+            <input id="inv-search" type="text" oninput="renderInventory()" placeholder="Cari produk di inventaris…" class="h-8 w-64 rounded-md border border-slate-300 bg-white pl-8 pr-3 text-xs text-slate-900 placeholder-slate-400 focus:border-emerald-600 focus:outline-none" />
+          </div>
+          <p class="text-xs text-slate-400">Klik <strong class="font-medium text-slate-600">Sesuaikan Stok</strong> untuk membuka rincian sumber &amp; pembaruan stok.</p>
+        </div>
+
+        <div class="mt-4 overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead>
+              <tr class="border-y border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                <th class="py-3 pr-4">Produk</th>
+                <th class="px-4 py-3 text-right">Stok Efektif</th>
+                <th class="px-4 py-3">Sumber Utama</th>
+                <th class="hidden px-4 py-3 sm:table-cell">Sinkronisasi Terakhir</th>
+                <th class="py-3 pl-4 text-right">Tindakan</th>
+              </tr>
+            </thead>
+            <tbody id="inventory-tbody" class="divide-y divide-slate-200 border-b border-slate-200"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <!-- VIEW 2B: FULL-PAGE INVENTORY ADJUSTMENT (NO COLLAPSIBLE / MODAL)   -->
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <div id="view-inventaris-detail" class="hidden">
+        <div class="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-5">
+          <div>
+            <div class="flex items-center gap-2 text-xs text-slate-500">
+              <button type="button" onclick="switchView('inventaris')" class="inline-flex items-center gap-1 hover:text-slate-900">
+                <i class="ph ph-arrow-left text-xs"></i>Inventaris
+              </button>
+              <span class="text-slate-300">/</span>
+              <span class="font-medium text-slate-700">Penyesuaian Stok</span>
+            </div>
+            <h1 id="inv-detail-title" class="mt-1.5 text-xl font-semibold tracking-tight text-slate-900">Sesuaikan Stok</h1>
+            <p id="inv-detail-sub" class="mt-1 font-mono text-xs text-slate-500"></p>
+          </div>
+          <button type="button" onclick="switchView('inventaris')" class="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">
+            Kembali ke Inventaris
+          </button>
+        </div>
+
+        <div class="divide-y divide-slate-200">
+          <!-- Section 1: Breakdown per data source -->
+          <div class="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
+            <div class="md:col-span-4">
+              <h2 class="text-xs font-semibold text-slate-900">Rincian Stok per Sumber Data</h2>
+              <p class="mt-1 text-xs leading-relaxed text-slate-500">Perbandingan kuantitas stok dari masing-masing konektor yang terhubung ke katalog produk ini.</p>
+            </div>
+            <div class="md:col-span-8">
+              <div class="overflow-x-auto border-y border-slate-200">
+                <table class="w-full text-left text-xs">
+                  <thead>
+                    <tr class="border-b border-slate-200 bg-slate-50/70 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                      <th class="px-3 py-2.5">Sumber Data</th>
+                      <th class="px-3 py-2.5 text-right">Kuantitas</th>
+                      <th class="px-3 py-2.5">Sinkronisasi Terakhir</th>
+                      <th class="px-3 py-2.5 text-right">Tingkat Keyakinan</th>
+                    </tr>
+                  </thead>
+                  <tbody id="inv-detail-sources" class="divide-y divide-slate-200"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 2: Manual Stock Override Form -->
+          <form onsubmit="saveInventoryDetail(event)" class="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
+            <div class="md:col-span-4">
+              <label for="inv-detail-qty" class="text-xs font-semibold text-slate-900">Pembaruan Stok Manual</label>
+              <p class="mt-1 text-xs leading-relaxed text-slate-500">Menimpa nilai stok aktif pada sumber Manual dan langsung memperbarui status ketersediaan untuk Agent AI.</p>
+            </div>
+            <div class="space-y-4 md:col-span-8 max-w-md">
+              <div>
+                <label for="inv-detail-qty" class="block text-xs font-medium text-slate-700">Jumlah Stok Baru (Unit) <span class="text-red-500">*</span></label>
+                <input id="inv-detail-qty" type="number" min="0" step="1" required class="mt-1.5 h-9 w-40 rounded-md border border-slate-300 bg-white px-3 font-mono text-sm text-slate-900 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15" />
+              </div>
+              <div class="flex items-center gap-2.5 pt-1">
+                <button type="submit" class="rounded-md bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700">Simpan Stok Baru</button>
+                <button type="button" onclick="switchView('inventaris')" class="rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">Batal</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <!-- VIEW 3A: PESANAN (ORDER LEDGER — ALWAYS VISIBLE LINE ITEMS)        -->
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <div id="view-pesanan" class="hidden">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 class="text-xl font-semibold tracking-tight text-slate-900">Pesanan</h1>
+            <p class="mt-1 text-xs text-slate-500">Pantau transaksi masuk dari percakapan WhatsApp maupun entri manual dan kelola status pemenuhannya.</p>
+          </div>
+          <button type="button" onclick="switchView('pesanan-baru')" class="inline-flex h-9 items-center gap-1.5 rounded-md bg-emerald-600 px-3.5 text-xs font-semibold text-white transition hover:bg-emerald-700">
+            <i class="ph ph-plus text-sm"></i>Buat Pesanan Baru
+          </button>
+        </div>
+
+        <!-- Order Telemetry Strip -->
+        <div class="mt-6 grid grid-cols-2 border-y border-slate-200 sm:grid-cols-4 sm:divide-x sm:divide-slate-200">
+          <div class="py-3.5 pr-4">
+            <p class="text-[11px] font-medium text-slate-400">Total Pesanan</p>
+            <p id="kpi-ord-total" class="mt-1 font-mono text-lg font-semibold text-slate-900">3</p>
+          </div>
+          <div class="py-3.5 sm:px-5">
+            <p class="text-[11px] font-medium text-slate-400">Menunggu Konfirmasi</p>
+            <p id="kpi-ord-pending" class="mt-1 font-mono text-lg font-semibold text-amber-600">1</p>
+          </div>
+          <div class="border-t border-slate-200 py-3.5 pr-4 sm:border-t-0 sm:px-5">
+            <p class="text-[11px] font-medium text-slate-400">Dikonfirmasi</p>
+            <p id="kpi-ord-confirmed" class="mt-1 font-mono text-lg font-semibold text-emerald-700">1</p>
+          </div>
+          <div class="border-t border-slate-200 py-3.5 sm:border-t-0 sm:pl-5">
+            <p class="text-[11px] font-medium text-slate-400">Nilai Terkonfirmasi</p>
+            <p id="kpi-ord-rev" class="mt-1 font-mono text-lg font-semibold text-slate-900">Rp 345.000</p>
+          </div>
+        </div>
+
+        <!-- Status Filter Tabs -->
+        <div class="mt-4 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200">
+          <div class="flex gap-6">
+            <button type="button" data-ostatus="" onclick="filterOrders('')" class="ord-tab tab-btn active">Semua</button>
+            <button type="button" data-ostatus="PENDING" onclick="filterOrders('PENDING')" class="ord-tab tab-btn">Menunggu</button>
+            <button type="button" data-ostatus="CONFIRMED" onclick="filterOrders('CONFIRMED')" class="ord-tab tab-btn">Dikonfirmasi</button>
+            <button type="button" data-ostatus="CANCELLED" onclick="filterOrders('CANCELLED')" class="ord-tab tab-btn">Dibatalkan</button>
+          </div>
+          <div class="pb-1.5">
+            <input id="order-search" type="text" oninput="renderOrders()" placeholder="Cari no. pesanan atau pelanggan…" class="h-7 w-56 rounded border border-slate-200 bg-slate-50 px-2.5 text-xs text-slate-800 placeholder-slate-400 focus:border-slate-300 focus:bg-white focus:outline-none" />
+          </div>
+        </div>
+
+        <!-- Orders Table -->
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead>
+              <tr class="border-b border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                <th class="py-3 pr-4">No. Pesanan</th>
+                <th class="px-4 py-3">Pelanggan</th>
+                <th class="px-4 py-3">Rincian Item</th>
+                <th class="px-4 py-3 text-right">Total</th>
+                <th class="px-4 py-3">Status</th>
+                <th class="hidden px-4 py-3 md:table-cell">Tanggal</th>
+                <th class="py-3 pl-4 text-right">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="orders-body" class="divide-y divide-slate-200 border-b border-slate-200"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <!-- VIEW 3B: FULL-PAGE ORDER COMPOSER (NO POP-UP MODAL)                -->
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <div id="view-pesanan-baru" class="hidden">
+        <div class="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-5">
+          <div>
+            <div class="flex items-center gap-2 text-xs text-slate-500">
+              <button type="button" onclick="switchView('pesanan')" class="inline-flex items-center gap-1 hover:text-slate-900">
+                <i class="ph ph-arrow-left text-xs"></i>Pesanan
+              </button>
+              <span class="text-slate-300">/</span>
+              <span class="font-medium text-slate-700">Buat Pesanan Baru</span>
+            </div>
+            <h1 class="mt-1.5 text-xl font-semibold tracking-tight text-slate-900">Buat Pesanan Baru</h1>
+            <p class="mt-1 text-xs text-slate-500">Catat pesanan pelanggan secara manual dan hubungkan ke nomor WhatsApp kontak.</p>
+          </div>
+          <button type="button" onclick="switchView('pesanan')" class="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">
+            Batal
+          </button>
+        </div>
+
+        <form onsubmit="submitNewOrder(event)" class="divide-y divide-slate-200">
+          <div class="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
+            <div class="md:col-span-4">
+              <label for="of-customer" class="text-xs font-semibold text-slate-900">Informasi Pelanggan</label>
+              <p class="mt-1 text-xs leading-relaxed text-slate-500">Identitas pemesan dan nomor WhatsApp aktif untuk pengiriman notifikasi konfirmasi.</p>
+            </div>
+            <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-2 md:col-span-8 max-w-xl">
+              <div>
+                <label for="of-customer" class="block text-xs font-medium text-slate-700">Nama Pelanggan <span class="text-red-500">*</span></label>
+                <input id="of-customer" type="text" required placeholder="mis. Siti Rahmawati" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15" />
+              </div>
+              <div>
+                <label for="of-phone" class="block text-xs font-medium text-slate-700">Nomor WhatsApp <span class="text-red-500">*</span></label>
+                <input id="of-phone" type="text" required placeholder="628123456789" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 font-mono text-xs text-slate-900 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15" />
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
+            <div class="md:col-span-4">
+              <span class="text-xs font-semibold text-slate-900">Daftar Item Pesanan</span>
+              <p class="mt-1 text-xs leading-relaxed text-slate-500">Pilih produk dari katalog dan tentukan kuantitas masing-masing item.</p>
+            </div>
+            <div class="space-y-3 md:col-span-8 max-w-3xl">
+              <div id="order-line-items" class="space-y-3"></div>
+              <div class="flex items-center justify-between pt-2">
+                <button type="button" onclick="addOrderLineItem()" class="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 hover:underline">
+                  <i class="ph ph-plus-circle text-sm"></i>Tambah Baris Produk
+                </button>
+                <div class="text-xs text-slate-600">
+                  Estimasi Total: <strong id="of-grand-total" class="ml-1 font-mono text-sm font-semibold text-slate-900">Rp 85.000</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-end gap-2.5 pt-5">
+            <button type="button" onclick="switchView('pesanan')" class="rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
+              Batal
+            </button>
+            <button type="submit" class="rounded-md bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700">
+              Buat Pesanan
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <!-- VIEW 4: TAG & KATEGORI (INLINE TAXONOMY WORKSPACE)                 -->
+      <!-- ══════════════════════════════════════════════════════════════════ -->
+      <div id="view-tag" class="hidden">
+        <div>
+          <h1 class="text-xl font-semibold tracking-tight text-slate-900">Tag &amp; Taksonomi Kontak</h1>
+          <p class="mt-1 text-xs text-slate-500">Kelola label percakapan dan kategori segmentasi kontak untuk targeting kampanye broadcast dan pelaporan SLA.</p>
+        </div>
+
+        <!-- Sub-Navigation Tabs -->
+        <div class="mt-5 flex items-center justify-between border-b border-slate-200">
+          <div class="flex gap-6">
+            <button type="button" data-taxtab="tags" onclick="switchTaxTab('tags')" class="tax-tab tab-btn active">
+              Tag Percakapan <span id="tax-count-tags" class="ml-1 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-600">3</span>
+            </button>
+            <button type="button" data-taxtab="categories" onclick="switchTaxTab('categories')" class="tax-tab tab-btn">
+              Kategori Kontak <span id="tax-count-cats" class="ml-1 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-600">3</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- TAB A: TAG PERCAKAPAN -->
+        <section id="panel-tax-tags" class="tax-panel">
+          <!-- Inline Quick-Add Bar (No Pop-up Modal) -->
+          <form onsubmit="addTaxonomyItem(event, 'TAG')" class="flex flex-wrap items-center gap-2.5 border-b border-slate-200 py-4">
+            <input id="new-tag-name" type="text" required maxlength="32" placeholder="Nama tag baru (mis. Komplain Prioritas)…" class="h-8 w-64 rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-emerald-600 focus:outline-none" />
+            <div class="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2 py-1">
+              <input id="new-tag-color" type="color" value="#dcfce7" class="h-5 w-6 cursor-pointer border-0 bg-transparent p-0" />
+              <span class="font-mono text-[11px] text-slate-500">Warna</span>
+            </div>
+            <button type="submit" class="inline-flex h-8 items-center gap-1.5 rounded-md bg-emerald-600 px-3.5 text-xs font-semibold text-white hover:bg-emerald-700">
+              <i class="ph ph-plus text-xs"></i>Tambah Tag
+            </button>
+          </form>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+              <thead>
+                <tr class="border-b border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  <th class="py-3 pr-4">Pratinjau Label</th>
+                  <th class="px-4 py-3">Kode Warna</th>
+                  <th class="hidden px-4 py-3 sm:table-cell">Digunakan</th>
+                  <th class="py-3 pl-4 text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="tags-tbody" class="divide-y divide-slate-200 border-b border-slate-200"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- TAB B: KATEGORI KONTAK -->
+        <section id="panel-tax-categories" class="tax-panel hidden">
+          <!-- Inline Quick-Add Bar (No Pop-up Modal) -->
+          <form onsubmit="addTaxonomyItem(event, 'CATEGORY')" class="flex flex-wrap items-center gap-2.5 border-b border-slate-200 py-4">
+            <input id="new-cat-name" type="text" required maxlength="32" placeholder="Nama kategori baru (mis. Distributor)…" class="h-8 w-64 rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-emerald-600 focus:outline-none" />
+            <div class="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2 py-1">
+              <input id="new-cat-color" type="color" value="#dbeafe" class="h-5 w-6 cursor-pointer border-0 bg-transparent p-0" />
+              <span class="font-mono text-[11px] text-slate-500">Warna</span>
+            </div>
+            <button type="submit" class="inline-flex h-8 items-center gap-1.5 rounded-md bg-emerald-600 px-3.5 text-xs font-semibold text-white hover:bg-emerald-700">
+              <i class="ph ph-plus text-xs"></i>Tambah Kategori
+            </button>
+          </form>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+              <thead>
+                <tr class="border-b border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  <th class="py-3 pr-4">Pratinjau Kategori</th>
+                  <th class="px-4 py-3">Kode Warna</th>
+                  <th class="hidden px-4 py-3 sm:table-cell">Total Kontak</th>
+                  <th class="py-3 pl-4 text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="cats-tbody" class="divide-y divide-slate-200 border-b border-slate-200"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- ══════════ Destructive Delete Confirmation Only ══════════ -->
+<div id="confirm-delete-modal" class="modal-backdrop fixed inset-0 z-50 hidden items-center justify-center p-4">
+  <div class="w-full max-w-md overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl">
+    <div class="border-b border-slate-100 px-5 py-3.5">
+      <h3 id="del-modal-title" class="text-sm font-semibold text-slate-900">Konfirmasi Hapus</h3>
+    </div>
+    <p id="del-modal-msg" class="px-5 py-4 text-xs leading-relaxed text-slate-600"></p>
+    <div class="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-5 py-3">
+      <button type="button" onclick="closeDeleteModal()" class="rounded-md border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Batal</button>
+      <button type="button" onclick="confirmDeleteAction()" class="rounded-md bg-red-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-red-700">Hapus Permanen</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ Non-blocking Toast ══════════ -->
+<div id="toast" class="pointer-events-none fixed bottom-5 right-5 z-50 flex translate-y-4 items-center gap-2 rounded-md bg-slate-900 px-3.5 py-2.5 text-xs font-medium text-white opacity-0 shadow-lg transition-all duration-200">
+  <i class="ph-fill ph-check-circle text-sm text-emerald-400"></i>
+  <span id="toast-msg">Tersimpan</span>
+</div>
+
+<script>
+// ══════════ Master State Data ══════════
+let products = [
+  {
+    id: "p_1",
+    name: "Kopi Gayo 250g",
+    sku: "KPG-250",
+    price: 85000,
+    stock: 40,
+    primarySource: "Excel",
+    updatedAt: "18 Nov 2026",
+    createdAt: "02 Nov 2026",
+    description: "Biji kopi Arabika Aceh Gayo single-origin sangrai medium, kemasan katup satu arah 250g.",
+    sources: [
+      { name: "Excel", qty: 42, synced: "18 Nov 2026", confidence: "92%" },
+      { name: "Google Sheets", qty: 38, synced: "21 Nov 2026", confidence: "85%" },
+      { name: "Manual", qty: 40, synced: "20 Nov 2026", confidence: "100%" }
+    ]
+  },
+  {
+    id: "p_2",
+    name: "Kopi Susu Gula Aren",
+    sku: "KSG-500",
+    price: 95000,
+    stock: 0,
+    primarySource: "Manual",
+    updatedAt: "20 Nov 2026",
+    createdAt: "02 Nov 2026",
+    description: "Konsentrat kopi susu gula aren siap seduh botol 500ml.",
+    sources: [
+      { name: "Manual", qty: 0, synced: "20 Nov 2026", confidence: "100%" }
+    ]
+  },
+  {
+    id: "p_3",
+    name: "French Press 350ml",
+    sku: "FP-350",
+    price: 250000,
+    stock: 12,
+    primarySource: "Google Sheets",
+    updatedAt: "21 Nov 2026",
+    createdAt: "05 Nov 2026",
+    description: "Alat seduh kopi manual kaca borosilikat tahan panas kapasitas 350ml.",
+    sources: [
+      { name: "Google Sheets", qty: 12, synced: "21 Nov 2026", confidence: "96%" },
+      { name: "Manual", qty: 12, synced: "19 Nov 2026", confidence: "100%" }
+    ]
+  }
+];
+
+let orders = [
+  {
+    id: "#3F2A1B90",
+    customer: "Siti Rahmawati",
+    phone: "+62 812-3456-789",
+    items: [{ name: "Kopi Gayo 250g", qty: 2, unitPrice: 85000 }],
+    total: 170000,
+    status: "PENDING",
+    date: "21 Nov 2026"
+  },
+  {
+    id: "#9C84D2F1",
+    customer: "Budi Agus",
+    phone: "+62 813-9998-887",
+    items: [
+      { name: "Kopi Susu Gula Aren", qty: 1, unitPrice: 95000 },
+      { name: "French Press 350ml", qty: 1, unitPrice: 250000 }
+    ],
+    total: 345000,
+    status: "CONFIRMED",
+    date: "20 Nov 2026"
+  },
+  {
+    id: "#55E7A0C2",
+    customer: "Dewi Lestari",
+    phone: "+62 813-7771-234",
+    items: [{ name: "Kopi Gayo 250g", qty: 1, unitPrice: 85000 }],
+    total: 85000,
+    status: "CANCELLED",
+    date: "19 Nov 2026"
+  }
+];
+
+let tagsList = [
+  { id: "t_1", name: "VIP", color: "#dcfce7", textColor: "#166534", count: 14 },
+  { id: "t_2", name: "Follow-up", color: "#fef3c7", textColor: "#92400e", count: 9 },
+  { id: "t_3", name: "Reseller", color: "#ede9fe", textColor: "#5b21b6", count: 6 }
+];
+
+let categoriesList = [
+  { id: "c_1", name: "Pelanggan Baru", color: "#dbeafe", textColor: "#1e40af", count: 18 },
+  { id: "c_2", name: "Langganan", color: "#d1fae5", textColor: "#065f46", count: 27 },
+  { id: "c_3", name: "Korporat", color: "#e2e8f0", textColor: "#334155", count: 5 }
+];
+
+let editingProductId = null;
+let productStockFilter = "ALL";
+let activeInventoryProductId = null;
+let orderStatusFilter = "";
+let orderDraftLines = [{ productId: "p_1", qty: 1 }];
+let editingTaxonomy = null; // { kind: 'TAG'|'CATEGORY', id: string }
+let pendingDelete = null;
+
+// ══════════ Formatting & Toast Helpers ══════════
+function formatIDR(num) {
+  return "Rp " + Number(num || 0).toLocaleString("id-ID");
+}
+
+let toastTimer = null;
+function showToast(msg) {
+  const el = document.getElementById("toast");
+  document.getElementById("toast-msg").textContent = msg;
+  el.classList.remove("opacity-0", "translate-y-4");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.add("opacity-0", "translate-y-4"), 2600);
+}
+
+// ══════════ View Navigation ══════════
+const ALL_VIEWS = ["produk", "produk-form", "inventaris", "inventaris-detail", "pesanan", "pesanan-baru", "tag"];
+const NAV_GROUP_MAP = {
+  "produk": "produk",
+  "produk-form": "produk",
+  "inventaris": "inventaris",
+  "inventaris-detail": "inventaris",
+  "pesanan": "pesanan",
+  "pesanan-baru": "pesanan",
+  "tag": "tag"
+};
+
+
+function switchView(viewKey) {
+  ALL_VIEWS.forEach((v) => {
+    document.getElementById("view-" + v).classList.toggle("hidden", v !== viewKey);
+  });
+
+  const activeNavKey = NAV_GROUP_MAP[viewKey] || viewKey;
+  ["produk", "inventaris", "pesanan", "tag"].forEach((navKey) => {
+    const el = document.getElementById("nav-" + navKey);
+    if (!el) return;
+    const isActive = navKey === activeNavKey;
+    el.classList.toggle("active", isActive);
+    const icon = el.querySelector("i");
+    if (icon) {
+      icon.classList.toggle("text-emerald-600", isActive);
+      icon.classList.toggle("text-slate-400", !isActive);
+    }
+  });
+
+  if (viewKey === "pesanan-baru") {
+    orderDraftLines = [{ productId: products[0]?.id || "p_1", qty: 1 }];
+    renderOrderLineItems();
+  }
+  toggleSidebar(false);
+  window.scrollTo({ top: 0, behavior: "instant" });
+}
+
+function toggleSidebar(open) {
+  document.getElementById("app-sidebar").classList.toggle("-translate-x-full", !open);
+  document.getElementById("mobile-overlay").classList.toggle("hidden", !open);
+}
+
+// ══════════ 1. PRODUK LOGIC ══════════
+function setProductStockFilter(val) {
+  productStockFilter = val;
+  document.querySelectorAll(".prod-stock-pill").forEach((btn) => {
+    const active = btn.dataset.pstock === val;
+    btn.classList.toggle("bg-white", active);
+    btn.classList.toggle("font-semibold", active);
+    btn.classList.toggle("text-slate-900", active);
+    btn.classList.toggle("shadow-2xs", active);
+    btn.classList.toggle("font-medium", !active);
+    btn.classList.toggle("text-slate-600", !active);
+  });
+  renderProducts();
+}
+
+function renderProducts() {
+  const query = (document.getElementById("prod-search").value || "").trim().toLowerCase();
+  const stockFilter = productStockFilter;
+
+  // Update KPI strip
+  const inStockCount = products.filter((p) => p.stock > 0).length;
+  const oosCount = products.filter((p) => p.stock <= 0).length;
+  const totalValuation = products.reduce((sum, p) => sum + p.price * p.stock, 0);
+
+  document.getElementById("kpi-prod-total").textContent = products.length;
+  document.getElementById("kpi-prod-instock").textContent = inStockCount;
+  document.getElementById("kpi-prod-oos").textContent = oosCount;
+  document.getElementById("kpi-prod-val").textContent = formatIDR(totalValuation);
+
+  const filtered = products.filter((p) => {
+    const matchesText = !query || p.name.toLowerCase().includes(query) || (p.sku || "").toLowerCase().includes(query);
+    const matchesStock =
+      stockFilter === "ALL" ||
+      (stockFilter === "IN_STOCK" && p.stock > 0) ||
+      (stockFilter === "OUT_OF_STOCK" && p.stock <= 0);
+    return matchesText && matchesStock;
+  });
+
+  const tbody = document.getElementById("products-tbody");
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="py-10 text-center text-xs text-slate-400">Tidak ada produk yang sesuai dengan kriteria filter.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map((p) => {
+    const stockBadge = p.stock > 0
+      ? `<span class="font-mono text-xs font-medium text-slate-900 tabular-nums">${p.stock}</span>`
+      : `<span class="inline-flex items-center gap-1 font-mono text-xs font-semibold text-red-600 tabular-nums"><span class="h-1.5 w-1.5 rounded-full bg-red-500"></span>0 (Habis)</span>`;
+
+    return `
+      <tr class="hover:bg-slate-50/80">
+        <td class="py-3.5 pr-4">
+          <p class="text-xs font-semibold text-slate-900">${p.name}</p>
+          ${p.description ? `<p class="mt-0.5 line-clamp-1 max-w-md text-[11px] text-slate-500">${p.description}</p>` : ""}
+        </td>
+        <td class="px-4 py-3.5 font-mono text-xs text-slate-500">${p.sku || "—"}</td>
+        <td class="px-4 py-3.5 text-right font-mono text-xs font-medium text-slate-900 tabular-nums">${formatIDR(p.price)}</td>
+        <td class="px-4 py-3.5 text-right">${stockBadge}</td>
+        <td class="hidden px-4 py-3.5 font-mono text-xs text-slate-500 md:table-cell">${p.createdAt}</td>
+        <td class="py-3.5 pl-4 text-right">
+          <div class="inline-flex items-center gap-3">
+            <button type="button" onclick="openProductForm('${p.id}')" class="text-xs font-medium text-slate-700 hover:text-slate-950">Edit</button>
+            <button type="button" onclick="askDelete('PRODUCT', '${p.id}', '${p.name}')" class="text-xs font-medium text-red-600 hover:underline">Hapus</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function openProductForm(productId) {
+  editingProductId = productId;
+  const item = productId ? products.find((p) => p.id === productId) : null;
+
+  document.getElementById("prod-form-breadcrumb").textContent = item ? "Edit Produk" : "Tambah Produk";
+  document.getElementById("prod-form-title").textContent = item ? `Edit Produk — ${item.name}` : "Tambah Produk Baru";
+  document.getElementById("pf-submit-btn").textContent = item ? "Simpan Perubahan" : "Simpan Produk";
+
+  document.getElementById("pf-name").value = item ? item.name : "";
+  document.getElementById("pf-sku").value = item ? item.sku : "";
+  document.getElementById("pf-price").value = item ? item.price : "";
+  document.getElementById("pf-stock").value = item ? item.stock : 0;
+  document.getElementById("pf-desc").value = item ? item.description : "";
+  document.getElementById("pf-stock-wrap").classList.toggle("hidden", Boolean(item));
+
+  switchView("produk-form");
+}
+
+function saveProductForm(e) {
+  e.preventDefault();
+  const name = document.getElementById("pf-name").value.trim();
+  const sku = document.getElementById("pf-sku").value.trim().toUpperCase();
+  const price = Number(document.getElementById("pf-price").value || 0);
+  const stock = Number(document.getElementById("pf-stock").value || 0);
+  const description = document.getElementById("pf-desc").value.trim();
+
+  if (!name) return;
+
+  if (editingProductId) {
+    const existing = products.find((p) => p.id === editingProductId);
+    if (existing) {
+      existing.name = name;
+      existing.sku = sku;
+      existing.price = price;
+      existing.description = description;
+    }
+    showToast(`Perubahan pada "${name}" disimpan`);
+  } else {
+    products.unshift({
+      id: "p_" + Date.now(),
+      name,
+      sku,
+      price,
+      stock,
+      primarySource: "Manual",
+      updatedAt: "22 Nov 2026",
+      createdAt: "22 Nov 2026",
+      description,
+      sources: [{ name: "Manual", qty: stock, synced: "22 Nov 2026", confidence: "100%" }]
+    });
+    showToast(`Produk "${name}" ditambahkan ke katalog`);
+  }
+
+  renderProducts();
+  renderInventory();
+  switchView("produk");
+}
+
+// ══════════ 2. INVENTARIS LOGIC (FULL-PAGE DETAIL, ZERO COLLAPSIBLES) ══════════
+function renderInventory() {
+  const query = (document.getElementById("inv-search").value || "").trim().toLowerCase();
+  const filtered = products.filter((p) => !query || p.name.toLowerCase().includes(query) || (p.sku || "").toLowerCase().includes(query));
+
+  const tbody = document.getElementById("inventory-tbody");
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" class="py-10 text-center text-xs text-slate-400">Tidak ada data inventaris yang ditemukan.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map((p) => {
+    const stockDisplay = p.stock > 0
+      ? `<span class="font-mono text-xs font-semibold text-slate-900 tabular-nums">${p.stock} unit</span>`
+      : `<span class="font-mono text-xs font-semibold text-red-600 tabular-nums">0 unit</span>`;
+
+    return `
+      <tr class="hover:bg-slate-50/80">
+        <td class="py-3.5 pr-4">
+          <span class="text-xs font-semibold text-slate-900">${p.name}</span>
+          ${p.sku ? `<span class="ml-2 font-mono text-[11px] text-slate-400">${p.sku}</span>` : ""}
+        </td>
+        <td class="px-4 py-3.5 text-right">${stockDisplay}</td>
+        <td class="px-4 py-3.5">
+          <span class="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-700">${p.primarySource}</span>
+        </td>
+        <td class="hidden px-4 py-3.5 font-mono text-xs text-slate-500 sm:table-cell">${p.updatedAt}</td>
+        <td class="py-3.5 pl-4 text-right">
+          <button type="button" onclick="openInventoryDetail('${p.id}')" class="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-50">
+            <i class="ph ph-sliders-horizontal text-xs"></i>Sesuaikan Stok
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function openInventoryDetail(productId) {
+  const item = products.find((p) => p.id === productId);
+  if (!item) return;
+  activeInventoryProductId = productId;
+
+  document.getElementById("inv-detail-title").textContent = `Sesuaikan Stok — ${item.name}`;
+  document.getElementById("inv-detail-sub").textContent = `SKU: ${item.sku || "—"} • Sumber Utama: ${item.primarySource} • Stok Aktif: ${item.stock} unit`;
+  document.getElementById("inv-detail-qty").value = item.stock;
+
+  document.getElementById("inv-detail-sources").innerHTML = item.sources.map((src) => `
+    <tr>
+      <td class="px-3 py-2.5 font-medium text-slate-800">${src.name}</td>
+      <td class="px-3 py-2.5 text-right font-mono font-semibold text-slate-900 tabular-nums">${src.qty} unit</td>
+      <td class="px-3 py-2.5 font-mono text-slate-500">${src.synced}</td>
+      <td class="px-3 py-2.5 text-right font-mono text-emerald-700">${src.confidence}</td>
+    </tr>
+  `).join("");
+
+  switchView("inventaris-detail");
+}
+
+function saveInventoryDetail(e) {
+  e.preventDefault();
+  if (!activeInventoryProductId) return;
+  const newQty = Number(document.getElementById("inv-detail-qty").value || 0);
+  const item = products.find((p) => p.id === activeInventoryProductId);
+  if (!item) return;
+
+  item.stock = newQty;
+  item.updatedAt = "22 Nov 2026";
+  const manualSrc = item.sources.find((s) => s.name === "Manual");
+  if (manualSrc) {
+    manualSrc.qty = newQty;
+    manualSrc.synced = "22 Nov 2026";
+  } else {
+    item.sources.push({ name: "Manual", qty: newQty, synced: "22 Nov 2026", confidence: "100%" });
+  }
+
+  activeInventoryProductId = null;
+  renderInventory();
+  renderProducts();
+  switchView("inventaris");
+  showToast(`Stok ${item.name} diperbarui menjadi ${newQty} unit`);
+}
+
+// ══════════ 3. PESANAN LOGIC (ALWAYS VISIBLE ITEMS, ZERO COLLAPSIBLES & DROPDOWNS) ══════════
+function orderStatusBadge(status) {
+  if (status === "CONFIRMED") {
+    return `<span class="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700"><span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>Dikonfirmasi</span>`;
+  }
+  if (status === "CANCELLED") {
+    return `<span class="inline-flex items-center gap-1.5 text-xs text-slate-400"><span class="h-1.5 w-1.5 rounded-full bg-slate-300"></span>Dibatalkan</span>`;
+  }
+  return `<span class="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700"><span class="h-1.5 w-1.5 rounded-full bg-amber-400"></span>Menunggu</span>`;
+}
+
+function filterOrders(status) {
+  orderStatusFilter = status;
+  document.querySelectorAll(".ord-tab").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.ostatus === status);
+  });
+  renderOrders();
+}
+
+function renderOrders() {
+  // Telemetry
+  const pendingCount = orders.filter((o) => o.status === "PENDING").length;
+  const confirmedOrders = orders.filter((o) => o.status === "CONFIRMED");
+  const confirmedRev = confirmedOrders.reduce((s, o) => s + o.total, 0);
+
+  document.getElementById("kpi-ord-total").textContent = orders.length;
+  document.getElementById("kpi-ord-pending").textContent = pendingCount;
+  document.getElementById("kpi-ord-confirmed").textContent = confirmedOrders.length;
+  document.getElementById("kpi-ord-rev").textContent = formatIDR(confirmedRev);
+
+  const query = (document.getElementById("order-search").value || "").trim().toLowerCase();
+  const filtered = orders.filter((o) => {
+    const matchStatus = !orderStatusFilter || o.status === orderStatusFilter;
+    const matchQuery = !query || o.id.toLowerCase().includes(query) || o.customer.toLowerCase().includes(query);
+    return matchStatus && matchQuery;
+  });
+
+  const tbody = document.getElementById("orders-body");
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="7" class="py-10 text-center text-xs text-slate-400">Tidak ada pesanan yang sesuai dengan filter.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map((o) => {
+    const itemsListHtml = o.items.map((it) => `
+      <div class="flex items-center justify-between gap-3 text-xs">
+        <span class="text-slate-800">${it.name} <span class="font-mono text-slate-400">×${it.qty}</span></span>
+        <span class="font-mono text-[11px] text-slate-500 tabular-nums">${formatIDR(it.unitPrice * it.qty)}</span>
+      </div>
+    `).join("");
+
+    return `
+      <tr class="align-top hover:bg-slate-50/80">
+        <td class="py-3.5 pr-4 font-mono text-xs font-medium text-slate-600">${o.id}</td>
+        <td class="px-4 py-3.5">
+          <p class="text-xs font-semibold text-slate-900">${o.customer}</p>
+          <p class="mt-0.5 font-mono text-[11px] text-slate-400">${o.phone}</p>
+        </td>
+        <td class="px-4 py-3.5">
+          <div class="min-w-48 space-y-1">${itemsListHtml}</div>
+        </td>
+        <td class="px-4 py-3.5 text-right font-mono text-xs font-semibold text-slate-900 tabular-nums">${formatIDR(o.total)}</td>
+        <td class="px-4 py-3.5">${orderStatusBadge(o.status)}</td>
+        <td class="hidden px-4 py-3.5 font-mono text-xs text-slate-500 md:table-cell">${o.date}</td>
+        <td class="py-3.5 pl-4 text-right">
+          <div class="inline-flex items-center gap-3">
+            ${o.status !== "CONFIRMED" ? `<button type="button" onclick="updateOrderStatus('${o.id}', 'CONFIRMED')" class="text-xs font-semibold text-emerald-700 hover:underline">Konfirmasi</button>` : ""}
+            ${o.status !== "CANCELLED" ? `<button type="button" onclick="updateOrderStatus('${o.id}', 'CANCELLED')" class="text-xs font-medium text-red-600 hover:underline">Batalkan</button>` : ""}
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function updateOrderStatus(orderId, newStatus) {
+  const target = orders.find((o) => o.id === orderId);
+  if (!target) return;
+  target.status = newStatus;
+  renderOrders();
+  showToast(`Pesanan ${orderId} ditandai ${newStatus === "CONFIRMED" ? "Dikonfirmasi" : "Dibatalkan"}`);
+}
+
+// Order Composer Line Items (Radio / Pill Product Selector — Zero Dropdowns)
+function renderOrderLineItems() {
+  const container = document.getElementById("order-line-items");
+  let grandTotal = 0;
+
+  container.innerHTML = orderDraftLines.map((line, idx) => {
+    const prod = products.find((p) => p.id === line.productId) || products[0];
+    const subtotal = (prod ? prod.price : 0) * line.qty;
+    grandTotal += subtotal;
+
+    return `
+      <div class="border-b border-slate-200 pb-3 last:border-b-0">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Item #${idx + 1}</span>
+          ${orderDraftLines.length > 1
+            ? `<button type="button" onclick="removeOrderLine(${idx})" class="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:underline"><i class="ph ph-trash text-xs"></i>Hapus Baris</button>`
+            : ""}
+        </div>
+
+        <div class="mt-2 flex flex-wrap gap-1.5">
+          ${products.map((p) => {
+            const selected = p.id === line.productId;
+            return `
+              <button type="button" onclick="updateOrderLine(${idx}, 'productId', '${p.id}')" class="rounded-md border px-2.5 py-1.5 text-left text-xs transition ${selected ? 'border-emerald-600 bg-emerald-50 font-semibold text-emerald-900' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'}">
+                <span>${p.name}</span>
+                <span class="ml-1.5 font-mono text-[11px] ${selected ? 'text-emerald-700' : 'text-slate-400'}">${formatIDR(p.price)}</span>
+              </button>
+            `;
+          }).join("")}
+        </div>
+
+        <div class="mt-2.5 flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2">
+            <label class="text-xs text-slate-600">Kuantitas:</label>
+            <input type="number" min="1" value="${line.qty}" onchange="updateOrderLine(${idx}, 'qty', Number(this.value))" class="h-8 w-20 rounded-md border border-slate-300 bg-white px-2.5 font-mono text-xs text-slate-900 focus:border-emerald-600 focus:outline-none" />
+          </div>
+          <span class="font-mono text-xs font-semibold text-slate-800 tabular-nums">Subtotal: ${formatIDR(subtotal)}</span>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  document.getElementById("of-grand-total").textContent = formatIDR(grandTotal);
+}
+
+function addOrderLineItem() {
+  orderDraftLines.push({ productId: products[0]?.id || "p_1", qty: 1 });
+  renderOrderLineItems();
+}
+
+function updateOrderLine(idx, field, value) {
+  orderDraftLines[idx][field] = value;
+  renderOrderLineItems();
+}
+
+function removeOrderLine(idx) {
+  orderDraftLines.splice(idx, 1);
+  renderOrderLineItems();
+}
+
+function submitNewOrder(e) {
+  e.preventDefault();
+  const customer = document.getElementById("of-customer").value.trim();
+  const phone = document.getElementById("of-phone").value.trim();
+  if (!customer || !phone) return;
+
+  const lineItems = orderDraftLines.map((l) => {
+    const prod = products.find((p) => p.id === l.productId) || products[0];
+    return { name: prod.name, qty: l.qty, unitPrice: prod.price };
+  });
+  const total = lineItems.reduce((s, it) => s + it.unitPrice * it.qty, 0);
+  const newId = "#" + Math.random().toString(16).slice(2, 10).toUpperCase();
+
+  orders.unshift({
+    id: newId,
+    customer,
+    phone,
+    items: lineItems,
+    total,
+    status: "PENDING",
+    date: "22 Nov 2026"
+  });
+
+  document.getElementById("of-customer").value = "";
+  document.getElementById("of-phone").value = "";
+  renderOrders();
+  switchView("pesanan");
+  showToast(`Pesanan baru ${newId} berhasil dibuat`);
+}
+
+// ══════════ 4. TAG & KATEGORI LOGIC (INLINE RENAME, NO POP-UP) ══════════
+function switchTaxTab(tab) {
+  document.querySelectorAll(".tax-tab").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.taxtab === tab);
+  });
+  document.getElementById("panel-tax-tags").classList.toggle("hidden", tab !== "tags");
+  document.getElementById("panel-tax-categories").classList.toggle("hidden", tab !== "categories");
+}
+
+function renderTaxonomy() {
+  document.getElementById("tax-count-tags").textContent = tagsList.length;
+  document.getElementById("tax-count-cats").textContent = categoriesList.length;
+
+  document.getElementById("tags-tbody").innerHTML = tagsList.map((t) => renderTaxonomyRow("TAG", t, `${t.count} percakapan`)).join("") ||
+    `<tr><td colspan="4" class="py-8 text-center text-xs text-slate-400">Belum ada tag percakapan.</td></tr>`;
+
+  document.getElementById("cats-tbody").innerHTML = categoriesList.map((c) => renderTaxonomyRow("CATEGORY", c, `${c.count} kontak`)).join("") ||
+    `<tr><td colspan="4" class="py-8 text-center text-xs text-slate-400">Belum ada kategori kontak.</td></tr>`;
+}
+
+function renderTaxonomyRow(kind, item, usageText) {
+  const isEditing = editingTaxonomy && editingTaxonomy.kind === kind && editingTaxonomy.id === item.id;
+
+  if (isEditing) {
+    return `
+      <tr class="bg-slate-50/80">
+        <td class="py-3 pr-4">
+          <input id="edit-tax-name" type="text" value="${item.name}" class="h-8 w-56 rounded-md border border-slate-300 bg-white px-2.5 text-xs font-medium text-slate-900 focus:border-emerald-600 focus:outline-none" />
+        </td>
+        <td class="px-4 py-3">
+          <input id="edit-tax-color" type="color" value="${item.color}" class="h-7 w-10 cursor-pointer rounded border border-slate-300 bg-white p-0.5" />
+        </td>
+        <td class="hidden px-4 py-3 font-mono text-xs text-slate-500 sm:table-cell">${usageText}</td>
+        <td class="py-3 pl-4 text-right">
+          <div class="inline-flex items-center gap-2">
+            <button type="button" onclick="saveTaxonomyEdit('${kind}', '${item.id}')" class="rounded bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-700">Simpan</button>
+            <button type="button" onclick="cancelTaxonomyEdit()" class="rounded border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50">Batal</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+
+  return `
+    <tr class="hover:bg-slate-50/80">
+      <td class="py-3.5 pr-4">
+        <span class="inline-flex items-center rounded px-2.5 py-1 text-xs font-semibold" style="background-color:${item.color}; color:${item.textColor || '#1e293b'}">
+          ${item.name}
+        </span>
+      </td>
+      <td class="px-4 py-3.5">
+        <span class="inline-flex items-center gap-1.5 font-mono text-xs text-slate-500">
+          <span class="h-3 w-3 rounded-full border border-black/15" style="background-color:${item.color}"></span>
+          ${item.color}
+        </span>
+      </td>
+      <td class="hidden px-4 py-3.5 font-mono text-xs text-slate-500 sm:table-cell">${usageText}</td>
+      <td class="py-3.5 pl-4 text-right">
+        <div class="inline-flex items-center gap-3">
+          <button type="button" onclick="startTaxonomyEdit('${kind}', '${item.id}')" class="text-xs font-medium text-slate-700 hover:text-slate-950">Ubah Nama</button>
+          <button type="button" onclick="askDelete('${kind}', '${item.id}', '${item.name}')" class="text-xs font-medium text-red-600 hover:underline">Hapus</button>
+        </div>
+      </td>
+    </tr>
+  `;
+}
+
+function addTaxonomyItem(e, kind) {
+  e.preventDefault();
+  if (kind === "TAG") {
+    const nameInput = document.getElementById("new-tag-name");
+    const colorInput = document.getElementById("new-tag-color");
+    const name = nameInput.value.trim();
+    if (!name) return;
+    tagsList.unshift({ id: "t_" + Date.now(), name, color: colorInput.value, textColor: "#0f172a", count: 0 });
+    nameInput.value = "";
+    showToast(`Tag "${name}" ditambahkan`);
+  } else {
+    const nameInput = document.getElementById("new-cat-name");
+    const colorInput = document.getElementById("new-cat-color");
+    const name = nameInput.value.trim();
+    if (!name) return;
+    categoriesList.unshift({ id: "c_" + Date.now(), name, color: colorInput.value, textColor: "#0f172a", count: 0 });
+    nameInput.value = "";
+    showToast(`Kategori "${name}" ditambahkan`);
+  }
+  renderTaxonomy();
+}
+
+function startTaxonomyEdit(kind, id) {
+  editingTaxonomy = { kind, id };
+  renderTaxonomy();
+}
+
+function cancelTaxonomyEdit() {
+  editingTaxonomy = null;
+  renderTaxonomy();
+}
+
+function saveTaxonomyEdit(kind, id) {
+  const newName = (document.getElementById("edit-tax-name").value || "").trim();
+  const newColor = document.getElementById("edit-tax-color").value;
+  if (!newName) return;
+
+  const list = kind === "TAG" ? tagsList : categoriesList;
+  const item = list.find((x) => x.id === id);
+  if (item) {
+    item.name = newName;
+    item.color = newColor;
+  }
+  editingTaxonomy = null;
+  renderTaxonomy();
+  showToast("Perubahan label disimpan");
+}
+
+// ══════════ Destructive Delete Confirmation Only ══════════
+function askDelete(kind, id, label) {
+  pendingDelete = { kind, id, label };
+  const titleMap = {
+    PRODUCT: "Hapus Produk dari Katalog",
+    TAG: "Hapus Tag Percakapan",
+    CATEGORY: "Hapus Kategori Kontak"
+  };
+  document.getElementById("del-modal-title").textContent = titleMap[kind] || "Konfirmasi Hapus";
+  document.getElementById("del-modal-msg").innerHTML =
+    `Apakah Anda yakin ingin menghapus <strong>${label}</strong> secara permanen? Tindakan ini tidak dapat dibatalkan.`;
+  const modal = document.getElementById("confirm-delete-modal");
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+}
+
+function closeDeleteModal() {
+  pendingDelete = null;
+  const modal = document.getElementById("confirm-delete-modal");
+  modal.classList.add("hidden");
+  modal.classList.remove("flex");
+}
+
+function confirmDeleteAction() {
+  if (!pendingDelete) return;
+  const { kind, id, label } = pendingDelete;
+  if (kind === "PRODUCT") {
+    products = products.filter((p) => p.id !== id);
+    renderProducts();
+    renderInventory();
+  } else if (kind === "TAG") {
+    tagsList = tagsList.filter((t) => t.id !== id);
+    renderTaxonomy();
+  } else if (kind === "CATEGORY") {
+    categoriesList = categoriesList.filter((c) => c.id !== id);
+    renderTaxonomy();
+  }
+  closeDeleteModal();
+  showToast(`"${label}" telah dihapus`);
+}
+
+// ══════════ Initialize All Views ══════════
+renderProducts();
+renderInventory();
+renderOrders();
+renderTaxonomy();
+</script>
+</body>
+</html>

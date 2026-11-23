@@ -38,7 +38,7 @@ type TaxKind = "TAG" | "CATEGORY";
 
 export default function TagsPage() {
   const { data: session } = useSession();
-  const isOwner = session?.user?.role === "OWNER";
+  const canManage = !!session?.user?.isOwner || !!session?.user?.permissions?.includes("tag.kelola");
 
   const [page, setPage] = useState(1);
   const [tab, setTab] = useState<"tags" | "categories">("tags");
@@ -254,7 +254,7 @@ export default function TagsPage() {
           </p>
         </div>
 
-        {!isOwner && (
+        {!canManage && (
           <p className="mt-4 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700">
             Hanya owner yang dapat membuat, mengubah, atau menghapus tag dan kategori.
           </p>
@@ -310,7 +310,7 @@ export default function TagsPage() {
                 placeholder="Nama tag baru (mis. Komplain Prioritas)…"
                 value={tagName}
                 onChange={(e) => setTagName(e.target.value)}
-                disabled={!isOwner}
+                disabled={!canManage}
                 className="h-8 w-64 rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-green-600 focus:outline-none disabled:bg-slate-50"
               />
               <div className="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2 py-1">
@@ -324,7 +324,7 @@ export default function TagsPage() {
               </div>
               <button
                 type="submit"
-                disabled={!isOwner || adding}
+                disabled={!canManage || adding}
                 className="inline-flex h-8 items-center gap-1.5 rounded-md bg-green-600 px-3.5 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-60"
               >
                 <Plus size={12} />Tambah Tag
@@ -378,7 +378,7 @@ export default function TagsPage() {
                 placeholder="Nama kategori baru (mis. Distributor)…"
                 value={catName}
                 onChange={(e) => setCatName(e.target.value)}
-                disabled={!isOwner}
+                disabled={!canManage}
                 className="h-8 w-64 rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-green-600 focus:outline-none disabled:bg-slate-50"
               />
               <div className="flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2 py-1">
@@ -392,7 +392,7 @@ export default function TagsPage() {
               </div>
               <button
                 type="submit"
-                disabled={!isOwner || adding}
+                disabled={!canManage || adding}
                 className="inline-flex h-8 items-center gap-1.5 rounded-md bg-green-600 px-3.5 text-xs font-semibold text-white hover:bg-green-700 disabled:opacity-60"
               >
                 <Plus size={12} />Tambah Kategori

@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { Decimal } from "@prisma/client/runtime/library";
 import type { Prisma } from "@prisma/client";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { withTenantContext, withTenantTransaction } from "@csq/core/lib/tenant-context";
 import { logHuman } from "@csq/core/lib/audit";
@@ -24,7 +24,7 @@ export default async function handler(
       return respondError(res, "VALIDATION_ERROR", "Metode tidak didukung.");
     }
 
-    if (!requireRole(session, "OWNER")) {
+    if (!requirePermission(session, "pesanan.kelola")) {
       return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat membuat pesanan.");
     }
 

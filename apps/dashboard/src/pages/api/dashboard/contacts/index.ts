@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Contact, Prisma } from "@prisma/client";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { normalizePhone } from "@csq/core/lib/contacts";
 import { logHuman } from "@csq/core/lib/audit";
@@ -132,7 +132,7 @@ export default async function handler(
     // Tambah Kontak (owner request 2026-11-18): manual single add. OWNER-only,
     // same write rule as contact.update.
     if (req.method === "POST") {
-      if (!requireRole(session, "OWNER")) {
+      if (!requirePermission(session, "kontak.kelola")) {
         return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat menambah kontak.");
       }
       const parsed = contactCreateSchema.safeParse(req.body);

@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Prisma } from "@prisma/client";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { paginate, requireTenant, respondError, strQuery } from "@csq/core/lib/queries";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
@@ -40,7 +40,7 @@ export default async function handler(
   const session = await getAuthSession(req, res);
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
   // OWNER + STAFF may read the audit log; STAFF read is allowed by design.
-  if (!requireRole(session, "OWNER", "STAFF")) {
+  if (!requirePermission(session, "aktivitas.lihat")) {
     return respondError(res, "PERMISSION_DENIED", "Akses ditolak.");
   }
   const tenantId = requireTenant(session);

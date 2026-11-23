@@ -1,7 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Message, Prisma } from "@prisma/client";
 import { z } from "zod";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
+import { visibleChannelIds } from "@csq/core/lib/channel-access";
 import prisma from "@csq/core/lib/db";
 import {
   HttpError,
@@ -44,8 +45,11 @@ export default async function handler(
     }
 
     // Ensure the conversation belongs to this tenant before any work.
+    // PRD 29 section 6: only conversations on visible channels.
+    const visibleCh = await visibleChannelIds(session);
+    const channelScope = visibleCh ? { channelId: { in: visibleCh } } : {};
     const conversation = await prisma.conversation.findFirst({
-      where: { id, tenantId },
+      where: { id, tenantId, ...channelScope },
     });
     if (!conversation) {
       return respondError(res, "NOT_FOUND", "Percakapan tidak ditemukan.");
@@ -85,7 +89,7 @@ export default async function handler(
 
     if (req.method === "POST") {
       // OWNER + STAFF can send human replies (FR-IC-005).
-      if (!requireRole(session, "OWNER", "STAFF")) {
+      if (!requirePermission(session, "inbox.balas")) {
         return respondError(
           res,
           "PERMISSION_DENIED",

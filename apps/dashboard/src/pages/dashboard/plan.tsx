@@ -10,7 +10,7 @@ export const getServerSideProps: GetServerSideProps = withAuth<Record<string, un
     redirect: { destination: "/dashboard/pengaturan/paket", permanent: false },
     props: {},
   }),
-  { requiredRole: "OWNER" }
+  { requiredPermission: "billing.lihat" }
 );
 
 export default function NeverRendered() {

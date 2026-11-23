@@ -42,7 +42,8 @@ export function CampaignWizard({
 }) {
   const router = useRouter();
   const { data: session } = useSession();
-  const canManage = session?.user.role === "OWNER" || !!session?.user.canRunCampaigns;
+  const canManage =
+    !!session?.user?.isOwner || !!session?.user?.permissions?.includes("kampanye.kelola");
 
   const channels = useApi<{ items: ChannelView[] }>("/api/dashboard/channels");
   const categories = useApi<Category[]>("/api/dashboard/contact-categories");

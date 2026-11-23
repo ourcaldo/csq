@@ -331,5 +331,5 @@ export default function PengaturanEmailPage() {
 
 export const getServerSideProps: GetServerSideProps = withAuth(
   async () => ({ props: {} }),
-  { requiredRole: "OWNER" }
+  { requiredPermission: "pengaturan.kelola" }
 );

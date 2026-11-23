@@ -43,7 +43,7 @@ type TeamMember = {
   id: string;
   email: string;
   name: string | null;
-  role: "OWNER" | "STAFF";
+  isOwner: boolean;
 };
 
 type InboxPageProps = {
@@ -54,7 +54,10 @@ export default function InboxPage({ apiMediaBase }: InboxPageProps) {
   const router = useRouter();
   const { data: session } = useSession();
   const myUserId = session?.user?.id ?? null;
-  const isOwner = session?.user?.role === "OWNER";
+  // Assignment visibility (PRD 29): inbox.tugaskan holders see and work
+  // every conversation; others only their own assigned ones.
+  const isOwner =
+    !!session?.user?.isOwner || !!session?.user?.permissions?.includes("inbox.tugaskan");
   const [tab, setTab] = useState<Tab>("unassigned");
   const [search, setSearch] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);

@@ -168,5 +168,5 @@ export default function PengaturanSesiPage() {
 
 export const getServerSideProps: GetServerSideProps = withAuth(
   async () => ({ props: {} }),
-  { requiredRole: "OWNER" }
+  { requiredPermission: "pengaturan.kelola" }
 );

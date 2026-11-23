@@ -447,7 +447,7 @@ export function ContactDetails({ conversation, onChanged, mobileOpen, onCloseMob
           <>
             <h3 className="text-lg font-semibold text-slate-900">{contact?.name ?? "Pelanggan"}</h3>
             <p className="text-sm text-slate-500">{conversation.customerPhoneDisplay}</p>
-            {session?.user.role === "OWNER" && (
+            {(!!session?.user?.isOwner || !!session?.user?.permissions?.includes("kontak.kelola")) && (
               <button
                 onClick={startEdit}
                 className="mt-2 inline-flex items-center gap-1 rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"

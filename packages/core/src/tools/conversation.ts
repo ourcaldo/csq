@@ -43,11 +43,11 @@ const conversationHandoff: ToolDefinition<HandoffParams> = {
       };
     }
 
-    // Resolve the tenant's owner to assign the conversation to. MVP is
-    // single-owner; if multiple OWNER rows exist, the first (by createdAt) is
-    // assigned. Round-robin across staff is a later enhancement.
+    // Resolve the tenant's owner to assign the conversation to. If multiple
+    // owner rows exist, the first (by createdAt) is assigned. Round-robin
+    // across staff is a later enhancement.
     const owner = await ctx.prisma.user.findFirst({
-      where: { tenantId: ctx.tenantId, role: "OWNER" },
+      where: { tenantId: ctx.tenantId, isOwner: true },
       orderBy: { createdAt: "asc" },
     });
     if (!owner) {

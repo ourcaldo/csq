@@ -541,5 +541,5 @@ export default function PengaturanPaketPage() {
 
 export const getServerSideProps: GetServerSideProps = withAuth(
   async () => ({ props: {} }),
-  { requiredRole: "OWNER" }
+  { requiredPermission: "pengaturan.kelola" }
 );

@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Scenario } from "@prisma/client";
 import { z } from "zod";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import { requireFeatureApi } from "@csq/core/lib/feature-guard";
 import prisma from "@csq/core/lib/db";
 import { logHuman } from "@csq/core/lib/audit";
@@ -94,7 +94,7 @@ export default async function handler(
 
     if (req.method === "POST") {
       // Staff can draft; only OWNER activates. Creation allowed for both.
-      if (!requireRole(session, "OWNER", "STAFF")) {
+      if (!requirePermission(session, "skenario.lihat")) {
         return respondError(
           res,
           "PERMISSION_DENIED",

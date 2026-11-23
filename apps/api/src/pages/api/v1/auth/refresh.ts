@@ -84,7 +84,7 @@ export default async function handler(
     const accessToken = await signAccessToken({
       userId: user.id,
       tenantId: user.tenantId,
-      role: user.role,
+      role: user.isOwner ? "OWNER" : "STAFF",
     });
     return res.status(200).json(
       apiOk({

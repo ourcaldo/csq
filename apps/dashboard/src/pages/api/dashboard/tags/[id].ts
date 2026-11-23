@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Tag } from "@prisma/client";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { logHuman } from "@csq/core/lib/audit";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
@@ -25,7 +25,7 @@ export default async function handler(
 
     // Rename + delete are OWNER-only (PRD §8 - owner controls taxonomy).
     if (req.method === "PUT") {
-      if (!requireRole(session, "OWNER")) {
+      if (!requirePermission(session, "tag.kelola")) {
         return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengubah tag.");
       }
       const parsed = tagUpdateSchema.safeParse(req.body);
@@ -55,7 +55,7 @@ export default async function handler(
     }
 
     if (req.method === "DELETE") {
-      if (!requireRole(session, "OWNER")) {
+      if (!requirePermission(session, "tag.kelola")) {
         return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat menghapus tag.");
       }
       const existing = await prisma.tag.findFirst({ where: { id, tenantId } });

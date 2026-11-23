@@ -32,11 +32,12 @@ import { useApi } from "@/hooks/use-api";
 export type SettingsSectionKey =
   | "umum"
   | "sumber-data"
+  | "tim"
+  | "peran"
   | "email"
   | "sesi"
   | "api"
   | "audit"
-  | "tim"
   | "paket";
 
 const SECTIONS: {
@@ -44,21 +45,24 @@ const SECTIONS: {
   label: string;
   group: string;
   icon: ReactNode;
+  permission?: string;
 }[] = [
-  { key: "umum", label: "Umum & Identitas", group: "Organisasi", icon: <Buildings size={16} /> },
-  { key: "sumber-data", label: "Hierarki Sumber Data", group: "Organisasi", icon: <Stack size={16} /> },
-  { key: "tim", label: "Tim & Hak Akses", group: "Organisasi", icon: <Users size={16} /> },
-  { key: "email", label: "Gateway Email", group: "Komunikasi & SLA", icon: <EnvelopeSimple size={16} /> },
-  { key: "sesi", label: "Penutupan Sesi", group: "Komunikasi & SLA", icon: <Timer size={16} /> },
-  { key: "paket", label: "Paket & Kuota", group: "Keamanan & Developer", icon: <Wallet size={16} /> },
-  { key: "api", label: "Kunci API", group: "Keamanan & Developer", icon: <Key size={16} /> },
-  { key: "audit", label: "Log Audit", group: "Keamanan & Developer", icon: <ShieldCheck size={16} /> },
+  { key: "umum", label: "Umum & Identitas", group: "Organisasi", icon: <Buildings size={16} />, permission: "pengaturan.kelola" },
+  { key: "sumber-data", label: "Hierarki Sumber Data", group: "Organisasi", icon: <Stack size={16} />, permission: "sumberdata.kelola" },
+  { key: "tim", label: "Tim & Hak Akses", group: "Organisasi", icon: <Users size={16} />, permission: "pengaturan.tim" },
+  { key: "peran", label: "Peran & Izin", group: "Organisasi", icon: <ShieldCheck size={16} />, permission: "peran.kelola" },
+  { key: "email", label: "Gateway Email", group: "Komunikasi & SLA", icon: <EnvelopeSimple size={16} />, permission: "pengaturan.kelola" },
+  { key: "sesi", label: "Penutupan Sesi", group: "Komunikasi & SLA", icon: <Timer size={16} />, permission: "pengaturan.kelola" },
+  { key: "paket", label: "Paket & Kuota", group: "Keamanan & Developer", icon: <Wallet size={16} />, permission: "billing.lihat" },
+  { key: "api", label: "Kunci API", group: "Keamanan & Developer", icon: <Key size={16} />, permission: "apikeys.kelola" },
+  { key: "audit", label: "Log Audit", group: "Keamanan & Developer", icon: <ShieldCheck size={16} />, permission: "audit.lihat" },
 ];
 
 const SECTION_LABELS: Record<SettingsSectionKey, string> = {
   umum: "Umum & Identitas",
   "sumber-data": "Hierarki Sumber Data",
   tim: "Tim & Hak Akses",
+  peran: "Peran & Izin",
   email: "Gateway Email",
   sesi: "Penutupan Sesi",
   paket: "Paket & Kuota",
@@ -131,7 +135,16 @@ export function SettingsShell(props: {
   const orgName = session?.user?.name ?? "Usaha Anda";
   const orgInitial = orgName.trim().charAt(0).toUpperCase() || "U";
   const email = session?.user?.email ?? "";
-  const role = session?.user?.role === "OWNER" ? "Owner" : "Staf";
+  const role = session?.user?.isOwner ? "Pemilik" : "Staf";
+  // PRD 29: hide settings sections the role cannot enter (the page gates
+  // remain the real enforcement).
+  const visibleSections = SECTIONS.filter(
+    (s) =>
+      !s.permission ||
+      !!session?.user?.isOwner ||
+      !!session?.user?.permissions?.includes(s.permission)
+  );
+  const visibleGroups = [...new Set(visibleSections.map((s) => s.group))];
 
   function onQuickJump(value: string) {
     const target = jumpTarget(value);
@@ -194,13 +207,13 @@ export function SettingsShell(props: {
 
         {/* Categorized navigation */}
         <nav aria-label="Navigasi Pengaturan" className="flex-1 space-y-5 overflow-y-auto px-3 py-4">
-          {groups.map((group) => (
+          {visibleGroups.map((group) => (
             <div key={group}>
               <p className="px-2.5 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                 {group}
               </p>
               <div className="space-y-0.5">
-                {SECTIONS.filter((s) => s.group === group).map((s) => (
+                {visibleSections.filter((s) => s.group === group).map((s) => (
                   <Link
                     key={s.key}
                     href={`/dashboard/pengaturan/${s.key}`}

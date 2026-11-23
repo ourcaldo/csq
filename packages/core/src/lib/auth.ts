@@ -7,7 +7,6 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import type { NextAuthOptions, Session } from "next-auth";
 import { getServerSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { UserRole } from "@prisma/client";
 import { z } from "zod";
 import prisma from "@csq/core/lib/db";
 import { withSystemContext } from "@csq/core/lib/tenant-context";
@@ -16,6 +15,12 @@ import { getTenantEntitlements } from "@csq/core/lib/entitlements";
 import { checkRateLimit } from "@csq/core/lib/rate-limit";
 import { clientIp } from "@csq/core/lib/client-ip";
 import type { PlanFeature } from "@csq/core/types/entitlements";
+import {
+  ALL_KEYS,
+  OWNER_ONLY_KEYS,
+  expandPermissions,
+  type PermissionKey,
+} from "@csq/core/lib/permissions-catalog";
 
 // Sign-in input validation (matches the register schema's shape). Applied at
 // the authorize() boundary so untrusted credentials are Zod-validated, not
@@ -51,7 +56,10 @@ export const authOptions: NextAuthOptions = {
           if (!parsed.success) return null;
           const { email, password } = parsed.data;
 
-          const user = await prisma.user.findUnique({ where: { email } });
+          const user = await prisma.user.findUnique({
+            where: { email },
+            include: { role: { select: { permissions: true } } },
+          });
           const ok = await verifyPassword(
             password,
             user?.passwordHash ?? (await hashPassword(password))
@@ -70,8 +78,11 @@ export const authOptions: NextAuthOptions = {
             email: user.email,
             name: user.name,
             tenantId: user.tenantId,
-            role: user.role,
-            canRunCampaigns: user.canRunCampaigns,
+            isOwner: user.isOwner,
+            // Sign-in snapshot for the UI; enforcement reloads per request.
+            permissions: user.isOwner
+              ? [...ALL_KEYS]
+              : [...expandPermissions(user.role?.permissions ?? [])],
             // Audit run-3 (admin.tenant-owner-takeover): revocation stamp +
             // rotation flag, both re-checked against the DB on every request.
             passwordChangedAt: user.passwordChangedAt?.toISOString() ?? null,
@@ -87,8 +98,8 @@ export const authOptions: NextAuthOptions = {
       if (user && user.id) {
         token.userId = user.id;
         token.tenantId = user.tenantId;
-        token.role = user.role;
-        token.canRunCampaigns = user.canRunCampaigns;
+        token.isOwner = user.isOwner;
+        token.permissions = user.permissions;
         token.passwordChangedAt = user.passwordChangedAt;
         token.mustChangePassword = user.mustChangePassword;
       }
@@ -98,8 +109,8 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         session.user.id = token.userId;
         session.user.tenantId = token.tenantId;
-        session.user.role = token.role;
-        session.user.canRunCampaigns = token.canRunCampaigns ?? false;
+        session.user.isOwner = token.isOwner ?? false;
+        session.user.permissions = token.permissions ?? [];
         session.user.mustChangePassword = token.mustChangePassword ?? false;
         // Revocation stamp echoed so getAuthSession can compare it with the
         // DB without a cast (no secret - just a timestamp).
@@ -157,14 +168,20 @@ async function ssrSessionValid(
 
 export function withAuth<P extends Record<string, unknown> = Record<string, unknown>>(
   gssp: GetServerSideProps<P>,
-  options?: { requiredRole?: UserRole }
+  options?: { requiredPermission?: PermissionKey }
 ): GetServerSideProps<P> {
   return async (ctx: GetServerSidePropsContext): Promise<GetServerSidePropsResult<P>> => {
     const blocked = await ssrSessionValid(ctx, "/login");
     if (blocked) return blocked;
-    const session = await getSSRSession(ctx);
-    if (options?.requiredRole && session?.user.role !== options.requiredRole) {
-      return { redirect: { destination: "/dashboard", permanent: false } };
+    if (options?.requiredPermission) {
+      const session = await getSSRSession(ctx);
+      if (!session?.user.id) {
+        return { redirect: { destination: "/login", permanent: false } };
+      }
+      const fresh = await loadAuthUser(session.user.id);
+      if (!fresh || !hasPermission({ isOwner: fresh.isOwner, permissions: fresh.permissions }, options.requiredPermission)) {
+        return { redirect: { destination: "/dashboard", permanent: false } };
+      }
     }
     return gssp(ctx);
   };
@@ -175,28 +192,47 @@ export async function getSSRSession(ctx: GetServerSidePropsContext): Promise<Ses
 }
 
 // API route session helper - call first in every tenant-touching API route.
-// Audit run-3 (admin.tenant-owner-takeover): revocation check. The JWT
-// carries the passwordChangedAt stamp from sign-in; this is compared
-// against the DB on every request so ANY password write (admin reset,
-// self-service change, invite accept) kills all outstanding stateless
-// sessions immediately. Null stamp = the user never had a password write
-// since the migration; the token also has null -> valid.
+// PRD 29 section 8: the per-request auth load. ONE system-context query
+// fetches the revocation stamp, the owner flag, and the user's role
+// permissions - so both a password write and a role change take effect on
+// the target's very next request (no stale-JWT privilege retention).
+// RLS (PRD 16 SEC-1): User is a tenant table - contextless queries fail
+// CLOSED, and the check predates knowing the tenant, so like authorize()'s
+// email lookup it runs in the system-bypass context.
+export type AuthUser = {
+  passwordChangedAt: string | null;
+  isOwner: boolean;
+  permissions: PermissionKey[];
+};
+
+export async function loadAuthUser(userId: string): Promise<AuthUser | null> {
+  const user = await withSystemContext(async () =>
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        passwordChangedAt: true,
+        isOwner: true,
+        role: { select: { permissions: true } },
+      },
+    })
+  );
+  if (!user) return null;
+  return {
+    passwordChangedAt: user.passwordChangedAt?.toISOString() ?? null,
+    isOwner: user.isOwner,
+    permissions: user.isOwner
+      ? [...ALL_KEYS]
+      : [...expandPermissions(user.role?.permissions ?? [])],
+  };
+}
+
 async function passwordStampValid(
   userId: string,
   tokenStamp: string | null | undefined
 ): Promise<boolean> {
-  // RLS (PRD 16 SEC-1): User is a tenant table - contextless queries fail
-  // CLOSED. The check predates knowing the tenant, so like authorize()'s
-  // email lookup it runs in the system-bypass context.
-  const user = await withSystemContext(async () =>
-    prisma.user.findUnique({
-      where: { id: userId },
-      select: { passwordChangedAt: true },
-    })
-  );
+  const user = await loadAuthUser(userId);
   if (!user) return false;
-  const current = user.passwordChangedAt?.toISOString() ?? null;
-  return (tokenStamp ?? null) === current;
+  return (tokenStamp ?? null) === user.passwordChangedAt;
 }
 
 // The one API path a mustChangePassword user may reach: setting their new
@@ -219,12 +255,15 @@ export async function getAuthSession(
     });
     if (tenant?.status === "SUSPENDED") return null;
   }
-  // Audit run-3: revocation stamp - a password change since sign-in
-  // invalidates this session everywhere, unconditionally.
+  // Audit run-3 + PRD 29: revocation stamp AND fresh permissions, both from
+  // the same single loadAuthUser query.
   if (session?.user?.id) {
-    if (!(await passwordStampValid(session.user.id, session.user.passwordChangedAt))) {
+    const fresh = await loadAuthUser(session.user.id);
+    if (!fresh || (session.user.passwordChangedAt ?? null) !== fresh.passwordChangedAt) {
       return null;
     }
+    session.user.isOwner = fresh.isOwner;
+    session.user.permissions = fresh.permissions;
   }
   // Audit run-3: forced rotation - a user flagged mustChangePassword
   // (admin reset, tenant bootstrap) can do nothing except set a new
@@ -236,18 +275,33 @@ export async function getAuthSession(
   return session;
 }
 
-// Role guard for API routes. Returns true if the session's role is one of the
-// allowed roles. Use before OWNER-only (or OWNER+STAFF) mutations:
-//   if (!requireRole(session, "OWNER")) return respondError(res, "PERMISSION_DENIED", ...);
-export function requireRole(session: Session, ...roles: UserRole[]): boolean {
-  return roles.includes(session.user.role);
+// PRD 29 permission gate for API routes. The owner holds every permission;
+// owner-only keys are never satisfiable by a role grant (the role CRUD API
+// filters them on write - this is the enforcement-side backstop).
+//   if (!requirePermission(session, "produk.kelola")) return respondError(res, "PERMISSION_DENIED", ...);
+export function hasPermission(
+  auth: { isOwner: boolean; permissions: PermissionKey[] },
+  key: PermissionKey
+): boolean {
+  if (auth.isOwner) return true;
+  if (OWNER_ONLY_KEYS.includes(key)) return false;
+  return auth.permissions.includes(key);
+}
+
+export function requirePermission(session: Session, key: PermissionKey): boolean {
+  return hasPermission(session.user, key);
+}
+
+// Owner-only gates (PRD 29: peran/pengaturan-tim/apikeys/audit/billing).
+export function requireOwner(session: Session): boolean {
+  return session.user.isOwner;
 }
 
 // Pre-configured withAuth that only guards access (no custom props). Use for
 // dashboard pages that fetch their data client-side via use-api. Concrete
 // (non-generic) so the empty props object type-checks without a type cast.
 export function requireAuth(
-  options?: { requiredRole?: UserRole }
+  options?: { requiredPermission?: PermissionKey }
 ): GetServerSideProps<Record<string, unknown>> {
   return withAuth<Record<string, unknown>>(
     async () => ({ props: {} }),

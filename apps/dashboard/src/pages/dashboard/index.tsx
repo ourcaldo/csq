@@ -52,7 +52,7 @@ function timeLabel(iso: string): string {
 
 export default function DashboardIndex() {
   const { data: session } = useSession();
-  const isOwner = session?.user?.role === "OWNER";
+  const isOwner = !!session?.user?.isOwner;
 
   const products = useApi<ListResult<unknown>>("/api/dashboard/products?pageSize=1");
   const orders = useApi<ListResult<unknown>>("/api/dashboard/orders?pageSize=1");

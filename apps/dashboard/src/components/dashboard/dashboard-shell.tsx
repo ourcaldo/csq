@@ -46,6 +46,7 @@ import {
 import { cn } from "@csq/ui/lib/utils";
 import { Seo } from "@csq/ui/components/seo";
 import type { PlanFeature } from "@csq/core/types/entitlements";
+import type { PermissionKey } from "@csq/core/lib/permissions-catalog";
 import { useApi } from "@/hooks/use-api";
 import {
   EntitlementsProvider,
@@ -58,7 +59,9 @@ type NavItem = {
   label: string;
   icon: ReactNode;
   feature?: PlanFeature;
-  ownerOnly?: boolean;
+  // PRD 29: the section's read permission - the nav hides what the role
+  // cannot see. The page/API gates remain the real enforcement.
+  permission?: PermissionKey;
 };
 type NavGroup = { label: string; items: NavItem[] };
 
@@ -67,46 +70,46 @@ const NAV_GROUPS: NavGroup[] = [
     label: "Utama",
     items: [
       { href: "/dashboard", label: "Ringkasan", icon: <ChartBar size={18} /> },
-      { href: "/dashboard/inbox", label: "Percakapan", icon: <ChatCircleDots size={18} /> },
-      { href: "/dashboard/tickets", label: "Tiket", icon: <Lifebuoy size={18} /> },
-      { href: "/dashboard/campaigns", label: "Kampanye", icon: <Megaphone size={18} />, feature: "campaigns" },
-      { href: "/dashboard/templates", label: "Template Pesan", icon: <Notepad size={18} /> },
-      { href: "/dashboard/saluran", label: "Saluran", icon: <WhatsappLogo size={18} /> },
-      { href: "/dashboard/pipeline", label: "Manajemen Pipeline", icon: <Kanban size={18} />, feature: "pipeline" },
-      { href: "/dashboard/kpi", label: "KPI", icon: <Target size={18} />, ownerOnly: true },
+      { href: "/dashboard/inbox", label: "Percakapan", icon: <ChatCircleDots size={18} />, permission: "inbox.lihat" },
+      { href: "/dashboard/tickets", label: "Tiket", icon: <Lifebuoy size={18} />, permission: "tiket.lihat" },
+      { href: "/dashboard/campaigns", label: "Kampanye", icon: <Megaphone size={18} />, feature: "campaigns", permission: "kampanye.lihat" },
+      { href: "/dashboard/templates", label: "Template Pesan", icon: <Notepad size={18} />, permission: "template.lihat" },
+      { href: "/dashboard/saluran", label: "Saluran", icon: <WhatsappLogo size={18} />, permission: "saluran.lihat" },
+      { href: "/dashboard/pipeline", label: "Manajemen Pipeline", icon: <Kanban size={18} />, feature: "pipeline", permission: "pipeline.lihat" },
+      { href: "/dashboard/kpi", label: "KPI", icon: <Target size={18} />, permission: "kpi.lihat" },
     ],
   },
   {
     label: "Data Bisnis",
     items: [
-      { href: "/dashboard/products", label: "Produk", icon: <Package size={18} /> },
-      { href: "/dashboard/inventory", label: "Inventaris", icon: <Stack size={18} /> },
-      { href: "/dashboard/orders", label: "Pesanan", icon: <ShoppingCart size={18} /> },
-      { href: "/dashboard/contacts", label: "Kontak", icon: <AddressBook size={18} /> },
-      { href: "/dashboard/tags", label: "Tag", icon: <Tag size={18} /> },
+      { href: "/dashboard/products", label: "Produk", icon: <Package size={18} />, permission: "produk.lihat" },
+      { href: "/dashboard/inventory", label: "Inventaris", icon: <Stack size={18} />, permission: "inventaris.lihat" },
+      { href: "/dashboard/orders", label: "Pesanan", icon: <ShoppingCart size={18} />, permission: "pesanan.lihat" },
+      { href: "/dashboard/contacts", label: "Kontak", icon: <AddressBook size={18} />, permission: "kontak.lihat" },
+      { href: "/dashboard/tags", label: "Tag", icon: <Tag size={18} />, permission: "tag.lihat" },
     ],
   },
   {
     label: "Pengetahuan",
     items: [
-      { href: "/dashboard/knowledge", label: "Pengetahuan", icon: <Books size={18} /> },
-      { href: "/dashboard/memory", label: "Memori", icon: <Brain size={18} /> },
-      { href: "/dashboard/sources", label: "Sumber Data", icon: <Database size={18} /> },
+      { href: "/dashboard/knowledge", label: "Pengetahuan", icon: <Books size={18} />, permission: "pengetahuan.kelola" },
+      { href: "/dashboard/memory", label: "Memori", icon: <Brain size={18} />, permission: "memori.lihat" },
+      { href: "/dashboard/sources", label: "Sumber Data", icon: <Database size={18} />, permission: "sumberdata.kelola" },
     ],
   },
   {
     label: "Agent",
     items: [
-      { href: "/dashboard/agents", label: "Agent", icon: <Robot size={18} /> },
-      { href: "/dashboard/scenarios", label: "Skenario", icon: <FlowArrow size={18} />, feature: "scenarios" },
-      { href: "/dashboard/approvals", label: "Approval", icon: <SealCheck size={18} /> },
-      { href: "/dashboard/activity", label: "Aktivitas", icon: <ClockCounterClockwise size={18} /> },
+      { href: "/dashboard/agents", label: "Agent", icon: <Robot size={18} />, permission: "agent.lihat" },
+      { href: "/dashboard/scenarios", label: "Skenario", icon: <FlowArrow size={18} />, feature: "scenarios", permission: "skenario.lihat" },
+      { href: "/dashboard/approvals", label: "Approval", icon: <SealCheck size={18} />, permission: "approval.lihat" },
+      { href: "/dashboard/activity", label: "Aktivitas", icon: <ClockCounterClockwise size={18} />, permission: "aktivitas.lihat" },
     ],
   },
 ];
 
 const NAV_BOTTOM: NavItem[] = [
-  { href: "/dashboard/pengaturan/umum", label: "Pengaturan", icon: <Gear size={18} /> },
+  { href: "/dashboard/pengaturan/umum", label: "Pengaturan", icon: <Gear size={18} />, permission: "pengaturan.kelola" },
 ];
 
 type DashboardShellProps = {
@@ -161,7 +164,11 @@ export function DashboardShell({ title, description, actions, headerExtra, flush
 
   const userName = session?.user?.name ?? session?.user?.email ?? "Pengguna";
   const userInitial = (session?.user?.name ?? session?.user?.email ?? "U").charAt(0).toUpperCase();
-  const role = session?.user?.role;
+
+  // PRD 29: nav visibility follows the session's permission set (the page
+  // and API gates remain the real enforcement).
+  const hasPerm = (key?: PermissionKey) =>
+    !key || !!session?.user?.isOwner || !!session?.user?.permissions?.includes(key);
 
   // Feature visibility follows the tenant's plan. While entitlements load we
   // show the full nav (no flicker for legacy tenants); a plan without a
@@ -173,9 +180,9 @@ export function DashboardShell({ title, description, actions, headerExtra, flush
     !feature || !entitlements || entitlements.features.includes(feature);
   const navGroups = NAV_GROUPS.map((group) => ({
     ...group,
-    items: group.items.filter((item) => canUse(item.feature)),
+    items: group.items.filter((item) => canUse(item.feature) && hasPerm(item.permission)),
   })).filter((group) => group.items.length > 0);
-  const bottomItems = NAV_BOTTOM.filter((item) => !item.ownerOnly || role === "OWNER");
+  const bottomItems = NAV_BOTTOM.filter((item) => hasPerm(item.permission));
 
   return (
     <EntitlementsProvider value={entitlements ?? null}>
@@ -360,7 +367,7 @@ export function DashboardShell({ title, description, actions, headerExtra, flush
 
           {/* Right actions */}
           <div className="flex items-center gap-3 md:gap-4">
-            {role === "OWNER" && <QuotaMenu entitlements={entitlements ?? null} />}
+            {!!session?.user?.isOwner && <QuotaMenu entitlements={entitlements ?? null} />}
             <button className="relative text-slate-400 transition-colors hover:text-slate-600">
               <Bell size={22} />
               <span className="absolute right-0 top-0 h-2 w-2 rounded-full border-2 border-white bg-red-500" />
@@ -380,9 +387,9 @@ export function DashboardShell({ title, description, actions, headerExtra, flush
                 <div className="absolute right-0 top-12 z-50 w-56 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
                   <div className="border-b border-slate-100 px-3 py-2">
                     <p className="truncate text-sm font-semibold text-slate-900">{userName}</p>
-                    {role && (
-                      <p className="text-xs text-slate-500">{role === "OWNER" ? "Owner" : "Staff"}</p>
-                    )}
+                    <p className="text-xs text-slate-500">
+                      {session?.user?.isOwner ? "Pemilik" : "Staf"}
+                    </p>
                   </div>
                   <button
                     className="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900"

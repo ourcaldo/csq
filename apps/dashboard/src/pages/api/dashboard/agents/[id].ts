@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { logHuman } from "@csq/core/lib/audit";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
@@ -19,7 +19,7 @@ export default async function handler(
   const tenantId = requireTenant(session);
 
   return withTenantContext(tenantId, async () => {
-    if (!requireRole(session, "OWNER")) {
+    if (!requirePermission(session, "agent.kelola")) {
       return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat menghapus agent.");
     }
 

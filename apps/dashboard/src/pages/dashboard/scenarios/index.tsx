@@ -43,8 +43,9 @@ const STATUS_TONE: Record<ScenarioStatus, "neutral" | "green" | "amber"> = {
 export default function ScenariosPage() {
   const router = useRouter();
   const { data: session } = useSession();
-  const canEdit = session?.user?.role === "OWNER" || session?.user?.role === "STAFF";
-  const isOwner = session?.user?.role === "OWNER";
+  const canEdit =
+    !!session?.user?.isOwner || !!session?.user?.permissions?.includes("skenario.kelola");
+  const isOwner = !!session?.user?.isOwner;
 
   const [page, setPage] = useState(1);
   const [creating, setCreating] = useState(false);

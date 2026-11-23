@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
 import prisma from "@csq/core/lib/db";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import { logHuman } from "@csq/core/lib/audit";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
@@ -48,7 +48,7 @@ export default async function handler(
 
     if (req.method === "PUT") {
       // Owner-only - priority is a tenant-wide policy (PRD §13).
-      if (!requireRole(session, "OWNER")) {
+      if (!requirePermission(session, "sumberdata.kelola")) {
         return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengubah prioritas sumber.");
       }
       const parsed = priorityUpdateSchema.safeParse(req.body);

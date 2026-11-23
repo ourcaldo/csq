@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Category } from "@prisma/client";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { logHuman } from "@csq/core/lib/audit";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
@@ -26,7 +26,7 @@ export default async function handler(
     }
 
     if (req.method === "PUT") {
-      if (!requireRole(session, "OWNER")) {
+      if (!requirePermission(session, "kontak.kelola")) {
         return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengubah kategori.");
       }
       const parsed = categoryUpdateSchema.safeParse(req.body);
@@ -61,7 +61,7 @@ export default async function handler(
     }
 
     if (req.method === "DELETE") {
-      if (!requireRole(session, "OWNER")) {
+      if (!requirePermission(session, "kontak.kelola")) {
         return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat menghapus kategori.");
       }
       const existing = await prisma.category.findFirst({ where: { id, tenantId } });

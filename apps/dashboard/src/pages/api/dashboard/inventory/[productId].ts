@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Inventory, InventorySnapshot } from "@prisma/client";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { logHuman } from "@csq/core/lib/audit";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
@@ -35,7 +35,7 @@ export default async function handler(
     }
 
     if (req.method === "PUT") {
-      if (!requireRole(session, "OWNER")) {
+      if (!requirePermission(session, "inventaris.lihat")) {
         return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengubah inventaris.");
       }
       const parsed = inventoryUpdateSchema.safeParse(req.body);

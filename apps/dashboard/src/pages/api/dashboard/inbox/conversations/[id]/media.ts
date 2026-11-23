@@ -1,7 +1,8 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Message } from "@prisma/client";
 import { z } from "zod";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
+import { visibleChannelIds } from "@csq/core/lib/channel-access";
 import prisma from "@csq/core/lib/db";
 import {
   HttpError,
@@ -78,7 +79,7 @@ export default async function handler(
   const tenantId = requireTenant(session);
 
   return withTenantContext(tenantId, async () => {
-    if (!requireRole(session, "OWNER", "STAFF")) {
+    if (!requirePermission(session, "inbox.media")) {
       return respondError(
         res,
         "PERMISSION_DENIED",
@@ -148,8 +149,11 @@ export default async function handler(
       // 24h window check BEFORE storing the asset - a blocked send must not
       // leak an orphaned MediaAsset (Cloud API only, same rule as a text
       // reply). Baileys has no window.
+      // PRD 29 section 6: only conversations on visible channels.
+      const visibleCh = await visibleChannelIds(session);
+      const channelScope = visibleCh ? { channelId: { in: visibleCh } } : {};
       const conv = await prisma.conversation.findFirst({
-        where: { id, tenantId },
+        where: { id, tenantId, ...channelScope },
         include: { channel: true },
       });
       if (!conv) {

@@ -84,7 +84,7 @@ function Chip({ name, color }: { name: string; color: string | null }) {
 export default function ContactsPage() {
   const router = useRouter();
   const { data: session } = useSession();
-  const isOwner = session?.user?.role === "OWNER";
+  const canManage = session?.user?.isOwner || !!session?.user?.permissions?.includes("kontak.kelola");
 
   const { data: catsData } = useApi<Category[]>("/api/dashboard/contact-categories");
   const { data: tagsData } = useApi<ListResult<Tag>>("/api/dashboard/tags?pageSize=100");
@@ -274,7 +274,7 @@ export default function ContactsPage() {
             <DownloadSimple size={14} className="text-slate-500" />
             <span>Ekspor CSV</span>
           </button>
-          {isOwner && (
+          {canManage && (
             <>
               <button
                 onClick={openImport}
@@ -495,7 +495,7 @@ export default function ContactsPage() {
                         >
                           <WhatsappLogo size={16} />
                         </button>
-                        {isOwner && (
+                        {canManage && (
                           <button
                             onClick={() => openEdit(c)}
                             className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 transition hover:bg-slate-50"

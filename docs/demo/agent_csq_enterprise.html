@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="id" class="antialiased">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Agent — CSQ Enterprise</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+          mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        },
+      }
+    }
+  }
+</script>
+<style>
+  body { font-feature-settings: "cv02", "cv03", "cv04", "cv11"; }
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+  .nav-link {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.45rem 0.75rem; border-radius: 0.5rem;
+    font-size: 0.8125rem; font-weight: 500; color: rgb(71 85 105);
+    transition: background-color 0.12s ease, color 0.12s ease;
+    cursor: pointer;
+  }
+  .nav-link:hover { background-color: rgb(248 250 252); color: rgb(15 23 42); }
+  .nav-link.active { background-color: rgb(240 253 244); color: rgb(21 128 61); font-weight: 600; }
+  .tab-btn {
+    position: relative;
+    padding: 0.65rem 0.25rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: rgb(100 116 139);
+    transition: color 0.15s ease;
+  }
+  .tab-btn:hover { color: rgb(15 23 42); }
+  .tab-btn.active {
+    color: rgb(15 23 42);
+    font-weight: 600;
+  }
+  .tab-btn.active::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    background-color: rgb(22 163 74);
+  }
+  .modal-backdrop { background: rgba(15, 23, 42, 0.45); backdrop-filter: blur(2px); }
+  /* Accessible Enterprise Switch */
+  .switch { position: relative; display: inline-block; width: 34px; height: 20px; flex-shrink: 0; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .switch .track {
+    position: absolute; inset: 0; border-radius: 9999px;
+    background-color: rgb(203 213 225); transition: background-color 0.15s ease; cursor: pointer;
+  }
+  .switch .track::after {
+    content: ""; position: absolute; top: 2px; left: 2px; height: 16px; width: 16px;
+    border-radius: 9999px; background: white; transition: transform 0.15s ease;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.2);
+  }
+  .switch input:checked + .track { background-color: rgb(5 150 105); }
+  .switch input:checked + .track::after { transform: translateX(14px); }
+  .switch input.amber:checked + .track { background-color: rgb(217 119 6); }
+  .switch input:disabled + .track { opacity: 0.4; cursor: not-allowed; }
+</style>
+</head>
+<body class="bg-white text-slate-900 selection:bg-emerald-100 selection:text-emerald-950">
+
+<!-- ══════════ Mobile Overlay ══════════ -->
+<div id="mobile-overlay" onclick="toggleSidebar(false)" class="modal-backdrop fixed inset-0 z-30 hidden md:hidden"></div>
+
+<!-- ══════════ Application Sidebar ══════════ -->
+<aside id="app-sidebar" class="fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 -translate-x-full flex-col border-r border-slate-200 bg-white transition-transform duration-200 md:translate-x-0">
+  <div class="flex h-14 items-center justify-between border-b border-slate-100 px-5">
+    <div class="flex items-center gap-2.5">
+      <div class="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-600 text-white">
+        <i class="ph-fill ph-chat-circle-dots text-base"></i>
+      </div>
+      <span class="text-lg font-bold tracking-tight text-slate-900">CSQ</span>
+    </div>
+    <button onclick="toggleSidebar(false)" aria-label="Tutup menu" class="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 md:hidden">
+      <i class="ph ph-x text-base"></i>
+    </button>
+  </div>
+
+  <nav class="flex-1 space-y-5 overflow-y-auto px-3 py-4">
+    <div>
+      <p class="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Utama</p>
+      <div class="space-y-0.5">
+        <a onclick="showToast('Navigasi ke Ringkasan'); return false" class="nav-link"><i class="ph ph-chart-bar text-base text-slate-400"></i>Ringkasan</a>
+        <a onclick="showToast('Navigasi ke Percakapan'); return false" class="nav-link"><i class="ph ph-chat-circle-dots text-base text-slate-400"></i>Percakapan</a>
+        <a onclick="showToast('Navigasi ke Tiket'); return false" class="nav-link"><i class="ph ph-lifebuoy text-base text-slate-400"></i>Tiket</a>
+        <a onclick="showToast('Navigasi ke Kampanye'); return false" class="nav-link"><i class="ph ph-megaphone text-base text-slate-400"></i>Kampanye</a>
+        <a onclick="showToast('Navigasi ke Template Pesan'); return false" class="nav-link"><i class="ph ph-notepad text-base text-slate-400"></i>Template Pesan</a>
+        <a onclick="showToast('Navigasi ke Saluran'); return false" class="nav-link"><i class="ph ph-whatsapp-logo text-base text-slate-400"></i>Saluran</a>
+      </div>
+    </div>
+    <div>
+      <p class="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Data Bisnis</p>
+      <div class="space-y-0.5">
+        <a onclick="showToast('Navigasi ke Produk'); return false" class="nav-link"><i class="ph ph-package text-base text-slate-400"></i>Produk</a>
+        <a onclick="showToast('Navigasi ke Inventaris'); return false" class="nav-link"><i class="ph ph-stack text-base text-slate-400"></i>Inventaris</a>
+        <a onclick="showToast('Navigasi ke Pesanan'); return false" class="nav-link"><i class="ph ph-shopping-cart text-base text-slate-400"></i>Pesanan</a>
+        <a onclick="showToast('Navigasi ke Kontak'); return false" class="nav-link"><i class="ph ph-address-book text-base text-slate-400"></i>Kontak</a>
+        <a onclick="showToast('Navigasi ke Tag'); return false" class="nav-link"><i class="ph ph-tag text-base text-slate-400"></i>Tag</a>
+      </div>
+    </div>
+    <div>
+      <p class="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Agent</p>
+      <div class="space-y-0.5">
+        <a onclick="switchView('list')" class="nav-link active"><i class="ph ph-robot text-base text-emerald-600"></i>Agent</a>
+        <a onclick="showToast('Navigasi ke Skenario'); return false" class="nav-link"><i class="ph ph-flow-arrow text-base text-slate-400"></i>Skenario</a>
+        <a onclick="showToast('Navigasi ke Approval'); return false" class="nav-link"><i class="ph ph-seal-check text-base text-slate-400"></i>Approval</a>
+        <a onclick="showToast('Navigasi ke Aktivitas'); return false" class="nav-link"><i class="ph ph-clock-counter-clockwise text-base text-slate-400"></i>Aktivitas</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="space-y-0.5 border-t border-slate-200 p-3">
+    <a onclick="showToast('Navigasi ke Pengaturan'); return false" class="nav-link"><i class="ph ph-gear text-base text-slate-400"></i>Pengaturan</a>
+    <a onclick="showToast('Navigasi ke Tim'); return false" class="nav-link"><i class="ph ph-users text-base text-slate-400"></i>Tim</a>
+    <a onclick="showToast('Navigasi ke Paket & Kuota'); return false" class="nav-link"><i class="ph ph-wallet text-base text-slate-400"></i>Paket &amp; Kuota</a>
+  </div>
+</aside>
+
+<!-- ══════════ Main Workspace ══════════ -->
+<div class="flex min-h-screen min-w-0 flex-col md:pl-64">
+
+  <!-- Sticky Top Utility Bar -->
+  <header class="sticky top-0 z-20 flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur-xs md:px-8">
+    <div class="flex items-center gap-3">
+      <button onclick="toggleSidebar(true)" aria-label="Buka menu" class="rounded p-1.5 text-slate-600 hover:bg-slate-100 md:hidden">
+        <i class="ph ph-list text-lg"></i>
+      </button>
+      <div class="relative hidden sm:block">
+        <i class="ph ph-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400"></i>
+        <input id="global-cmd" type="text" oninput="handleQuickSearch(this.value)" placeholder="Cari agent atau alat… (⌘K)" class="h-8 w-64 rounded-md border border-slate-200 bg-slate-50 pl-8 pr-3 text-xs text-slate-900 placeholder-slate-400 transition focus:w-80 focus:border-slate-300 focus:bg-white focus:outline-none" />
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <div class="hidden items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50/80 px-2.5 py-1 text-xs font-medium text-slate-600 sm:inline-flex">
+        <i class="ph-fill ph-shield-check text-emerald-600"></i><span>Akses Owner</span>
+      </div>
+      <button aria-label="Notifikasi" class="relative rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800">
+        <i class="ph ph-bell text-lg"></i>
+        <span class="absolute right-1.5 top-1.5 h-2 w-2 rounded-full border-2 border-white bg-red-500"></span>
+      </button>
+      <div class="h-4 w-px bg-slate-200"></div>
+      <div class="flex items-center gap-2">
+        <div class="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-600 text-xs font-semibold text-white">B</div>
+        <div class="hidden text-left lg:block">
+          <p class="text-xs font-semibold leading-none text-slate-900">Bu Ratih</p>
+          <p class="mt-0.5 font-mono text-[10px] leading-none text-slate-400">Owner</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 px-4 py-7 md:px-8">
+    <div class="w-full max-w-6xl">
+
+      <!-- ════════════════════════════════════════════════════════════ -->
+      <!-- VIEW 1: AGENT LIST                                            -->
+      <!-- ════════════════════════════════════════════════════════════ -->
+      <div id="view-list">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 class="text-xl font-semibold tracking-tight text-slate-900">Agent</h1>
+            <p class="mt-1 text-xs text-slate-500">Kelola agent AI: status deploy, saluran terhubung, dan matriks izin per alat.</p>
+          </div>
+          <button type="button" onclick="openCreate()" class="inline-flex h-9 items-center gap-1.5 rounded-md bg-emerald-600 px-3.5 text-xs font-semibold text-white transition hover:bg-emerald-700">
+            <i class="ph ph-plus text-sm"></i>Buat Agent
+          </button>
+        </div>
+
+        <!-- Telemetry Strip -->
+        <div class="mt-6 grid grid-cols-2 border-y border-slate-200 sm:grid-cols-4 sm:divide-x sm:divide-slate-200">
+          <div class="py-3.5 pr-4">
+            <p class="text-[11px] font-medium text-slate-400">Total Agent</p>
+            <p id="kpi-total" class="mt-1 font-mono text-lg font-semibold text-slate-900 tabular-nums">3</p>
+          </div>
+          <div class="py-3.5 sm:px-5">
+            <p class="text-[11px] font-medium text-slate-400">Aktif (Deployed)</p>
+            <p id="kpi-active" class="mt-1 font-mono text-lg font-semibold text-emerald-700 tabular-nums">1</p>
+          </div>
+          <div class="border-t border-slate-200 py-3.5 pr-4 sm:border-t-0 sm:px-5">
+            <p class="text-[11px] font-medium text-slate-400">Dijeda</p>
+            <p id="kpi-paused" class="mt-1 font-mono text-lg font-semibold text-amber-600 tabular-nums">1</p>
+          </div>
+          <div class="border-t border-slate-200 py-3.5 sm:border-t-0 sm:pl-5">
+            <p class="text-[11px] font-medium text-slate-400">Draf</p>
+            <p id="kpi-draft" class="mt-1 font-mono text-lg font-semibold text-slate-900 tabular-nums">1</p>
+          </div>
+        </div>
+
+        <!-- Filter & Search Strip -->
+        <div class="mt-5 flex flex-wrap items-center justify-between gap-3">
+          <div class="flex flex-wrap items-center gap-3">
+            <div class="relative">
+              <i class="ph ph-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400"></i>
+              <input id="agent-search" type="text" oninput="renderAgentList()" placeholder="Filter nama atau instruksi…" class="h-8 w-60 rounded-md border border-slate-300 bg-white pl-8 pr-3 text-xs text-slate-900 placeholder-slate-400 focus:border-emerald-600 focus:outline-none" />
+            </div>
+            <div class="inline-flex rounded-md border border-slate-200 bg-slate-50 p-0.5 text-xs">
+              <button type="button" data-astatus="ALL" onclick="setStatusFilter('ALL')" class="status-pill rounded bg-white px-2.5 py-1 font-semibold text-slate-900 shadow-2xs">Semua</button>
+              <button type="button" data-astatus="ACTIVE" onclick="setStatusFilter('ACTIVE')" class="status-pill rounded px-2.5 py-1 font-medium text-slate-600 hover:text-slate-900">Aktif</button>
+              <button type="button" data-astatus="PAUSED" onclick="setStatusFilter('PAUSED')" class="status-pill rounded px-2.5 py-1 font-medium text-slate-600 hover:text-slate-900">Dijeda</button>
+              <button type="button" data-astatus="DRAFT" onclick="setStatusFilter('DRAFT')" class="status-pill rounded px-2.5 py-1 font-medium text-slate-600 hover:text-slate-900">Draf</button>
+            </div>
+          </div>
+          <span class="font-mono text-[11px] text-slate-400">Registry v2.4 • 8 Tools</span>
+        </div>
+
+        <!-- Agent Ledger Table -->
+        <div class="mt-4 overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead>
+              <tr class="border-y border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                <th class="py-3 pr-4">Agent</th>
+                <th class="px-4 py-3">Status</th>
+                <th class="hidden px-4 py-3 md:table-cell">Alat Diizinkan</th>
+                <th class="hidden px-4 py-3 lg:table-cell">Saluran &amp; Model</th>
+                <th class="hidden px-4 py-3 xl:table-cell">Diperbarui</th>
+                <th class="py-3 pl-4 text-right">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="agents-tbody" class="divide-y divide-slate-200 border-b border-slate-200"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════════════════════════════════ -->
+      <!-- VIEW 2: FULL-PAGE AGENT DETAIL + CAPABILITY MATRIX           -->
+      <!-- ════════════════════════════════════════════════════════════ -->
+      <div id="view-detail" class="hidden">
+        <div class="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-6">
+          <div>
+            <div class="flex items-center gap-2 text-xs text-slate-500">
+              <button type="button" onclick="switchView('list')" class="inline-flex items-center gap-1 hover:text-slate-900">
+                <i class="ph ph-arrow-left text-xs"></i>Agent
+              </button>
+              <span class="text-slate-300">/</span>
+              <span id="detail-breadcrumb" class="font-medium text-slate-700">Detail</span>
+            </div>
+            <div id="detail-title" class="mt-3 flex flex-wrap items-center gap-2.5 text-xl font-semibold tracking-tight text-slate-900"></div>
+            <div id="detail-meta" class="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1 font-mono text-[11px] text-slate-400"></div>
+            <p id="detail-instructions" class="mt-3 max-w-3xl text-xs leading-relaxed text-slate-600"></p>
+          </div>
+          <div class="flex shrink-0 flex-wrap items-center gap-2">
+            <button type="button" onclick="openEdit()" class="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">
+              <i class="ph ph-pencil-simple text-xs"></i>Edit Persona
+            </button>
+            <button type="button" id="detail-toggle-btn" onclick="toggleAgentStatus()" class="inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-semibold text-white"></button>
+            <button type="button" id="detail-delete-btn" onclick="askDeleteAgent()" class="inline-flex h-8 items-center gap-1.5 rounded-md border border-red-200 bg-white px-3 text-xs font-medium text-red-600 hover:bg-red-50">
+              <i class="ph ph-trash text-xs"></i>Hapus
+            </button>
+          </div>
+        </div>
+
+        <!-- Capability Summary Strip -->
+        <div class="mt-6 grid grid-cols-2 border-y border-slate-200 sm:grid-cols-4 sm:divide-x sm:divide-slate-200">
+          <div class="py-3.5 pr-4">
+            <p class="text-[11px] font-medium text-slate-400">Total Alat Registry</p>
+            <p id="kpi-caps-total" class="mt-1 font-mono text-lg font-semibold text-slate-900 tabular-nums"></p>
+          </div>
+          <div class="py-3.5 sm:px-5">
+            <p class="text-[11px] font-medium text-slate-400">Diizinkan</p>
+            <p id="kpi-caps-allowed" class="mt-1 font-mono text-lg font-semibold text-emerald-700 tabular-nums"></p>
+          </div>
+          <div class="border-t border-slate-200 py-3.5 pr-4 sm:border-t-0 sm:px-5">
+            <p class="text-[11px] font-medium text-slate-400">Butuh Approval</p>
+            <p id="kpi-caps-approval" class="mt-1 font-mono text-lg font-semibold text-amber-600 tabular-nums"></p>
+          </div>
+          <div class="border-t border-slate-200 py-3.5 sm:border-t-0 sm:pl-5">
+            <p class="text-[11px] font-medium text-slate-400">Override Kustom</p>
+            <p id="kpi-caps-overrides" class="mt-1 font-mono text-lg font-semibold text-slate-900 tabular-nums"></p>
+          </div>
+        </div>
+
+        <!-- Detail Sub-Tabs -->
+        <div class="mt-5 flex items-center justify-between border-b border-slate-200">
+          <div class="flex gap-6">
+            <button type="button" data-dtab="matrix" onclick="switchDetailTab('matrix')" class="dtab-btn tab-btn active">
+              Matriks Kapabilitas Alat
+            </button>
+            <button type="button" data-dtab="sandbox" onclick="switchDetailTab('sandbox')" class="dtab-btn tab-btn">
+              Simulator &amp; Uji Prompt
+            </button>
+          </div>
+          <button type="button" id="btn-reset-caps" onclick="resetCapabilitiesToDefault()" class="hidden text-xs font-medium text-slate-500 hover:text-slate-900">
+            <i class="ph ph-arrow-counter-clockwise mr-1"></i>Pulihkan Default Registry
+          </button>
+        </div>
+
+        <!-- TAB A: CAPABILITY MATRIX -->
+        <div id="dpanel-matrix" class="mt-4">
+          <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              <i class="ph-fill ph-sparkle text-sm text-emerald-600"></i>
+              <h2 class="text-sm font-semibold text-slate-900">Izin Eksekusi per Alat</h2>
+              <span class="font-mono text-[11px] text-slate-400">Perubahan diterapkan real-time pada turn berikutnya</span>
+            </div>
+            <div class="flex items-center gap-3 text-[11px] text-slate-500">
+              <span class="inline-flex items-center gap-1"><span class="h-2 w-2 rounded-full bg-emerald-500"></span>Eksekusi Langsung</span>
+              <span class="inline-flex items-center gap-1"><span class="h-2 w-2 rounded-full bg-amber-500"></span>Antrean Approval Manusia</span>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto border-y border-slate-200">
+            <table class="w-full text-left text-sm">
+              <thead>
+                <tr class="border-b border-slate-200 bg-slate-50/70 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
+                  <th class="px-4 py-3">Alat &amp; Deskripsi</th>
+                  <th class="w-36 px-4 py-3">Diizinkan</th>
+                  <th class="w-44 px-4 py-3">Butuh Approval</th>
+                  <th class="hidden px-4 py-3 sm:table-cell">Default Registry</th>
+                </tr>
+              </thead>
+              <tbody id="caps-tbody" class="divide-y divide-slate-200"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TAB B: SANDBOX PROMPT SIMULATOR -->
+        <div id="dpanel-sandbox" class="mt-5 hidden">
+          <div class="grid grid-cols-1 gap-6 lg:grid-cols-12">
+            <div class="space-y-3 lg:col-span-5">
+              <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-500">Uji Skenario Percakapan</h3>
+              <p class="text-xs leading-relaxed text-slate-500">Simulasikan pesan pelanggan untuk memverifikasi alat mana yang akan dipanggil oleh agent beserta status approval-nya.</p>
+              <div class="space-y-1.5 pt-1">
+                <button type="button" onclick="runSandboxPrompt('Halo, stok Kopi Gayo 250g masih ada berapa ya?')" class="block w-full rounded-md border border-slate-200 bg-slate-50/70 px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-100">
+                  “Halo, stok Kopi Gayo 250g masih ada berapa ya?”
+                </button>
+                <button type="button" onclick="runSandboxPrompt('Tolong buatkan pesanan 2 bungkus Kopi Gayo 250g atas nama Budi')" class="block w-full rounded-md border border-slate-200 bg-slate-50/70 px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-100">
+                  “Tolong buatkan pesanan 2 bungkus Kopi Gayo 250g atas nama Budi”
+                </button>
+                <button type="button" onclick="runSandboxPrompt('Saya mau komplain paket rusak, tolong refund dana saya')" class="block w-full rounded-md border border-slate-200 bg-slate-50/70 px-3 py-2 text-left text-xs text-slate-700 hover:bg-slate-100">
+                  “Saya mau komplain paket rusak, tolong refund dana saya”
+                </button>
+              </div>
+              <form onsubmit="submitCustomSandbox(event)" class="pt-2">
+                <label class="block text-xs font-medium text-slate-700">Pesan Kustom</label>
+                <div class="mt-1.5 flex gap-2">
+                  <input id="sandbox-input" type="text" placeholder="Ketik pesan simulasi…" class="h-9 flex-1 rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-emerald-600 focus:outline-none" />
+                  <button type="submit" class="h-9 rounded-md bg-emerald-600 px-3.5 text-xs font-semibold text-white hover:bg-emerald-700">Uji</button>
+                </div>
+              </form>
+            </div>
+
+            <div class="lg:col-span-7">
+              <div class="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
+                <div class="flex items-center justify-between border-b border-slate-200 pb-2.5">
+                  <span class="font-mono text-[11px] font-semibold uppercase text-slate-500">Execution Trace Preview</span>
+                  <span class="font-mono text-[11px] text-emerald-700">Dry-Run (0 Kredit)</span>
+                </div>
+                <div id="sandbox-output" class="mt-3 space-y-3 text-xs text-slate-600">
+                  <p class="py-6 text-center text-slate-400">Pilih contoh pesan di sebelah kiri atau ketik pesan baru untuk melihat jejak pemanggilan alat.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ════════════════════════════════════════════════════════════ -->
+      <!-- VIEW 3: FULL-PAGE CREATE / EDIT PERSONA (NO POP-UP)          -->
+      <!-- ════════════════════════════════════════════════════════════ -->
+      <div id="view-form" class="hidden">
+        <div class="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-6">
+          <div>
+            <div class="flex items-center gap-2 text-xs text-slate-500">
+              <button type="button" onclick="cancelForm()" class="inline-flex items-center gap-1 hover:text-slate-900">
+                <i class="ph ph-arrow-left text-xs"></i>Agent
+              </button>
+              <span class="text-slate-300">/</span>
+              <span id="form-breadcrumb" class="font-medium text-slate-700">Buat Agent</span>
+            </div>
+            <h1 id="form-title" class="mt-3 text-xl font-semibold tracking-tight text-slate-900">Buat Agent Baru</h1>
+            <p id="form-subtitle" class="mt-1 text-xs text-slate-500">Agent baru dibuat sebagai draf. Deploy untuk mengaktifkannya pada saluran pelanggan.</p>
+          </div>
+          <button type="button" onclick="cancelForm()" class="inline-flex h-8 items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-50">
+            Batal
+          </button>
+        </div>
+
+        <form onsubmit="saveAgentForm(event)" class="divide-y divide-slate-200">
+          <!-- Row 1: Identity & Channel -->
+          <div class="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
+            <div class="md:col-span-4">
+              <label for="af-name" class="text-xs font-semibold text-slate-900">Identitas &amp; Saluran</label>
+              <p class="mt-1 text-xs leading-relaxed text-slate-500">Nama tampilan agent di dashboard, audit log, dan saluran WhatsApp yang ditugaskan.</p>
+            </div>
+            <div class="space-y-3.5 md:col-span-8 max-w-lg">
+              <div>
+                <label for="af-name" class="block text-xs font-medium text-slate-700">Nama Agent <span class="text-red-500">*</span></label>
+                <input id="af-name" type="text" required placeholder="mis. CS Utama Toko Kopi" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15" />
+              </div>
+              <div class="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                <div>
+                  <label for="af-channel" class="block text-xs font-medium text-slate-700">Saluran Terhubung</label>
+                  <select id="af-channel" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-emerald-600 focus:outline-none">
+                    <option value="Toko Utama (Cloud API)">Toko Utama (Cloud API)</option>
+                    <option value="WA Pribadi (Baileys)">WA Pribadi (Baileys)</option>
+                    <option value="Semua Saluran">Semua Saluran</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="af-model" class="block text-xs font-medium text-slate-700">Profil Penalaran</label>
+                  <select id="af-model" class="mt-1.5 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-xs text-slate-900 focus:border-emerald-600 focus:outline-none">
+                    <option value="CSQ-Balanced (Cepat & Akurat)">CSQ-Balanced (Cepat &amp; Akurat)</option>
+                    <option value="CSQ-Strict (Kepatuhan Tinggi)">CSQ-Strict (Kepatuhan Tinggi)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Row 2: System Instructions -->
+          <div class="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
+            <div class="md:col-span-4">
+              <label for="af-instructions" class="text-xs font-semibold text-slate-900">Persona &amp; Instruksi Sistem</label>
+              <p class="mt-1 text-xs leading-relaxed text-slate-500">Gaya bahasa, batasan kebijakan pengembalian dana, dan panduan eskalasi ke staf manusia.</p>
+              <div class="mt-3 space-y-1.5">
+                <p class="text-[11px] font-medium text-slate-400">Sisipkan Template Cepat:</p>
+                <button type="button" onclick="applyPromptPreset('cs')" class="block rounded border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-100">
+                  + Customer Service &amp; Katalog
+                </button>
+                <button type="button" onclick="applyPromptPreset('order')" class="block rounded border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-100">
+                  + Asisten Pemesanan &amp; Stok
+                </button>
+              </div>
+            </div>
+            <div class="md:col-span-8 max-w-2xl">
+              <div class="flex items-center justify-between">
+                <label for="af-instructions" class="block text-xs font-medium text-slate-700">System Prompt <span class="text-red-500">*</span></label>
+                <span id="af-char-count" class="font-mono text-[11px] text-slate-400">0 karakter</span>
+              </div>
+              <textarea id="af-instructions" rows="7" required oninput="updateInstructionCounter()" placeholder="Tuliskan peran, nada bicara, dan aturan operasional agent…" class="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-3 py-2.5 text-xs leading-relaxed text-slate-900 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/15"></textarea>
+              <p class="mt-1.5 text-[11px] text-slate-400">Guardrail keamanan CSQ aktif secara otomatis untuk mencegah kebocoran prompt internal dan halusinasi harga.</p>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-end gap-2.5 pt-5">
+            <button type="button" onclick="cancelForm()" class="rounded-md border border-slate-300 bg-white px-4 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
+              Batal
+            </button>
+            <button type="submit" id="af-submit-btn" class="rounded-md bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-700">
+              Simpan Agent
+            </button>
+          </div>
+        </form>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- ══════════ Destructive Delete Confirmation Dialog Only ══════════ -->
+<div id="confirm-delete-modal" class="modal-backdrop fixed inset-0 z-50 hidden items-center justify-center p-4">
+  <div class="w-full max-w-md overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl">
+    <div class="border-b border-slate-100 px-5 py-3.5">
+      <h3 class="text-sm font-semibold text-slate-900">Hapus Agent AI</h3>
+    </div>
+    <p id="del-modal-msg" class="px-5 py-4 text-xs leading-relaxed text-slate-600"></p>
+    <div class="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-5 py-3">
+      <button type="button" onclick="closeDeleteModal()" class="rounded-md border border-slate-300 bg-white px-3.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Batal</button>
+      <button type="button" onclick="confirmDeleteAgent()" class="rounded-md bg-red-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-red-700">Hapus Permanen</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ Non-blocking Toast ══════════ -->
+<div id="toast" class="pointer-events-none fixed bottom-5 right-5 z-50 flex translate-y-4 items-center gap-2 rounded-md bg-slate-900 px-3.5 py-2.5 text-xs font-medium text-white opacity-0 shadow-lg transition-all duration-200">
+  <i class="ph-fill ph-check-circle text-sm text-emerald-400"></i>
+  <span id="toast-msg">Tersimpan</span>
+</div>
+
+<script>
+// ══════════ Registry & Agent State ══════════
+const TOOL_REGISTRY = [
+  { key: "search_products", label: "Cari Produk & Harga", category: "Katalog", desc: "Membaca daftar SKU, varian, dan harga dari Sumber Data.", defaultAllowed: true, defaultApproval: false },
+  { key: "check_inventory", label: "Cek Ketersediaan Stok", category: "Inventaris", desc: "Memeriksa kuantitas stok real-time lintas Excel, Sheets & Manual.", defaultAllowed: true, defaultApproval: false },
+  { key: "search_knowledge", label: "Cari Basis Pengetahuan", category: "Pengetahuan", desc: "Mengambil SOP, FAQ, dan kebijakan toko dari dokumen terindeks.", defaultAllowed: true, defaultApproval: false },
+  { key: "create_order", label: "Buat Draf Pesanan", category: "Transaksi", desc: "Mencatat pesanan baru pelanggan beserta item dan total tagihan.", defaultAllowed: true, defaultApproval: true },
+  { key: "update_contact_tag", label: "Ubah Tag & Kategori Kontak", category: "CRM", desc: "Menambahkan label segmentasi (mis. VIP, Follow-up) pada kontak.", defaultAllowed: true, defaultApproval: false },
+  { key: "create_ticket", label: "Buka Tiket Eskalasi", category: "Dukungan", desc: "Membuat tiket bantuan untuk ditangani oleh staf manusia.", defaultAllowed: true, defaultApproval: false },
+  { key: "send_payment_link", label: "Kirim Instruksi Pembayaran", category: "Transaksi", desc: "Mengirimkan rincian rekening atau tautan pelunasan pesanan.", defaultAllowed: false, defaultApproval: true },
+  { key: "issue_refund", label: "Ajukan Pengembalian Dana", category: "Keuangan", desc: "Memproses permintaan refund atau pembatalan pesanan terkonfirmasi.", defaultAllowed: false, defaultApproval: true }
+];
+
+let agents = [
+  {
+    id: "ag_1",
+    name: "CS Utama Toko Kopi",
+    status: "ACTIVE",
+    channel: "Toko Utama (Cloud API)",
+    model: "CSQ-Balanced (Cepat & Akurat)",
+    updatedAt: "22 Nov 2026, 14:15",
+    createdAt: "02 Nov 2026",
+    instructions: "Kamu adalah asisten layanan pelanggan resmi Toko Kopi Nusantara. Jawab pertanyaan produk, harga, dan stok secara ramah, ringkas, dan sopan dalam Bahasa Indonesia. Selalu gunakan data katalog terbaru dan eskalasikan komplain kerusakan paket ke tiket bantuan.",
+    caps: {
+      search_products: { allowed: true, approval: false },
+      check_inventory: { allowed: true, approval: false },
+      search_knowledge: { allowed: true, approval: false },
+      create_order: { allowed: true, approval: true },
+      update_contact_tag: { allowed: true, approval: false },
+      create_ticket: { allowed: true, approval: false },
+      send_payment_link: { allowed: false, approval: true },
+      issue_refund: { allowed: false, approval: true }
+    }
+  },
+  {
+    id: "ag_2",
+    name: "Asisten Grosir & Reseller",
+    status: "PAUSED",
+    channel: "WA Pribadi (Baileys)",
+    model: "CSQ-Strict (Kepatuhan Tinggi)",
+    updatedAt: "20 Nov 2026, 09:40",
+    createdAt: "10 Nov 2026",
+    instructions: "Layani pertanyaan mitra reseller terkait minimum order kuantitas (MOQ), ketersediaan stok grosir biji kopi sangrai, dan pencatatan draf pesanan B2B.",
+    caps: {
+      search_products: { allowed: true, approval: false },
+      check_inventory: { allowed: true, approval: false },
+      search_knowledge: { allowed: true, approval: false },
+      create_order: { allowed: true, approval: false },
+      update_contact_tag: { allowed: true, approval: false },
+      create_ticket: { allowed: true, approval: false },
+      send_payment_link: { allowed: true, approval: true },
+      issue_refund: { allowed: false, approval: true }
+    }
+  },
+  {
+    id: "ag_3",
+    name: "Bot Promo Akhir Tahun",
+    status: "DRAFT",
+    channel: "Semua Saluran",
+    model: "CSQ-Balanced (Cepat & Akurat)",
+    updatedAt: "21 Nov 2026, 17:05",
+    createdAt: "21 Nov 2026",
+    instructions: "Bantu pelanggan memilih paket bundling hampers kopi akhir tahun sesuai anggaran dan catat alamat pengiriman.",
+    caps: {
+      search_products: { allowed: true, approval: false },
+      check_inventory: { allowed: true, approval: false },
+      search_knowledge: { allowed: true, approval: false },
+      create_order: { allowed: false, approval: true },
+      update_contact_tag: { allowed: false, approval: false },
+      create_ticket: { allowed: true, approval: false },
+      send_payment_link: { allowed: false, approval: true },
+      issue_refund: { allowed: false, approval: true }
+    }
+  }
+];
+
+let statusFilter = "ALL";
+let activeAgentId = null;
+let formMode = "create"; // "create" | "edit"
+
+// ══════════ Helpers ══════════
+function esc(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+let toastTimer = null;
+function showToast(msg) {
+  const el = document.getElementById("toast");
+  document.getElementById("toast-msg").textContent = msg;
+  el.classList.remove("opacity-0", "translate-y-4");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.add("opacity-0", "translate-y-4"), 2500);
+}
+
+function toggleSidebar(open) {
+  document.getElementById("app-sidebar").classList.toggle("-translate-x-full", !open);
+  document.getElementById("mobile-overlay").classList.toggle("hidden", !open);
+}
+
+function statusPill(status) {
+  if (status === "ACTIVE") {
+    return `<span class="inline-flex items-center gap-1.5 font-mono text-xs font-medium text-emerald-700"><span class="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>Aktif</span>`;
+  }
+  if (status === "PAUSED") {
+    return `<span class="inline-flex items-center gap-1.5 font-mono text-xs font-medium text-amber-700"><span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>Dijeda</span>`;
+  }
+  return `<span class="inline-flex items-center gap-1.5 font-mono text-xs font-medium text-slate-500"><span class="h-1.5 w-1.5 rounded-full bg-slate-300"></span>Draf</span>`;
+}
+
+function countAllowedTools(agent) {
+  return TOOL_REGISTRY.filter((t) => agent.caps[t.key]?.allowed).length;
+}
+
+function countOverrides(agent) {
+  return TOOL_REGISTRY.filter((t) => {
+    const cur = agent.caps[t.key];
+    return cur && (cur.allowed !== t.defaultAllowed || cur.approval !== t.defaultApproval);
+  }).length;
+}
+
+// ══════════ Navigation ══════════
+function switchView(view) {
+  ["list", "detail", "form"].forEach((v) => {
+    document.getElementById("view-" + v).classList.toggle("hidden", v !== view);
+  });
+  if (view === "list") renderAgentList();
+  if (view === "detail") renderAgentDetail();
+  window.scrollTo({ top: 0, behavior: "instant" });
+}
+
+function handleQuickSearch(val) {
+  const q = val.trim();
+  if (!document.getElementById("view-list").classList.contains("hidden")) {
+    document.getElementById("agent-search").value = q;
+    renderAgentList();
+  }
+}
+
+document.addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+    e.preventDefault();
+    document.getElementById("global-cmd").focus();
+  }
+});
+
+// ══════════ VIEW 1: RENDER LIST ══════════
+function setStatusFilter(status) {
+  statusFilter = status;
+  document.querySelectorAll(".status-pill").forEach((btn) => {
+    const active = btn.dataset.astatus === status;
+    btn.classList.toggle("bg-white", active);
+    btn.classList.toggle("font-semibold", active);
+    btn.classList.toggle("text-slate-900", active);
+    btn.classList.toggle("shadow-2xs", active);
+    btn.classList.toggle("font-medium", !active);
+    btn.classList.toggle("text-slate-600", !active);
+  });
+  renderAgentList();
+}
+
+function renderAgentList() {
+  document.getElementById("kpi-total").textContent = agents.length;
+  document.getElementById("kpi-active").textContent = agents.filter((a) => a.status === "ACTIVE").length;
+  document.getElementById("kpi-paused").textContent = agents.filter((a) => a.status === "PAUSED").length;
+  document.getElementById("kpi-draft").textContent = agents.filter((a) => a.status === "DRAFT").length;
+
+  const q = (document.getElementById("agent-search").value || "").trim().toLowerCase();
+  const filtered = agents.filter((a) => {
+    const matchStatus = statusFilter === "ALL" || a.status === statusFilter;
+    const matchQuery = !q || a.name.toLowerCase().includes(q) || a.instructions.toLowerCase().includes(q);
+    return matchStatus && matchQuery;
+  });
+
+  const tbody = document.getElementById("agents-tbody");
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="py-10 text-center text-xs text-slate-400">Tidak ada agent yang cocok dengan kriteria filter.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map((a) => {
+    const allowedCount = countAllowedTools(a);
+    const toggleLabel = a.status === "ACTIVE" ? "Jeda" : "Deploy";
+    const toggleStyle = a.status === "ACTIVE"
+      ? "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+      : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100";
+
+    return `
+      <tr class="hover:bg-slate-50/80">
+        <td class="py-3.5 pr-4">
+          <a onclick="openDetail('${a.id}')" class="cursor-pointer text-xs font-semibold text-slate-900 hover:text-emerald-700">${esc(a.name)}</a>
+          <p class="mt-0.5 line-clamp-1 max-w-md text-[11px] text-slate-500">${esc(a.instructions)}</p>
+        </td>
+        <td class="px-4 py-3.5">${statusPill(a.status)}</td>
+        <td class="hidden px-4 py-3.5 md:table-cell">
+          <span class="font-mono text-xs font-semibold text-slate-900 tabular-nums">${allowedCount}</span>
+          <span class="font-mono text-xs text-slate-400">/ ${TOOL_REGISTRY.length} alat</span>
+        </td>
+        <td class="hidden px-4 py-3.5 lg:table-cell">
+          <p class="text-xs text-slate-700">${esc(a.channel)}</p>
+          <p class="font-mono text-[10px] text-slate-400">${esc(a.model)}</p>
+        </td>
+        <td class="hidden px-4 py-3.5 font-mono text-xs text-slate-500 xl:table-cell">${esc(a.updatedAt)}</td>
+        <td class="py-3.5 pl-4 text-right">
+          <div class="inline-flex items-center gap-2.5">
+            <button type="button" onclick="quickToggleStatus('${a.id}')" class="rounded border px-2.5 py-1 text-xs font-medium transition ${toggleStyle}">${toggleLabel}</button>
+            <button type="button" onclick="openDetail('${a.id}')" class="text-xs font-semibold text-emerald-700 hover:underline">Matriks &amp; Detail →</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function quickToggleStatus(id) {
+  const a = agents.find((x) => x.id === id);
+  if (!a) return;
+  a.status = a.status === "ACTIVE" ? "PAUSED" : "ACTIVE";
+  a.updatedAt = "22 Nov 2026, 17:53";
+  renderAgentList();
+  showToast(a.status === "ACTIVE" ? `Agent "${a.name}" di-deploy` : `Agent "${a.name}" dijeda`);
+}
+
+// ══════════ VIEW 2: DETAIL & CAPABILITY MATRIX ══════════
+function openDetail(id) {
+  activeAgentId = id;
+  switchDetailTab("matrix");
+  switchView("detail");
+}
+
+function switchDetailTab(tab) {
+  document.querySelectorAll(".dtab-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.dtab === tab);
+  });
+  document.getElementById("dpanel-matrix").classList.toggle("hidden", tab !== "matrix");
+  document.getElementById("dpanel-sandbox").classList.toggle("hidden", tab !== "sandbox");
+}
+
+function renderAgentDetail() {
+  const a = agents.find((x) => x.id === activeAgentId) || agents[0];
+  if (!a) return;
+  activeAgentId = a.id;
+
+  document.getElementById("detail-breadcrumb").textContent = a.name;
+  document.getElementById("detail-title").innerHTML = `<span>${esc(a.name)}</span> ${statusPill(a.status)}`;
+  document.getElementById("detail-meta").innerHTML = `
+    <span>ID: ${esc(a.id)}</span>
+    <span>•</span>
+    <span>Saluran: ${esc(a.channel)}</span>
+    <span>•</span>
+    <span>Model: ${esc(a.model)}</span>
+    <span>•</span>
+    <span>Diperbarui ${esc(a.updatedAt)}</span>
+  `;
+  document.getElementById("detail-instructions").textContent = a.instructions;
+
+  const toggleBtn = document.getElementById("detail-toggle-btn");
+  if (a.status === "ACTIVE") {
+    toggleBtn.className = "inline-flex h-8 items-center gap-1.5 rounded-md bg-amber-600 px-3 text-xs font-semibold text-white hover:bg-amber-700";
+    toggleBtn.innerHTML = `<i class="ph ph-pause text-xs"></i>Jeda Agent`;
+  } else {
+    toggleBtn.className = "inline-flex h-8 items-center gap-1.5 rounded-md bg-emerald-600 px-3 text-xs font-semibold text-white hover:bg-emerald-700";
+    toggleBtn.innerHTML = `<i class="ph ph-play text-xs"></i>Deploy Agent`;
+  }
+
+  const allowedCount = countAllowedTools(a);
+  const approvalCount = TOOL_REGISTRY.filter((t) => a.caps[t.key]?.allowed && a.caps[t.key]?.approval).length;
+  const overrideCount = countOverrides(a);
+
+  document.getElementById("kpi-caps-total").textContent = TOOL_REGISTRY.length;
+  document.getElementById("kpi-caps-allowed").textContent = allowedCount;
+  document.getElementById("kpi-caps-approval").textContent = approvalCount;
+  document.getElementById("kpi-caps-overrides").textContent = overrideCount;
+
+  const resetBtn = document.getElementById("btn-reset-caps");
+  resetBtn.classList.toggle("hidden", overrideCount === 0);
+
+  document.getElementById("caps-tbody").innerHTML = TOOL_REGISTRY.map((t) => {
+    const state = a.caps[t.key] || { allowed: t.defaultAllowed, approval: t.defaultApproval };
+    const isCustom = state.allowed !== t.defaultAllowed || state.approval !== t.defaultApproval;
+
+    return `
+      <tr class="hover:bg-slate-50/80">
+        <td class="px-4 py-3.5">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-xs font-semibold text-slate-900">${esc(t.label)}</span>
+            <span class="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">${esc(t.key)}</span>
+            ${isCustom ? `<span class="rounded bg-amber-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-amber-700">Override</span>` : ""}
+          </div>
+          <p class="mt-0.5 text-[11px] text-slate-500">${esc(t.desc)}</p>
+        </td>
+        <td class="px-4 py-3.5">
+          <label class="inline-flex items-center gap-2.5">
+            <span class="switch">
+              <input type="checkbox" ${state.allowed ? "checked" : ""} onchange="toggleToolCap('${t.key}', 'allowed', this.checked)" />
+              <span class="track"></span>
+            </span>
+            <span class="font-mono text-[11px] ${state.allowed ? "font-semibold text-emerald-700" : "text-slate-400"}">${state.allowed ? "Ya" : "Tidak"}</span>
+          </label>
+        </td>
+        <td class="px-4 py-3.5">
+          <label class="inline-flex items-center gap-2.5">
+            <span class="switch">
+              <input class="amber" type="checkbox" ${state.approval ? "checked" : ""} ${!state.allowed ? "disabled" : ""} onchange="toggleToolCap('${t.key}', 'approval', this.checked)" />
+              <span class="track"></span>
+            </span>
+            <span class="font-mono text-[11px] ${!state.allowed ? "text-slate-300" : state.approval ? "font-semibold text-amber-700" : "text-slate-500"}">
+              ${!state.allowed ? "Nonaktif" : state.approval ? "Wajib Approval" : "Otomatis"}
+            </span>
+          </label>
+        </td>
+        <td class="hidden px-4 py-3.5 font-mono text-[11px] text-slate-500 sm:table-cell">
+          ${t.defaultAllowed ? (t.defaultApproval ? "Diizinkan • Approval" : "Diizinkan • Otomatis") : "Diblokir"}
+        </td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function toggleToolCap(toolKey, field, checked) {
+  const a = agents.find((x) => x.id === activeAgentId);
+  if (!a) return;
+  if (!a.caps[toolKey]) a.caps[toolKey] = { allowed: false, approval: false };
+  a.caps[toolKey][field] = checked;
+  a.updatedAt = "22 Nov 2026, 17:53";
+  renderAgentDetail();
+  showToast(`Izin "${toolKey}" diperbarui`);
+}
+
+function resetCapabilitiesToDefault() {
+  const a = agents.find((x) => x.id === activeAgentId);
+  if (!a) return;
+  TOOL_REGISTRY.forEach((t) => {
+    a.caps[t.key] = { allowed: t.defaultAllowed, approval: t.defaultApproval };
+  });
+  a.updatedAt = "22 Nov 2026, 17:53";
+  renderAgentDetail();
+  showToast("Seluruh kapabilitas dipulihkan ke default registry");
+}
+
+function toggleAgentStatus() {
+  const a = agents.find((x) => x.id === activeAgentId);
+  if (!a) return;
+  a.status = a.status === "ACTIVE" ? "PAUSED" : "ACTIVE";
+  a.updatedAt = "22 Nov 2026, 17:53";
+  renderAgentDetail();
+  showToast(a.status === "ACTIVE" ? "Agent berhasil di-deploy" : "Agent dijeda");
+}
+
+// ══════════ SANDBOX SIMULATOR ══════════
+function submitCustomSandbox(e) {
+  e.preventDefault();
+  const inp = document.getElementById("sandbox-input");
+  const text = inp.value.trim();
+  if (!text) return;
+  runSandboxPrompt(text);
+  inp.value = "";
+}
+
+function runSandboxPrompt(promptText) {
+  const a = agents.find((x) => x.id === activeAgentId);
+  if (!a) return;
+
+  const lower = promptText.toLowerCase();
+  let matchedTool = TOOL_REGISTRY[2]; // default knowledge
+  if (lower.includes("stok") || lower.includes("ada berapa")) matchedTool = TOOL_REGISTRY[1];
+  else if (lower.includes("pesan") || lower.includes("order") || lower.includes("beli")) matchedTool = TOOL_REGISTRY[3];
+  else if (lower.includes("refund") || lower.includes("kembali")) matchedTool = TOOL_REGISTRY[7];
+  else if (lower.includes("komplain") || lower.includes("rusak")) matchedTool = TOOL_REGISTRY[5];
+  else if (lower.includes("harga") || lower.includes("produk")) matchedTool = TOOL_REGISTRY[0];
+
+  const cap = a.caps[matchedTool.key] || { allowed: false, approval: false };
+  let decisionHtml = "";
+  if (!cap.allowed) {
+    decisionHtml = `<span class="rounded bg-red-50 px-2 py-0.5 font-mono text-[11px] font-semibold text-red-700">DIBLOKIR OLEH MATRIKS IZIN</span>
+      <p class="mt-1.5 text-slate-600">Agent dilarang memanggil <code class="font-mono">${matchedTool.key}</code>. Agent akan menjawab secara sopan bahwa tindakan tersebut memerlukan bantuan staf.</p>`;
+  } else if (cap.approval) {
+    decisionHtml = `<span class="rounded bg-amber-50 px-2 py-0.5 font-mono text-[11px] font-semibold text-amber-700">DIALIHKAN KE ANTREAN APPROVAL</span>
+      <p class="mt-1.5 text-slate-600">Agent menyusun payload untuk <code class="font-mono">${matchedTool.key}</code> dan menahan eksekusi hingga Owner/Staff menyetujui di menu <strong>Approval</strong>.</p>`;
+  } else {
+    decisionHtml = `<span class="rounded bg-emerald-50 px-2 py-0.5 font-mono text-[11px] font-semibold text-emerald-700">EKSEKUSI OTOMATIS DIIZINKAN</span>
+      <p class="mt-1.5 text-slate-600">Agent langsung mengeksekusi <code class="font-mono">${matchedTool.key}</code> dan menyusun balasan terverifikasi dalam ~1.2 detik.</p>`;
+  }
+
+  document.getElementById("sandbox-output").innerHTML = `
+    <div class="rounded border border-slate-200 bg-white p-3">
+      <p class="font-mono text-[10px] uppercase text-slate-400">Input Pelanggan</p>
+      <p class="mt-1 font-medium text-slate-900">“${esc(promptText)}”</p>
+    </div>
+    <div class="rounded border border-slate-200 bg-white p-3">
+      <div class="flex items-center justify-between">
+        <span class="font-mono text-[10px] uppercase text-slate-400">Kandidat Alat</span>
+        <span class="font-mono text-[11px] font-semibold text-slate-800">${esc(matchedTool.key)}</span>
+      </div>
+      <div class="mt-2">${decisionHtml}</div>
+    </div>
+  `;
+}
+
+// ══════════ VIEW 3: CREATE / EDIT PERSONA FORM ══════════
+function openCreate() {
+  formMode = "create";
+  document.getElementById("form-breadcrumb").textContent = "Buat Agent";
+  document.getElementById("form-title").textContent = "Buat Agent Baru";
+  document.getElementById("form-subtitle").textContent = "Agent baru dibuat sebagai draf. Deploy untuk mengaktifkannya pada saluran pelanggan.";
+  document.getElementById("af-submit-btn").textContent = "Simpan sebagai Draf";
+
+  document.getElementById("af-name").value = "";
+  document.getElementById("af-channel").value = "Toko Utama (Cloud API)";
+  document.getElementById("af-model").value = "CSQ-Balanced (Cepat & Akurat)";
+  document.getElementById("af-instructions").value = "";
+  updateInstructionCounter();
+  switchView("form");
+}
+
+function openEdit() {
+  const a = agents.find((x) => x.id === activeAgentId);
+  if (!a) return;
+  formMode = "edit";
+  document.getElementById("form-breadcrumb").textContent = `Edit — ${a.name}`;
+  document.getElementById("form-title").textContent = `Edit Persona — ${a.name}`;
+  document.getElementById("form-subtitle").textContent = "Perubahan instruksi sistem dan saluran langsung berlaku pada percakapan aktif.";
+  document.getElementById("af-submit-btn").textContent = "Simpan Perubahan";
+
+  document.getElementById("af-name").value = a.name;
+  document.getElementById("af-channel").value = a.channel;
+  document.getElementById("af-model").value = a.model;
+  document.getElementById("af-instructions").value = a.instructions;
+  updateInstructionCounter();
+  switchView("form");
+}
+
+function cancelForm() {
+  switchView(formMode === "edit" && activeAgentId ? "detail" : "list");
+}
+
+function updateInstructionCounter() {
+  const len = (document.getElementById("af-instructions").value || "").length;
+  document.getElementById("af-char-count").textContent = `${len} karakter`;
+}
+
+function applyPromptPreset(type) {
+  const box = document.getElementById("af-instructions");
+  const presets = {
+    cs: "Kamu adalah staf Customer Service yang ramah dan solutif. Jawab pertanyaan pelanggan berdasarkan katalog produk dan basis pengetahuan resmi. Jangan pernah menjanjikan diskon di luar daftar harga.",
+    order: "Bantu pelanggan mengecek stok produk secara real-time dan catat detail pesanan (nama, nomor WhatsApp, daftar SKU, dan jumlah) ke dalam draf pesanan untuk dikonfirmasi admin."
+  };
+  box.value = box.value.trim() ? `${box.value.trim()}\n\n${presets[type]}` : presets[type];
+  updateInstructionCounter();
+}
+
+function saveAgentForm(e) {
+  e.preventDefault();
+  const name = document.getElementById("af-name").value.trim();
+  const channel = document.getElementById("af-channel").value;
+  const model = document.getElementById("af-model").value;
+  const instructions = document.getElementById("af-instructions").value.trim();
+  if (!name || !instructions) return;
+
+  if (formMode === "edit" && activeAgentId) {
+    const a = agents.find((x) => x.id === activeAgentId);
+    if (a) {
+      a.name = name;
+      a.channel = channel;
+      a.model = model;
+      a.instructions = instructions;
+      a.updatedAt = "22 Nov 2026, 17:53";
+    }
+    showToast(`Persona "${name}" diperbarui`);
+    switchView("detail");
+  } else {
+    const defaultCaps = {};
+    TOOL_REGISTRY.forEach((t) => {
+      defaultCaps[t.key] = { allowed: t.defaultAllowed, approval: t.defaultApproval };
+    });
+    const newId = "ag_" + Date.now();
+    agents.unshift({
+      id: newId,
+      name,
+      status: "DRAFT",
+      channel,
+      model,
+      updatedAt: "22 Nov 2026, 17:53",
+      createdAt: "22 Nov 2026",
+      instructions,
+      caps: defaultCaps
+    });
+    activeAgentId = newId;
+    showToast(`Agent "${name}" dibuat sebagai draf`);
+    switchView("detail");
+  }
+}
+
+// ══════════ Delete Confirmation Dialog ══════════
+function askDeleteAgent() {
+  const a = agents.find((x) => x.id === activeAgentId);
+  if (!a) return;
+  document.getElementById("del-modal-msg").innerHTML =
+    `Apakah Anda yakin ingin menghapus agent <strong>${esc(a.name)}</strong> beserta konfigurasi matriks kapabilitasnya secara permanen?`;
+  const modal = document.getElementById("confirm-delete-modal");
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+}
+
+function closeDeleteModal() {
+  const modal = document.getElementById("confirm-delete-modal");
+  modal.classList.add("hidden");
+  modal.classList.remove("flex");
+}
+
+function confirmDeleteAgent() {
+  const idx = agents.findIndex((x) => x.id === activeAgentId);
+  const removedName = idx > -1 ? agents[idx].name : "Agent";
+  if (idx > -1) agents.splice(idx, 1);
+  activeAgentId = null;
+  closeDeleteModal();
+  switchView("list");
+  showToast(`"${removedName}" telah dihapus`);
+}
+
+// ══════════ Initialize ══════════
+renderAgentList();
+</script>
+</body>
+</html>

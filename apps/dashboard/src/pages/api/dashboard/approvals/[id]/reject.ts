@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getAuthSession, requireRole } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { logAction } from "@csq/core/lib/audit";
 import { sendApprovalFollowUp } from "@csq/core/lib/agent-outbox";
@@ -22,7 +22,7 @@ export default async function handler(
   if (!session) {
     return res.status(401).json(apiError("UNAUTHORIZED", "Authentication required"));
   }
-  if (!requireRole(session, "OWNER")) {
+  if (!requirePermission(session, "approval.putuskan")) {
     return res
       .status(403)
       .json(apiError("PERMISSION_DENIED", "Only owners can reject actions"));

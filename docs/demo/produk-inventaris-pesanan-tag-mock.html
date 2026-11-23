@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="id" class="antialiased">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Produk / Inventaris / Pesanan / Tag — CSQ (mock)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+      }
+    }
+  }
+</script>
+<style>
+  body { font-feature-settings: "cv02", "cv03", "cv04", "cv11"; }
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+  .nav-item-active { background-color: rgb(240 253 244); color: rgb(21 128 61); font-weight: 600; }
+  .modal-backdrop { background: rgba(15, 23, 42, 0.45); backdrop-filter: blur(2px); }
+  .fade-in { animation: fadeIn 0.15s ease-out; }
+  @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+<!-- ══════════ Sidebar (referensi app asli) ══════════ -->
+<aside class="fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 flex-col border-r border-slate-200 bg-white">
+  <div class="flex h-16 items-center gap-2 border-b border-slate-100 px-6">
+    <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-green-600 text-white">
+      <i class="ph-fill ph-chat-circle-dots text-xl"></i>
+    </div>
+    <span class="text-xl font-bold tracking-tight text-slate-900">CSQ</span>
+  </div>
+  <nav class="flex-1 space-y-4 overflow-y-auto px-3 py-4 text-[13px]">
+    <div>
+      <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Utama</p>
+      <div class="space-y-0.5">
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-chart-bar text-lg text-slate-400"></i>Ringkasan</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-chat-circle-dots text-lg text-slate-400"></i>Percakapan</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-lifebuoy text-lg text-slate-400"></i>Tiket</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-megaphone text-lg text-slate-400"></i>Kampanye</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-notepad text-lg text-slate-400"></i>Template Pesan</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-whatsapp-logo text-lg text-slate-400"></i>Saluran</a>
+      </div>
+    </div>
+    <div>
+      <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Data Bisnis</p>
+      <div class="space-y-0.5">
+        <a id="nav-produk" onclick="switchView('produk')" class="nav-active flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2"><i class="ph ph-package text-lg text-green-600"></i>Produk</a>
+        <a id="nav-inventaris" onclick="switchView('inventaris')" class="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-stack text-lg text-slate-400"></i>Inventaris</a>
+        <a id="nav-pesanan" onclick="switchView('pesanan')" class="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-shopping-cart text-lg text-slate-400"></i>Pesanan</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-address-book text-lg text-slate-400"></i>Kontak</a>
+        <a id="nav-tag" onclick="switchView('tag')" class="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-tag text-lg text-slate-400"></i>Tag</a>
+      </div>
+    </div>
+  </nav>
+  <div class="space-y-0.5 border-t border-slate-200 p-3 text-[13px]">
+    <a class="flex items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900"><i class="ph ph-gear text-lg text-slate-400"></i>Pengaturan</a>
+  </div>
+</aside>
+
+<div class="flex min-w-0 flex-col md:pl-64">
+  <header class="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 md:px-6">
+    <div class="hidden w-72 sm:block lg:w-96">
+      <div class="relative">
+        <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+        <input type="text" placeholder="Cari atau ketik perintah…" class="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-9 pr-12 text-xs text-slate-900 placeholder-slate-400 focus:border-slate-300 focus:bg-white focus:outline-none" />
+        <kbd class="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded border border-slate-200 bg-white px-1.5 py-0.5 font-mono text-[10px] text-slate-400">⌘K</kbd>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <div class="hidden items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600 sm:inline-flex">
+        <i class="ph-fill ph-shield-check text-green-600"></i><span>Akses Owner</span>
+      </div>
+      <button class="relative flex h-8 w-8 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-slate-800" aria-label="Notifikasi">
+        <i class="ph ph-bell text-xl"></i>
+        <span class="absolute right-1.5 top-1.5 h-2 w-2 rounded-full border-2 border-white bg-red-500"></span>
+      </button>
+      <div class="h-5 w-px bg-slate-200"></div>
+      <div class="flex items-center gap-2 rounded-lg p-1 transition hover:bg-slate-100">
+        <div class="flex h-8 w-8 items-center justify-center rounded-full bg-green-600 text-xs font-semibold text-white">B</div>
+        <div class="hidden text-left lg:block">
+          <p class="text-xs font-semibold leading-tight text-slate-900">Bu Ratih</p>
+          <p class="text-[11px] leading-tight text-slate-500">Owner</p>
+        </div>
+        <i class="ph ph-caret-down hidden text-xs text-slate-400 sm:block"></i>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1">
+
+    <!-- ══════════════════════ VIEW: PRODUK ══════════════════════ -->
+    <div id="view-produk">
+      <div class="border-b border-slate-200 bg-white px-4 py-5 md:px-6">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 class="text-xl font-bold text-slate-900">Produk</h1>
+            <p class="mt-0.5 text-sm text-slate-500">Kelola katalog produk dan harga.</p>
+          </div>
+          <button onclick="openDialog('dlg-product')" class="inline-flex items-center gap-1.5 rounded-md bg-slate-900 px-3.5 py-2 text-sm font-medium text-white transition hover:bg-slate-800">
+            <i class="ph ph-plus text-base"></i>Tambah Produk
+          </button>
+        </div>
+      </div>
+      <div class="p-4 md:p-6">
+        <form onsubmit="return false" class="mb-4 flex gap-2">
+          <input placeholder="Cari nama produk…" class="h-9 w-full max-w-sm rounded-md border border-slate-200 bg-white px-3 text-sm shadow-sm placeholder-slate-400 focus:border-slate-300 focus:outline-none" />
+          <button class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700 hover:bg-slate-100">Cari</button>
+        </form>
+        <div class="overflow-hidden rounded-lg border border-slate-200 bg-white">
+          <table class="w-full text-left text-sm">
+            <thead>
+              <tr class="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <th class="px-4 py-3">Nama</th>
+                <th class="px-4 py-3">SKU</th>
+                <th class="px-4 py-3">Harga</th>
+                <th class="px-4 py-3">Stok</th>
+                <th class="hidden px-4 py-3 sm:table-cell">Dibuat</th>
+                <th class="px-4 py-3 text-right">Aksi</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              <tr>
+                <td class="px-4 py-3 font-medium text-slate-900">Kopi Gayo 250g</td>
+                <td class="px-4 py-3 text-slate-500">KPG-250</td>
+                <td class="px-4 py-3">Rp 85.000</td>
+                <td class="px-4 py-3 text-slate-500">40</td>
+                <td class="hidden px-4 py-3 text-slate-500 sm:table-cell">2 Nov 2026</td>
+                <td class="px-4 py-3 text-right">
+                  <div class="flex justify-end gap-2">
+                    <button onclick="openDialog('dlg-product')" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Edit</button>
+                    <button onclick="openDialog('dlg-del-product')" class="inline-flex h-8 items-center rounded-md bg-red-600 px-2.5 text-xs font-medium text-white hover:bg-red-700">Hapus</button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td class="px-4 py-3 font-medium text-slate-900">Kopi Susu Gula Aren</td>
+                <td class="px-4 py-3 text-slate-500">KSG-500</td>
+                <td class="px-4 py-3">Rp 95.000</td>
+                <td class="px-4 py-3 font-semibold text-red-600">0</td>
+                <td class="hidden px-4 py-3 text-slate-500 sm:table-cell">2 Nov 2026</td>
+                <td class="px-4 py-3 text-right">
+                  <div class="flex justify-end gap-2">
+                    <button onclick="openDialog('dlg-product')" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Edit</button>
+                    <button onclick="openDialog('dlg-del-product')" class="inline-flex h-8 items-center rounded-md bg-red-600 px-2.5 text-xs font-medium text-white hover:bg-red-700">Hapus</button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td class="px-4 py-3 font-medium text-slate-900">French Press 350ml</td>
+                <td class="px-4 py-3 text-slate-500">FP-350</td>
+                <td class="px-4 py-3">Rp 250.000</td>
+                <td class="px-4 py-3 text-slate-500">12</td>
+                <td class="hidden px-4 py-3 text-slate-500 sm:table-cell">5 Nov 2026</td>
+                <td class="px-4 py-3 text-right">
+                  <div class="flex justify-end gap-2">
+                    <button onclick="openDialog('dlg-product')" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Edit</button>
+                    <button onclick="openDialog('dlg-del-product')" class="inline-flex h-8 items-center rounded-md bg-red-600 px-2.5 text-xs font-medium text-white hover:bg-red-700">Hapus</button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="mt-4 flex flex-col gap-3 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+          <span>Menampilkan <strong class="text-slate-800">1-3</strong> dari <strong class="text-slate-800">3</strong> produk</span>
+          <div class="flex gap-2">
+            <button disabled class="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-40"><i class="ph ph-caret-left"></i> Sebelumnya</button>
+            <span class="px-3 py-1.5 font-medium text-slate-700">Hal. 1 / 1</span>
+            <button disabled class="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-40">Berikutnya <i class="ph ph-caret-right"></i></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════ VIEW: INVENTARIS ══════════════════════ -->
+    <div id="view-inventaris" class="hidden">
+      <div class="border-b border-slate-200 bg-white px-4 py-5 md:px-6">
+        <h1 class="text-xl font-bold text-slate-900">Inventaris</h1>
+        <p class="mt-0.5 text-sm text-slate-500">Pantau dan sesuaikan stok produk.</p>
+      </div>
+      <div class="p-4 md:p-6">
+        <form onsubmit="return false" class="mb-4 flex gap-2">
+          <input placeholder="Cari nama produk…" class="h-9 w-full max-w-sm rounded-md border border-slate-200 bg-white px-3 text-sm shadow-sm placeholder-slate-400 focus:border-slate-300 focus:outline-none" />
+          <button class="inline-flex h-9 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-700 hover:bg-slate-100">Cari</button>
+        </form>
+        <div class="overflow-hidden rounded-lg border border-slate-200 bg-white">
+          <table class="w-full text-left text-sm">
+            <thead>
+              <tr class="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <th class="px-4 py-3">Produk</th>
+                <th class="px-4 py-3">Jumlah</th>
+                <th class="px-4 py-3">Sumber</th>
+                <th class="hidden px-4 py-3 sm:table-cell">Diperbarui</th>
+                <th class="px-4 py-3 text-right">Aksi</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              <tr>
+                <td class="px-4 py-3 font-medium text-slate-900">Kopi Gayo 250g</td>
+                <td class="px-4 py-3 font-medium">40</td>
+                <td class="px-4 py-3"><span class="rounded-md border border-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600">Excel</span></td>
+                <td class="hidden px-4 py-3 text-slate-500 sm:table-cell">18 Nov 2026</td>
+                <td class="px-4 py-3 text-right">
+                  <button onclick="openDialog('dlg-stock')" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Ubah Stok</button>
+                </td>
+              </tr>
+              <tr>
+                <td class="px-4 py-3 font-medium text-slate-900">Kopi Susu Gula Aren</td>
+                <td class="px-4 py-3 font-semibold text-red-600">0</td>
+                <td class="px-4 py-3"><span class="rounded-md border border-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600">Manual</span></td>
+                <td class="hidden px-4 py-3 text-slate-500 sm:table-cell">20 Nov 2026</td>
+                <td class="px-4 py-3 text-right">
+                  <button onclick="openDialog('dlg-stock')" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Ubah Stok</button>
+                </td>
+              </tr>
+              <tr>
+                <td class="px-4 py-3 font-medium text-slate-900">French Press 350ml</td>
+                <td class="px-4 py-3 font-medium">12</td>
+                <td class="px-4 py-3"><span class="rounded-md border border-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600">Google Sheets</span></td>
+                <td class="hidden px-4 py-3 text-slate-500 sm:table-cell">21 Nov 2026</td>
+                <td class="px-4 py-3 text-right">
+                  <button onclick="openDialog('dlg-stock')" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Ubah Stok</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="mt-4 flex flex-col gap-3 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+          <span>Menampilkan <strong class="text-slate-800">1-3</strong> dari <strong class="text-slate-800">3</strong> inventaris</span>
+          <div class="flex gap-2">
+            <button disabled class="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-40">Sebelumnya</button>
+            <span class="px-3 py-1.5 font-medium text-slate-700">Hal. 1 / 1</span>
+            <button disabled class="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-40">Berikutnya</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════ VIEW: PESANAN ══════════════════════ -->
+    <div id="view-pesanan" class="hidden">
+      <div class="border-b border-slate-200 bg-white px-4 py-5 md:px-6">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 class="text-xl font-bold text-slate-900">Pesanan</h1>
+            <p class="mt-0.5 text-sm text-slate-500">Lihat pesanan dan ubah statusnya.</p>
+          </div>
+          <button onclick="openDialog('dlg-order')" class="inline-flex items-center gap-1.5 rounded-md bg-slate-900 px-3.5 py-2 text-sm font-medium text-white transition hover:bg-slate-800">
+            <i class="ph ph-plus text-base"></i>Tambah Pesanan
+          </button>
+        </div>
+      </div>
+      <div class="p-4 md:p-6">
+        <div class="mb-4 flex items-center gap-2">
+          <select onchange="filterOrders(this.value)" class="h-9 w-full max-w-xs rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm focus:border-slate-300 focus:outline-none">
+            <option value="">Semua status</option>
+            <option value="PENDING">Menunggu</option>
+            <option value="CONFIRMED">Dikonfirmasi</option>
+            <option value="CANCELLED">Dibatalkan</option>
+          </select>
+        </div>
+        <div class="overflow-hidden rounded-lg border border-slate-200 bg-white">
+          <table class="w-full text-left text-sm">
+            <thead>
+              <tr class="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <th class="px-4 py-3">No. Pesanan</th>
+                <th class="px-4 py-3">Pelanggan</th>
+                <th class="px-4 py-3">Item</th>
+                <th class="px-4 py-3">Total</th>
+                <th class="px-4 py-3">Status</th>
+                <th class="hidden px-4 py-3 sm:table-cell">Tanggal</th>
+                <th class="px-4 py-3 text-right">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="orders-body" class="divide-y divide-slate-100"></tbody>
+          </table>
+        </div>
+        <div class="mt-4 flex flex-col gap-3 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+          <span>Menampilkan <strong class="text-slate-800">1-3</strong> dari <strong class="text-slate-800">3</strong> pesanan</span>
+          <div class="flex gap-2">
+            <button disabled class="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-40">Sebelumnya</button>
+            <span class="px-3 py-1.5 font-medium text-slate-700">Hal. 1 / 1</span>
+            <button disabled class="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 disabled:opacity-40">Berikutnya</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════ VIEW: TAG ══════════════════════ -->
+    <div id="view-tag" class="hidden">
+      <div class="border-b border-slate-200 bg-white px-4 py-5 md:px-6">
+        <h1 class="text-xl font-bold text-slate-900">Tag</h1>
+        <p class="mt-0.5 text-sm text-slate-500">Taksonomi untuk melabeli percakapan dan mengelompokkan kontak.</p>
+      </div>
+      <div class="p-4 md:p-6">
+        <!-- Tag percakapan -->
+        <div class="mb-3 flex items-center justify-between">
+          <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Tag Percakapan</h2>
+          <button onclick="openDialog('dlg-tag')" class="inline-flex h-8 items-center gap-1.5 rounded-md bg-slate-900 px-3 text-xs font-medium text-white hover:bg-slate-800"><i class="ph ph-plus text-sm"></i>Tambah Tag</button>
+        </div>
+        <div class="overflow-hidden rounded-lg border border-slate-200 bg-white">
+          <table class="w-full text-left text-sm">
+            <thead>
+              <tr class="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <th class="px-4 py-3">Nama</th>
+                <th class="px-4 py-3">Warna</th>
+                <th class="px-4 py-3 text-right">Aksi</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              <tr>
+                <td class="px-4 py-3"><span class="inline-flex items-center gap-1.5 rounded-md bg-green-100 px-2.5 py-1 text-xs font-medium text-green-800">VIP</span></td>
+                <td class="px-4 py-3 text-slate-500">
+                  <span class="inline-flex items-center gap-1.5">
+                    <span class="h-3.5 w-3.5 rounded-full border border-black/10" style="background:#dcfce7"></span>
+                    <span class="font-mono text-[11px]">#dcfce7</span>
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-right">
+                  <div class="flex justify-end gap-2">
+                    <button onclick="openDialog('dlg-tag')" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Ubah Nama</button>
+                    <button onclick="openDialog('dlg-del-tag')" class="inline-flex h-8 items-center rounded-md bg-red-600 px-2.5 text-xs font-medium text-white hover:bg-red-700">Hapus</button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td class="px-4 py-3"><span class="inline-flex items-center gap-1.5 rounded-md bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">Follow-up</span></td>
+                <td class="px-4 py-3 text-slate-500">
+                  <span class="inline-flex items-center gap-1.5">
+                    <span class="h-3.5 w-3.5 rounded-full border border-black/10" style="background:#fef3c7"></span>
+                    <span class="font-mono text-[11px]">#fef3c7</span>
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-right">
+                  <div class="flex justify-end gap-2">
+                    <button onclick="openDialog('dlg-tag')" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Ubah Nama</button>
+                    <button onclick="openDialog('dlg-del-tag')" class="inline-flex h-8 items-center rounded-md bg-red-600 px-2.5 text-xs font-medium text-white hover:bg-red-700">Hapus</button>
+                  </div>
+                </td>
+              </tr>
+              <tr>
+                <td class="px-4 py-3"><span class="inline-flex items-center gap-1.5 rounded-md bg-violet-100 px-2.5 py-1 text-xs font-medium text-violet-800">Reseller</span></td>
+                <td class="px-4 py-3 text-slate-500">
+                  <span class="inline-flex items-center gap-1.5">
+                    <span class="h-3.5 w-3.5 rounded-full border border-black/10" style="background:#ede9fe"></span>
+                    <span class="font-mono text-[11px]">#ede9fe</span>
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-right">
+                  <div class="flex justify-end gap-2">
+                    <button onclick="openDialog('dlg-tag')" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Ubah Nama</button>
+                    <button onclick="openDialog('dlg-del-tag')" class="inline-flex h-8 items-center rounded-md bg-red-600 px-2.5 text-xs font-medium text-white hover:bg-red-700">Hapus</button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Kategori kontak -->
+        <div class="mt-10">
+          <div class="mb-3 flex items-center justify-between">
+            <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Kategori Kontak</h2>
+            <button onclick="openDialog('dlg-cat')" class="inline-flex h-8 items-center gap-1.5 rounded-md bg-slate-900 px-3 text-xs font-medium text-white hover:bg-slate-800"><i class="ph ph-plus text-sm"></i>Tambah Kategori</button>
+          </div>
+          <div class="overflow-hidden rounded-lg border border-slate-200 bg-white">
+            <table class="w-full text-left text-sm">
+              <thead>
+                <tr class="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <th class="px-4 py-3">Nama</th>
+                  <th class="px-4 py-3">Warna</th>
+                  <th class="px-4 py-3 text-right">Aksi</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100">
+                <tr>
+                  <td class="px-4 py-3"><span class="inline-flex items-center gap-1.5 rounded-md bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-800">Pelanggan Baru</span></td>
+                  <td class="px-4 py-3">
+                    <span class="inline-flex items-center gap-1.5 text-slate-500">
+                      <span class="h-3.5 w-3.5 rounded-full border border-black/10" style="background:#dbeafe"></span>
+                      <span class="font-mono text-[11px]">#dbeafe</span>
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 text-right">
+                    <div class="flex justify-end gap-2">
+                      <button onclick="openDialog('dlg-cat')" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Ubah Nama</button>
+                      <button onclick="openDialog('dlg-del-tag')" class="inline-flex h-8 items-center rounded-md bg-red-600 px-2.5 text-xs font-medium text-white hover:bg-red-700">Hapus</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-3"><span class="inline-flex items-center gap-1.5 rounded-md bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800">Langganan</span></td>
+                  <td class="px-4 py-3">
+                    <span class="inline-flex items-center gap-1.5 text-slate-500">
+                      <span class="h-3.5 w-3.5 rounded-full border border-black/10" style="background:#d1fae5"></span>
+                      <span class="font-mono text-[11px]">#d1fae5</span>
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 text-right">
+                    <div class="flex justify-end gap-2">
+                      <button onclick="openDialog('dlg-cat')" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Ubah Nama</button>
+                      <button onclick="openDialog('dlg-del-tag')" class="inline-flex h-8 items-center rounded-md bg-red-600 px-2.5 text-xs font-medium text-white hover:bg-red-700">Hapus</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-3"><span class="inline-flex items-center gap-1.5 rounded-md bg-slate-200 px-2.5 py-1 text-xs font-medium text-slate-700">Korporat</span></td>
+                  <td class="px-4 py-3">
+                    <span class="inline-flex items-center gap-1.5 text-slate-500">
+                      <span class="h-3.5 w-3.5 rounded-full border border-black/10" style="background:#e2e8f0"></span>
+                      <span class="font-mono text-[11px]">#e2e8f0</span>
+                    </span>
+                  </td>
+                  <td class="px-4 py-3 text-right">
+                    <div class="flex justify-end gap-2">
+                      <button onclick="openDialog('dlg-cat')" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Ubah Nama</button>
+                      <button onclick="openDialog('dlg-del-tag')" class="inline-flex h-8 items-center rounded-md bg-red-600 px-2.5 text-xs font-medium text-white hover:bg-red-700">Hapus</button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ══════════ Dialogs ══════════ -->
+
+<!-- Produk form -->
+<div id="dlg-product" class="modal-backdrop fixed inset-0 z-50 hidden items-center justify-center p-4">
+  <div class="w-full max-w-md rounded-lg border border-slate-200 bg-white shadow-xl fade-in">
+    <div class="border-b border-slate-100 px-5 py-3.5 text-sm font-semibold">Tambah Produk</div>
+    <form onsubmit="closeDialog('dlg-product'); showToast('Produk disimpan'); return false" class="flex flex-col gap-4 px-5 py-4">
+      <div class="flex flex-col gap-1.5">
+        <label class="text-sm font-medium">Nama</label>
+        <input required class="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm shadow-sm focus:border-slate-300 focus:outline-none" />
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <label class="text-sm font-medium">SKU</label>
+        <input class="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm shadow-sm focus:border-slate-300 focus:outline-none" />
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <label class="text-sm font-medium">Harga (Rp)</label>
+        <input required type="number" step="0.01" min="0" class="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm shadow-sm focus:border-slate-300 focus:outline-none" />
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <label class="text-sm font-medium">Deskripsi</label>
+        <textarea rows="3" class="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-slate-300 focus:outline-none"></textarea>
+      </div>
+      <div class="flex justify-end gap-2 pt-1">
+        <button type="button" onclick="closeDialog('dlg-product')" class="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Batal</button>
+        <button type="submit" class="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800">Simpan</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Produk delete -->
+<div id="dlg-del-product" class="modal-backdrop fixed inset-0 z-50 hidden items-center justify-center p-4">
+  <div class="w-full max-w-md rounded-lg border border-slate-200 bg-white shadow-xl fade-in">
+    <div class="border-b border-slate-100 px-5 py-3.5 text-sm font-semibold">Hapus Produk</div>
+    <p class="px-5 py-4 text-sm text-slate-600">Yakin ingin menghapus "Kopi Gayo 250g"? Tindakan ini tidak dapat dibatalkan.</p>
+    <div class="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-5 py-3">
+      <button onclick="closeDialog('dlg-del-product')" class="rounded-md border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Batal</button>
+      <button onclick="closeDialog('dlg-del-product'); showToast('Produk dihapus')" class="rounded-md bg-red-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-red-700">Hapus</button>
+    </div>
+  </div>
+</div>
+
+<!-- Ubah Stok -->
+<div id="dlg-stock" class="modal-backdrop fixed inset-0 z-50 hidden items-center justify-center p-4">
+  <div class="w-full max-w-md rounded-lg border border-slate-200 bg-white shadow-xl fade-in">
+    <div class="border-b border-slate-100 px-5 py-3.5 text-sm font-semibold">Ubah Stok - Kopi Gayo 250g</div>
+    <form onsubmit="closeDialog('dlg-stock'); showToast('Stok disimpan'); return false" class="flex flex-col gap-4 px-5 py-4">
+      <div>
+        <p class="text-sm font-medium">Stok per sumber</p>
+        <div class="mt-2 space-y-1.5">
+          <div class="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 px-2.5 py-1.5 text-xs">
+            <span class="flex items-center gap-2">
+              <span class="rounded-md border border-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600">Excel</span>
+              <span class="font-medium">42</span>
+            </span>
+            <span class="text-slate-500">Disinkron 18 Nov 2026 - Keyakinan: 92%</span>
+          </div>
+          <div class="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 px-2.5 py-1.5 text-xs">
+            <span class="flex items-center gap-2">
+              <span class="rounded-md border border-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600">Google Sheets</span>
+              <span class="font-medium">38</span>
+            </span>
+            <span class="text-slate-500">Disinkron 21 Nov 2026 - Keyakinan: 85%</span>
+          </div>
+          <div class="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 px-2.5 py-1.5 text-xs">
+            <span class="flex items-center gap-2">
+              <span class="rounded-md border border-slate-200 px-2 py-0.5 text-xs font-medium text-slate-600">Manual</span>
+              <span class="font-medium">40</span>
+            </span>
+            <span class="text-slate-500">Disinkron 20 Nov 2026 - Keyakinan: 100%</span>
+          </div>
+        </div>
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <label class="text-sm font-medium">Jumlah</label>
+        <input required type="number" min="0" step="1" value="40" class="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm shadow-sm focus:border-slate-300 focus:outline-none" />
+      </div>
+      <div class="flex justify-end gap-2 pt-1">
+        <button type="button" onclick="closeDialog('dlg-stock')" class="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Batal</button>
+        <button type="submit" class="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800">Simpan</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Tambah Pesanan -->
+<div id="dlg-order" class="modal-backdrop fixed inset-0 z-50 hidden items-center justify-center p-4">
+  <div class="w-full max-w-md rounded-lg border border-slate-200 bg-white shadow-xl fade-in">
+    <div class="border-b border-slate-100 px-5 py-3.5 text-sm font-semibold">Tambah Pesanan</div>
+    <form onsubmit="closeDialog('dlg-order'); showToast('Pesanan dibuat'); return false" class="flex flex-col gap-4 px-5 py-4">
+      <div class="flex flex-col gap-1.5">
+        <label class="text-sm font-medium">Nama Pelanggan</label>
+        <input class="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm shadow-sm focus:border-slate-300 focus:outline-none" />
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <label class="text-sm font-medium">Nomor WhatsApp</label>
+        <input placeholder="628..." class="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm shadow-sm focus:border-slate-300 focus:outline-none" />
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <label class="text-sm font-medium">Item</label>
+        <div class="flex gap-2">
+          <select class="h-9 flex-1 rounded-md border border-slate-200 bg-white px-3 text-sm shadow-sm">
+            <option>Kopi Gayo 250g - Rp 85.000</option>
+            <option>Kopi Susu Gula Aren - Rp 95.000</option>
+            <option>French Press 350ml - Rp 250.000</option>
+          </select>
+          <input required type="number" min="1" value="1" class="h-9 w-20 rounded-md border border-slate-200 bg-white px-3 text-sm shadow-sm" />
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 pt-1">
+        <button type="button" onclick="closeDialog('dlg-order')" class="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Batal</button>
+        <button type="submit" class="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800">Buat Pesanan</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Tag form -->
+<div id="dlg-tag" class="modal-backdrop fixed inset-0 z-50 hidden items-center justify-center p-4">
+  <div class="w-full max-w-md rounded-lg border border-slate-200 bg-white shadow-xl fade-in">
+    <div class="border-b border-slate-100 px-5 py-3.5 text-sm font-semibold">Tambah Tag</div>
+    <form onsubmit="closeDialog('dlg-tag'); showToast('Tag disimpan'); return false" class="flex flex-col gap-4 px-5 py-4">
+      <div class="flex flex-col gap-1.5">
+        <label class="text-sm font-medium">Nama</label>
+        <input required class="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm shadow-sm focus:border-slate-300 focus:outline-none" />
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <label class="text-sm font-medium">Warna <span class="font-normal text-slate-400">(opsional)</span></label>
+        <input type="color" value="#dcfce7" class="h-9 w-16 cursor-pointer rounded-md border border-slate-200 bg-white p-1" />
+      </div>
+      <div class="flex justify-end gap-2 pt-1">
+        <button type="button" onclick="closeDialog('dlg-tag')" class="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Batal</button>
+        <button type="submit" class="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800">Simpan</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Kategori form -->
+<div id="dlg-cat" class="modal-backdrop fixed inset-0 z-50 hidden items-center justify-center p-4">
+  <div class="w-full max-w-md rounded-lg border border-slate-200 bg-white shadow-xl fade-in">
+    <div class="border-b border-slate-100 px-5 py-3.5 text-sm font-semibold">Tambah Kategori</div>
+    <form onsubmit="closeDialog('dlg-cat'); showToast('Kategori disimpan'); return false" class="flex flex-col gap-4 px-5 py-4">
+      <div class="flex flex-col gap-1.5">
+        <label class="text-sm font-medium">Nama</label>
+        <input required class="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm shadow-sm focus:border-slate-300 focus:outline-none" />
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <label class="text-sm font-medium">Warna <span class="font-normal text-slate-400">(opsional)</span></label>
+        <input type="color" value="#dbeafe" class="h-9 w-16 cursor-pointer rounded-md border border-slate-200 bg-white p-1" />
+      </div>
+      <div class="flex justify-end gap-2 pt-1">
+        <button type="button" onclick="closeDialog('dlg-cat')" class="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Batal</button>
+        <button type="submit" class="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800">Simpan</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Tag/Kategori delete -->
+<div id="dlg-del-tag" class="modal-backdrop fixed inset-0 z-50 hidden items-center justify-center p-4">
+  <div class="w-full max-w-md rounded-lg border border-slate-200 bg-white shadow-xl fade-in">
+    <div class="border-b border-slate-100 px-5 py-3.5 text-sm font-semibold">Hapus</div>
+    <p class="px-5 py-4 text-sm text-slate-600">Yakin ingin menghapus item ini? Tindakan ini tidak dapat dibatalkan.</p>
+    <div class="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-5 py-3">
+      <button onclick="closeDialog('dlg-del-tag')" class="rounded-md border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Batal</button>
+      <button onclick="closeDialog('dlg-del-tag'); showToast('Dihapus')" class="rounded-md bg-red-600 px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-red-700">Hapus</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="pointer-events-none fixed bottom-5 right-5 z-50 hidden items-center gap-2 rounded-md bg-slate-900 px-3.5 py-2.5 text-xs font-medium text-white shadow-lg">
+  <i class="ph-fill ph-check-circle text-sm text-green-400"></i><span id="toast-msg"></span>
+</div>
+
+<script>
+// ══════════ View switching (sidebar nav) ══════════
+const VIEWS = ["produk", "inventaris", "pesanan", "tag"];
+const TITLES = { produk: "Produk", inventaris: "Inventaris", pesanan: "Pesanan", tag: "Tag" };
+function switchView(v) {
+  VIEWS.forEach((k) => {
+    document.getElementById("view-" + k).classList.toggle("hidden", k !== v);
+    const nav = document.getElementById("nav-" + k);
+    if (nav) {
+      nav.className = k === v
+        ? "nav-item-active flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2"
+        : "flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900";
+    }
+  });
+  document.title = TITLES[v] + " - CSQ (mock)";
+}
+
+// ══════════ Dialogs ══════════
+function openDialog(id) {
+  const el = document.getElementById(id);
+  el.classList.remove("hidden");
+  el.classList.add("flex");
+}
+function closeDialog(id) {
+  const el = document.getElementById(id);
+  el.classList.add("hidden");
+  el.classList.remove("flex");
+}
+document.addEventListener("click", (e) => {
+  if (e.target.classList && e.target.classList.contains("modal-backdrop")) {
+    e.target.classList.add("hidden");
+    e.target.classList.remove("flex");
+  }
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    document.querySelectorAll(".modal-backdrop.flex").forEach((el) => {
+      el.classList.add("hidden");
+      el.classList.remove("flex");
+    });
+  }
+});
+
+// ══════════ Orders (mock data + filter + expand) ══════════
+const ORDERS = [
+  { id: "#3F2A1B90", customer: "Siti Rahmawati", phone: "+62 812-3456-789", items: [{ n: "Kopi Gayo 250g", q: 2, p: "Rp 85.000" }], total: "Rp 170.000", status: "PENDING", date: "21 Nov 2026" },
+  { id: "#9C84D2F1", customer: "Budi Agus", phone: "+62 813-9998-887", items: [{ n: "Kopi Susu Gula Aren", q: 1, p: "Rp 95.000" }, { n: "French Press 350ml", q: 1, p: "Rp 250.000" }], total: "Rp 345.000", status: "CONFIRMED", date: "20 Nov 2026" },
+  { id: "#55E7A0C2", customer: "Dewi Lestari", phone: "+62 813-7771-234", items: [{ n: "Kopi Gayo 250g", q: 1, p: "Rp 85.000" }], total: "Rp 85.000", status: "CANCELLED", date: "19 Nov 2026" },
+];
+let orderFilter = "";
+let expandedOrder = null;
+
+function statusBadge(status) {
+  if (status === "CONFIRMED")
+    return '<span class="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700"><span class="h-1.5 w-1.5 rounded-full bg-green-500"></span>Dikonfirmasi</span>';
+  if (status === "CANCELLED")
+    return '<span class="inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700"><span class="h-1.5 w-1.5 rounded-full bg-red-500"></span>Dibatalkan</span>';
+  return '<span class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-0.5 text-xs font-medium text-amber-700"><span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span>Menunggu</span>';
+}
+
+function filterOrders(v) { orderFilter = v; renderOrders(); }
+
+function renderOrders() {
+  const rows = ORDERS.filter((o) => !orderFilter || o.status === orderFilter);
+  const tb = document.getElementById("orders-body");
+  tb.innerHTML = rows.map((o) => {
+    const expanded = expandedOrder === o.id;
+    return `
+      <tr>
+        <td class="px-4 py-3 font-mono text-xs text-slate-500">${o.id}</td>
+        <td class="px-4 py-3 font-medium">${o.customer}</td>
+        <td class="px-4 py-3">
+          <button onclick="toggleOrder('${o.id}')" class="text-sm text-green-700 underline">${o.items.length} item</button>
+        </td>
+        <td class="px-4 py-3">${o.total}</td>
+        <td class="px-4 py-3">${statusBadge(o.status)}</td>
+        <td class="hidden px-4 py-3 text-slate-500 sm:table-cell">${o.date}</td>
+        <td class="px-4 py-3 text-right">
+          <div class="flex flex-wrap justify-end gap-2">
+            ${o.status !== "CONFIRMED" ? `<button onclick="orderStatus('${o.id}','CONFIRMED')" class="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Konfirmasi</button>` : ""}
+            ${o.status !== "CANCELLED" ? `<button onclick="orderStatus('${o.id}','CANCELLED')" class="inline-flex h-8 items-center rounded-md bg-red-600 px-2.5 text-xs font-medium text-white hover:bg-red-700">Batalkan</button>` : ""}
+          </div>
+        </td>
+      </tr>
+      ${expanded ? `
+      <tr class="bg-slate-50/60">
+        <td colspan="7" class="px-4 py-3">
+          <ul class="flex flex-col gap-1 text-sm">
+            ${o.items.map((it) => `<li class="flex justify-between"><span>${it.n} x${it.q}</span><span class="text-slate-500">${it.p}</span></li>`).join("")}
+            <li class="mt-1 flex justify-between border-t border-slate-200 pt-1.5 font-medium"><span>Total</span><span>${o.total}</span></li>
+            <li class="text-xs text-slate-400">Pelanggan: ${o.customer} (${o.phone})</li>
+          </ul>
+        </td>
+      </tr>` : ""}
+    `;
+  }).join("") || '<tr><td colspan="7" class="px-4 py-10 text-center text-sm text-slate-400">Belum ada pesanan.</td></tr>';
+}
+
+function toggleOrder(id) { expandedOrder = expandedOrder === id ? null : id; renderOrders(); }
+function orderStatus(id, status) {
+  const o = ORDERS.find((x) => x.id === id);
+  if (o) o.status = status;
+  renderOrders();
+  showToast("Status pesanan " + id + " diperbarui");
+}
+
+// ══════════ Toast ══════════
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById("toast");
+  document.getElementById("toast-msg").textContent = msg;
+  t.classList.remove("hidden"); t.classList.add("flex");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.classList.add("hidden"); t.classList.remove("flex"); }, 2400);
+}
+
+// Boot
+renderOrders();
+</script>
+</body>
+</html>

@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   Trash,
+  Users,
   Warning,
   WebhooksLogo,
   WhatsappLogo,
@@ -38,6 +39,7 @@ import { LoadingSkeleton } from "@/components/dashboard/loading-skeleton";
 import { AgentPicker } from "@/components/dashboard/channels/agent-picker";
 import { Field } from "@/components/dashboard/channels/field";
 import { Toast } from "@/components/dashboard/channels/toast";
+import { ChannelAccessPanel } from "@/components/dashboard/channels/access-panel";
 import {
   EMPTY_CLOUD,
   type AgentItem,
@@ -66,11 +68,19 @@ export default function SaluranPage({
   cloudVerifyToken,
 }: SaluranProps) {
   const { data: session } = useSession();
-  const isOwner = session?.user?.role === "OWNER";
-  const entitlements = useEntitlements();
-
+  const isOwner = !!session?.user?.isOwner;
+  const canConfig =
+    isOwner || !!session?.user?.permissions?.includes("saluran.ubah");
+  const canAdd =
+    isOwner || !!session?.user?.permissions?.includes("saluran.tambah");
   const { data: channelsData, loading, error: fetchError, refresh } =
     useApi<{ items: ChannelView[] }>("/api/dashboard/channels?includeArchived=1");
+  // The shared add/reconnect/edit dialog: any of the three grants opens it;
+  // the API re-checks the exact permission per flow.
+  const canAct =
+    canAdd || canConfig || (channelsData?.items ?? []).some((c) => c.canManage);
+  const entitlements = useEntitlements();
+
   const { data: agentsData } = useApi<{ items: AgentItem[] }>(
     "/api/dashboard/agents"
   );
@@ -90,6 +100,8 @@ export default function SaluranPage({
   const [search, setSearch] = useState("");
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [testOpen, setTestOpen] = useState<string | null>(null);
+  // PRD 29: which channel's access panel is open.
+  const [accessFor, setAccessFor] = useState<string | null>(null);
 
   // ── Modal state ──
   const [modal, setModal] = useState<
@@ -377,7 +389,7 @@ export default function SaluranPage({
       actions={
         <button
           onClick={openAdd}
-          disabled={!isOwner}
+          disabled={!canAdd}
           className="inline-flex shrink-0 items-center gap-2 rounded-lg bg-zinc-900 px-3.5 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-zinc-800 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Plus size={16} />
@@ -411,9 +423,9 @@ export default function SaluranPage({
     >
       {fetchError && <p className="mb-4 text-sm text-destructive">{fetchError}</p>}
 
-      {!isOwner && (
+      {!canAdd && !canConfig && !channels.some((c) => c.canManage) && (
         <p className="mb-4 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-700">
-          Hanya owner yang dapat mengatur saluran. Anda melihat dalam mode
+          Anda tidak memiliki izin mengelola saluran. Anda melihat dalam mode
           baca-saja.
         </p>
       )}
@@ -522,7 +534,11 @@ export default function SaluranPage({
               key={c.id}
               channel={c}
               agentLabel={agentName(c.agentId)}
+              canManage={!!c.canManage}
+              canConfig={canConfig}
               isOwner={isOwner}
+              accessOpen={accessFor === c.id}
+              onAccess={() => setAccessFor((m) => (m === c.id ? null : c.id))}
               menuOpen={menuFor === c.id}
               onToggleMenu={() => setMenuFor((m) => (m === c.id ? null : c.id))}
               onTest={() => setTestOpen((t) => (t === c.id ? null : c.id))}
@@ -597,7 +613,7 @@ export default function SaluranPage({
                 title="WhatsApp Business API"
                 desc="Integrasi resmi via Meta Cloud API. Stabil untuk volume pesan tinggi dan bebas risiko pemblokiran."
                 cta="Konfigurasi API"
-                disabled={!isOwner}
+                disabled={!canAct}
                 onClick={() => pickProvider("CLOUD_API")}
               />
               <ProviderCard
@@ -608,7 +624,7 @@ export default function SaluranPage({
                 title="Tautkan Nomor (QR)"
                 desc="Gunakan nomor WhatsApp reguler atau Business yang sudah ada dengan memindai kode QR."
                 cta="Pindai QR"
-                disabled={!isOwner}
+                disabled={!canAct}
                 onClick={() => pickProvider("BAILEYS")}
               />
             </div>
@@ -622,13 +638,13 @@ export default function SaluranPage({
                   value={cloudForm.label}
                   onChange={(v) => setCloud({ label: v })}
                   hint="mis. Sales Utama"
-                  disabled={!isOwner}
+                  disabled={!canAct}
                 />
                 <AgentPicker
                   agents={activeAgents}
                   value={agentId}
                   onChange={setAgentId}
-                  disabled={!isOwner}
+                  disabled={!canAct}
                 />
               </div>
               <Field
@@ -636,14 +652,14 @@ export default function SaluranPage({
                 value={cloudForm.phoneNumberId}
                 onChange={(v) => setCloud({ phoneNumberId: v })}
                 hint="103xxxxxxxxxx"
-                disabled={!isOwner}
+                disabled={!canAct}
               />
               <Field
                 label="Permanent Access Token"
                 value={cloudForm.token}
                 onChange={(v) => setCloud({ token: v })}
                 hint="EAAG..."
-                disabled={!isOwner}
+                disabled={!canAct}
                 type="password"
               />
               <Field
@@ -651,7 +667,7 @@ export default function SaluranPage({
                 value={cloudForm.appSecret}
                 onChange={(v) => setCloud({ appSecret: v })}
                 hint="Opsional (untuk validasi signature)"
-                disabled={!isOwner}
+                disabled={!canAct}
                 type="password"
               />
               <div className="flex items-start gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-600">
@@ -667,7 +683,7 @@ export default function SaluranPage({
                 </button>
                 <button
                   onClick={() => void connectCloud()}
-                  disabled={connecting || !isOwner}
+                  disabled={connecting || !canAct}
                   className="rounded-lg bg-zinc-900 px-4 py-2 text-xs font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
                 >
                   {connecting ? "Memverifikasi..." : "Verifikasi & Sambungkan"}
@@ -684,13 +700,13 @@ export default function SaluranPage({
                   value={byoLabel}
                   onChange={setByoLabel}
                   hint="mis. Support Cabang"
-                  disabled={!isOwner}
+                  disabled={!canAct}
                 />
                 <AgentPicker
                   agents={activeAgents}
                   value={agentId}
                   onChange={setAgentId}
-                  disabled={!isOwner}
+                  disabled={!canAct}
                 />
               </div>
               <div className="flex items-start gap-2.5 rounded-lg border border-amber-200 bg-amber-50/70 p-3 text-xs text-amber-800">
@@ -725,7 +741,7 @@ export default function SaluranPage({
                 <input
                   type="checkbox"
                   checked={tos}
-                  disabled={!isOwner}
+                  disabled={!canAct}
                   onChange={(e) => setTos(e.target.checked)}
                   className="mt-0.5 h-4 w-4 rounded border-zinc-300 accent-zinc-900"
                 />
@@ -743,7 +759,7 @@ export default function SaluranPage({
                 </button>
                 <button
                   onClick={() => void connectByo()}
-                  disabled={connecting || !isOwner || !tos}
+                  disabled={connecting || !canAct || !tos}
                   className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
                 >
                   {connecting ? "Membuat sesi..." : "Generate Kode QR"}
@@ -772,13 +788,13 @@ export default function SaluranPage({
               label="Nama Saluran"
               value={cloudForm.label}
               onChange={(v) => setCloud({ label: v })}
-              disabled={!isOwner}
+              disabled={!canAct}
             />
             <AgentPicker
               agents={activeAgents}
               value={agentId}
               onChange={setAgentId}
-              disabled={!isOwner}
+              disabled={!canAct}
             />
           </div>
           {target?.provider === "CLOUD_API" && (
@@ -787,14 +803,14 @@ export default function SaluranPage({
                 label="Phone Number ID"
                 value={cloudForm.phoneNumberId}
                 onChange={(v) => setCloud({ phoneNumberId: v })}
-                disabled={!isOwner}
+                disabled={!canAct}
               />
               <Field
                 label="Access Token Baru"
                 value={cloudForm.token}
                 onChange={(v) => setCloud({ token: v })}
                 hint="Kosongkan jika tidak ingin mengubah token"
-                disabled={!isOwner}
+                disabled={!canAct}
                 type="password"
               />
               <Field
@@ -802,7 +818,7 @@ export default function SaluranPage({
                 value={cloudForm.appSecret}
                 onChange={(v) => setCloud({ appSecret: v })}
                 hint="Opsional"
-                disabled={!isOwner}
+                disabled={!canAct}
                 type="password"
               />
             </>
@@ -823,7 +839,7 @@ export default function SaluranPage({
             </button>
             <button
               onClick={() => void connectCloud()}
-              disabled={connecting || !isOwner}
+              disabled={connecting || !canAct}
               className="rounded-lg bg-zinc-900 px-4 py-2 text-xs font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
             >
               {connecting ? "Menyimpan..." : "Simpan Perubahan"}
@@ -858,7 +874,7 @@ export default function SaluranPage({
           </p>
           <button
             onClick={() => void connectByo()}
-            disabled={connecting || !isOwner}
+            disabled={connecting || !canAct}
             className="mt-5 w-full rounded-lg bg-emerald-600 px-4 py-2 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
           >
             {connecting ? "Memuat ulang..." : "Tampilkan Kode QR"}
@@ -977,7 +993,14 @@ function CopyField(props: { label: string; hint: string; value: string }) {
 type ChannelCardProps = {
   channel: ChannelView;
   agentLabel: string | null;
+  // PRD 29: KELOLA grant on this channel (QR/test/disconnect) vs the
+  // role-level config permission (konfigurasi/archive).
+  canManage: boolean;
+  canConfig: boolean;
+  // Access-grant panel (owner-only, PRD 29 section 6.1).
   isOwner: boolean;
+  accessOpen: boolean;
+  onAccess: () => void;
   menuOpen: boolean;
   onToggleMenu: () => void;
   testOpen: boolean;
@@ -1111,7 +1134,7 @@ function ChannelCard(props: ChannelCardProps) {
                 <>
                   <button
                     onClick={props.onTest}
-                    disabled={!props.isOwner}
+                    disabled={!props.canManage}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 hover:text-zinc-900 disabled:opacity-50"
                   >
                     <PaperPlaneTilt size={14} className="text-zinc-500" />
@@ -1119,7 +1142,7 @@ function ChannelCard(props: ChannelCardProps) {
                   </button>
                   <button
                     onClick={props.onEdit}
-                    disabled={!props.isOwner}
+                    disabled={!props.canConfig}
                     className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 hover:text-zinc-900 disabled:opacity-50"
                   >
                     <SlidersHorizontal size={14} className="text-zinc-500" />
@@ -1129,7 +1152,7 @@ function ChannelCard(props: ChannelCardProps) {
               ) : (
                 <button
                   onClick={props.onReconnect}
-                  disabled={!props.isOwner}
+                  disabled={!props.canManage}
                   className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white shadow-xs transition hover:bg-emerald-700 disabled:opacity-50"
                 >
                   <QrCode size={14} />
@@ -1145,12 +1168,20 @@ function ChannelCard(props: ChannelCardProps) {
                   }}
                   className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 bg-white text-zinc-500 transition hover:bg-zinc-50 hover:text-zinc-900"
                   aria-label="Opsi lainnya"
-                  disabled={!props.isOwner}
+                  disabled={!(props.canManage || props.canConfig)}
                 >
                   <DotsThreeVertical size={16} />
                 </button>
                 {props.menuOpen && (
                   <div className="absolute right-0 z-20 mt-1.5 w-48 origin-top-right rounded-xl border border-zinc-200 bg-white p-1 shadow-lg">
+                    {props.isOwner && (
+                      <button
+                        onClick={props.onAccess}
+                        className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-medium text-zinc-700 hover:bg-zinc-100"
+                      >
+                        <Users size={14} className="text-zinc-500" /> Atur Akses
+                      </button>
+                    )}
                     {connected && (
                       <button
                         onClick={props.onDisconnect}
@@ -1215,6 +1246,14 @@ function ChannelCard(props: ChannelCardProps) {
               </div>
             </div>
           </div>
+        )}
+        {/* PRD 29: per-channel access grants (owner-only) */}
+        {props.accessOpen && props.isOwner && (
+          <ChannelAccessPanel
+            channelId={c.id}
+            channelLabel={c.label}
+            isBaileys={c.provider === "BAILEYS"}
+          />
         )}
       </div>
     </div>
@@ -1354,4 +1393,4 @@ export const getServerSideProps: GetServerSideProps<SaluranProps> = withAuth<
 
   return { props: { webhookUrl, cloudVerifyToken } };
   // SEC-3 (PRD 16): channel configuration is OWNER-only (PRD 15.9).
-}, { requiredRole: "OWNER" });
+}, { requiredPermission: "saluran.lihat" });

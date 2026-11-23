@@ -20,11 +20,9 @@ datasource db {
 }
 
 // ─────────────────────────── Enums ───────────────────────────
+// PRD 29: the UserRole enum is retired (migration 20261123120000) - the
+// tenant realm now uses User.isOwner + User.roleId -> Role.permissions.
 
-enum UserRole {
-  OWNER
-  STAFF
-}
 enum TenantStatus {
   ACTIVE
   SUSPENDED
@@ -340,6 +338,7 @@ model Tenant {
   updatedAt       DateTime @updatedAt
 
   users               User[]
+  roles               Role[]
   agents              Agent[]
   channels            Channel[]
   products            Product[]
@@ -420,12 +419,13 @@ model User {
   email           String   @unique
   name            String?
   passwordHash    String
-  role            UserRole @default(OWNER)
+  // PRD 29: the fixed OWNER/STAFF enum is replaced by isOwner + a Role FK.
+  // Exactly one isOwner user per tenant (enforced app-side); the owner
+  // always holds every permission plus the owner-only keys.
+  isOwner         Boolean  @default(false)
+  roleId          String?
+  role            Role?    @relation(fields: [roleId], references: [id], onDelete: SetNull)
   tenantId        String
-  // Campaign permission (feature plan 2026-11-01, decision 2.2): OWNER may
-  // always run campaigns; STAFF may create/pause them only when the owner
-  // grants this per-staff toggle from the Team page.
-  canRunCampaigns Boolean  @default(false)
   // FEA-5 (PRD 16): invite-token accounts must set their own password at
   // first login; the invite credential is single-use.
   mustChangePassword Boolean @default(false)
@@ -444,6 +444,28 @@ model User {
   teamInvitesSent       TeamInvite[]       @relation("TeamInviteInviter")
   kpiTargets            KpiTarget[]        @relation("KpiTargetUser")
 
+  @@index([tenantId])
+}
+
+// PRD 29 - tenant custom roles. A role is a named bundle of permission keys
+// (permissions-catalog.ts). Seeded per tenant with the system roles
+// (Akses Penuh, Admin Chat); tenants create their own. isSystem roles
+// cannot be deleted or renamed, only duplicated.
+model Role {
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String
+  description String?
+  isSystem    Boolean  @default(false)
+  permissions String[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  users  User[]
+  teamInvites TeamInvite[]
+
+  @@unique([tenantId, name])
   @@index([tenantId])
 }
 
@@ -493,11 +515,35 @@ model Channel {
   conversations Conversation[]
   outbox        OutboundMessage[]
   commands      ChannelCommand[]
+  channelAccess ChannelAccess[]
 
   @@index([tenantId])
   // One provider identity per tenant (PRD 15). Postgres allows multiple
   // NULLs, so a Baileys channel is valid before pairing.
   @@unique([tenantId, provider, externalId])
+}
+
+// PRD 29 - per-channel access grants. A grant names a principal (a ROLE or
+// a USER) and what that principal may do on the channel: LIHAT (see the
+// channel's conversations), KIRIM (compose/reply), KELOLA (scan QR /
+// connect / disconnect / test - the WhatsApp session pairing power, see
+// PRD section 6.1). Additive: no row = no grant; owner and Akses Penuh
+// always see every channel (lockout prevention, PRD section 7).
+model ChannelAccess {
+  id          String  @id @default(uuid())
+  tenantId    String
+  channelId   String
+  principal   String  @default("ROLE") // "ROLE" | "USER"
+  principalId String
+  canView     Boolean  @default(true)
+  canCompose  Boolean  @default(true)
+  canManage   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, principal, principalId])
+  @@index([tenantId])
 }
 
 // Baileys (bring-your-own-number) auth state, stored in the DB so it
@@ -1014,7 +1060,9 @@ model Conversation {
   scenarioRuns  ScenarioRun[]
   reads         ConversationRead[]
 
-  @@unique([tenantId, customerPhone])
+  // PRD 29 section 6.2 - thread per channel: the channel is part of the
+  // identity and immutable per thread (a customer on 2 channels = 2 threads).
+  @@unique([tenantId, customerPhone, channelId])
   @@index([tenantId, status])
   @@index([tenantId, assignedAgentId])
   @@index([tenantId, assigneeUserId])
@@ -1060,6 +1108,7 @@ model Contact {
   categories     ContactCategory[]
   tags           ContactTag[]
   avatar         MediaAsset?        @relation("ContactAvatar", fields: [avatarMediaId], references: [id], onDelete: SetNull)
+  deals          Deal[]             @relation("DealContact")
 
   @@unique([tenantId, phone])
   @@index([tenantId])
@@ -1228,6 +1277,12 @@ model Stage {
 model Deal {
   id             String   @id @default(uuid())
   tenantId       String
+  // PRD 29 section 6.3: one card per CUSTOMER. Uniqueness moves from the
+  // conversation to the contact; conversationId stays as the pointer to the
+  // customer's most recent active thread (re-pointed on new-thread
+  // creation). Kept @unique: at most one card points at any thread.
+  contactId      String?
+  contact        Contact? @relation("DealContact", fields: [contactId], references: [id], onDelete: SetNull)
   conversationId String   @unique
   stageId        String
   // Estimated deal value in whole rupiah (pipeline revamp 2026-11-16). IDR has
@@ -1241,6 +1296,7 @@ model Deal {
   stage        Stage              @relation(fields: [stageId], references: [id], onDelete: Restrict)
   histories    DealStageHistory[]
 
+  @@unique([tenantId, contactId])
   @@index([tenantId, stageId])
 }
 
@@ -1585,7 +1641,9 @@ model TeamInvite {
   tenantId   String
   email      String
   tokenHash  String    @unique
-  role       UserRole  @default(STAFF)
+  // PRD 29: the invited user's role (was the OWNER/STAFF enum).
+  roleId     String?
+  role       Role?     @relation(fields: [roleId], references: [id], onDelete: SetNull)
   expiresAt  DateTime
   acceptedAt DateTime?
   invitedById String

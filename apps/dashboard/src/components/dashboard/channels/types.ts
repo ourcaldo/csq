@@ -13,6 +13,8 @@ export type ChannelView = {
   archivedAt: string | null;
   phoneNumberId?: string;
   tosAcknowledged?: boolean;
+  // PRD 29 section 6.1: per-channel KELOLA for the requesting user.
+  canManage?: boolean;
   createdAt: string;
   updatedAt: string;
 };
