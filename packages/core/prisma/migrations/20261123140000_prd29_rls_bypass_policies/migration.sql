@@ -10,6 +10,10 @@
 DO $$
 DECLARE t text;
 BEGIN
+  -- NOTE: the NOT EXISTS must key on c.relname, NOT the loop variable -
+  -- plpgsql substitutes t as NULL while the FOR query is evaluated, so the
+  -- t-based filter never excludes anything (latent bug inherited from
+  -- 20261109120000, which only worked because no bypass policy existed yet).
   FOR t IN
     SELECT c.relname
     FROM pg_class c
@@ -23,7 +27,7 @@ BEGIN
       AND NOT EXISTS (
         SELECT 1 FROM pg_policies p
         WHERE p.schemaname = 'public' AND p.tablename = c.relname
-          AND p.policyname = t || '_bypass_rls'
+          AND p.policyname = c.relname || '_bypass_rls'
       )
   LOOP
     EXECUTE format(
