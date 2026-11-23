@@ -73,7 +73,12 @@ permissions).
 | Role | Description | Permissions |
 |---|---|---|
 | **Akses Penuh** | Everything except the owner-only list | All catalog keys minus the owner-only list |
-| **Admin Chat** | Frontline chat operator | `inbox.*` (all seven), `kontak.lihat`, `pipeline.lihat`, `tiket.lihat`, `template.lihat`, `aktivitas.lihat` |
+| **Admin Chat** | Frontline chat operator - FULL powers on the conversation surfaces, not read-only (owner decision 2026-11-23) | `inbox.*` (all seven), `kontak.kelola`, `pipeline.kelola`, `tiket.kelola`, `template.kelola`, `aktivitas.lihat` |
+
+Admin Chat's scope is then bounded by channel grants: an Admin Chat user
+given only channel 1 has full inbox/kontak/pipeline/tiket/template powers
+but only over channel 1's threads - per-channel access limits WHERE, role
+permissions limit WHAT.
 
 - Both are `isSystem: true` - tenants can duplicate them into editable
   copies, but not delete or rename the originals (support burden: the
@@ -379,7 +384,7 @@ first per the standing build flow.
 
 ## 13. Decisions and open questions
 
-Resolved 2026-11-23 (owner session):
+Resolved 2026-11-23 (owner session) - ALL questions closed, PRD is final:
 
 1. **Role presets** - the Baca/Edit/Penuh radio pre-fills the matrix
    (section 4.1); the matrix remains the editable source of truth.
@@ -395,13 +400,8 @@ Resolved 2026-11-23 (owner session):
    conversationId re-pointed to the latest active thread. The agent moves
    the shared card from whichever thread it runs in (owner confirmation:
    "agent can move it by using agents.tool").
-
-Still open:
-
-5. **Legacy STAFF migration mapping**: Akses Penuh (recommended - nobody
-   loses access; owners trim down) vs Admin Chat (tighter default, but
-   existing staff lose pipeline/scenario visibility until re-granted).
-   PRD text assumes Akses Penuh; confirm or override.
-6. **Admin Chat default contents**: inbox-all + kontak lihat + pipeline
-   lihat + tiket lihat + template lihat + aktivitas lihat (as tabled in
-   section 4). Confirm or adjust.
+5. **Legacy STAFF migration mapping** - Akses Penuh (owner accepted the
+   recommendation): nobody loses access on upgrade; owners trim down.
+6. **Admin Chat contents** - FULL (kelola) access on inbox, kontak,
+   pipeline, tiket, template - not read-only - plus aktivitas.lihat;
+   per-channel grants bound WHERE the role can act (section 4 note).
