@@ -19,7 +19,7 @@ export default async function handler(
     res.setHeader("Allow", "GET");
     return res.status(405).json(apiError("METHOD_NOT_ALLOWED", "Method not allowed"));
   }
-  const auth = await requireTenantFeature(req, res, "pipeline", "pipeline-stages");
+  const auth = await requireTenantFeature(req, res, "pipeline", "pipeline-stages", "pipeline.lihat");
   if (!auth) return;
 
   return withTenantContext(auth.tenantId, async () => {

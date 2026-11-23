@@ -10,6 +10,7 @@ import {
   PERMISSION_GROUPS,
   PERMISSION_FEATURES,
   FEATURE_GROUPS,
+  TOOL_PERMISSIONS,
   type PermissionKey,
 } from "../packages/core/src/lib/permissions-catalog";
 
@@ -56,6 +57,23 @@ check(
 check(
   "every baca set is smaller than its edit set or both empty",
   PERMISSION_FEATURES.every((f) => f.baca.length === 0 || f.baca.length <= f.edit.length)
+);
+check(
+  "TOOL_PERMISSIONS values are valid catalog keys",
+  Object.values(TOOL_PERMISSIONS).every((k: PermissionKey) => ALL_KEYS.includes(k))
+);
+check(
+  "every registry tool name is mapped",
+  (() => {
+    const names = [
+      "inventory.read", "inventory.update", "support.create_ticket",
+      "order.read", "order.list", "order.create", "order.cancel", "order.refund",
+      "deal.setStage", "source.search", "memory.search", "memory.create",
+      "customer.read", "customer.update", "knowledge.search",
+      "product.read", "product.search", "product.update", "conversation.handoff",
+    ];
+    return names.every((n) => TOOL_PERMISSIONS[n] !== undefined);
+  })()
 );
 
 if (failed > 0) {

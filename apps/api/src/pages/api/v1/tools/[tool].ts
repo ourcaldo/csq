@@ -3,6 +3,7 @@ import prisma from "@csq/core/lib/db";
 import { executeTool } from "@csq/core/tools/execute";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { requireApiAuth } from "@csq/core/lib/api-auth";
+import { hasPermission, TOOL_PERMISSIONS } from "@csq/core/lib/permissions-catalog";
 import { assignRequestId } from "@csq/core/lib/request-id";
 import { checkRateLimit } from "@csq/core/lib/rate-limit";
 import { apiError, apiOk, type ApiResponse } from "@csq/core/types/api";
@@ -37,14 +38,23 @@ export default async function handler(
       .status(403)
       .json(apiError("PERMISSION_DENIED", "Service tokens cannot execute tenant tools"));
   }
-  if (!checkRateLimit(`tools:${auth.kind === "API_KEY" ? auth.keyId : auth.userId}`, 60, 60_000)) {
-    return res.status(429).json(apiError("RATE_LIMITED", "Too many requests"));
-  }
-
   const toolName =
     typeof req.query.tool === "string" ? req.query.tool : undefined;
   if (!toolName) {
     return res.status(400).json(apiError("VALIDATION_ERROR", "Missing tool name"));
+  }
+  // PRD 29 section 8 amendment: the user realm enforces the per-tool catalog
+  // key (TOOL_PERMISSIONS); an unmapped tool is denied to JWT_USER callers.
+  if (auth.kind === "JWT_USER") {
+    const required = TOOL_PERMISSIONS[toolName];
+    if (!required || !hasPermission(auth, required)) {
+      return res
+        .status(403)
+        .json(apiError("PERMISSION_DENIED", `Role lacks the permission for ${toolName}`));
+    }
+  }
+  if (!checkRateLimit(`tools:${auth.kind === "API_KEY" ? auth.keyId : auth.userId}`, 60, 60_000)) {
+    return res.status(429).json(apiError("RATE_LIMITED", "Too many requests"));
   }
 
   const parsed = toolCallRequestSchema.safeParse(req.body);

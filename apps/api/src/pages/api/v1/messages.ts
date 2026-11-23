@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import prisma from "@csq/core/lib/db";
 import { requireApiAuth } from "@csq/core/lib/api-auth";
+import { hasPermission } from "@csq/core/lib/permissions-catalog";
 import { assignRequestId } from "@csq/core/lib/request-id";
 import { checkRateLimit } from "@csq/core/lib/rate-limit";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
@@ -88,6 +89,13 @@ export default async function handler(
     return res
       .status(403)
       .json(apiError("PERMISSION_DENIED", "Service tokens cannot send tenant messages"));
+  }
+  // PRD 29 section 8 amendment: the user realm enforces the catalog - a
+  // JWT_USER without inbox.balas cannot send customer messages here.
+  if (auth.kind === "JWT_USER" && !hasPermission(auth, "inbox.balas")) {
+    return res
+      .status(403)
+      .json(apiError("PERMISSION_DENIED", "Role lacks inbox.balas"));
   }
   const credentialId = auth.kind === "API_KEY" ? auth.keyId : auth.userId;
   if (!checkRateLimit(`messages:${credentialId}`, 60, 60_000)) {

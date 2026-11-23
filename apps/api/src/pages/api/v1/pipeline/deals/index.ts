@@ -13,6 +13,7 @@ import {
 import { getOrCreatePipeline, listDealsForKanban } from "@csq/core/lib/pipeline";
 import { createLead } from "@csq/core/lib/inbox";
 import { requireTenantFeature } from "../_guard";
+import { hasPermission } from "@csq/core/lib/permissions-catalog";
 
 // GET  /api/v1/pipeline/deals (PRD 25) - the tenant's board, paged, with the
 // same filters as the dashboard (stage name, assignee, tag, chat-activity
@@ -23,7 +24,9 @@ export default async function handler(
   res: NextApiResponse<ApiResponse<PipelineDealsResult | CreateDealResult>>
 ) {
   assignRequestId(req, res);
-  const auth = await requireTenantFeature(req, res, "pipeline", "pipeline-deals");
+  // JWT_USER needs pipeline.lihat to list; the POST branch additionally
+  // requires pipeline.kelola (kelola implies lihat via expandPermissions).
+  const auth = await requireTenantFeature(req, res, "pipeline", "pipeline-deals", "pipeline.lihat");
   if (!auth) return;
 
   return withTenantContext(auth.tenantId, async () => {
@@ -119,6 +122,12 @@ export default async function handler(
     }
 
     if (req.method === "POST") {
+      // PRD 29 section 8 amendment: manual lead creation is a pipeline write.
+      if (auth.kind === "JWT_USER" && !hasPermission(auth, "pipeline.kelola")) {
+        return res
+          .status(403)
+          .json(apiError("PERMISSION_DENIED", "Role lacks pipeline.kelola"));
+      }
       const parsed = createDealRequestSchema.safeParse(req.body);
       if (!parsed.success) {
         return res

@@ -316,8 +316,17 @@ dashboard control; the AI's channel authority is the channel-agent binding).
   the revocation stamp (audit run-3) - one query, fresh revocation of both
   password stamp and role changes.
 - SSR guards: `withAuth({ requiredPermission })` alongside the role flag.
-- Worker/API-v1 realms are unchanged (API tokens are tenant-level, not
-  user-level; PRD 23C scope).
+- **API-v1 user-token realm (owner decision 2026-11-23, option A - audit
+  run-4 finding 7):** the JWT_USER realm enforces the same catalog.
+  `requireApiAuth` loads the user's fresh permissions per request
+  (`loadUserRealm`), and consumers gate JWT_USER calls with `hasPermission`:
+  `POST /v1/messages` requires `inbox.balas`; `POST /v1/tools/[tool]`
+  requires the tool's mapped key (`TOOL_PERMISSIONS`, unmapped tools denied);
+  `/v1/pipeline` reads require `pipeline.lihat`, writes `pipeline.kelola`.
+  A deleted user's token dies immediately (no 15-minute revocation lag).
+  Tenant API keys keep their integration contract (agent-level grants);
+  service tokens are unchanged. The old signed `role` claim is retired from
+  the auth object (it was never consumed).
 - UI nav: the DashboardShell hides sections the caller has no `lihat`
   permission for; route access is still enforced server-side (hidden nav is
   cosmetic, the gate is the API).

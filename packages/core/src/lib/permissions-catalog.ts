@@ -145,6 +145,45 @@ export function expandPermissions(perms: readonly PermissionKey[]): Set<Permissi
   return set;
 }
 
+// Enforcement helper shared by the dashboard realm (requirePermission) and
+// the /api/v1 user-token realm (PRD 29 section 8 amendment): the owner holds
+// everything, owner-only keys are never satisfiable by a role grant.
+export function hasPermission(
+  auth: { isOwner: boolean; permissions: readonly PermissionKey[] },
+  key: PermissionKey
+): boolean {
+  if (auth.isOwner) return true;
+  if (OWNER_ONLY_KEYS.includes(key)) return false;
+  return auth.permissions.includes(key);
+}
+
+// /api/v1 Tool Gateway: the catalog key a JWT_USER must hold to execute
+// each agent tool through the API realm (dashboard parity, owner decision
+// 2026-11-23 option A). Tenant API keys keep their own agent-level grants;
+// this map gates the user-token realm only. A tool missing from this map is
+// DENIED to JWT_USER callers - map every new tool here when it lands.
+export const TOOL_PERMISSIONS: Readonly<Record<string, PermissionKey>> = {
+  "inventory.read": "inventaris.lihat",
+  "inventory.update": "inventaris.kelola",
+  "support.create_ticket": "tiket.kelola",
+  "order.read": "pesanan.lihat",
+  "order.list": "pesanan.lihat",
+  "order.create": "pesanan.kelola",
+  "order.cancel": "pesanan.kelola",
+  "order.refund": "pesanan.kelola",
+  "deal.setStage": "pipeline.kelola",
+  "source.search": "sumberdata.kelola",
+  "memory.search": "memori.lihat",
+  "memory.create": "memori.kelola",
+  "customer.read": "kontak.lihat",
+  "customer.update": "kontak.kelola",
+  "knowledge.search": "pengetahuan.kelola",
+  "product.read": "produk.lihat",
+  "product.search": "produk.lihat",
+  "product.update": "produk.kelola",
+  "conversation.handoff": "inbox.tugaskan",
+};
+
 // AKSES_PENUH: every catalog key except the owner-only list.
 export const AKSES_PENUH_KEYS: readonly PermissionKey[] = ALL_KEYS.filter(
   (k) => !OWNER_ONLY_KEYS.includes(k)

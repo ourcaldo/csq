@@ -19,6 +19,7 @@ import {
   ALL_KEYS,
   OWNER_ONLY_KEYS,
   expandPermissions,
+  hasPermission,
   type PermissionKey,
 } from "@csq/core/lib/permissions-catalog";
 
@@ -285,19 +286,10 @@ export async function getAuthSession(
   return session;
 }
 
-// PRD 29 permission gate for API routes. The owner holds every permission;
-// owner-only keys are never satisfiable by a role grant (the role CRUD API
-// filters them on write - this is the enforcement-side backstop).
+// PRD 29 permission gate for API routes. hasPermission lives in the catalog
+// now (shared with the /api/v1 user realm); the owner holds every
+// permission, owner-only keys are never satisfiable by a role grant.
 //   if (!requirePermission(session, "produk.kelola")) return respondError(res, "PERMISSION_DENIED", ...);
-export function hasPermission(
-  auth: { isOwner: boolean; permissions: PermissionKey[] },
-  key: PermissionKey
-): boolean {
-  if (auth.isOwner) return true;
-  if (OWNER_ONLY_KEYS.includes(key)) return false;
-  return auth.permissions.includes(key);
-}
-
 export function requirePermission(session: Session, key: PermissionKey): boolean {
   return hasPermission(session.user, key);
 }

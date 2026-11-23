@@ -23,7 +23,7 @@ export default async function handler(
     res.setHeader("Allow", "PATCH");
     return res.status(405).json(apiError("METHOD_NOT_ALLOWED", "Method not allowed"));
   }
-  const auth = await requireTenantFeature(req, res, "pipeline", "pipeline-deal");
+  const auth = await requireTenantFeature(req, res, "pipeline", "pipeline-deal", "pipeline.kelola");
   if (!auth) return;
 
   return withTenantContext(auth.tenantId, async () => {
