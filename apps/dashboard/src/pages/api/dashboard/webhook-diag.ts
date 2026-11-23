@@ -19,6 +19,8 @@ const diagSchema = z.object({
   phoneId: z.string().optional(),
   receivedSig: z.string().optional(),
   computedSig: z.string().optional(),
+  // Non-owner view (audit run-4): the verdict without the expected sig.
+  sigMatch: z.boolean().optional(),
 });
 const envelopeSchema = z.object({
   success: z.literal(true),
@@ -80,9 +82,24 @@ export default async function handler(
     // Tenant scoping (audit run-1, webhook-diag-cross-tenant-leak): only
     // entries recorded for THIS tenant's channels. UNKNOWN_PHONE_ID entries
     // (no resolvable tenant) are excluded from tenant views.
-    const items = parsed.data.data.items.filter(
-      (d) => d.tenantId === tenantId
-    );
+    // Audit run-4 (webhook-diag-sig-oracle): computedSig is a 64-bit prefix
+    // of HMAC-SHA256(WHATSAPP_APP_SECRET, payload) - a signing oracle for
+    // anyone who can feed crafted bodies to the public webhook. Non-owners
+    // get the mismatch verdict only, never the expected signature.
+    const items = parsed.data.data.items
+      .filter((d) => d.tenantId === tenantId)
+      .map((d) =>
+        session.user.isOwner
+          ? d
+          : {
+              at: d.at,
+              kind: d.kind,
+              tenantId: d.tenantId,
+              phoneId: d.phoneId,
+              receivedSig: d.receivedSig,
+              sigMatch: d.receivedSig !== undefined && d.receivedSig === d.computedSig,
+            }
+      );
     res.status(200).json(apiOk({ items }));
   });
 }

@@ -36,7 +36,7 @@ export default async function handler(
     }
 
     if (req.method === "PUT") {
-      if (!requirePermission(session, "pesanan.lihat")) {
+      if (!requirePermission(session, "pesanan.kelola")) {
         return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengubah status pesanan.");
       }
       const parsed = orderStatusUpdateSchema.safeParse(req.body);

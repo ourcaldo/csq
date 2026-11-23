@@ -1,6 +1,6 @@
 ﻿import type { NextApiRequest, NextApiResponse } from "next";
 import type { Campaign } from "@prisma/client";
-import { getAuthSession } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import { requireFeatureApi } from "@csq/core/lib/feature-guard";
 import prisma from "@csq/core/lib/db";
 import { logHuman } from "@csq/core/lib/audit";
@@ -36,6 +36,12 @@ export default async function handler(
 
   if (!(await requireFeatureApi(session, res, "campaigns"))) return;
   const tenantId = requireTenant(session);
+  // Audit run-4 (ungated-list-read): the catalog's read key gates this
+  // route - a role without kampanye.lihat must not read this data.
+  if (!requirePermission(session, "kampanye.lihat")) {
+    return respondError(res, "PERMISSION_DENIED", "Tidak punya akses.");
+  }
+
 
   return withTenantContext(tenantId, async () => {
     if (req.method === "GET") {

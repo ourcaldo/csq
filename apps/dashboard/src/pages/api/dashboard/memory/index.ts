@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Memory, Prisma } from "@prisma/client";
-import { getAuthSession } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { logHuman } from "@csq/core/lib/audit";
 import { paginate, requireTenant, respondError, strQuery } from "@csq/core/lib/queries";
@@ -25,6 +25,9 @@ export default async function handler(
 
   return withTenantContext(tenantId, async () => {
     if (req.method === "GET") {
+      if (!requirePermission(session, "memori.lihat")) {
+        return respondError(res, "PERMISSION_DENIED", "Tidak punya akses memori.");
+      }
       const { skip, take, page, pageSize } = paginate(req.query);
       const agentId = strQuery(req.query, "agentId");
       const where: Prisma.MemoryWhereInput = {
@@ -44,6 +47,12 @@ export default async function handler(
     // caller names whose memory it is; business facts belong to the
     // knowledge base instead.
     if (req.method === "POST") {
+      // Audit run-4 (memory-create-ungated): memories feed the AI agent's
+      // long-term context - the create path needs memori.kelola like the
+      // update/delete paths.
+      if (!requirePermission(session, "memori.kelola")) {
+        return respondError(res, "PERMISSION_DENIED", "Tidak punya izin mengelola memori.");
+      }
       const parsed = memoryCreateSchema.safeParse(req.body);
       if (!parsed.success) {
         return respondError(res, "VALIDATION_ERROR", parsed.error.message);

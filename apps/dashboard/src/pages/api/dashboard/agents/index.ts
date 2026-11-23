@@ -40,6 +40,12 @@ export default async function handler(
   const session = await getAuthSession(req, res);
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
   const tenantId = requireTenant(session);
+  // Audit run-4 (ungated-list-read): the catalog's read key gates this
+  // route - a role without agent.lihat must not read this data.
+  if (!requirePermission(session, "agent.lihat")) {
+    return respondError(res, "PERMISSION_DENIED", "Tidak punya akses.");
+  }
+
 
   return withTenantContext(tenantId, async () => {
     if (req.method === "GET") {
@@ -52,11 +58,11 @@ export default async function handler(
     }
 
     if (req.method === "POST") {
-      if (!requirePermission(session, "agent.lihat")) {
+      if (!requirePermission(session, "agent.kelola")) {
         return respondError(
           res,
           "PERMISSION_DENIED",
-          "Hanya owner yang dapat membuat agent."
+          "Tidak punya izin membuat agent."
         );
       }
       const parsed = createSchema.safeParse(req.body);

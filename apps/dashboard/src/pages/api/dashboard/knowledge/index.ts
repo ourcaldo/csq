@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import type { Knowledge, KnowledgeType, Prisma } from "@prisma/client";
-import { getAuthSession } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { paginate, requireTenant, respondError, strQuery } from "@csq/core/lib/queries";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
@@ -27,6 +27,12 @@ export default async function handler(
   const session = await getAuthSession(req, res);
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
   const tenantId = requireTenant(session);
+  // Audit run-4 (ungated-list-read): the catalog's read key gates this
+  // route - a role without pengetahuan.kelola must not read this data.
+  if (!requirePermission(session, "pengetahuan.kelola")) {
+    return respondError(res, "PERMISSION_DENIED", "Tidak punya akses.");
+  }
+
 
   return withTenantContext(tenantId, async () => {
     if (req.method === "GET") {

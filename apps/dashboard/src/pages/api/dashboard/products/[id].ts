@@ -29,7 +29,7 @@ export default async function handler(
     }
 
     if (req.method === "PUT") {
-      if (!requirePermission(session, "produk.lihat")) {
+      if (!requirePermission(session, "produk.kelola")) {
         return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengubah produk.");
       }
       const parsed = productUpdateSchema.safeParse(req.body);

@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import type { Message } from "@prisma/client";
 import { z } from "zod";
 import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
-import { visibleChannelIds } from "@csq/core/lib/channel-access";
+import { visibleChannelIds, composeChannelIds } from "@csq/core/lib/channel-access";
 import prisma from "@csq/core/lib/db";
 import {
   HttpError,
@@ -62,6 +62,11 @@ export default async function handler(
         "PERMISSION_DENIED",
         "Hanya owner atau staff yang dapat mengirim template."
       );
+    }
+    // Audit run-4 (kirim-grant-unenforced): KIRIM gates the actual send.
+    const composeSet = await composeChannelIds(session);
+    if (composeSet !== null && !composeSet.includes(conversation.channelId)) {
+      return respondError(res, "PERMISSION_DENIED", "Tidak punya izin mengirim di saluran ini.");
     }
 
     const parsed = sendTemplateSchema.safeParse(req.body);

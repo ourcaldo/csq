@@ -61,6 +61,12 @@ export default async function handler(
   const session = await getAuthSession(req, res);
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
   const tenantId = requireTenant(session);
+  // Audit run-4 (ungated-list-read): the catalog's read key gates this
+  // route - a role without kontak.lihat must not read this data.
+  if (!requirePermission(session, "kontak.lihat")) {
+    return respondError(res, "PERMISSION_DENIED", "Tidak punya akses.");
+  }
+
 
   return withTenantContext(tenantId, async () => {
     if (req.method === "GET") {

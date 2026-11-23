@@ -42,7 +42,7 @@ export default async function handler(
         .json(apiOk({ items, systemKeys: SYSTEM_TEMPLATE_KEYS }));
     }
 
-    if (!requirePermission(session, "template.lihat")) {
+    if (!requirePermission(session, "template.kelola")) {
       return respondError(res, "PERMISSION_DENIED", "Hanya owner.");
     }
 

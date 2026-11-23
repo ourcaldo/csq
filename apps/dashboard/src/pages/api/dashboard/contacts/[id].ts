@@ -29,7 +29,7 @@ export default async function handler(
     }
 
     if (req.method === "PUT") {
-      if (!requirePermission(session, "kontak.lihat")) {
+      if (!requirePermission(session, "kontak.kelola")) {
         return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengubah kontak.");
       }
       const parsed = contactUpdateSchema.safeParse(req.body);

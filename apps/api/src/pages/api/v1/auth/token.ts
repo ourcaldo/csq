@@ -54,6 +54,14 @@ export default async function handler(
     if (!user.tenantId) {
       return res.status(403).json(apiError("PERMISSION_DENIED", "Akun tidak terhubung ke tenant."));
     }
+    // Audit run-4 (api-token-must-rotate): the bootstrap credential is
+    // single-use by policy (run-3 forced rotation) - it must not outlive
+    // first login by minting an API token instead.
+    if (user.mustChangePassword) {
+      return res.status(403).json(
+        apiError("MUST_CHANGE_PASSWORD", "Password harus diganti terlebih dahulu melalui dashboard.")
+      );
+    }
     // SEC-4 (PRD 16): a suspended tenant is locked out of the token realm
     // with a distinct code.
     const tenant = await prisma.tenant.findUnique({

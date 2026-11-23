@@ -6,7 +6,7 @@ import { logHuman } from "@csq/core/lib/audit";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { requireTenant, respondError, strQuery } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
-import { OWNER_ONLY_KEYS } from "@csq/core/lib/permissions-catalog";
+import { ALL_KEYS, OWNER_ONLY_KEYS } from "@csq/core/lib/permissions-catalog";
 
 export type RoleItem = {
   id: string;
@@ -71,9 +71,15 @@ export default async function handler(
           ...(parsed.data.description !== undefined ? { description: parsed.data.description } : {}),
           ...(parsed.data.permissions
             ? {
+                // Audit run-4 (roles-put-unvalidated): PUT validates against
+                // the same catalog as POST - only real, grantable keys are
+                // stored, so a future catalog change can never activate a
+                // pre-planted string.
                 permissions: [
                   ...new Set(
-                    parsed.data.permissions.filter((k) => !OWNER_ONLY_KEYS.includes(k))
+                    parsed.data.permissions.filter(
+                      (k) => ALL_KEYS.includes(k) && !OWNER_ONLY_KEYS.includes(k)
+                    )
                   ),
                 ],
               }

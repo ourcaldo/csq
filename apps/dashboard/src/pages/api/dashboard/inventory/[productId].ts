@@ -35,7 +35,7 @@ export default async function handler(
     }
 
     if (req.method === "PUT") {
-      if (!requirePermission(session, "inventaris.lihat")) {
+      if (!requirePermission(session, "inventaris.kelola")) {
         return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengubah inventaris.");
       }
       const parsed = inventoryUpdateSchema.safeParse(req.body);

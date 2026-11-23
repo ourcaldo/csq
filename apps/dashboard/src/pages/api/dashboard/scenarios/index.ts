@@ -94,7 +94,7 @@ export default async function handler(
 
     if (req.method === "POST") {
       // Staff can draft; only OWNER activates. Creation allowed for both.
-      if (!requirePermission(session, "skenario.lihat")) {
+      if (!requirePermission(session, "skenario.kelola")) {
         return respondError(
           res,
           "PERMISSION_DENIED",

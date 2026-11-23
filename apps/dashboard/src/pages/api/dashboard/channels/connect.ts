@@ -104,17 +104,47 @@ export default async function handler(
       return respondError(res, "VALIDATION_ERROR", parsed.error.message);
     }
     const { provider, channelId, label, agentId } = parsed.data;
+    // Audit run-4 (connect-kelola-overscope): a KELOLA-only caller (no
+    // saluran.ubah) reaches this branch for the branch QR-scan scenario -
+    // that is RE-PAIRING, not reconfiguration. Everything below restricts
+    // their writes to the pairing config; label, agent binding, provider
+    // switch, and Cloud API credential swaps keep requiring saluran.ubah.
+    let rePairOnly = false;
     if (channelId && !requirePermission(session, "saluran.ubah")) {
-      // shortcut: KELOLA grantees may re-pair their own channel (the branch
-      // QR-scan scenario, PRD 29 section 6.1); grant saluran.ubah for full
-      // reconfig (agent binding, provider switch) without KELOLA.
       const chan = await prisma.channel.findFirst({ where: { id: channelId, tenantId } });
       if (!chan || !(await canManageChannel(session, chan.id))) {
         return respondError(res, "PERMISSION_DENIED", "Tidak punya izin mengubah saluran.");
       }
+      rePairOnly = true;
+      if (provider !== chan.provider) {
+        return respondError(
+          res,
+          "PERMISSION_DENIED",
+          "Perubahan provider membutuhkan izin saluran.ubah."
+        );
+      }
+      if (provider === "CLOUD_API") {
+        return respondError(
+          res,
+          "PERMISSION_DENIED",
+          "Konfigurasi Cloud API membutuhkan izin saluran.ubah."
+        );
+      }
     }
     if (!channelId && !requirePermission(session, "saluran.tambah")) {
       return respondError(res, "PERMISSION_DENIED", "Tidak punya izin menambah saluran.");
+    }
+    // Audit run-4 (connect-agentid-tenant): the agent binding is a
+    // cross-entity reference - verify the agent belongs to this tenant
+    // before writing it (mirrors channels/[id].ts PATCH).
+    if (agentId) {
+      const agent = await prisma.agent.findFirst({
+        where: { id: agentId, tenantId },
+        select: { id: true },
+      });
+      if (!agent) {
+        return respondError(res, "VALIDATION_ERROR", "Agent tidak ditemukan dalam tenant ini.");
+      }
     }
 
     // Existing row only when reconfiguring that specific channel.
@@ -209,13 +239,16 @@ export default async function handler(
     const channel = existing
       ? await prisma.channel.update({
           where: { id: existing.id },
-          data: {
-            agentId: agentId ?? existing.agentId,
-            label,
-            ...(provider === "CLOUD_API"
-              ? { config, status, phoneNumber, externalId, wabaId }
-              : { config }),
-          },
+          data: rePairOnly
+            ? // KELOLA re-pair: pairing config only (audit run-4).
+              { config }
+            : {
+                agentId: agentId ?? existing.agentId,
+                label,
+                ...(provider === "CLOUD_API"
+                  ? { config, status, phoneNumber, externalId, wabaId }
+                  : { config }),
+              },
         })
       : await prisma.channel.create({
           data: {

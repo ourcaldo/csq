@@ -2,6 +2,7 @@
 import { hashPassword } from "../src/lib/password";
 import { upsertEmbedding } from "../src/lib/vector";
 import { embed, isEmbeddingsConfigured } from "../src/services/embeddings";
+import { AKSES_PENUH_KEYS, ADMIN_CHAT_KEYS } from "../src/lib/permissions-catalog";
 
 // Demo tenant: Toko Kopi Nusantara (PRD §21). Run with `npm run prisma:seed`.
 // Idempotent-ish: upserts by unique keys (tenant slug, user email, inventory
@@ -39,6 +40,31 @@ export async function seedDemo(): Promise<void> {
   });
 
   const passwordHash = await hashPassword("demo1234");
+  // PRD 29: isOwner replaces the old role enum; the two system roles are
+  // seeded per tenant (mirrors provision-tenant.ts / migration).
+  const aksesPenuh = await prisma.role.upsert({
+    where: { tenantId_name: { tenantId: tenant.id, name: "Akses Penuh" } },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      name: "Akses Penuh",
+      description: "Semua akses kecuali khusus pemilik.",
+      isSystem: true,
+      permissions: [...AKSES_PENUH_KEYS],
+    },
+  });
+  await prisma.role.upsert({
+    where: { tenantId_name: { tenantId: tenant.id, name: "Admin Chat" } },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      name: "Admin Chat",
+      description:
+        "Operator chat: aksi penuh di percakapan, kontak, pipeline, tiket, dan template.",
+      isSystem: true,
+      permissions: [...ADMIN_CHAT_KEYS],
+    },
+  });
   await prisma.user.upsert({
     where: { email: "admin@tokokopi.id" },
     update: {},
@@ -46,10 +72,11 @@ export async function seedDemo(): Promise<void> {
       email: "admin@tokokopi.id",
       name: "Owner Toko Kopi",
       passwordHash,
-      role: "OWNER",
+      isOwner: true,
       tenantId: tenant.id,
     },
   });
+  void aksesPenuh;
 
   const products = [
     { name: "Kopi Arabica 250g", sku: "ARAB-250", price: 85000, stock: 12 },

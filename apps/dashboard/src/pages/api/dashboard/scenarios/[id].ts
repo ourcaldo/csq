@@ -55,7 +55,7 @@ export default async function handler(
 
     if (req.method === "PUT") {
       // Editing allowed for OWNER + STAFF (staff can build drafts).
-      if (!requirePermission(session, "skenario.lihat")) {
+      if (!requirePermission(session, "skenario.kelola")) {
         return respondError(res, "PERMISSION_DENIED", "Tidak ada izin mengubah scenario.");
       }
       // Live-graph guard (audit run-1, scenario-put-live-graph-unvalidated):

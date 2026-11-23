@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { z } from "zod";
-import { getAuthSession } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import { manageChannelIds } from "@csq/core/lib/channel-access";
 import prisma from "@csq/core/lib/db";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
@@ -91,6 +91,12 @@ export default async function handler(
   const session = await getAuthSession(_req, res);
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
   const tenantId = requireTenant(session);
+  // Audit run-4 (ungated-list-read): the catalog's read key gates this
+  // route - a role without saluran.lihat must not read this data.
+  if (!requirePermission(session, "saluran.lihat")) {
+    return respondError(res, "PERMISSION_DENIED", "Tidak punya akses.");
+  }
+
 
   return withTenantContext(tenantId, async () => {
     // Archived channels are hidden from the working list (PRD 15); data

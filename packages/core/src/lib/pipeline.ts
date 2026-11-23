@@ -267,8 +267,22 @@ export async function setDealValue(args: {
       conversationId: args.conversationId,
     });
   }
+  // Audit run-4 (setdealvalue-repointed-crash): resolve the shared card
+  // fresh (ensureInitialDeal may have created or re-pointed it), then
+  // update by its id - never by conversationId, which the card may no
+  // longer point at under thread-per-channel.
+  const target = conversation.contactId
+    ? await prisma.deal.findUnique({
+        where: { tenantId_contactId: { tenantId: args.tenantId, contactId: conversation.contactId } },
+      })
+    : await prisma.deal.findUnique({
+        where: { conversationId: args.conversationId },
+      });
+  if (!target) {
+    throw new HttpError("NOT_FOUND", "Deal tidak ditemukan.");
+  }
   const deal = await prisma.deal.update({
-    where: { conversationId: args.conversationId },
+    where: { id: target.id },
     data: { value: args.value },
   });
   if ((existing?.value ?? 0) !== args.value) {

@@ -28,7 +28,7 @@ export default async function handler(
     }
 
     if (req.method === "DELETE") {
-      if (!requirePermission(session, "memori.lihat")) {
+      if (!requirePermission(session, "memori.kelola")) {
         return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat menghapus memory.");
       }
       const existing = await prisma.memory.findFirst({ where: { id, tenantId } });

@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import type { Message, Prisma } from "@prisma/client";
 import { z } from "zod";
 import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
-import { visibleChannelIds } from "@csq/core/lib/channel-access";
+import { visibleChannelIds, composeChannelIds } from "@csq/core/lib/channel-access";
 import prisma from "@csq/core/lib/db";
 import {
   HttpError,
@@ -99,6 +99,19 @@ export default async function handler(
       const parsed = sendReplySchema.safeParse(req.body);
       if (!parsed.success) {
         return respondError(res, "VALIDATION_ERROR", parsed.error.message);
+      }
+      // Audit run-4 (kirim-grant-unenforced): KIRIM (canCompose) gates the
+      // actual send, not just the composer UI - and the body's channel
+      // override must be a channel the user may compose on (it used to
+      // accept ANY connected tenant channel, even unviewable ones).
+      const compose = await composeChannelIds(session);
+      const targetChannelId = parsed.data.channelId ?? conversation.channelId;
+      if (compose !== null && !compose.includes(targetChannelId)) {
+        return respondError(
+          res,
+          "PERMISSION_DENIED",
+          "Tidak punya izin mengirim di saluran ini."
+        );
       }
 
       try {

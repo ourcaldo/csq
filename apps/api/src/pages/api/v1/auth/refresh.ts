@@ -48,6 +48,14 @@ export default async function handler(
     if (!user || !user.tenantId) {
       return res.status(401).json(apiError("UNAUTHORIZED", "Refresh token tidak valid."));
     }
+    // Audit run-4 (api-token-must-rotate): the forced-rotation flag kills
+    // refresh flows too - a flagged credential must not keep minting
+    // access tokens.
+    if (user.mustChangePassword) {
+      return res.status(403).json(
+        apiError("MUST_CHANGE_PASSWORD", "Password harus diganti terlebih dahulu melalui dashboard.")
+      );
+    }
     // SEC-4 (PRD 16): a suspended tenant is locked out with a distinct code.
     const tenant = await prisma.tenant.findUnique({
       where: { id: user.tenantId },

@@ -21,14 +21,19 @@ async function main() {
     const channel = await prisma.channel.findUnique({ where: { id: m.channelId } });
     if (!channel) continue;
     const before = await prisma.conversation.count({
-      where: { tenantId: channel.tenantId, customerPhone: `${m.lid}@lid` },
+      where: {
+        tenantId: channel.tenantId,
+        customerPhone: `${m.lid}@lid`,
+        channelId: m.channelId,
+      },
     });
     if (!before) continue;
     const digitsConv = await prisma.conversation.findUnique({
       where: {
-        tenantId_customerPhone: {
+        tenantId_customerPhone_channelId: {
           tenantId: channel.tenantId,
           customerPhone: m.pn,
+          channelId: m.channelId,
         },
       },
     });

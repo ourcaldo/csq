@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
+import { visibleChannelIds } from "@csq/core/lib/channel-access";
 import prisma from "@csq/core/lib/db";
 import { requireTenant, respondError, strQuery } from "@csq/core/lib/queries";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
@@ -47,8 +48,14 @@ export default async function handler(
       return respondError(res, "VALIDATION_ERROR", "conversationId diperlukan.");
     }
 
+    // Audit run-4 (inbox-sse-no-channel-scope): the stream is scoped to the
+    // user's visible channels like every sibling inbox route - a user with
+    // no grants must not read any conversation through it.
+    const visible = await visibleChannelIds(session);
+    const channelScope = visible ? { channelId: { in: visible } } : {};
+
     const conversation = await prisma.conversation.findFirst({
-      where: { id: conversationId, tenantId },
+      where: { id: conversationId, tenantId, ...channelScope },
     });
     if (!conversation) {
       return respondError(res, "NOT_FOUND", "Percakapan tidak ditemukan.");
