@@ -32,6 +32,7 @@ the file contents and names.
 | `26-scenario-module-additions.md` | new | Scenario additions: ON_HANDOFF trigger, Send-node destination override, inbox template picker | Live - approved and implemented 2026-11-18 |
 | `27-contact-profile-photos.md` | new | Contact WhatsApp profile photos: MediaAsset-backed avatars, Baileys-only fetch on first inbound + bounded backfill, inbox/contacts UI | Live - approved 2026-11-19 |
 | `28-channel-ux-and-fixes.md` | new | Inbox channel selector (pills + composer chip + remembered override + AI routing rule), pipeline auto-refresh, campaign edit data loss, campaign auto-pause + resend failed, collapsible sidebar, team invite fixes + management | Pending - approved direction for Part A; priority order set |
+| `29-tenant-roles-and-channel-access.md` | new | Tenant custom roles: permission catalog, seeded defaults (Akses Penuh, Admin Chat), role CRUD + assignment, per-channel access grants (LIHAT/KIRIM/KELOLA), channel CRUD permissions | Proposed 2026-11-23 - awaiting owner answers to 4 open questions before implementation |
 
 Companion working documents (plans, registers, status) stay in `docs/`
 with date prefixes, e.g. `docs/plans/2026-11-08-enterprise-architecture-plan.md`.
