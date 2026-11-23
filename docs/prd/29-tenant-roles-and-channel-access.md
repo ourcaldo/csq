@@ -86,6 +86,25 @@ permissions).
   legacy `canRunCampaigns` boolean is migrated into the role
   (`kampanye.kelola`) and the column is retired.
 
+### 4.1 Role presets - the Baca / Edit / Penuh radio (owner decision 2026-11-23)
+
+The role editor opens with a three-option radio that PRE-FILLS the
+permission matrix:
+
+| Preset | Fills |
+|---|---|
+| **Baca saja** (read only) | every `lihat` key, nothing else |
+| **Edit** | every `lihat` + `kelola` key |
+| **Penuh** (full) | every non-owner-only key |
+
+- The preset is a starting point, not a mode: the grouped permission
+  matrix stays visible and editable beneath it. Changing a checkbox
+  simply deselects the radio (the role becomes "kustom"). This keeps the
+  3-click simple path AND the per-section granularity (e.g. kasir: full on
+  pesanan, read-only on produk) in one editor.
+- `permissions[]` remains the single source of truth - the radio only
+  writes into it. No schema impact.
+
 ## 5. Data model
 
 ```prisma
@@ -155,6 +174,41 @@ Channel CRUD (adding/removing channels as objects) is role-level, not
 channel-level: `saluran.tambah`, `saluran.ubah`, `saluran.hapus`.
 `saluran.hapus` additionally requires no active conversations OR an explicit
 confirm (deletion cascades conversations; keep the existing guard).
+
+### 6.1 KELOLA grants are pairing power - document, warn, audit (owner decision 2026-11-23)
+
+The owner's branch scenario: 3 staff on 3 branches, each scanning their own
+QR; another tenant's staff reply-only, QR owner-only. Both are just
+ChannelAccess rows: grant KELOLA per user (or per role) on the specific
+channel, or do not.
+
+The consequence must be explicit in the product because a Baileys QR scan
+PAIRS the WhatsApp session to whoever scans it:
+
+- KELOLA on a Baileys channel = the grantee can scan the QR, which means
+  the channel's WhatsApp session can be pointed at a device the grantee
+  controls. It is the most powerful grant in the system - stronger than
+  any dashboard permission.
+- The grant UI must label it accordingly ("Pindai QR / sambungkan sesi -
+  granted staff memegang kendali sesi WhatsApp saluran ini") and the audit
+  log records every connect/disconnect with the acting user (already
+  audit-logged; the actor now comes from run-3 actorEmail).
+- `saluran.ubah` (config edits: label, agent binding) stays role-level and
+  separate from per-channel KELOLA: a branch staff with KELOLA can scan
+  and disconnect their channel but cannot rebind its agent or edit config
+  unless their role also has `saluran.ubah`.
+
+### 6.2 Channel-scoped visibility, decided (owner decision 2026-11-23)
+
+- A user assigned to specific channel(s) sees only conversations currently
+  on those channels - inbox, detail, search, counts.
+- A customer writing on multiple channels is one thread that follows the
+  latest channel (existing rule). Consequence accepted by the owner: when
+  the thread's latest channel is one the user cannot view, the thread is
+  fully invisible to them - including the messages that arrived on their
+  own channel earlier. Default is clean hiding (no placeholder).
+- A user granted multiple (or all) channels gets the union - identical to
+  today's behavior when they can see everything.
 
 Conversation-level: the existing human-assignment (Ditugaskan) system is
 unchanged and composes with this: a user sees a conversation when their
@@ -265,22 +319,25 @@ first per the standing build flow.
 - API v1 token realm permissions (tokens act at tenant level, PRD 23C).
 - Time-based or conditional rules ("only on weekends").
 
-## 13. Open questions for the owner
+## 13. Decisions and open questions
 
-1. **Legacy STAFF mapping**: PRD proposes Akses Penuh (no one loses access;
-   you trim down). Alternative: map to Admin Chat (tighter, but existing
-   staff lose pipeline/scenario visibility until you re-grant). Which?
-2. **Admin Chat default contents**: PRD proposes inbox-centric + kontak
-   lihat + pipeline lihat + tiket lihat + template lihat + aktivitas lihat.
-   Add or remove anything?
-3. **KELOLA on a channel** - should a user with KELOLA but not
-   `saluran.ubah` be able to edit that channel's config, or is KELOLA
-   strictly operational (QR/test/disconnect) while config edits always need
-   `saluran.ubah`? PRD assumes the latter (separation).
-4. **Multi-channel conversations**: with one thread per customer identity,
-   a customer can write on channel A then channel B (same identity). If a
-   user can only see channel A, the conversation (one thread, latest
-   channel = B) is invisible to them - even the channel-A messages in it.
-   Options: (a) accept (thread follows latest channel), (b) per-message
-   channel visibility inside the thread. PRD assumes (a) - it matches the
-   current "thread follows the latest message's channel" rule.
+Resolved 2026-11-23 (owner session):
+
+1. **Role presets** - the Baca/Edit/Penuh radio pre-fills the matrix
+   (section 4.1); the matrix remains the editable source of truth.
+2. **KELOLA vs saluran.ubah** - separated, per section 6.1. Per-channel
+   KELOLA (including QR scan) can be granted to specific roles AND/OR
+   specific staff; config edits stay behind `saluran.ubah`.
+3. **Channel-scoped visibility** - accepted as section 6.2: thread follows
+   the latest channel; invisible threads hide cleanly; multi-channel staff
+   see the union (today's behavior when full access).
+
+Still open:
+
+4. **Legacy STAFF migration mapping**: Akses Penuh (recommended - nobody
+   loses access; owners trim down) vs Admin Chat (tighter default, but
+   existing staff lose pipeline/scenario visibility until re-granted).
+   PRD text assumes Akses Penuh; confirm or override.
+5. **Admin Chat default contents**: inbox-all + kontak lihat + pipeline
+   lihat + tiket lihat + template lihat + aktivitas lihat (as tabled in
+   section 4). Confirm or adjust.
