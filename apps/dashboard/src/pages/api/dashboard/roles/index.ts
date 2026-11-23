@@ -21,6 +21,7 @@ export type RoleItem = {
   permissions: string[];
   userCount: number;
   createdAt: string;
+  updatedAt: string;
 };
 
 const createSchema = z.object({
@@ -65,6 +66,7 @@ export default async function handler(
         permissions: r.permissions,
         userCount: r._count.users,
         createdAt: r.createdAt.toISOString(),
+        updatedAt: r.updatedAt.toISOString(),
       }));
       return res.status(200).json(apiOk({ items }));
     }
@@ -110,6 +112,7 @@ export default async function handler(
           permissions: role.permissions,
           userCount: 0,
           createdAt: role.createdAt.toISOString(),
+          updatedAt: role.updatedAt.toISOString(),
         })
       );
     }

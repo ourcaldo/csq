@@ -16,6 +16,7 @@ export type RoleItem = {
   permissions: string[];
   userCount: number;
   createdAt: string;
+  updatedAt: string;
 };
 
 // PRD 29 - role update/delete. PUT: name/description/permissions (system
@@ -97,6 +98,7 @@ export default async function handler(
           permissions: updated.permissions,
           userCount: 0,
           createdAt: updated.createdAt.toISOString(),
+          updatedAt: updated.updatedAt.toISOString(),
         })
       );
     }
@@ -136,6 +138,7 @@ export default async function handler(
           permissions: role.permissions,
           userCount: 0,
           createdAt: role.createdAt.toISOString(),
+          updatedAt: role.updatedAt.toISOString(),
         })
       );
     }

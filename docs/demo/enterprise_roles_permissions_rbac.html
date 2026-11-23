@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="id" class="antialiased">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Peran &amp; Izin — CSQ Enterprise Workspace</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
+          mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        },
+        colors: {
+          brand: {
+            50: '#ecfdf5',
+            100: '#d1fae5',
+            200: '#a7f3d0',
+            500: '#10b981',
+            600: '#059669',
+            700: '#047857',
+            900: '#064e3b',
+          }
+        }
+      }
+    }
+  }
+</script>
+<style>
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+  ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+  .seg-btn { transition: all 0.14s cubic-bezier(0.16, 1, 0.3, 1); }
+  .seg-btn:active { transform: scale(0.97); }
+  .scope-row { transition: background-color 0.12s ease, border-color 0.12s ease; }
+  .fade-in { animation: fadeSlide 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
+  @keyframes fadeSlide {
+    from { opacity: 0; transform: translateY(4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+</head>
+<body class="min-h-screen bg-white text-slate-900 selection:bg-brand-100 selection:text-brand-900">
+
+<!-- ══════════════════ ENTERPRISE TOP CHROME ══════════════════ -->
+<header class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur-md">
+  <div class="flex h-14 w-full items-center justify-between px-4 sm:px-6 lg:px-10">
+    <div class="flex items-center gap-3">
+      <!-- Workspace Brand Mark -->
+      <div class="flex items-center gap-2">
+        <span class="text-xs font-bold tracking-tight text-slate-900">CSQ</span>
+        <span class="text-slate-300">·</span>
+        <span class="hidden text-xs font-semibold text-slate-900 sm:inline">PT Nusantara Retail Tbk</span>
+        <span class="rounded border border-slate-200 bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] font-medium text-slate-600">ENTERPRISE</span>
+      </div>
+
+      <span class="text-slate-300">/</span>
+
+      <!-- Breadcrumb -->
+      <nav aria-label="Breadcrumb" class="flex items-center gap-1.5 text-xs">
+        <span class="text-slate-500">Pengaturan Organisasi</span>
+        <span class="text-slate-300">/</span>
+        <button onclick="handleBreadcrumbHome()" class="font-medium text-slate-900 hover:text-brand-600 transition-colors">Peran &amp; Izin</button>
+        <span id="top-bc-sep" class="hidden text-slate-300">/</span>
+        <span id="top-bc-current" class="hidden max-w-[160px] truncate font-medium text-slate-600"></span>
+      </nav>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <div class="hidden items-center gap-2 rounded border border-emerald-200/80 bg-emerald-50/70 px-2.5 py-1 text-[11px] font-medium text-emerald-800 md:flex">
+        <span class="h-1.5 w-1.5 rounded-xs bg-emerald-500"></span>
+        <span>RBAC Policy v2.4</span>
+      </div>
+      <div class="h-4 w-px bg-slate-200 hidden md:block"></div>
+      <span class="text-xs font-medium text-slate-600">Admin</span>
+    </div>
+  </div>
+</header>
+
+<main class="w-full px-4 py-8 sm:px-6 lg:px-10">
+
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <!-- VIEW 1: ROLE DIRECTORY & OVERVIEW                           -->
+  <!-- ═════════════════════════════════════════════════════════════ -->
+  <div id="view-list" class="fade-in">
+
+    <!-- Page Title & Primary CTA -->
+    <div class="flex flex-col justify-between gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-end">
+      <div>
+        <div class="flex items-center gap-2.5">
+          <h1 class="text-xl font-semibold tracking-tight text-slate-900">Peran &amp; Kontrol Akses (RBAC)</h1>
+          <span class="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 font-mono text-[11px] font-medium text-slate-600">44 Granular Scopes</span>
+        </div>
+        <p class="mt-1.5 max-w-3xl text-xs leading-relaxed text-slate-500">
+          Kelola kebijakan keamanan dan matriks hak akses tim. Peran bawaan sistem memiliki struktur perlindungan terhadap penghapusan, namun cakupan izinnya tetap dapat disesuaikan.
+        </p>
+      </div>
+      <div class="flex items-center gap-2.5 shrink-0">
+        <button onclick="openCreate()" class="inline-flex h-9 items-center gap-1.5 rounded-lg bg-brand-600 px-4 text-xs font-semibold text-white shadow-xs transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2">
+          <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+          Buat Peran Kustom
+        </button>
+      </div>
+    </div>
+
+    <!-- Edge-to-Edge Metric Strip (Unboxed) -->
+    <div class="grid grid-cols-2 border-b border-slate-200 sm:grid-cols-4 sm:divide-x sm:divide-slate-200">
+      <div class="py-5 pr-6">
+        <div class="flex items-center gap-2 text-xs font-medium text-slate-500">
+          <span>Total Definisi Peran</span>
+        </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span class="font-mono text-2xl font-semibold tracking-tight text-slate-900" data-kpi="total">0</span>
+          <span class="text-[11px] text-slate-400">aktif dalam workspace</span>
+        </div>
+      </div>
+
+      <div class="py-5 pl-6 sm:px-6">
+        <div class="flex items-center gap-2 text-xs font-medium text-slate-500">
+          <span>Anggota Tertaut</span>
+        </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span class="font-mono text-2xl font-semibold tracking-tight text-slate-900" data-kpi="assignments">0</span>
+          <span class="text-[11px] text-slate-400">kursi teralokasi</span>
+        </div>
+      </div>
+
+      <div class="border-t border-slate-200 py-5 pr-6 sm:border-t-0 sm:px-6">
+        <div class="flex items-center gap-2 text-xs font-medium text-slate-500">
+          <span>Peran Bawaan Sistem</span>
+        </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span class="font-mono text-2xl font-semibold tracking-tight text-brand-700" data-kpi="system">0</span>
+          <span class="text-[11px] text-slate-400">dilindungi sistem</span>
+        </div>
+      </div>
+
+      <div class="border-t border-slate-200 py-5 pl-6 sm:border-t-0 sm:pl-6">
+        <div class="flex items-center gap-2 text-xs font-medium text-slate-500">
+          <span>Cakupan Rata-rata</span>
+        </div>
+        <div class="mt-2 flex items-baseline gap-2">
+          <span class="font-mono text-2xl font-semibold tracking-tight text-slate-900" data-kpi="avg">0</span>
+          <span class="text-[11px] text-slate-400">izin / peran</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filter & Search Bar (Unboxed) -->
+    <div class="flex flex-col justify-between gap-3 border-b border-slate-200 py-4 sm:flex-row sm:items-center">
+      <!-- Segmented Tabs -->
+      <div class="inline-flex rounded-lg bg-slate-100 p-1" id="filter-chips" role="tablist">
+        <button data-filter="ALL" role="tab" class="rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 shadow-2xs transition">
+          Semua Peran <span class="ml-1 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-600" data-count="ALL"></span>
+        </button>
+        <button data-filter="SYSTEM" role="tab" class="rounded-md px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:text-slate-900">
+          Bawaan Sistem <span class="ml-1 rounded bg-slate-200/60 px-1.5 py-0.5 font-mono text-[10px] text-slate-500" data-count="SYSTEM"></span>
+        </button>
+        <button data-filter="CUSTOM" role="tab" class="rounded-md px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:text-slate-900">
+          Kustom <span class="ml-1 rounded bg-slate-200/60 px-1.5 py-0.5 font-mono text-[10px] text-slate-500" data-count="CUSTOM"></span>
+        </button>
+      </div>
+
+      <!-- Search + Sort -->
+      <div class="flex items-center gap-2.5">
+        <div class="relative flex-1 sm:w-72">
+          <svg class="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input id="search" type="text" placeholder="Cari nama peran, deskripsi, atau scope..." oninput="renderList()"
+                 class="h-8 w-full rounded-lg border border-slate-200 bg-slate-50/70 pl-8 pr-3 text-xs text-slate-800 placeholder-slate-400 transition focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/15" />
+        </div>
+        <select id="sort-select" onchange="renderList()" class="h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-600 focus:border-brand-500 focus:outline-none">
+          <option value="default">Urutan Default</option>
+          <option value="members">Anggota Terbanyak</option>
+          <option value="perms">Izin Terbanyak</option>
+          <option value="name">Nama (A–Z)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Full-Width Enterprise Role Table (Unboxed) -->
+    <div class="overflow-x-auto border-b border-slate-200">
+      <table class="w-full border-collapse text-left">
+        <thead>
+          <tr class="border-b border-slate-200 bg-slate-50/60 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+            <th class="py-3 pr-4">Definisi Peran</th>
+            <th class="px-4 py-3">Cakupan &amp; Domain Akses</th>
+            <th class="px-4 py-3 text-right">Anggota</th>
+            <th class="px-4 py-3">Diperbarui</th>
+            <th class="py-3 pl-4 text-right">Tindakan</th>
+          </tr>
+        </thead>
+        <tbody id="role-table-body" class="divide-y divide-slate-200/80"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════ -->
+  <!-- VIEW 2: FULL-PAGE ROLE & PERMISSION MATRIX EDITOR           -->
+  <!-- ═════════════════════════════════════════════════════════════ -->
+  <div id="view-editor" class="hidden fade-in pb-20">
+
+    <!-- Sticky Action Header -->
+    <div class="sticky top-14 z-20 -mx-4 border-b border-slate-200 bg-white/95 px-4 py-4 backdrop-blur-md sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10">
+      <div class="flex w-full flex-col justify-between gap-4 md:flex-row md:items-center">
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2">
+            <button id="btn-cancel-top" onclick="attemptCloseEditor()" class="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-50 hover:text-slate-900">
+              <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+              Kembali
+            </button>
+            <span id="f-badge-system" class="hidden items-center gap-1 rounded border border-brand-200 bg-brand-50 px-2 py-0.5 font-mono text-[10px] font-semibold text-brand-700">
+              <svg class="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+              SYSTEM ROLE
+            </span>
+            <span id="f-dirty-status" class="inline-flex items-center gap-1.5 rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-500">
+              <span id="f-dirty-dot" class="h-1.5 w-1.5 rounded-xs bg-slate-300"></span>
+              <span id="f-dirty">Tersimpan</span>
+            </span>
+          </div>
+
+          <div class="mt-2 flex flex-wrap items-center gap-3">
+            <input id="f-name" placeholder="Masukkan nama peran (mis. Supervisor Operasional)" maxlength="60"
+                   class="w-full max-w-lg rounded-md border border-transparent bg-transparent px-1 -ml-1 text-lg font-semibold tracking-tight text-slate-900 transition placeholder:text-slate-400 hover:border-slate-200 hover:bg-slate-50 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/15 disabled:cursor-not-allowed disabled:opacity-80 disabled:hover:border-transparent disabled:hover:bg-transparent" />
+          </div>
+
+          <div class="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11px] text-slate-500">
+            <span id="f-meta-id"></span>
+            <span id="f-meta-created"></span>
+            <span id="f-meta-perms" class="font-semibold text-brand-700"></span>
+            <span id="f-meta-members"></span>
+          </div>
+        </div>
+
+        <!-- Primary Action Buttons -->
+        <div class="flex flex-wrap items-center gap-2 shrink-0">
+          <button id="btn-review-diff" onclick="toggleDiffPanel()" class="hidden items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 transition hover:bg-amber-100">
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+            <span id="btn-review-diff-label">Lihat Diff</span>
+          </button>
+          <button id="btn-discard-confirm" onclick="attemptCloseEditor()" class="rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50">
+            Batal
+          </button>
+          <button id="btn-save-top" onclick="saveRole()" class="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-4 py-2 text-xs font-semibold text-white shadow-xs transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2">
+            Simpan Perubahan
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Inline Policy Diff Strip (Unboxed) -->
+    <div id="inline-diff-panel" class="hidden border-b border-amber-200 bg-amber-50/40 py-4 fade-in">
+      <div class="flex items-center justify-between pb-3">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-semibold text-amber-950">Ringkasan Perubahan Kebijakan</span>
+          <span id="diff-summary-counts" class="rounded border border-amber-200 bg-white px-2 py-0.5 font-mono text-[10px] font-semibold text-amber-800"></span>
+        </div>
+        <button onclick="toggleDiffPanel(false)" class="text-xs font-medium text-amber-800 hover:text-amber-950">Sembunyikan</button>
+      </div>
+      <div id="inline-diff-body" class="grid grid-cols-1 gap-6 md:grid-cols-2"></div>
+    </div>
+
+    <!-- Full-Width Two-Column Enterprise Workspace Layout -->
+    <div class="grid grid-cols-1 lg:grid-cols-12">
+
+      <!-- Left Sticky Sidebar: Unboxed Rail with Right Divider -->
+      <aside class="border-b border-slate-200 py-6 lg:col-span-3 lg:border-b-0 lg:border-r lg:pr-6">
+        <div class="sticky top-40 space-y-6">
+
+          <!-- Domain Jump Links -->
+          <div>
+            <p class="pb-2 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Domain Modul</p>
+            <nav id="domain-nav" class="space-y-0.5"></nav>
+          </div>
+
+          <!-- Bulk Preset Actions -->
+          <div class="border-t border-slate-200 pt-5">
+            <p class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Preset Kebijakan Cepat</p>
+            <p class="mt-1 text-[11px] leading-relaxed text-slate-500">Terapkan template izin ke seluruh domain secara massal.</p>
+            <div class="mt-3 space-y-1.5">
+              <button onclick="applyGlobalPreset('baca')" class="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-slate-50/60 px-2.5 py-1.5 text-left text-xs font-medium text-slate-700 transition hover:border-slate-300 hover:bg-white">
+                <span>Hanya Baca (Auditor)</span>
+                <span class="font-mono text-[10px] text-slate-400">READ</span>
+              </button>
+              <button onclick="applyGlobalPreset('penuh')" class="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-slate-50/60 px-2.5 py-1.5 text-left text-xs font-medium text-slate-700 transition hover:border-slate-300 hover:bg-white">
+                <span>Akses Penuh Semua</span>
+                <span class="font-mono text-[10px] text-brand-600">ALL</span>
+              </button>
+              <button onclick="applyGlobalPreset('off')" class="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-slate-50/60 px-2.5 py-1.5 text-left text-xs font-medium text-rose-600 transition hover:border-rose-200 hover:bg-rose-50/50">
+                <span>Cabut Semua Izin</span>
+                <span class="font-mono text-[10px] text-rose-400">NONE</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Danger Zone -->
+          <div id="danger-zone-box" class="hidden border-t border-slate-200 pt-5">
+            <p class="text-xs font-semibold text-rose-900">Zona Berbahaya</p>
+            <p class="mt-1 text-[11px] leading-relaxed text-slate-500">Penghapusan peran bersifat permanen dan hanya dapat dilakukan jika tidak ada anggota tertaut.</p>
+            <div class="mt-3 flex flex-col gap-1.5">
+              <button id="f-delete" onclick="handleInlineDeleteEditor()" class="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50/40 px-3 py-1.5 text-xs font-medium text-rose-600 transition hover:bg-rose-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-50">
+                <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+                <span id="f-delete-label">Hapus Peran Ini</span>
+              </button>
+              <button id="f-delete-cancel" onclick="resetDeleteState()" class="hidden w-full rounded-lg border border-slate-200 bg-white px-3 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50">
+                Batalkan Penghapusan
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </aside>
+
+      <!-- Right Main Content: Unboxed Sections Separated by Hairlines -->
+      <div class="py-6 lg:col-span-9 lg:pl-8">
+
+        <!-- Metadata Section -->
+        <section class="border-b border-slate-200 pb-6">
+          <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+            <div>
+              <h2 class="text-sm font-semibold text-slate-900">Identitas &amp; Deskripsi Peran</h2>
+              <p class="mt-0.5 text-xs text-slate-500">Jelaskan tanggung jawab operasional peran ini untuk memudahkan audit internal dan onboarding anggota.</p>
+            </div>
+            <p id="f-system-note" class="hidden shrink-0 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] text-slate-500">
+              Nama peran bawaan dikunci oleh sistem
+            </p>
+          </div>
+          <div class="mt-4">
+            <label for="f-desc" class="block text-xs font-medium text-slate-700">Deskripsi Singkat</label>
+            <input id="f-desc" maxlength="200" placeholder="Contoh: Operator layanan pelanggan cabang — dapat membalas chat, mengelola tiket, dan melihat katalog produk."
+                   class="mt-1.5 h-9 w-full rounded-lg border border-slate-200 bg-slate-50/50 px-3 text-xs text-slate-900 transition placeholder:text-slate-400 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/15" />
+          </div>
+        </section>
+
+        <!-- Matrix Filter Bar -->
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 py-4">
+          <div class="flex items-center gap-2">
+            <div class="relative">
+              <svg class="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+              <input id="perm-search" type="text" placeholder="Filter fitur atau scope izin..." oninput="renderPermSections()"
+                     class="h-8 w-56 rounded-lg border border-slate-200 bg-slate-50 pl-8 pr-2.5 text-xs text-slate-800 placeholder-slate-400 focus:border-brand-500 focus:bg-white focus:outline-none sm:w-72" />
+            </div>
+            <label class="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-600 select-none hover:bg-slate-50">
+              <input id="only-active-toggle" type="checkbox" onchange="renderPermSections()" class="h-3.5 w-3.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500" />
+              <span>Hanya izin aktif</span>
+            </label>
+          </div>
+          <div class="flex items-center gap-3 text-[11px] text-slate-500">
+            <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-brand-600"></span>Aktif</span>
+            <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-amber-400"></span>Kustom Parsial</span>
+            <span class="inline-flex items-center gap-1.5"><span class="h-2 w-2 rounded-full bg-slate-300"></span>Nonaktif</span>
+          </div>
+        </div>
+
+        <!-- Permission Sections Container -->
+        <div id="perm-sections" class="divide-y divide-slate-200"></div>
+
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- ══════════════════ INLINE STATUS BANNER ══════════════════ -->
+<div id="toast" class="fixed bottom-5 right-5 z-40 hidden items-center gap-2.5 rounded-lg border border-slate-800 bg-slate-900 px-4 py-2.5 text-xs font-medium text-white shadow-lg">
+  <span class="flex h-4 w-4 shrink-0 items-center justify-center rounded-xs bg-emerald-500/20 text-emerald-400">
+    <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+  </span>
+  <span id="toast-msg"></span>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────
+// Enterprise RBAC Permission Catalog
+// ─────────────────────────────────────────────────────────────
+const FEATURES = [
+  { key: "inbox",      label: "Percakapan",       group: "Percakapan",
+    desc: "Manajemen kotak masuk pelanggan, balasan pesan, catatan internal, dan pengiriman media.",
+    keys: ["inbox.lihat","inbox.balas","inbox.tugaskan","inbox.catatan","inbox.tag","inbox.template_kirim","inbox.media"],
+    baca: ["inbox.lihat"],
+    edit: ["inbox.lihat","inbox.balas","inbox.catatan","inbox.tag"] },
+  { key: "pipeline",   label: "Pipeline",         group: "Penjualan & Pesan",
+    desc: "Pelacakan tahapan deal penjualan dan pergerakan prospek.",
+    keys: ["pipeline.lihat","pipeline.kelola"], baca: ["pipeline.lihat"], edit: ["pipeline.lihat","pipeline.kelola"] },
+  { key: "kampanye",   label: "Kampanye",         group: "Penjualan & Pesan",
+    desc: "Penjadwalan dan eksekusi siaran pesan massal ke segmen pelanggan.",
+    keys: ["kampanye.lihat","kampanye.kelola"], baca: ["kampanye.lihat"], edit: ["kampanye.lihat","kampanye.kelola"] },
+  { key: "template",   label: "Template Pesan",   group: "Penjualan & Pesan",
+    desc: "Pengelolaan template pesan terverifikasi untuk komunikasi cepat.",
+    keys: ["template.lihat","template.kelola"], baca: ["template.lihat"], edit: ["template.lihat","template.kelola"] },
+  { key: "produk",     label: "Produk",           group: "Data Bisnis",
+    desc: "Katalog barang/jasa, harga, dan variasi SKU.",
+    keys: ["produk.lihat","produk.kelola"], baca: ["produk.lihat"], edit: ["produk.lihat","produk.kelola"] },
+  { key: "inventaris", label: "Inventaris",       group: "Data Bisnis",
+    desc: "Pemantauan ketersediaan stok gudang dan penyesuaian kuantitas.",
+    keys: ["inventaris.lihat","inventaris.kelola"], baca: ["inventaris.lihat"], edit: ["inventaris.lihat","inventaris.kelola"] },
+  { key: "pesanan",    label: "Pesanan",          group: "Data Bisnis",
+    desc: "Pemrosesan transaksi pelanggan, status pembayaran, dan pemenuhan pesanan.",
+    keys: ["pesanan.lihat","pesanan.kelola"], baca: ["pesanan.lihat"], edit: ["pesanan.lihat","pesanan.kelola"] },
+  { key: "kontak",     label: "Kontak",           group: "Data Bisnis",
+    desc: "Direktori profil pelanggan, atribut CRM, dan riwayat interaksi.",
+    keys: ["kontak.lihat","kontak.kelola"], baca: ["kontak.lihat"], edit: ["kontak.lihat","kontak.kelola"] },
+  { key: "tag",        label: "Tag",              group: "Data Bisnis",
+    desc: "Taksonomi label untuk pengelompokan kontak dan percakapan.",
+    keys: ["tag.lihat","tag.kelola"], baca: ["tag.lihat"], edit: ["tag.lihat","tag.kelola"] },
+  { key: "pengetahuan",label: "Pengetahuan",      group: "Pengetahuan",
+    desc: "Basis pengetahuan dokumen dan FAQ yang digunakan oleh AI Agent.",
+    keys: ["pengetahuan.kelola"], baca: [], edit: [] },
+  { key: "memori",     label: "Memori",            group: "Pengetahuan",
+    desc: "Konteks jangka panjang yang diingat AI Agent dari sesi pelanggan.",
+    keys: ["memori.lihat","memori.kelola"], baca: ["memori.lihat"], edit: ["memori.lihat","memori.kelola"] },
+  { key: "sumberdata", label: "Sumber Data",       group: "Pengetahuan",
+    desc: "Koneksi sinkronisasi dokumen eksternal dan crawler situs web.",
+    keys: ["sumberdata.kelola"], baca: [], edit: [] },
+  { key: "impor",      label: "Impor Excel / Sheets", group: "Pengetahuan",
+    desc: "Unggah massal data terstruktur melalui file spreadsheet.",
+    keys: ["impor.kelola"], baca: [], edit: [] },
+  { key: "agent",      label: "Agent",            group: "Agent & Otomasi",
+    desc: "Konfigurasi persona AI Agent, instruksi sistem, dan parameter model.",
+    keys: ["agent.lihat","agent.kelola"], baca: ["agent.lihat"], edit: ["agent.lihat","agent.kelola"] },
+  { key: "skenario",   label: "Skenario",         group: "Agent & Otomasi",
+    desc: "Alur kerja otomatis (workflow) berbasis pemicu dan kondisi.",
+    keys: ["skenario.lihat","skenario.kelola"], baca: ["skenario.lihat"], edit: ["skenario.lihat","skenario.kelola"] },
+  { key: "approval",   label: "Approval",          group: "Agent & Otomasi",
+    desc: "Antrean persetujuan manusia (Human-in-the-Loop) sebelum aksi kritis dijalankan.",
+    keys: ["approval.lihat","approval.putuskan"], baca: ["approval.lihat"], edit: ["approval.lihat","approval.putuskan"] },
+  { key: "tiket",      label: "Tiket",             group: "Agent & Otomasi",
+    desc: "Sistem eskalasi kendala pelanggan dengan pelacakan SLA.",
+    keys: ["tiket.lihat","tiket.kelola"], baca: ["tiket.lihat"], edit: ["tiket.lihat","tiket.kelola"] },
+  { key: "kpi",        label: "KPI",               group: "Analitik",
+    desc: "Dasbor metrik performa operasional, waktu respons, dan konversi.",
+    keys: ["kpi.lihat"], baca: [], edit: [] },
+  { key: "aktivitas",  label: "Aktivitas",         group: "Analitik",
+    desc: "Log aktivitas sistem dan pemantauan kinerja tim secara real-time.",
+    keys: ["aktivitas.lihat"], baca: [], edit: [] },
+  { key: "saluran",    label: "Saluran",           group: "Saluran",
+    desc: "Integrasi akun WhatsApp Business API, Instagram, Webchat, dan saluran lainnya.",
+    keys: ["saluran.lihat","saluran.tambah","saluran.ubah","saluran.hapus"], baca: ["saluran.lihat"], edit: ["saluran.lihat","saluran.tambah","saluran.ubah"] },
+  { key: "webhook",    label: "Webhook",           group: "Saluran",
+    desc: "Inspeksi endpoint webhook dan payload integrasi sistem eksternal.",
+    keys: ["webhook.lihat"], baca: [], edit: [] },
+];
+
+const KEY_LABELS = {
+  "inbox.lihat":"Lihat percakapan","inbox.balas":"Kirim / balas pesan","inbox.tugaskan":"Tugaskan percakapan","inbox.catatan":"Catatan internal","inbox.tag":"Labeli percakapan","inbox.template_kirim":"Kirim template","inbox.media":"Unggah media",
+  "pipeline.lihat":"Lihat pipeline","pipeline.kelola":"Kelola pipeline","kampanye.lihat":"Lihat kampanye","kampanye.kelola":"Kelola kampanye","template.lihat":"Lihat template","template.kelola":"Kelola template",
+  "produk.lihat":"Lihat produk","produk.kelola":"Kelola produk","inventaris.lihat":"Lihat inventaris","inventaris.kelola":"Kelola inventaris","pesanan.lihat":"Lihat pesanan","pesanan.kelola":"Kelola pesanan",
+  "kontak.lihat":"Lihat kontak","kontak.kelola":"Kelola kontak","tag.lihat":"Lihat tag","tag.kelola":"Kelola tag",
+  "pengetahuan.kelola":"Kelola pengetahuan","memori.lihat":"Lihat memori","memori.kelola":"Kelola memori","sumberdata.kelola":"Kelola sumber data","impor.kelola":"Impor Excel / Sheets",
+  "agent.lihat":"Lihat agent","agent.kelola":"Kelola agent","skenario.lihat":"Lihat skenario","skenario.kelola":"Kelola skenario","approval.lihat":"Lihat approval","approval.putuskan":"Setujui / tolak approval",
+  "tiket.lihat":"Lihat tiket","tiket.kelola":"Kelola tiket","kpi.lihat":"Lihat KPI","aktivitas.lihat":"Lihat aktivitas",
+  "saluran.lihat":"Lihat saluran","saluran.tambah":"Tambah saluran","saluran.ubah":"Ubah saluran","saluran.hapus":"Hapus saluran","webhook.lihat":"Lihat webhook",
+};
+
+const GROUPS = ["Percakapan","Penjualan & Pesan","Data Bisnis","Pengetahuan","Agent & Otomasi","Analitik","Saluran"];
+const ALL_KEYS = FEATURES.flatMap(f => f.keys);
+const ADMIN_CHAT = ["inbox.lihat","inbox.balas","inbox.tugaskan","inbox.catatan","inbox.tag","inbox.template_kirim","inbox.media","kontak.kelola","pipeline.kelola","tiket.kelola","template.kelola","aktivitas.lihat"];
+
+let roles = [
+  { id: "role_sys_full", name: "Akses Penuh", description: "Administrator operasional dengan seluruh hak akses modul kecuali pengaturan penagihan pemilik.", isSystem: true, userCount: 2, createdAt: "2026-10-15", updatedAt: "2026-11-23", permissions: [...ALL_KEYS] },
+  { id: "role_sys_chat", name: "Admin Chat", description: "Operator layanan pelanggan: akses penuh pada percakapan, manajemen kontak, pipeline, tiket, dan template.", isSystem: true, userCount: 5, createdAt: "2026-10-15", updatedAt: "2026-11-20", permissions: [...ADMIN_CHAT] },
+  { id: "role_cst_kasir", name: "Kasir Cabang", description: "Staf operasional cabang untuk memproses pesanan masuk, membalas chat pelanggan, serta membaca katalog produk & stok.", isSystem: false, userCount: 3, createdAt: "2026-11-02", updatedAt: "2026-11-24", permissions: ["pesanan.lihat","pesanan.kelola","produk.lihat","inventaris.lihat","inbox.lihat","inbox.balas"] },
+  { id: "role_cst_audit", name: "Auditor & Analis", description: "Akses baca-saja lintas analitik KPI, log aktivitas, pesanan, dan percakapan untuk kepatuhan.", isSystem: false, userCount: 0, createdAt: "2026-11-02", updatedAt: "2026-11-22", permissions: ["kpi.lihat","aktivitas.lihat","pesanan.lihat","inbox.lihat","kontak.lihat","webhook.lihat"] },
+];
+
+let filter = "ALL";
+let editingId = null;
+let editingPerms = new Set();
+let baseline = "";
+let baselineObj = null;
+let toastTimer = null;
+let confirmDiscard = false;
+let confirmDeleteEditor = false;
+let confirmDeleteCardId = null;
+let diffOpen = false;
+
+const $ = (id) => document.getElementById(id);
+
+function toast(msg) {
+  $("toast-msg").textContent = msg;
+  $("toast").classList.remove("hidden");
+  $("toast").classList.add("flex");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => {
+    $("toast").classList.add("hidden");
+    $("toast").classList.remove("flex");
+  }, 3000);
+}
+
+function fmtDate(iso) {
+  return new Date(iso).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+}
+
+// ── List View Rendering ───────────────────────────────────────
+function renderList() {
+  const q = ($("search").value ?? "").trim().toLowerCase();
+  const sortMode = $("sort-select") ? $("sort-select").value : "default";
+
+  let filtered = roles.filter(r => {
+    const okFilter = filter === "ALL" || (filter === "SYSTEM" ? r.isSystem : !r.isSystem);
+    const okQ = !q
+      || r.name.toLowerCase().includes(q)
+      || (r.description ?? "").toLowerCase().includes(q)
+      || r.permissions.some(k => k.toLowerCase().includes(q));
+    return okFilter && okQ;
+  });
+
+  if (sortMode === "members") filtered = [...filtered].sort((a, b) => b.userCount - a.userCount);
+  else if (sortMode === "perms") filtered = [...filtered].sort((a, b) => b.permissions.length - a.permissions.length);
+  else if (sortMode === "name") filtered = [...filtered].sort((a, b) => a.name.localeCompare(b.name));
+
+  const kpis = {
+    total: roles.length,
+    assignments: roles.reduce((n, r) => n + r.userCount, 0),
+    system: roles.filter(r => r.isSystem).length,
+    avg: roles.length ? Math.round(roles.reduce((n, r) => n + r.permissions.length, 0) / roles.length) : 0,
+  };
+
+  document.querySelector('[data-kpi="total"]').textContent = kpis.total;
+  document.querySelector('[data-kpi="assignments"]').textContent = kpis.assignments;
+  document.querySelector('[data-kpi="system"]').textContent = kpis.system;
+  document.querySelector('[data-kpi="avg"]').textContent = kpis.avg;
+  document.querySelector('[data-count="ALL"]').textContent = roles.length;
+  document.querySelector('[data-count="SYSTEM"]').textContent = kpis.system;
+  document.querySelector('[data-count="CUSTOM"]').textContent = roles.length - kpis.system;
+
+  $("role-table-body").innerHTML = filtered.length === 0
+    ? `<tr>
+         <td colspan="5" class="py-14 text-center">
+           <p class="text-sm font-medium text-slate-700">Tidak ada definisi peran yang sesuai</p>
+           <p class="mt-1 text-xs text-slate-400">Coba ubah kata kunci pencarian atau reset filter kategori peran.</p>
+         </td>
+       </tr>`
+    : filtered.map(roleRowHtml).join("");
+}
+
+function groupSummaryBadges(perms) {
+  const set = new Set(perms);
+  const out = GROUPS.map(g => {
+    const feats = FEATURES.filter(f => f.group === g);
+    const total = feats.reduce((n, f) => n + f.keys.length, 0);
+    const granted = feats.reduce((n, f) => n + f.keys.filter(k => set.has(k)).length, 0);
+    return { g, granted, total };
+  }).filter(s => s.granted > 0);
+
+  if (!out.length) {
+    return `<span class="text-[11px] italic text-slate-400">Tidak ada scope izin yang aktif</span>`;
+  }
+
+  return `<div class="flex flex-wrap gap-1.5">` + out.map(s => {
+    const isFull = s.granted === s.total;
+    return `<span class="inline-flex items-center gap-1 rounded border px-1.5 py-0.5 font-mono text-[10px] ${isFull ? "border-brand-200 bg-brand-50/80 text-brand-700 font-medium" : "border-slate-200 bg-slate-50 text-slate-600"}">
+      <span>${s.g}</span>
+      <span class="opacity-70">${s.granted}/${s.total}</span>
+    </span>`;
+  }).join("") + `</div>`;
+}
+
+function roleRowHtml(r) {
+  const pct = Math.round((r.permissions.length / ALL_KEYS.length) * 100);
+  const isConfirmingDelete = confirmDeleteCardId === r.id;
+
+  return `
+  <tr class="group transition-colors hover:bg-slate-50/70">
+    <!-- Role Identity & Description -->
+    <td class="max-w-md py-4 pr-4 align-top">
+      <div class="min-w-0">
+        <div class="flex flex-wrap items-center gap-2">
+          <button onclick="openEditor('${r.id}')" class="text-left text-xs font-semibold text-slate-900 hover:text-brand-700 hover:underline">
+            ${r.name}
+          </button>
+          ${r.isSystem
+            ? `<span class="inline-flex items-center rounded border border-brand-200 bg-brand-50 px-1.5 py-0.5 font-mono text-[9px] font-semibold text-brand-700">BAWAAN</span>`
+            : `<span class="inline-flex items-center rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 font-mono text-[9px] font-medium text-slate-500">KUSTOM</span>`}
+        </div>
+        <p class="mt-1 line-clamp-2 text-[11px] leading-relaxed text-slate-500">${r.description ?? "Tidak ada deskripsi kebijakan."}</p>
+      </div>
+    </td>
+
+    <!-- Permission Coverage & Domain Matrix Summary -->
+    <td class="max-w-lg px-4 py-4 align-top">
+      <div class="flex items-center gap-2.5">
+        <div class="h-1.5 w-20 shrink-0 overflow-hidden rounded-full bg-slate-100">
+          <div class="h-full rounded-full ${r.isSystem ? 'bg-brand-600' : 'bg-slate-700'}" style="width: ${pct}%"></div>
+        </div>
+        <span class="font-mono text-[11px] font-medium text-slate-700">${r.permissions.length}/${ALL_KEYS.length} <span class="text-slate-400">(${pct}%)</span></span>
+      </div>
+      <div class="mt-2">${groupSummaryBadges(r.permissions)}</div>
+    </td>
+
+    <!-- Assigned Seats -->
+    <td class="whitespace-nowrap px-4 py-4 text-right align-top">
+      <div class="inline-flex items-center gap-1.5 rounded-md border border-slate-200/80 bg-slate-50/80 px-2 py-1 text-slate-600">
+        <svg class="h-3 w-3 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        <span class="font-mono text-xs font-semibold text-slate-800">${r.userCount}</span>
+      </div>
+    </td>
+
+    <!-- Last Updated -->
+    <td class="whitespace-nowrap px-4 py-4 align-top">
+      <span class="font-mono text-[11px] text-slate-500">${fmtDate(r.updatedAt || r.createdAt)}</span>
+    </td>
+
+    <!-- Row Actions -->
+    <td class="whitespace-nowrap py-4 pl-4 text-right align-top">
+      <div class="inline-flex items-center justify-end gap-1.5">
+        ${isConfirmingDelete ? `
+          <button onclick="executeDeleteRole('${r.id}')" class="inline-flex h-7 items-center rounded-md bg-rose-600 px-2.5 text-[11px] font-semibold text-white transition hover:bg-rose-700">
+            Konfirmasi Hapus
+          </button>
+          <button onclick="cancelCardDelete()" class="inline-flex h-7 items-center rounded-md border border-slate-200 bg-white px-2 text-[11px] font-medium text-slate-600 hover:bg-slate-50">
+            Batal
+          </button>
+        ` : `
+          <button onclick="duplicateRole('${r.id}')" title="Duplikasi peran" class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-900">
+            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          </button>
+          ${!r.isSystem ? `
+            <button onclick="requestCardDelete('${r.id}')" ${r.userCount > 0 ? "disabled title='Tidak dapat dihapus: masih memiliki anggota aktif'" : "title='Hapus peran kustom'"} class="inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-40">
+              <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+            </button>` : ""}
+          <button onclick="openEditor('${r.id}')" class="ml-1 inline-flex h-7 items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-800 transition hover:border-brand-600 hover:bg-brand-600 hover:text-white">
+            <span>Konfigurasi</span>
+            <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+        `}
+      </div>
+    </td>
+  </tr>`;
+}
+
+// ── Level Calculation Logic ───────────────────────────────────
+function featureLevel(f, perms) {
+  const granted = f.keys.filter(k => perms.has(k));
+  if (!granted.length) return "off";
+  if (granted.length === f.keys.length) return "penuh";
+  if (f.edit.length && f.edit.every(k => perms.has(k)) && granted.every(k => f.edit.includes(k))) return "edit";
+  if (f.baca.length && f.baca.every(k => perms.has(k)) && granted.every(k => f.baca.includes(k))) return "baca";
+  return "kustom";
+}
+
+function applyLevel(fIdx, level) {
+  const f = FEATURES[fIdx];
+  for (const k of f.keys) editingPerms.delete(k);
+  const add = level === "penuh" ? f.keys : level === "edit" ? f.edit : level === "baca" ? f.baca : [];
+  for (const k of add) editingPerms.add(k);
+  renderPermSections();
+  markDirty();
+}
+
+function applyGroupLevel(groupName, level) {
+  const feats = FEATURES.filter(f => f.group === groupName);
+  for (const f of feats) {
+    for (const k of f.keys) editingPerms.delete(k);
+    if (level === "penuh") f.keys.forEach(k => editingPerms.add(k));
+    else if (level === "baca") {
+      if (f.baca.length) f.baca.forEach(k => editingPerms.add(k));
+      else f.keys.filter(k => k.endsWith(".lihat")).forEach(k => editingPerms.add(k));
+    }
+  }
+  renderPermSections();
+  markDirty();
+  toast(`Domain "${groupName}" diperbarui ke mode ${level === 'penuh' ? 'Akses Penuh' : level === 'baca' ? 'Baca Saja' : 'Nonaktif'}.`);
+}
+
+function applyGlobalPreset(mode) {
+  editingPerms.clear();
+  if (mode === "penuh") {
+    ALL_KEYS.forEach(k => editingPerms.add(k));
+  } else if (mode === "baca") {
+    FEATURES.forEach(f => {
+      if (f.baca.length) f.baca.forEach(k => editingPerms.add(k));
+      else f.keys.filter(k => k.endsWith(".lihat")).forEach(k => editingPerms.add(k));
+    });
+  }
+  renderPermSections();
+  markDirty();
+  toast(mode === "penuh" ? "Seluruh 44 scope izin diaktifkan." : mode === "baca" ? "Preset Auditor (Hanya Baca) diterapkan." : "Seluruh izin dicabut.");
+}
+
+function toggleKey(k) {
+  if (editingPerms.has(k)) editingPerms.delete(k);
+  else editingPerms.add(k);
+  renderPermSections();
+  markDirty();
+}
+
+// ── Editor View Lifecycle ─────────────────────────────────────
+function openEditor(id) {
+  editingId = id;
+  confirmDiscard = false;
+  confirmDeleteEditor = false;
+  diffOpen = false;
+  $("inline-diff-panel").classList.add("hidden");
+
+  const r = roles.find(x => x.id === id);
+  editingPerms = new Set(r ? r.permissions : []);
+  $("f-name").value = r ? r.name : "";
+  $("f-desc").value = r ? (r.description ?? "") : "";
+  $("f-name").disabled = !!(r && r.isSystem);
+  $("perm-search").value = "";
+  $("only-active-toggle").checked = false;
+
+  const isSys = !!(r && r.isSystem);
+  $("f-badge-system").classList.toggle("hidden", !isSys);
+  $("f-badge-system").classList.toggle("inline-flex", isSys);
+  $("f-system-note").classList.toggle("hidden", !isSys);
+
+  // Top Header Breadcrumb Update
+  $("top-bc-sep").classList.remove("hidden");
+  $("top-bc-current").classList.remove("hidden");
+  $("top-bc-current").textContent = r ? r.name : "Peran Kustom Baru";
+
+  $("f-meta-id").textContent = r ? `ID: ${r.id}` : "ID: Draft Baru";
+  $("f-meta-created").textContent = r ? `Dibuat ${fmtDate(r.createdAt)}` : "Belum diterbitkan";
+  $("f-meta-members").textContent = r ? `${r.userCount} anggota aktif` : "0 anggota";
+
+  // Danger Zone Visibility
+  const showDanger = !!(r && !r.isSystem);
+  $("danger-zone-box").classList.toggle("hidden", !showDanger);
+  if (showDanger) {
+    $("f-delete").disabled = r.userCount > 0;
+    $("f-delete-label").textContent = r.userCount > 0 ? `Terkunci (${r.userCount} anggota)` : "Hapus Peran Ini";
+    $("f-delete-cancel").classList.add("hidden");
+  }
+
+  $("btn-save-top").textContent = r ? "Simpan Perubahan" : "Terbitkan Peran";
+
+  baselineObj = {
+    name: $("f-name").value,
+    desc: $("f-desc").value,
+    perms: [...editingPerms].sort()
+  };
+  baseline = JSON.stringify(baselineObj);
+
+  renderPermSections();
+  markDirty();
+
+  $("view-list").classList.add("hidden");
+  $("view-editor").classList.remove("hidden");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function openCreate() {
+  openEditor("new");
+  editingId = "new";
+  setTimeout(() => $("f-name").focus(), 50);
+}
+
+function handleBreadcrumbHome() {
+  if (editingId !== null) attemptCloseEditor();
+}
+
+function attemptCloseEditor() {
+  const current = JSON.stringify({
+    name: $("f-name").value,
+    desc: $("f-desc").value,
+    perms: [...editingPerms].sort()
+  });
+  if (current !== baseline && !confirmDiscard) {
+    confirmDiscard = true;
+    $("btn-discard-confirm").textContent = "Konfirmasi Buang Perubahan";
+    $("btn-discard-confirm").className = "rounded-lg border border-rose-300 bg-rose-50 px-3.5 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-100";
+    toast("Ada perubahan belum disimpan. Klik lagi untuk membatalkan.");
+    return;
+  }
+  closeEditorForce();
+}
+
+function closeEditorForce() {
+  confirmDiscard = false;
+  confirmDeleteEditor = false;
+  $("btn-discard-confirm").textContent = "Batal";
+  $("btn-discard-confirm").className = "rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50";
+  $("top-bc-sep").classList.add("hidden");
+  $("top-bc-current").classList.add("hidden");
+  $("view-editor").classList.add("hidden");
+  $("view-list").classList.remove("hidden");
+  editingId = null;
+  renderList();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function markDirty() {
+  const currentObj = {
+    name: $("f-name").value,
+    desc: $("f-desc").value,
+    perms: [...editingPerms].sort()
+  };
+  const dirty = JSON.stringify(currentObj) !== baseline;
+
+  if (!dirty) {
+    confirmDiscard = false;
+    $("btn-discard-confirm").textContent = "Batal";
+    $("btn-discard-confirm").className = "rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-50";
+  }
+
+  const labelEl = $("f-dirty");
+  const dotEl = $("f-dirty-dot");
+  const pillEl = $("f-dirty-status");
+  const reviewBtn = $("btn-review-diff");
+
+  if (dirty) {
+    labelEl.textContent = "Perubahan belum disimpan";
+    pillEl.className = "inline-flex items-center gap-1.5 rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800";
+    dotEl.className = "h-1.5 w-1.5 rounded-xs bg-amber-500";
+    if (editingId !== "new") {
+      reviewBtn.classList.remove("hidden");
+      reviewBtn.classList.add("inline-flex");
+    }
+    if (diffOpen) renderInlineDiff();
+  } else {
+    labelEl.textContent = "Tersimpan";
+    pillEl.className = "inline-flex items-center gap-1.5 rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-500";
+    dotEl.className = "h-1.5 w-1.5 rounded-xs bg-emerald-500";
+    reviewBtn.classList.add("hidden");
+    reviewBtn.classList.remove("inline-flex");
+    diffOpen = false;
+    $("inline-diff-panel").classList.add("hidden");
+  }
+}
+
+function renderDomainNav() {
+  $("domain-nav").innerHTML = GROUPS.map((g, idx) => {
+    const feats = FEATURES.filter(f => f.group === g);
+    const total = feats.reduce((n, f) => n + f.keys.length, 0);
+    const granted = feats.reduce((n, f) => n + f.keys.filter(k => editingPerms.has(k)).length, 0);
+    return `
+    <a href="#domain-${idx}" class="flex items-center justify-between rounded-md px-2.5 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900">
+      <span class="truncate">${g}</span>
+      <span class="rounded px-1.5 py-0.5 font-mono text-[10px] ${granted > 0 ? 'bg-brand-50 text-brand-700 font-semibold' : 'text-slate-400'}">${granted}/${total}</span>
+    </a>`;
+  }).join("");
+}
+
+function renderPermSections() {
+  $("f-meta-perms").textContent = `${editingPerms.size} / ${ALL_KEYS.length} scope aktif`;
+  renderDomainNav();
+
+  const searchQ = ($("perm-search").value ?? "").trim().toLowerCase();
+  const onlyActive = $("only-active-toggle").checked;
+
+  const html = GROUPS.map((g, gIdx) => {
+    const feats = FEATURES.filter(f => f.group === g);
+    const total = feats.reduce((n, f) => n + f.keys.length, 0);
+    const granted = feats.reduce((n, f) => n + f.keys.filter(k => editingPerms.has(k)).length, 0);
+
+    const visibleFeats = feats.filter(f => {
+      const hasAny = f.keys.some(k => editingPerms.has(k));
+      if (onlyActive && !hasAny) return false;
+      if (!searchQ) return true;
+      return f.label.toLowerCase().includes(searchQ)
+        || f.desc.toLowerCase().includes(searchQ)
+        || f.keys.some(k => k.toLowerCase().includes(searchQ) || (KEY_LABELS[k] ?? "").toLowerCase().includes(searchQ));
+    });
+
+    if (!visibleFeats.length) return "";
+
+    return `
+    <section id="domain-${gIdx}" class="scroll-mt-40 py-6 first:pt-5">
+      <div class="flex flex-wrap items-center justify-between gap-3 pb-3">
+        <div class="flex items-center gap-2.5">
+          <h2 class="text-sm font-semibold text-slate-900">${g}</h2>
+          <span class="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 font-mono text-[11px] font-medium text-slate-600">${granted}/${total}</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <button onclick="applyGroupLevel('${g}', 'baca')" class="rounded border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900">Baca Semua</button>
+          <button onclick="applyGroupLevel('${g}', 'penuh')" class="rounded border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-brand-700 transition hover:border-brand-300 hover:bg-brand-50">Penuh Semua</button>
+          <button onclick="applyGroupLevel('${g}', 'off')" class="rounded border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-400 transition hover:text-rose-600">Reset</button>
+        </div>
+      </div>
+      <div class="divide-y divide-slate-100 border-t border-slate-200/80">
+        ${visibleFeats.map(featureHtml).join("")}
+      </div>
+    </section>`;
+  }).join("");
+
+  $("perm-sections").innerHTML = html || `
+    <div class="py-12 text-center">
+      <p class="text-sm font-medium text-slate-700">Tidak ada modul atau scope yang cocok dengan filter</p>
+      <p class="mt-1 text-xs text-slate-400">Sesuaikan kata kunci filter atau matikan opsi "Hanya izin aktif".</p>
+    </div>`;
+}
+
+function featureHtml(f) {
+  const fIdx = FEATURES.indexOf(f);
+  const level = featureLevel(f, editingPerms);
+  const single = !f.baca.length && !f.edit.length;
+  const penuhRedundant = f.edit.length === f.keys.length;
+
+  const segments = [
+    { key: "off", label: "Nonaktif" },
+    ...(f.baca.length ? [{ key: "baca", label: "Baca" }] : []),
+    ...(f.edit.length ? [{ key: "edit", label: "Edit" }] : []),
+    ...(!penuhRedundant && f.edit.length ? [{ key: "penuh", label: "Penuh" }] : []),
+  ];
+
+  const control = single
+    ? `<button onclick="applyLevel(${fIdx}, editingPerms.has('${f.keys[0]}') ? 'off' : 'penuh')"
+         class="inline-flex h-7 items-center gap-1.5 rounded-md border px-3 text-[11px] font-semibold transition ${editingPerms.has(f.keys[0]) ? "border-brand-600 bg-brand-600 text-white" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}">
+         <span class="h-1.5 w-1.5 rounded-xs ${editingPerms.has(f.keys[0]) ? "bg-white" : "bg-slate-300"}"></span>
+         ${editingPerms.has(f.keys[0]) ? "Diizinkan" : "Nonaktif"}
+       </button>`
+    : `<div class="flex items-center gap-2">
+         ${level === "kustom" ? `<span class="rounded border border-amber-300 bg-amber-50 px-2 py-0.5 font-mono text-[10px] font-semibold text-amber-800">KUSTOM</span>` : ""}
+         <div class="inline-flex rounded-md border border-slate-200 bg-slate-100/80 p-0.5">
+           ${segments.map(s => {
+             const active = level === s.key;
+             return `<button class="seg-btn rounded px-2.5 py-1 text-[11px] font-medium ${active ? "bg-white font-semibold text-slate-900 shadow-2xs" : "text-slate-500 hover:text-slate-800"}" onclick="applyLevel(${fIdx}, '${s.key}')">${s.label}</button>`;
+           }).join("")}
+         </div>
+       </div>`;
+
+  return `
+  <div class="py-4 transition-colors">
+    <div class="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+      <div class="min-w-0">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-semibold text-slate-900">${f.label}</span>
+          <span class="font-mono text-[10px] text-slate-400">${f.key}.*</span>
+        </div>
+        <p class="mt-0.5 text-[11px] text-slate-500">${f.desc}</p>
+      </div>
+      <div class="shrink-0">${control}</div>
+    </div>
+
+    <!-- Structured Granular Scope Grid -->
+    <div class="mt-3.5 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      ${f.keys.map(k => {
+        const active = editingPerms.has(k);
+        return `
+        <label onclick="toggleKey('${k}')"
+          class="scope-row flex cursor-pointer items-center justify-between gap-2 rounded-lg border px-3 py-2 select-none ${active ? "border-brand-200 bg-brand-50/50 text-slate-900" : "border-slate-200/80 bg-slate-50/40 text-slate-600 hover:border-slate-300 hover:bg-white"}">
+          <div class="flex min-w-0 items-center gap-2.5">
+            <span class="flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${active ? "border-brand-600 bg-brand-600 text-white" : "border-slate-300 bg-white"}">
+              ${active ? `<svg class="h-2.5 w-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>` : ""}
+            </span>
+            <span class="truncate text-xs font-medium ${active ? "text-slate-900" : "text-slate-600"}">${KEY_LABELS[k] ?? k}</span>
+          </div>
+          <span class="shrink-0 font-mono text-[10px] ${active ? "text-brand-700 font-medium" : "text-slate-400"}">${k.split('.')[1]}</span>
+        </label>`;
+      }).join("")}
+    </div>
+  </div>`;
+}
+
+// ── Inline Diff Panel ─────────────────────────────────────────
+function toggleDiffPanel(forceState) {
+  diffOpen = typeof forceState === "boolean" ? forceState : !diffOpen;
+  const panel = $("inline-diff-panel");
+  if (diffOpen) {
+    renderInlineDiff();
+    panel.classList.remove("hidden");
+    $("btn-review-diff-label").textContent = "Sembunyikan Diff";
+  } else {
+    panel.classList.add("hidden");
+    $("btn-review-diff-label").textContent = "Lihat Diff";
+  }
+}
+
+function renderInlineDiff() {
+  if (!baselineObj) return;
+  const oldSet = new Set(baselineObj.perms);
+  const added = [...editingPerms].filter(k => !oldSet.has(k));
+  const removed = baselineObj.perms.filter(k => !editingPerms.has(k));
+
+  $("diff-summary-counts").textContent = `+${added.length} ditambahkan / -${removed.length} dicabut`;
+  $("inline-diff-body").innerHTML = `
+    <div>
+      <p class="text-[11px] font-semibold text-emerald-800">Scope Ditambahkan (${added.length})</p>
+      ${added.length
+        ? `<div class="mt-2 divide-y divide-amber-200/50 border-t border-amber-200/60">${added.map(k => `<div class="flex items-center justify-between py-1.5 font-mono text-[11px] text-emerald-800"><span>+ ${k}</span><span class="text-slate-500">${KEY_LABELS[k] ?? ""}</span></div>`).join("")}</div>`
+        : `<p class="mt-1.5 text-[11px] text-slate-500">Tidak ada scope baru ditambahkan.</p>`}
+    </div>
+    <div>
+      <p class="text-[11px] font-semibold text-rose-800">Scope Dicabut (${removed.length})</p>
+      ${removed.length
+        ? `<div class="mt-2 divide-y divide-amber-200/50 border-t border-amber-200/60">${removed.map(k => `<div class="flex items-center justify-between py-1.5 font-mono text-[11px] text-rose-700"><span>- ${k}</span><span class="text-slate-500">${KEY_LABELS[k] ?? ""}</span></div>`).join("")}</div>`
+        : `<p class="mt-1.5 text-[11px] text-slate-500">Tidak ada scope yang dicabut.</p>`}
+    </div>
+  `;
+}
+
+// ── CRUD Operations (Inline Two-Step Confirmation) ────────────
+function saveRole() {
+  const name = $("f-name").value.trim();
+  if (!name) {
+    toast("Validasi gagal: Nama peran wajib diisi.");
+    $("f-name").focus();
+    return;
+  }
+
+  const perms = [...editingPerms];
+  const today = new Date().toISOString().slice(0, 10);
+
+  if (editingId === "new") {
+    roles.unshift({
+      id: "role_cst_" + Math.random().toString(36).slice(2, 7),
+      name,
+      description: $("f-desc").value.trim() || null,
+      isSystem: false,
+      userCount: 0,
+      createdAt: today,
+      updatedAt: today,
+      permissions: perms
+    });
+    closeEditorForce();
+    toast(`Peran "${name}" berhasil diterbitkan.`);
+  } else {
+    const r = roles.find(x => x.id === editingId);
+    if (!r.isSystem) r.name = name;
+    r.description = $("f-desc").value.trim() || null;
+    r.permissions = perms;
+    r.updatedAt = today;
+    closeEditorForce();
+    toast(`Perubahan pada "${r.name}" disimpan.`);
+  }
+}
+
+function duplicateRole(id) {
+  const r = roles.find(x => x.id === id);
+  let n = 2, candidate = `${r.name} (Salinan)`;
+  while (roles.some(x => x.name === candidate)) {
+    n += 1;
+    candidate = `${r.name} (Salinan ${n})`;
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  roles.push({
+    ...r,
+    id: "role_cst_" + Math.random().toString(36).slice(2, 7),
+    name: candidate,
+    isSystem: false,
+    userCount: 0,
+    createdAt: today,
+    updatedAt: today,
+    permissions: [...r.permissions]
+  });
+  renderList();
+  toast(`Peran diduplikasi sebagai "${candidate}".`);
+}
+
+function requestCardDelete(id) {
+  const r = roles.find(x => x.id === id);
+  if (!r || r.userCount > 0) return;
+  confirmDeleteCardId = id;
+  renderList();
+}
+
+function cancelCardDelete() {
+  confirmDeleteCardId = null;
+  renderList();
+}
+
+function handleInlineDeleteEditor() {
+  const r = roles.find(x => x.id === editingId);
+  if (!r || r.userCount > 0) return;
+  if (!confirmDeleteEditor) {
+    confirmDeleteEditor = true;
+    $("f-delete-label").textContent = "Klik Lagi untuk Konfirmasi";
+    $("f-delete").className = "inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-rose-700";
+    $("f-delete-cancel").classList.remove("hidden");
+    return;
+  }
+  executeDeleteRole(editingId);
+}
+
+function resetDeleteState() {
+  confirmDeleteEditor = false;
+  $("f-delete-label").textContent = "Hapus Peran Ini";
+  $("f-delete").className = "inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50/40 px-3 py-1.5 text-xs font-medium text-rose-600 transition hover:bg-rose-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-50";
+  $("f-delete-cancel").classList.add("hidden");
+}
+
+function executeDeleteRole(targetId) {
+  roles = roles.filter(x => x.id !== targetId);
+  confirmDeleteCardId = null;
+  confirmDeleteEditor = false;
+  if (editingId === targetId) closeEditorForce();
+  else renderList();
+  toast("Peran berhasil dihapus.");
+}
+
+// ── Event Listeners & Init ────────────────────────────────────
+document.querySelectorAll("#filter-chips button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    filter = btn.dataset.filter;
+    confirmDeleteCardId = null;
+    document.querySelectorAll("#filter-chips button").forEach(b => {
+      const active = b === btn;
+      b.className = active
+        ? "rounded-md bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 shadow-2xs transition"
+        : "rounded-md px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:text-slate-900";
+    });
+    renderList();
+  });
+});
+
+$("f-name").addEventListener("input", markDirty);
+$("f-desc").addEventListener("input", markDirty);
+
+renderList();
+</script>
+</body>
+</html>
