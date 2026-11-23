@@ -146,6 +146,23 @@ model ChannelAccess {
 }
 ```
 
+```prisma
+model Conversation {
+  // Thread-per-channel (PRD 29 section 6.2, owner decision 2026-11-23):
+  // the channel is part of the identity and immutable per thread.
+  @@unique([tenantId, customerPhone, channelId])
+}
+
+model Deal {
+  // One card per customer (PRD 29 section 6.3): uniqueness moves from the
+  // conversation to the contact; conversationId stays as the pointer to
+  // the customer's most recent active thread.
+  contactId      String
+  contact        Contact @relation(...)
+  @@unique([tenantId, contactId])
+}
+```
+
 - `isOwner` replaces the `UserRole` enum value OWNER; the enum is dropped.
   Enforced invariant: at least one `isOwner` user per tenant at all times
   (the existing last-owner guard moves onto the flag).
@@ -198,17 +215,58 @@ PAIRS the WhatsApp session to whoever scans it:
   and disconnect their channel but cannot rebind its agent or edit config
   unless their role also has `saluran.ubah`.
 
-### 6.2 Channel-scoped visibility, decided (owner decision 2026-11-23)
+### 6.2 Thread per saluran - decided (owner decision 2026-11-23, amended same day)
 
-- A user assigned to specific channel(s) sees only conversations currently
-  on those channels - inbox, detail, search, counts.
-- A customer writing on multiple channels is one thread that follows the
-  latest channel (existing rule). Consequence accepted by the owner: when
-  the thread's latest channel is one the user cannot view, the thread is
-  fully invisible to them - including the messages that arrived on their
-  own channel earlier. Default is clean hiding (no placeholder).
-- A user granted multiple (or all) channels gets the union - identical to
-  today's behavior when they can see everything.
+The earlier "one thread follows the latest channel" rule is SUPERSEDED for
+new conversations. A conversation is now bound to ONE channel from birth:
+
+- Identity key changes: `Conversation` unique moves from
+  `(tenantId, customerPhone)` to `(tenantId, customerPhone, channelId)`.
+  `channelId` is immutable per thread - replies, AI and human, always go out
+  the thread's own channel.
+- A customer writing on channel 1 then channel 2 gets TWO threads: the
+  channel-1 thread stays where it is, frozen with full history; the
+  channel-2 thread runs normally. Neither admin's view ever loses a thread
+  it could see. The PRD 15 "thread follows the latest message's channel"
+  comment and the PRD 28 Part A routing rule are superseded by this
+  section (the composer override remains available as a rare human-escape
+  hatch but no longer guards any hop).
+- Consequence accepted: the AI has NO cross-channel context - the agent
+  answering on channel 2 has never seen the channel-1 conversation.
+  Correct for multi-branch tenants (each branch is its own shop); the
+  memory tool and contact notes bridge what matters.
+- Migration: existing threads keep their shape and freeze at their current
+  `channelId` (per-message channel history is not stored, so retroactive
+  splitting is impossible and unnecessary); the next inbound on a different
+  channel opens the new per-channel thread.
+
+### 6.3 Pipeline: one card per customer (owner decision 2026-11-23)
+
+A lead card belongs to the CUSTOMER, not the thread:
+
+- `Deal` gains `contactId`; uniqueness moves from
+  `conversationId @unique` to `@@unique([tenantId, contactId])`.
+  `conversationId` remains as the pointer to the customer's MOST RECENT
+  ACTIVE thread (re-pointed whenever a new thread from the same contact
+  opens) so the drawer's context and quick-reply target the live
+  conversation.
+- `ensureInitialDeal` (new-thread creation): find the deal by the
+  conversation's `contactId`. Exists -> do NOT create, do NOT touch the
+  stage, only re-point `conversationId` to this thread. Not exists ->
+  create as today.
+- `deal.setStage` (agent tool) and `setConversationStage`: resolve the
+  deal by the conversation's `contactId`, never by `conversationId` alone
+  - the current code creates a duplicate card on lookup miss, which is
+  exactly the bug this rule removes. Stage moves stay explicit-only:
+  agent tool, scenario node, or human drag. No auto-reset on return: a
+  "Menang" customer coming back months later keeps the card at "Menang"
+  until a human or agent moves it.
+- The kanban drawer follows the linked thread's channel visibility: a
+  branch admin who cannot view the linked thread cannot open its drawer
+  content (card still visible in the board under `pipeline.lihat`).
+- Today no duplicates can exist (one customer = one conversation = one
+  deal), so the migration is safe: backfill `contactId` from the linked
+  conversation, add the unique constraint, change the conversation key.
 
 Conversation-level: the existing human-assignment (Ditugaskan) system is
 unchanged and composes with this: a user sees a conversation when their
@@ -328,16 +386,22 @@ Resolved 2026-11-23 (owner session):
 2. **KELOLA vs saluran.ubah** - separated, per section 6.1. Per-channel
    KELOLA (including QR scan) can be granted to specific roles AND/OR
    specific staff; config edits stay behind `saluran.ubah`.
-3. **Channel-scoped visibility** - accepted as section 6.2: thread follows
-   the latest channel; invisible threads hide cleanly; multi-channel staff
-   see the union (today's behavior when full access).
+3. **Thread per saluran** - section 6.2: conversation key includes
+   channelId, immutable binding, old threads frozen in place; supersedes
+   PRD 15's "follow latest channel" and simplifies PRD 28 Part A.
+4. **Pipeline dedupe** - section 6.3: one card per customer
+   (Deal unique per tenant+contact), deal resolved by contact in
+   `deal.setStage`/`ensureInitialDeal`, stage never auto-resets,
+   conversationId re-pointed to the latest active thread. The agent moves
+   the shared card from whichever thread it runs in (owner confirmation:
+   "agent can move it by using agents.tool").
 
 Still open:
 
-4. **Legacy STAFF migration mapping**: Akses Penuh (recommended - nobody
+5. **Legacy STAFF migration mapping**: Akses Penuh (recommended - nobody
    loses access; owners trim down) vs Admin Chat (tighter default, but
    existing staff lose pipeline/scenario visibility until re-granted).
    PRD text assumes Akses Penuh; confirm or override.
-5. **Admin Chat default contents**: inbox-all + kontak lihat + pipeline
+6. **Admin Chat default contents**: inbox-all + kontak lihat + pipeline
    lihat + tiket lihat + template lihat + aktivitas lihat (as tabled in
    section 4). Confirm or adjust.
