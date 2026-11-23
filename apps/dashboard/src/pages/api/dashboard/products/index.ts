@@ -28,6 +28,10 @@ export default async function handler(
 
   return withTenantContext(tenantId, async () => {
     if (req.method === "GET") {
+      // Audit run-4 (ungated-list-read): produk.lihat gates the catalog read.
+      if (!requirePermission(session, "produk.lihat")) {
+        return respondError(res, "PERMISSION_DENIED", "Tidak punya akses produk.");
+      }
       const { skip, take, page, pageSize } = paginate(req.query);
       const search = strQuery(req.query, "search");
       const where: Prisma.ProductWhereInput = {

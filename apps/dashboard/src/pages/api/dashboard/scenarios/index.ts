@@ -79,6 +79,10 @@ export default async function handler(
 
   return withTenantContext(tenantId, async () => {
     if (req.method === "GET") {
+      // Audit run-4 (ungated-list-read): skenario.lihat gates the list.
+      if (!requirePermission(session, "skenario.lihat")) {
+        return respondError(res, "PERMISSION_DENIED", "Tidak punya akses skenario.");
+      }
       const { skip, take, page, pageSize } = paginate(req.query);
       const [items, total] = await Promise.all([
         prisma.scenario.findMany({

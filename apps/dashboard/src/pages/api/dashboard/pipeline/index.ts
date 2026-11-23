@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getAuthSession } from "@csq/core/lib/auth";
+import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import { requireFeatureApi } from "@csq/core/lib/feature-guard";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
@@ -21,6 +21,11 @@ export default async function handler(
 
   if (!(await requireFeatureApi(session, res, "pipeline"))) return;
   const tenantId = requireTenant(session);
+  // Audit run-4 (ungated-list-read): the catalog read key gates this route.
+  if (!requirePermission(session, "pipeline.lihat")) {
+    return respondError(res, "PERMISSION_DENIED", "Tidak punya akses.");
+  }
+
 
   return withTenantContext(tenantId, async () => {
     const pipeline = await getOrCreatePipeline(tenantId);
