@@ -555,32 +555,50 @@ function RoleEditor({
     });
   }
 
+  // Key set a bulk preset produces over a set of features (mirrors the
+  // feature-level rules: penuh = all keys, baca = baca set or the .lihat
+  // fallback for single-key features).
+  function presetKeysFor(feats: PermissionFeature[], level: "baca" | "penuh"): PermissionKey[] {
+    const out = new Set<PermissionKey>();
+    for (const f of feats) {
+      if (level === "penuh") {
+        for (const k of f.keys) out.add(k);
+      } else {
+        const baca = f.baca.length ? f.baca : f.keys.filter((k) => k.endsWith(".lihat"));
+        for (const k of baca) out.add(k);
+      }
+    }
+    return [...out];
+  }
+
+  // A preset is ACTIVE when the granted keys inside its universe are
+  // exactly its key set (so the button lights up after applying it, and
+  // dims again on any manual change).
+  function presetActive(
+    preset: readonly PermissionKey[],
+    universe: readonly PermissionKey[],
+    scope: Set<PermissionKey>
+  ): boolean {
+    const granted = universe.filter((k) => scope.has(k));
+    return granted.length === preset.length && preset.every((k) => scope.has(k));
+  }
+
   function applyGroupLevel(group: string, level: "off" | "baca" | "penuh") {
     const feats = PERMISSION_FEATURES.filter((f) => f.group === group);
+    const preset = level === "off" ? [] : presetKeysFor(feats, level);
     mutatePerms((next) => {
       for (const f of feats) {
         for (const k of f.keys) next.delete(k);
-        if (level === "penuh") {
-          for (const k of f.keys) next.add(k);
-        } else if (level === "baca") {
-          const baca = f.baca.length ? f.baca : f.keys.filter((k) => k.endsWith(".lihat"));
-          for (const k of baca) next.add(k);
-        }
       }
+      for (const k of preset) next.add(k);
     });
   }
 
   function applyGlobalPreset(mode: "off" | "baca" | "penuh") {
+    const preset = mode === "off" ? [] : presetKeysFor([...PERMISSION_FEATURES], mode);
     mutatePerms((next) => {
       next.clear();
-      if (mode === "penuh") {
-        for (const k of ALL_KEYS) next.add(k);
-      } else if (mode === "baca") {
-        for (const f of PERMISSION_FEATURES) {
-          const baca = f.baca.length ? f.baca : f.keys.filter((k) => k.endsWith(".lihat"));
-          for (const k of baca) next.add(k);
-        }
-      }
+      for (const k of preset) next.add(k);
     });
   }
 
@@ -829,7 +847,12 @@ function RoleEditor({
                 <button
                   type="button"
                   onClick={() => applyGlobalPreset("baca")}
-                  className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-slate-50/60 px-2.5 py-1.5 text-left text-xs font-medium text-slate-700 transition hover:border-slate-300 hover:bg-white"
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-lg border px-2.5 py-1.5 text-left text-xs font-medium transition",
+                    presetActive(presetKeysFor([...PERMISSION_FEATURES], "baca"), ALL_KEYS, perms)
+                      ? "border-green-600 bg-green-50 text-green-700"
+                      : "border-slate-200 bg-slate-50/60 text-slate-700 hover:border-slate-300 hover:bg-white"
+                  )}
                 >
                   <span>Hanya Baca (Auditor)</span>
                   <span className="font-mono text-[10px] text-slate-400">READ</span>
@@ -837,7 +860,12 @@ function RoleEditor({
                 <button
                   type="button"
                   onClick={() => applyGlobalPreset("penuh")}
-                  className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-slate-50/60 px-2.5 py-1.5 text-left text-xs font-medium text-slate-700 transition hover:border-slate-300 hover:bg-white"
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-lg border px-2.5 py-1.5 text-left text-xs font-medium transition",
+                    presetActive(presetKeysFor([...PERMISSION_FEATURES], "penuh"), ALL_KEYS, perms)
+                      ? "border-green-600 bg-green-50 text-green-700"
+                      : "border-slate-200 bg-slate-50/60 text-slate-700 hover:border-slate-300 hover:bg-white"
+                  )}
                 >
                   <span>Akses Penuh Semua</span>
                   <span className="font-mono text-[10px] text-green-600">ALL</span>
@@ -845,7 +873,12 @@ function RoleEditor({
                 <button
                   type="button"
                   onClick={() => applyGlobalPreset("off")}
-                  className="flex w-full items-center justify-between rounded-lg border border-slate-200 bg-slate-50/60 px-2.5 py-1.5 text-left text-xs font-medium text-rose-600 transition hover:border-rose-200 hover:bg-rose-50/50"
+                  className={cn(
+                    "flex w-full items-center justify-between rounded-lg border px-2.5 py-1.5 text-left text-xs font-medium transition",
+                    perms.size === 0
+                      ? "border-rose-300 bg-rose-50 text-rose-700"
+                      : "border-slate-200 bg-slate-50/60 text-rose-600 hover:border-rose-200 hover:bg-rose-50/50"
+                  )}
                 >
                   <span>Cabut Semua Izin</span>
                   <span className="font-mono text-[10px] text-rose-400">NONE</span>
@@ -989,6 +1022,10 @@ function RoleEditor({
                 );
               });
               if (!visible.length) return null;
+              const groupUniverse = feats.flatMap((f) => [...f.keys]);
+              const bacaActive = presetActive(presetKeysFor(feats, "baca"), groupUniverse, perms);
+              const penuhActive = presetActive(presetKeysFor(feats, "penuh"), groupUniverse, perms);
+              const offActive = groupUniverse.every((k) => !perms.has(k));
               return (
                 <section key={g} id={`domain-${gIdx}`} className="scroll-mt-44 py-6 first:pt-5">
                   <div className="flex flex-wrap items-center justify-between gap-3 pb-3">
@@ -1002,21 +1039,36 @@ function RoleEditor({
                       <button
                         type="button"
                         onClick={() => applyGroupLevel(g, "baca")}
-                        className="rounded border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+                        className={cn(
+                          "rounded border px-2.5 py-1 text-[11px] font-medium transition",
+                          bacaActive
+                            ? "border-green-600 bg-green-600 text-white"
+                            : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900"
+                        )}
                       >
                         Baca Semua
                       </button>
                       <button
                         type="button"
                         onClick={() => applyGroupLevel(g, "penuh")}
-                        className="rounded border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-green-700 transition hover:border-green-300 hover:bg-green-50"
+                        className={cn(
+                          "rounded border px-2.5 py-1 text-[11px] font-medium transition",
+                          penuhActive
+                            ? "border-green-600 bg-green-600 text-white"
+                            : "border-slate-200 bg-white text-green-700 hover:border-green-300 hover:bg-green-50"
+                        )}
                       >
                         Penuh Semua
                       </button>
                       <button
                         type="button"
                         onClick={() => applyGroupLevel(g, "off")}
-                        className="rounded border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-400 transition hover:text-rose-600"
+                        className={cn(
+                          "rounded border px-2.5 py-1 text-[11px] font-medium transition",
+                          offActive
+                            ? "border-slate-300 bg-slate-100 font-semibold text-slate-700"
+                            : "border-slate-200 bg-white text-slate-400 hover:text-rose-600"
+                        )}
                       >
                         Reset
                       </button>
