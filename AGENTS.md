@@ -436,6 +436,16 @@ full accounting/ERP, autonomous refunds, advanced multi-agent collaboration, arb
 connectors, website chat / Telegram / Messenger channels (future only).
 
 ## Gotchas
+- **UI RULES (owner corrections 2026-11-23, violating these made the owner
+  redo the Peran page twice):**
+  1. NO modals/popups AND NO collapsible/accordion/inline-reveal editors for
+     entity management. Edit flows get a FULL-PAGE editor on their own
+     route (pattern: Agent page v2, `peran/[id]`).
+  2. Dashboard pages are B2B ENTERPRISE grade: stat strips, search/filter
+     chrome, rich cards/tables - never a bare table over a table. Match the
+     revamped Produk/Inventaris/Pesanan pages, not a minimal CRUD page.
+  3. Level selectors (Baca/Edit/Penuh) are PER-FEATURE rows
+     (`Kontak [Baca|Edit|Penuh]`), never one global radio at the top.
 - Windows dev machines; deployment target is Linux VPS via Docker Compose + Nginx +
   Certbot (TLS required for WhatsApp webhook).
 - MVP demos a single tenant (Toko Kopi Nusantara) even though the schema is multi-tenant.

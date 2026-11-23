@@ -91,24 +91,33 @@ permissions limit WHAT.
   legacy `canRunCampaigns` boolean is migrated into the role
   (`kampanye.kelola`) and the column is retired.
 
-### 4.1 Role presets - the Baca / Edit / Penuh radio (owner decision 2026-11-23)
+### 4.1 Permission levels - per-feature Baca / Edit / Penuh (owner correction 2026-11-23)
 
-The role editor opens with a three-option radio that PRE-FILLS the
-permission matrix:
+CORRECTION (owner, 2026-11-23, same day): the level selector is NOT one
+global radio at the top. Every FEATURE gets its own level control:
 
-| Preset | Fills |
-|---|---|
-| **Baca saja** (read only) | every `lihat` key, nothing else |
-| **Edit** | every `lihat` + `kelola` key |
-| **Penuh** (full) | every non-owner-only key |
+```
+Kontak      [ Baca saja | Edit | Penuh ]
+Produk      [ Baca saja | Edit | Penuh ]
+Inventaris  [ Baca saja | Edit | Penuh ]
+...
+```
 
-- The preset is a starting point, not a mode: the grouped permission
-  matrix stays visible and editable beneath it. Changing a checkbox
-  simply deselects the radio (the role becomes "kustom"). This keeps the
-  3-click simple path AND the per-section granularity (e.g. kasir: full on
-  pesanan, read-only on produk) in one editor.
-- `permissions[]` remains the single source of truth - the radio only
-  writes into it. No schema impact.
+- Each feature row shows a segmented control whose options map to explicit
+  key sets defined in the catalog (`FEATURES` in permissions-catalog.ts):
+  - **Baca saja** - the feature's read keys (e.g. `kontak.lihat`)
+  - **Edit** - read + manage keys (e.g. `kontak.lihat` + `kontak.kelola`)
+  - **Penuh** - every key the feature owns (e.g. a 7-key inbox feature)
+  - Features with a single key degrade to a single toggle.
+- The underlying keys stay VISIBLE and individually editable on the same
+  row - the segmented control writes them, it never hides them. A manual
+  checkbox change flips the control to a custom state.
+- Editor layout: FULL-PAGE editor (route `peran/[id]`), never a collapsible
+  or inline panel - same pattern as the Agent page v2 detail. The role list
+  links into it.
+
+(Superseded text: "the role editor opens with a three-option radio that
+pre-fills the whole matrix" - that was a misreading of the owner's intent.)
 
 ## 5. Data model
 

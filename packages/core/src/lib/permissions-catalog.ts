@@ -167,13 +167,238 @@ export const ADMIN_CHAT_KEYS: readonly PermissionKey[] = [
   "aktivitas.lihat",
 ];
 
-// Role-editor presets (PRD 29 section 4.1): the Baca/Edit/Penuh radio.
-// Owner-only keys are never included in any preset.
-export const ROLE_PRESETS: Record<"baca" | "edit" | "penuh", readonly PermissionKey[]> = {
-  baca: ALL_KEYS.filter((k) => k.endsWith(".lihat") && !OWNER_ONLY_KEYS.includes(k)),
-  edit: AKSES_PENUH_KEYS,
-  penuh: AKSES_PENUH_KEYS,
+// PRD 29 section 4.1 (owner correction 2026-11-23): the level selector is
+// PER-FEATURE. Each feature owns its key set; the Baca/Edit/Penuh levels
+// map to explicit key sets below (penuh = the feature's full key set).
+// Single-key features (baca/edit empty) degrade to a plain toggle.
+export type PermissionFeature = {
+  key: string;
+  label: string;
+  group: string;
+  keys: readonly PermissionKey[];
+  baca: readonly PermissionKey[];
+  edit: readonly PermissionKey[];
 };
+
+export const PERMISSION_FEATURES: readonly PermissionFeature[] = [
+  {
+    key: "inbox",
+    label: "Percakapan",
+    group: "Percakapan",
+    keys: ["inbox.lihat", "inbox.balas", "inbox.tugaskan", "inbox.catatan", "inbox.tag", "inbox.template_kirim", "inbox.media"],
+    baca: ["inbox.lihat"],
+    edit: ["inbox.lihat", "inbox.balas", "inbox.catatan", "inbox.tag"],
+  },
+  {
+    key: "pipeline",
+    label: "Pipeline",
+    group: "Penjualan & Pesan",
+    keys: ["pipeline.lihat", "pipeline.kelola"],
+    baca: ["pipeline.lihat"],
+    edit: ["pipeline.lihat", "pipeline.kelola"],
+  },
+  {
+    key: "kampanye",
+    label: "Kampanye",
+    group: "Penjualan & Pesan",
+    keys: ["kampanye.lihat", "kampanye.kelola"],
+    baca: ["kampanye.lihat"],
+    edit: ["kampanye.lihat", "kampanye.kelola"],
+  },
+  {
+    key: "template",
+    label: "Template Pesan",
+    group: "Penjualan & Pesan",
+    keys: ["template.lihat", "template.kelola"],
+    baca: ["template.lihat"],
+    edit: ["template.lihat", "template.kelola"],
+  },
+  {
+    key: "produk",
+    label: "Produk",
+    group: "Data Bisnis",
+    keys: ["produk.lihat", "produk.kelola"],
+    baca: ["produk.lihat"],
+    edit: ["produk.lihat", "produk.kelola"],
+  },
+  {
+    key: "inventaris",
+    label: "Inventaris",
+    group: "Data Bisnis",
+    keys: ["inventaris.lihat", "inventaris.kelola"],
+    baca: ["inventaris.lihat"],
+    edit: ["inventaris.lihat", "inventaris.kelola"],
+  },
+  {
+    key: "pesanan",
+    label: "Pesanan",
+    group: "Data Bisnis",
+    keys: ["pesanan.lihat", "pesanan.kelola"],
+    baca: ["pesanan.lihat"],
+    edit: ["pesanan.lihat", "pesanan.kelola"],
+  },
+  {
+    key: "kontak",
+    label: "Kontak",
+    group: "Data Bisnis",
+    keys: ["kontak.lihat", "kontak.kelola"],
+    baca: ["kontak.lihat"],
+    edit: ["kontak.lihat", "kontak.kelola"],
+  },
+  {
+    key: "tag",
+    label: "Tag",
+    group: "Data Bisnis",
+    keys: ["tag.lihat", "tag.kelola"],
+    baca: ["tag.lihat"],
+    edit: ["tag.lihat", "tag.kelola"],
+  },
+  {
+    key: "pengetahuan",
+    label: "Pengetahuan",
+    group: "Pengetahuan",
+    keys: ["pengetahuan.kelola"],
+    baca: [],
+    edit: [],
+  },
+  {
+    key: "memori",
+    label: "Memori",
+    group: "Pengetahuan",
+    keys: ["memori.lihat", "memori.kelola"],
+    baca: ["memori.lihat"],
+    edit: ["memori.lihat", "memori.kelola"],
+  },
+  {
+    key: "sumberdata",
+    label: "Sumber Data",
+    group: "Pengetahuan",
+    keys: ["sumberdata.kelola"],
+    baca: [],
+    edit: [],
+  },
+  {
+    key: "impor",
+    label: "Impor Excel / Sheets",
+    group: "Pengetahuan",
+    keys: ["impor.kelola"],
+    baca: [],
+    edit: [],
+  },
+  {
+    key: "agent",
+    label: "Agent",
+    group: "Agent & Otomasi",
+    keys: ["agent.lihat", "agent.kelola"],
+    baca: ["agent.lihat"],
+    edit: ["agent.lihat", "agent.kelola"],
+  },
+  {
+    key: "skenario",
+    label: "Skenario",
+    group: "Agent & Otomasi",
+    keys: ["skenario.lihat", "skenario.kelola"],
+    baca: ["skenario.lihat"],
+    edit: ["skenario.lihat", "skenario.kelola"],
+  },
+  {
+    key: "approval",
+    label: "Approval",
+    group: "Agent & Otomasi",
+    keys: ["approval.lihat", "approval.putuskan"],
+    baca: ["approval.lihat"],
+    edit: ["approval.lihat", "approval.putuskan"],
+  },
+  {
+    key: "tiket",
+    label: "Tiket",
+    group: "Agent & Otomasi",
+    keys: ["tiket.lihat", "tiket.kelola"],
+    baca: ["tiket.lihat"],
+    edit: ["tiket.lihat", "tiket.kelola"],
+  },
+  {
+    key: "kpi",
+    label: "KPI",
+    group: "Analitik",
+    keys: ["kpi.lihat"],
+    baca: [],
+    edit: [],
+  },
+  {
+    key: "aktivitas",
+    label: "Aktivitas",
+    group: "Analitik",
+    keys: ["aktivitas.lihat"],
+    baca: [],
+    edit: [],
+  },
+  {
+    key: "saluran",
+    label: "Saluran",
+    group: "Saluran",
+    keys: ["saluran.lihat", "saluran.tambah", "saluran.ubah", "saluran.hapus"],
+    baca: ["saluran.lihat"],
+    edit: ["saluran.lihat", "saluran.tambah", "saluran.ubah"],
+  },
+  {
+    key: "webhook",
+    label: "Webhook",
+    group: "Saluran",
+    keys: ["webhook.lihat"],
+    baca: [],
+    edit: [],
+  },
+];
+
+// Display order of the feature groups.
+export const FEATURE_GROUPS: readonly string[] = [
+  "Percakapan",
+  "Penjualan & Pesan",
+  "Data Bisnis",
+  "Pengetahuan",
+  "Agent & Otomasi",
+  "Analitik",
+  "Saluran",
+];
+
+// Resolve a feature's current level from the active permission set.
+// "kustom" = the set matches none of the levels, "off" = nothing granted.
+export type FeatureLevel = "off" | "baca" | "edit" | "penuh" | "kustom";
+
+export function featureLevel(feature: PermissionFeature, perms: Set<PermissionKey>): FeatureLevel {
+  const granted = feature.keys.filter((k) => perms.has(k));
+  if (granted.length === 0) return "off";
+  if (granted.length === feature.keys.length) return "penuh";
+  if (
+    feature.edit.length > 0 &&
+    feature.edit.every((k) => perms.has(k)) &&
+    granted.every((k) => feature.edit.includes(k))
+  ) {
+    return "edit";
+  }
+  if (
+    feature.baca.length > 0 &&
+    feature.baca.every((k) => perms.has(k)) &&
+    granted.every((k) => feature.baca.includes(k))
+  ) {
+    return "baca";
+  }
+  return "kustom";
+}
+
+// Apply a level to a feature: remove all the feature's keys, add the
+// level's key set ("off" removes everything).
+export function applyFeatureLevel(
+  perms: Set<PermissionKey>,
+  feature: PermissionFeature,
+  level: "off" | "baca" | "edit" | "penuh"
+): void {
+  for (const k of feature.keys) perms.delete(k);
+  const add =
+    level === "penuh" ? feature.keys : level === "edit" ? feature.edit : level === "baca" ? feature.baca : [];
+  for (const k of add) perms.add(k);
+}
 
 // System role names - seeded per tenant, not deletable/renamable.
 export const ROLE_AKSES_PENUH = "Akses Penuh";

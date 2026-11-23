@@ -32,6 +32,7 @@
     "check:rls": "tsx scripts/self-check-rls.ts",
     "check:billing": "tsx scripts/self-check-billing.ts",
     "check:tools": "tsx scripts/self-check-refund-ticket.ts",
+    "check:permissions": "tsx scripts/self-check-permissions.ts",
     "db:migration-checksums": "node scripts/migration-checksums.mjs",
     "db:migrate": "npm run db:migrate -w packages/core",
     "db:seed": "npm run db:seed -w packages/core",
