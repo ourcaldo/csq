@@ -14,6 +14,7 @@ import { usePolledApi } from "@/hooks/use-polled-api";
 import type { ListResult, Tag } from "@csq/core/types/dashboard";
 import type { ConversationListItem } from "@csq/core/types/inbox";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
+import { useNotifications } from "@/components/dashboard/notifications/notifications-context";
 import { ConversationList } from "@/components/dashboard/inbox/conversation-list";
 import { ChatPanel } from "@/components/dashboard/inbox/chat-panel";
 import { ContactDetails } from "@/components/dashboard/inbox/contact-details";
@@ -53,6 +54,8 @@ type InboxPageProps = {
 export default function InboxPage({ apiMediaBase }: InboxPageProps) {
   const router = useRouter();
   const { data: session } = useSession();
+  // PRD 30: opening a chat clears its bell notification too.
+  const { refresh: refreshNotifications } = useNotifications();
   const myUserId = session?.user?.id ?? null;
   // Assignment visibility (PRD 29): inbox.tugaskan holders see and work
   // every conversation; others only their own assigned ones.
@@ -81,10 +84,22 @@ export default function InboxPage({ apiMediaBase }: InboxPageProps) {
   const [newChatError, setNewChatError] = useState<string | null>(null);
 
   // Allow deep-linking to a specific conversation via ?c=<id> (used by the
-  // pipeline "Buka Chat" action). Only applied once, on mount.
+  // pipeline "Buka Chat" action and the notification bell). Only applied
+  // once, on mount.
   useEffect(() => {
     const c = router.query.c;
-    if (typeof c === "string" && c) setSelectedId(c);
+    if (typeof c === "string" && c) {
+      setSelectedId(c);
+      // Deep links must mark the conversation read too - the in-list click
+      // path does this via onSelect, this path bypassed it and the bell
+      // badge stayed lit after opening from a notification.
+      void apiSend(`/api/dashboard/inbox/conversations/${c}`, "POST")
+        .then(() => {
+          refresh();
+          refreshNotifications();
+        })
+        .catch(() => undefined);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.query.c]);
 
@@ -164,7 +179,10 @@ export default function InboxPage({ apiMediaBase }: InboxPageProps) {
     setDetailsOpen(false);
     // Opening a chat marks it read for this user (clears the unread badge).
     void apiSend(`/api/dashboard/inbox/conversations/${id}`, "POST").then(
-      () => refresh()
+      () => {
+        refresh();
+        refreshNotifications();
+      }
     );
   }
 
