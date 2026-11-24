@@ -54,6 +54,7 @@ import {
 import { QuotaMenu } from "@/components/dashboard/quota-menu";
 import { NotificationsProvider } from "@/components/dashboard/notifications/notifications-context";
 import { NotificationBell } from "@/components/dashboard/notifications/notification-bell";
+import { NotificationPrefsMenu } from "@/components/dashboard/notifications/notification-prefs-menu";
 
 type NavItem = {
   href: string;
@@ -393,6 +394,8 @@ export function DashboardShell({ title, description, actions, headerExtra, flush
                       {session?.user?.isOwner ? "Pemilik" : "Staf"}
                     </p>
                   </div>
+                  {/* PRD 30: personal browser-notification prefs, every role. */}
+                  <NotificationPrefsMenu />
                   <button
                     className="mt-1 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                     onClick={() => signOut({ callbackUrl: "/login" })}

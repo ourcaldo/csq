@@ -1,27 +1,34 @@
-// PRD 30: the bell in the dashboard topbar. Owns the scope dropdown
-// (semua / ditugaskan / nonaktif), the browser-permission enable button,
-// and the unread badge fed by the notifications provider in the shell.
+// PRD 30 (owner 2026-11-24): the topbar bell is the INTERNAL notification
+// center - the user's unread-conversation feed, like Facebook's bell. It is
+// not about the browser's notification permission; that lives in the avatar
+// menu and Pengaturan > Umum. Clicking an item opens the conversation and
+// the read watermark clears it from this list.
 import { useEffect, useRef, useState } from "react";
-import { Bell, Info, SpeakerHigh } from "@phosphor-icons/react";
-import { cn } from "@csq/ui/lib/utils";
-import {
-  useNotifications,
-  type InboxNotifyScope,
-} from "./notifications-context";
+import { useRouter } from "next/router";
+import { Bell, ChatCircle } from "@phosphor-icons/react";
+import { useNotifications } from "./notifications-context";
 
-const OPTIONS: { value: InboxNotifyScope; label: string; desc: string }[] = [
-  { value: "all", label: "Semua percakapan", desc: "Semua pesan masuk di saluran yang Anda lihat" },
-  { value: "assigned", label: "Hanya ditugaskan ke saya", desc: "Hanya percakapan yang ditugaskan ke Anda" },
-  { value: "off", label: "Nonaktif", desc: "Tanpa notifikasi" },
-];
+function relativeTime(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return "";
+  const diffMin = Math.max(0, Math.floor((Date.now() - then) / 60_000));
+  if (diffMin < 1) return "baru saja";
+  if (diffMin < 60) return `${diffMin} mnt lalu`;
+  const hours = Math.floor(diffMin / 60);
+  if (hours < 24) return `${hours} jam lalu`;
+  const days = Math.floor(hours / 24);
+  return `${days} hari lalu`;
+}
 
 export function NotificationBell() {
-  const { scope, setScope, permission, requestPermission, unread } = useNotifications();
+  const router = useRouter();
+  const { items, total, refresh } = useNotifications();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
+    refresh();
     function onDocClick(e: MouseEvent) {
       if (ref.current && (!(e.target instanceof Node) || !ref.current.contains(e.target))) {
         setOpen(false);
@@ -29,96 +36,86 @@ export function NotificationBell() {
     }
     document.addEventListener("mousedown", onDocClick);
     return () => document.removeEventListener("mousedown", onDocClick);
-  }, [open]);
+  }, [open, refresh]);
 
-  function pick(next: InboxNotifyScope) {
-    setScope(next);
-    if (permission === "default") void requestPermission();
+  function openConversation(conversationId: string) {
+    setOpen(false);
+    void router.push(`/dashboard/inbox?c=${encodeURIComponent(conversationId)}`);
   }
 
   return (
-    <div className="relative" ref={ref}>
-      <button
+    <div className="relative" ref={ref}>      <button
         className="relative rounded-md p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
         onClick={() => setOpen((o) => !o)}
-        aria-label="Notifikasi percakapan"
-        title="Notifikasi percakapan"
+        aria-label="Notifikasi"
+        title="Notifikasi"
       >
         <Bell size={22} />
-        {unread > 0 && (
+        {total > 0 && (
           <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full border-2 border-white bg-red-500 px-1 text-[10px] font-semibold text-white">
-            {unread > 99 ? "99+" : unread}
+            {total > 99 ? "99+" : total}
           </span>
-        )}
-        {unread === 0 && permission === "granted" && scope !== "off" && (
-          <span className="absolute right-1 top-1 h-2 w-2 rounded-full border-2 border-white bg-green-500" />
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 top-12 z-50 w-72 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
-          <div className="px-3 pb-2 pt-1">
-            <p className="text-sm font-semibold text-slate-900">Notifikasi Percakapan</p>
-            <p className="mt-0.5 flex items-center gap-1 text-[11px] text-slate-500">
-              <SpeakerHigh size={12} className="shrink-0" />
-              Suaranya memakai bunyi bawaan perangkat
-            </p>
+        <div className="absolute right-0 top-12 z-50 w-80 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
+          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2.5">
+            <span className="text-sm font-semibold text-slate-900">Notifikasi</span>
+            {total > 0 && (
+              <span className="rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-600">
+                {total} belum dibaca
+              </span>
+            )}
           </div>
-          {OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => pick(opt.value)}
-              className={cn(
-                "flex w-full items-start gap-2 rounded-lg px-3 py-2 text-left transition",
-                scope === opt.value ? "bg-slate-100" : "hover:bg-slate-50"
-              )}
-            >
-              <span
-                className={cn(
-                  "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
-                  scope === opt.value ? "border-green-600 bg-green-600" : "border-slate-300"
-                )}
-              >
-                {scope === opt.value && <span className="h-1.5 w-1.5 rounded-full bg-white" />}
-              </span>
-              <span>
-                <span className="block text-sm text-slate-800">{opt.label}</span>
-                <span className="block text-[11px] text-slate-500">{opt.desc}</span>
-              </span>
-            </button>
-          ))}
 
-          <div className="mt-1 border-t border-slate-100 px-3 py-2">
-            {permission === "granted" && (
-              <p className="flex items-center gap-1.5 text-[11px] text-slate-500">
-                <Info size={12} className="shrink-0" />
-                Notifikasi browser aktif - tetap muncul walau dashboard ditutup.
-              </p>
-            )}
-            {permission === "default" && (
-              <button
-                onClick={() => void requestPermission()}
-                className="w-full rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-slate-800"
-              >
-                Aktifkan notifikasi browser
-              </button>
-            )}
-            {permission === "denied" && (
-              <p className="flex items-start gap-1.5 text-[11px] text-red-600">
-                <Info size={12} className="mt-0.5 shrink-0" />
-                Notifikasi diblokir browser. Izinkan CSQ di pengaturan situs
-                (ikon kunci di address bar) untuk menerima notifikasi.
-              </p>
-            )}
-            {permission === "unsupported" && (
-              <p className="flex items-start gap-1.5 text-[11px] text-slate-500">
-                <Info size={12} className="mt-0.5 shrink-0" />
-                Browser ini tidak mendukung notifikasi. Di iPhone, pasang CSQ
-                ke layar utama (Safari &gt; Bagikan &gt; Tambah ke Layar Utama)
-                agar notifikasi tersedia.
-              </p>
-            )}
-          </div>
+          {items.length === 0 ? (
+            <div className="px-4 py-8 text-center">
+              <ChatCircle size={28} className="mx-auto text-slate-300" />
+              <p className="mt-2 text-sm text-slate-500">Belum ada notifikasi baru.</p>
+            </div>
+          ) : (
+            <ul className="max-h-96 divide-y divide-slate-100 overflow-y-auto">
+              {items.map((item) => (
+                <li key={item.conversationId}>
+                  <button
+                    onClick={() => openConversation(item.conversationId)}
+                    className="flex w-full items-start gap-2.5 px-4 py-2.5 text-left transition hover:bg-slate-50"
+                  >
+                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-green-50 text-[13px] font-semibold text-green-700">
+                      {item.title.charAt(0).toUpperCase()}
+                    </div>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-baseline justify-between gap-2">
+                        <span className="truncate text-[13px] font-semibold text-slate-900">
+                          {item.title}
+                        </span>
+                        <span className="shrink-0 text-[10px] text-slate-400">
+                          {relativeTime(item.at)}
+                        </span>
+                      </span>
+                      <span className="mt-0.5 block truncate text-xs text-slate-500">
+                        {item.snippet}
+                      </span>
+                      <span className="mt-0.5 block text-[10px] font-medium uppercase tracking-wide text-slate-400">
+                        {item.channelLabel}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <button
+            onClick={() => {
+              setOpen(false);
+              void router.push("/dashboard/inbox");
+            }}
+            className="block w-full border-t border-slate-100 px-4 py-2.5 text-center text-xs font-medium text-green-700 transition hover:bg-slate-50"
+          >
+            Buka Percakapan
+          </button>
         </div>
       )}
     </div>

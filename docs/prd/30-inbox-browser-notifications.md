@@ -296,3 +296,32 @@ model PushSubscription {
 3. Web Push: IN v1 scope - notifications must arrive with the browser
    closed. Service worker + VAPID + `PushSubscription` are part of this
    feature, not a later phase.
+
+## 13. Amendment 2026-11-24 (owner correction): bell = internal center
+
+CORRECTION (owner, 2026-11-24, after the first build): the topbar bell is
+NOT a browser-notification settings control. Like Facebook, the bell is the
+product's INTERNAL notification center - a list of the user's unread
+activity shown inside the app.
+
+Superseded: section 7's "bell control ... dropdown with the three scope
+options" and the permission button inside the bell.
+
+Implemented split:
+
+- **Bell (internal)**: unread-conversation feed for the signed-in user,
+  derived live from the existing `ConversationRead` watermark (unread = an
+  inbound message newer than the watermark, on channels the user may LIHAT;
+  no new table, no fan-out). Rows show customer, snippet, channel, relative
+  time; clicking opens the conversation, which writes the watermark and
+  clears the row. Badge = number of unread conversations. The document
+  title carries the same count. This list is INDEPENDENT of the browser
+  scope - it always shows every unread conversation on visible channels.
+- **Browser notification preferences (scope + permission)**: moved to the
+  avatar menu ("Notifikasi browser": Semua / Ditugaskan ke saya /
+  Nonaktif, plus the permission state and enable button) so every role can
+  reach it, and the same control remains on Pengaturan > Umum for the
+  owner. These preferences only govern OS toasts and Web Push, never the
+  internal list.
+- Endpoint: `GET /api/dashboard/inbox/notifications` (inbox.lihat,
+  tenant + visible-channel scoped, 30-candidate scan, 8 rows returned).

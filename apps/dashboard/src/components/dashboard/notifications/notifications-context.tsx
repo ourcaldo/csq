@@ -1,8 +1,11 @@
-// PRD 30: client half of inbox browser notifications. Mounted once by the
-// DashboardShell so every page has it: loads the user's scope preference,
-// owns the browser permission flow + the Web Push subscription, keeps the
-// tenant-wide notify-stream SSE open, and counts unread toasts for the
-// bell badge and the document title.
+// PRD 30: client half of inbox notifications. Mounted once by the
+// DashboardShell so every page has it. Two independent halves:
+// - INTERNAL notification center (owner amendment 2026-11-24): the topbar
+//   bell lists the user's unread conversations, derived server-side from
+//   the ConversationRead watermark - this provider fetches and refreshes it.
+// - BROWSER notifications: permission + Web Push subscription + the
+//   tenant-wide notify-stream SSE that fires OS toasts (scope: all /
+//   assigned / off, default all).
 import {
   createContext,
   useCallback,
@@ -17,6 +20,14 @@ import { apiFetch, apiSend } from "@/lib/api-client";
 
 export type InboxNotifyScope = "all" | "assigned" | "off";
 type PermissionState = "default" | "granted" | "denied" | "unsupported";
+
+export type InboxNotificationItem = {
+  conversationId: string;
+  title: string;
+  snippet: string;
+  channelLabel: string;
+  at: string;
+};
 
 type StreamEvent = {
   conversationId: string;
@@ -41,8 +52,10 @@ type NotificationsValue = {
   setScope: (scope: InboxNotifyScope) => void;
   permission: PermissionState;
   requestPermission: () => Promise<void>;
-  unread: number;
-  clearUnread: () => void;
+  // Internal notification center (bell).
+  items: InboxNotificationItem[];
+  total: number;
+  refresh: () => void;
 };
 
 const NotificationsContext = createContext<NotificationsValue | null>(null);
@@ -108,9 +121,22 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [scope, setScopeState] = useState<InboxNotifyScope>("all");
   const [permission, setPermission] = useState<PermissionState>("unsupported");
-  const [unread, setUnread] = useState(0);
+  const [items, setItems] = useState<InboxNotificationItem[]>([]);
+  const [total, setTotal] = useState(0);
   const vapidKeyRef = useRef<string | null>(null);
   const lastToastAt = useRef(new Map<string, number>());
+
+  // Internal bell feed: unread conversations from the server watermark.
+  const refresh = useCallback(() => {
+    apiFetch<{ items: InboxNotificationItem[]; total: number }>(
+      "/api/dashboard/inbox/notifications"
+    )
+      .then((d) => {
+        setItems(d.items);
+        setTotal(d.total);
+      })
+      .catch(() => undefined);
+  }, []);
 
   // Initial state: preference + VAPID public key + browser permission.
   useEffect(() => {
@@ -130,6 +156,12 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       })
       .catch(() => undefined);
   }, []);
+
+  // Bell feed refreshes on route change (opening a thread writes the read
+  // watermark) and whenever an inbound event arrives.
+  useEffect(() => {
+    refresh();
+  }, [router.pathname, refresh]);
 
   const setScope = useCallback((next: InboxNotifyScope) => {
     setScopeState(next);
@@ -169,6 +201,8 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       }
       if (!isStreamEvent(parsed)) return;
       const data = parsed;
+      // Keep the internal bell list live too.
+      refresh();
       // Reading that exact thread right now? No toast.
       const viewingIt =
         window.location.pathname === "/dashboard/inbox" &&
@@ -181,7 +215,6 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       lastToastAt.current.set(data.conversationId, now);
       if (lastToastAt.current.size > 500) lastToastAt.current.clear();
 
-      setUnread((n) => n + 1);
       try {
         const toast = new Notification(data.title || "Pesan baru", {
           body: data.body || "Pesan baru masuk",
@@ -192,7 +225,6 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         toast.onclick = () => {
           window.focus();
           void router.push(`/dashboard/inbox?c=${encodeURIComponent(data.conversationId)}`);
-          setUnread(0);
         };
       } catch (err) {
         console.error("[notifications] toast failed:", err);
@@ -202,27 +234,23 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       // Transient - the browser auto-reconnects; swallow.
     };
     return () => es.close();
-  }, [scope, permission, router]);
+  }, [scope, permission, router, refresh]);
 
-  // Opening the inbox clears the badge; the title prefix follows.
+  // Document title badge follows the internal unread total.
   useEffect(() => {
-    setUnread(0);
-  }, [router.pathname]);
-  useEffect(() => {
-    if (unread === 0) return;
+    if (total === 0) return;
     const base = document.title.replace(/^\(\d+\+?\)\s*/, "");
-    document.title = `(${unread > 99 ? "99+" : unread}) ${base}`;
-  }, [unread]);
-
-  const clearUnread = useCallback(() => setUnread(0), []);
+    document.title = `(${total > 99 ? "99+" : total}) ${base}`;
+  }, [total]);
 
   const value: NotificationsValue = {
     scope,
     setScope,
     permission,
     requestPermission,
-    unread,
-    clearUnread,
+    items,
+    total,
+    refresh,
   };
   return (
     <NotificationsContext.Provider value={value}>
