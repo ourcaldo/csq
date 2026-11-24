@@ -84,12 +84,36 @@ type PushSubscriptionJson = {
   keys?: { p256dh?: string; auth?: string };
 };
 
+// Show the toast THROUGH THE SERVICE WORKER, not `new Notification()`.
+// Page-created notifications are the legacy API - Chrome silently drops
+// them in several contexts (owner report 2026-11-24: SSE event arrived,
+// no toast appeared). The SW path is the same mechanism Web Push uses,
+// so foreground and background toasts behave identically, and the SW's
+// notificationclick handler owns the click (focus + open conversation).
+async function showInboundToast(data: StreamEvent): Promise<void> {
+  const options: NotificationOptions & { data?: { conversationId: string } } = {
+    body: data.body || "Pesan baru masuk",
+    tag: data.conversationId,
+    icon: "/icon.svg",
+    silent: false,
+    data: { conversationId: data.conversationId },
+  };
+  const title = data.title || "Pesan baru";
+  if ("serviceWorker" in navigator) {
+    const reg = await navigator.serviceWorker.register("/sw.js");
+    await reg.showNotification(title, options);
+    return;
+  }
+  if (typeof Notification !== "undefined") {
+    new Notification(title, options);
+  }
+}
+
 async function syncPushSubscription(scope: InboxNotifyScope, vapidKey: string | null) {
   if (typeof window === "undefined") return;
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
   try {
-    const reg = await navigator.serviceWorker.register("/sw.js");
-    const existing = await reg.pushManager.getSubscription();
+    const reg = await navigator.serviceWorker.register("/sw.js");    const existing = await reg.pushManager.getSubscription();
     if (scope === "off" || Notification.permission !== "granted" || !vapidKey) {
       if (existing) {
         await apiSend("/api/dashboard/notifications/subscribe", "DELETE", {
@@ -201,7 +225,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (scope === "off" || permission !== "granted") return;
     const es = new EventSource("/api/dashboard/inbox/notify-stream");
-    es.onmessage = (ev) => {
+    es.onmessage = async (ev) => {
       let parsed: unknown;
       try {
         parsed = JSON.parse(ev.data);
@@ -225,16 +249,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       if (lastToastAt.current.size > 500) lastToastAt.current.clear();
 
       try {
-        const toast = new Notification(data.title || "Pesan baru", {
-          body: data.body || "Pesan baru masuk",
-          tag: data.conversationId,
-          icon: "/icon.svg",
-          silent: false,
-        });
-        toast.onclick = () => {
-          window.focus();
-          void router.push(`/dashboard/inbox?c=${encodeURIComponent(data.conversationId)}`);
-        };
+        await showInboundToast(data);
       } catch (err) {
         console.error("[notifications] toast failed:", err);
       }

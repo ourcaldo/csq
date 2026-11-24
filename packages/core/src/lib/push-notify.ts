@@ -116,6 +116,7 @@ export async function sendInboundPush(input: InboundPushInput): Promise<void> {
       lastPushAt.set(capKey, now);
       if (lastPushAt.size > 5000) lastPushAt.clear();
 
+      let delivered = 0;
       for (const sub of user.pushSubscriptions) {
         try {
           await webpush.sendNotification(
@@ -123,6 +124,7 @@ export async function sendInboundPush(input: InboundPushInput): Promise<void> {
             payload,
             { TTL: 3600 }
           );
+          delivered += 1;
         } catch (err: unknown) {
           const status =
             err && typeof err === "object" && "statusCode" in err
@@ -135,6 +137,11 @@ export async function sendInboundPush(input: InboundPushInput): Promise<void> {
             console.error("[push] send failed:", status ?? err);
           }
         }
+      }
+      if (delivered > 0) {
+        console.log(
+          `[push] ${delivered} delivered to ${user.id} for conversation ${input.conversationId}`
+        );
       }
     }
   } catch (err: unknown) {
