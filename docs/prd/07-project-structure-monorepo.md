@@ -152,10 +152,8 @@ DATABASE_URL=
 NEXTAUTH_URL=
 NEXTAUTH_SECRET=
 
-# WhatsApp Cloud API
-WHATSAPP_TOKEN=
-WHATSAPP_PHONE_NUMBER_ID=
-WHATSAPP_VERIFY_TOKEN=
+# WhatsApp Cloud API: no env vars - all per-tenant credentials live in
+# Channel.config in the DB (PRD 15 amendment 2026-11-24, tenant-own-WABA)
 
 # Google Sheets
 GOOGLE_CLIENT_ID=

@@ -1390,7 +1390,7 @@ dashboard-initiated tool calls).
 
 **GET verification:**
 - Query params: `hub.mode`, `hub.challenge`, `hub.verify_token`.
-- If `hub.mode === "subscribe"` and `hub.verify_token === WHATSAPP_VERIFY_TOKEN`:
+- If `hub.mode === "subscribe"` and `hub.verify_token` matches any Cloud API channel's stored per-tenant `config.verifyToken` (PRD 15 amendment 2026-11-24, tenant-own-WABA; no env token):
   return `hub.challenge` as plain text, status 200.
 - Otherwise: return 403.
 

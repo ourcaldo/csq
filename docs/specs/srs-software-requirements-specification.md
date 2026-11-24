@@ -337,7 +337,7 @@ Priority: **M** = Must (MVP), **S** = Should (nice to have), **F** = Future.
 |----|----------|-------------|-----------|
 | FR-WA-001 | M | The system SHALL integrate with WhatsApp Cloud API (Meta) as the default customer channel. | §4.4, §23A |
 | FR-WA-002 | M | The system SHALL expose a webhook endpoint that handles Meta's GET verification (hub challenge) and POST message events. | Plans §7.2 |
-| FR-WA-003 | M | The webhook verify token SHALL match `WHATSAPP_VERIFY_TOKEN` from environment. | Plans §7.2 |
+| FR-WA-003 | M | Webhook verification SHALL match the per-tenant verify token stored in `Channel.config` (tenant-own-WABA model, PRD 15 amendment 2026-11-24; no env token). | Plans §7.2 |
 | FR-WA-004 | M | Incoming message payloads SHALL be Zod-validated before processing. Invalid payloads SHALL return 200 (no retry). | Plans §7.3 |
 | FR-WA-005 | M | The system SHALL resolve the sender's phone to a tenant and active agent via the Channel configuration. | Plans §7.4 |
 | FR-WA-006 | M | If no active agent is found, the system SHALL reply with an "agent not active" message. | Plans §7.4 |

@@ -28,8 +28,6 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       NEXTAUTH_URL: ${NEXTAUTH_URL}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
-      WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET}
-      WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN}
       # The dashboard BFF calls the product API over the public origin; nginx
       # routes /api/v1, /api/media and the Meta webhook to the api service.
       API_URL: ${API_URL}
@@ -69,8 +67,8 @@ services:
       API_URL: ${API_URL}
       API_SERVICE_TOKENS: ${API_SERVICE_TOKEN}
       API_JWT_SECRET: ${API_JWT_SECRET}
-      WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET}
-      WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN}
+      # WhatsApp webhook credentials are per-tenant in the DB (PRD 15
+      # amendment 2026-11-24) - nothing WhatsApp-related comes from env.
       WHATSAPP_APPROVAL_TEMPLATE: ${WHATSAPP_APPROVAL_TEMPLATE:-}
       WHATSAPP_AGENT_FALLBACK_TEMPLATE: ${WHATSAPP_AGENT_FALLBACK_TEMPLATE:-}
       WHATSAPP_TEMPLATE_LANG: ${WHATSAPP_TEMPLATE_LANG:-id}

@@ -101,12 +101,14 @@ docker push ghcr.io/yourorg/csq-nginx:latest`}</CodeBlock>
                 <li><span className="font-mono-data text-[13px]">CERT_DOMAIN</span>: domain yang sama, contoh <span className="font-mono-data text-[13px]">umkm.example.com</span>.</li>
                 <li><span className="font-mono-data text-[13px]">CSQ_APP_IMAGE</span> dan <span className="font-mono-data text-[13px]">CSQ_NGINX_IMAGE</span>: nama image registry yang Anda dorong di langkah 02.</li>
                 <li><span className="font-mono-data text-[13px]">LLM_API_KEY</span>, <span className="font-mono-data text-[13px]">LLM_BASE_URL</span>, <span className="font-mono-data text-[13px]">LLM_CHAT_MODEL</span>: penyedia LLM apa pun yang kompatibel dengan OpenAI, untuk loop agent, skenario, dan embeddings.</li>
-                <li><span className="font-mono-data text-[13px]">WHATSAPP_APP_SECRET</span>: App Secret dari aplikasi Meta Anda, untuk validasi HMAC webhook.</li>
                 <li><span className="font-mono-data text-[13px]">GOOGLE_CLIENT_ID</span>, <span className="font-mono-data text-[13px]">GOOGLE_CLIENT_SECRET</span>, <span className="font-mono-data text-[13px]">GOOGLE_REDIRECT_URI</span>: untuk Google Sheets, opsional.</li>
               </ul>
               <p className="text-sm">
-                Kredensial WhatsApp Cloud API lainnya seperti token dan phone
-                number ID dimasukkan per toko lewat dashboard, bukan lewat env.
+                Kredensial WhatsApp Cloud API - token, phone number ID, App
+                Secret dari aplikasi Meta Anda, dan Verify Token yang tampil di
+                dashboard - semuanya diisi per toko lewat dashboard, bukan lewat
+                env. Verifikasi webhook bersifat per aplikasi Meta masing-masing
+                tenant; tidak ada token bersama tingkat server.
               </p>
             </Section>
 

@@ -83,9 +83,9 @@ export default async function handler(
     // entries recorded for THIS tenant's channels. UNKNOWN_PHONE_ID entries
     // (no resolvable tenant) are excluded from tenant views.
     // Audit run-4 (webhook-diag-sig-oracle): computedSig is a 64-bit prefix
-    // of HMAC-SHA256(WHATSAPP_APP_SECRET, payload) - a signing oracle for
-    // anyone who can feed crafted bodies to the public webhook. Non-owners
-    // get the mismatch verdict only, never the expected signature.
+    // of HMAC-SHA256(app secret, payload) - a signing oracle for anyone who
+    // can feed crafted bodies to the public webhook. Non-owners get the
+    // mismatch verdict only, never the expected signature.
     const items = parsed.data.data.items
       .filter((d) => d.tenantId === tenantId)
       .map((d) =>

@@ -28,9 +28,7 @@ import {
   X,
 } from "@phosphor-icons/react";
 import { QRCodeSVG } from "qrcode.react";
-import { withAuth, getSSRSession } from "@csq/core/lib/auth";
-import prisma from "@csq/core/lib/db";
-import { withTenantContext } from "@csq/core/lib/tenant-context";
+import { withAuth } from "@csq/core/lib/auth";
 import { useEntitlements } from "@/components/dashboard/entitlements-context";
 import { apiFetch, apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
@@ -63,10 +61,7 @@ function errMsg(e: unknown, fallback: string): string {
 
 type FilterTab = "all" | "connected" | "disconnected" | "archived";
 
-export default function SaluranPage({
-  webhookUrl,
-  cloudVerifyToken,
-}: SaluranProps) {
+export default function SaluranPage({ webhookUrl }: SaluranProps) {
   const { data: session } = useSession();
   const isOwner = !!session?.user?.isOwner;
   const canConfig =
@@ -86,6 +81,11 @@ export default function SaluranPage({
   );
 
   const channels = channelsData?.items ?? [];
+  // PRD 15 amendment (tenant-own-WABA): the tenant's verify token - all of a
+  // tenant's Cloud API channel rows carry the same token (generated at first
+  // connect); take it from any channel that has one.
+  const tenantVerifyToken =
+    channels.find((c) => c.provider === "CLOUD_API" && c.verifyToken)?.verifyToken ?? null;
   const activeAgents = (agentsData?.items ?? []).filter(
     (a) => a.status === "ACTIVE"
   );
@@ -228,6 +228,7 @@ export default function SaluranPage({
       token: "",
       appSecret: "",
       businessAccountId: "",
+      verifyToken: channel.verifyToken ?? "",
     });
   }
 
@@ -266,8 +267,11 @@ export default function SaluranPage({
               config: {
                 phoneNumberId: cloudForm.phoneNumberId.trim(),
                 token: cloudForm.token.trim(),
-                appSecret: cloudForm.appSecret.trim() || undefined,
+                appSecret: cloudForm.appSecret.trim(),
                 businessAccountId: cloudForm.businessAccountId.trim() || undefined,
+                ...(cloudForm.verifyToken.trim()
+                  ? { verifyToken: cloudForm.verifyToken.trim() }
+                  : {}),
               },
             }
           : { config: { tosAcknowledged: true } }),
@@ -432,7 +436,7 @@ export default function SaluranPage({
 
       {loading && <LoadingSkeleton rows={2} />}
 
-      {/* ══ Collapsible Global Webhook Config ══ */}
+      {/* ══ Webhook setup (per tenant Meta app, PRD 15 amendment) ══ */}
       {!loading && (
         <section className="mb-8 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)]">
           <button
@@ -444,9 +448,9 @@ export default function SaluranPage({
                 <WebhooksLogo size={16} />
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-zinc-900">Konfigurasi Global Webhook Meta</span>
+                <span className="text-sm font-medium text-zinc-900">Webhook Meta (Aplikasi Meta Anda)</span>
                 <span className="rounded border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 text-[11px] font-medium text-zinc-500">
-                  Berlaku untuk semua nomor
+                  Per akun
                 </span>
               </div>
             </div>
@@ -465,16 +469,17 @@ export default function SaluranPage({
                 <CopyField label="Callback URL" hint="HTTPS Endpoint" value={webhookUrl} />
                 <CopyField
                   label="Verify Token"
-                  hint="Tempel di Meta App Dashboard > Webhooks saat mendaftarkan Callback URL"
-                  value={cloudVerifyToken ?? "-"}
+                  hint="Token akun Anda - dibuat otomatis, dapat dirotasi"
+                  value={tenantVerifyToken ?? "(belum ada - dibuat saat saluran Cloud API pertama ditambahkan)"}
                 />
               </div>
-              <p className="mt-3 flex items-center gap-1.5 text-xs text-zinc-500">
-                <Info size={14} className="text-zinc-400" />
+              <p className="mt-3 flex items-start gap-1.5 text-xs text-zinc-500">
+                <Info size={14} className="mt-0.5 shrink-0 text-zinc-400" />
                 <span>
-                  Masukkan kedua kredensial di atas pada{" "}
-                  <strong>Meta App Dashboard &rarr; WhatsApp &rarr; Configuration</strong>.
-                  Kredensial ini bersifat permanen dan tidak berubah saat menambah saluran baru.
+                  Buka <strong>Meta App Dashboard milik Anda</strong> (bukan milik platform) &rarr;{" "}
+                  <strong>WhatsApp &rarr; Configuration</strong>, tempel Callback URL dan Verify
+                  Token di atas, lalu klik <strong>Verify and Save</strong>. Semua nomor di
+                  aplikasi Meta yang sama memakai token ini.
                 </span>
               </p>
             </div>
@@ -666,13 +671,24 @@ export default function SaluranPage({
                 label="App Secret"
                 value={cloudForm.appSecret}
                 onChange={(v) => setCloud({ appSecret: v })}
-                hint="Opsional (untuk validasi signature)"
+                hint="Wajib - dari aplikasi Meta Anda (App Dashboard > Settings > Basic)"
                 disabled={!canAct}
                 type="password"
               />
+              <Field
+                label="Verify Token"
+                value={cloudForm.verifyToken}
+                onChange={(v) => setCloud({ verifyToken: v })}
+                hint="Kosongkan untuk dibuat otomatis (satu token per akun)"
+                disabled={!canAct}
+              />
               <div className="flex items-start gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-600">
                 <CheckCircle size={14} weight="fill" className="mt-0.5 shrink-0 text-emerald-600" />
-                <span>Kredensial akan divalidasi langsung ke server Graph API Meta sebelum saluran diaktifkan.</span>
+                <span>
+                  Kredensial divalidasi langsung ke Graph API Meta sebelum saluran
+                  diaktifkan. Setelah tersambung, salin Callback URL + Verify Token dari
+                  panel <strong>Webhook Meta</strong> ke aplikasi Meta Anda.
+                </span>
               </div>
               <div className="flex items-center justify-between border-t border-zinc-100 pt-4">
                 <button
@@ -683,7 +699,7 @@ export default function SaluranPage({
                 </button>
                 <button
                   onClick={() => void connectCloud()}
-                  disabled={connecting || !canAct}
+                  disabled={connecting || !canAct || !cloudForm.appSecret.trim()}
                   className="rounded-lg bg-zinc-900 px-4 py-2 text-xs font-medium text-white hover:bg-zinc-800 disabled:opacity-50"
                 >
                   {connecting ? "Memverifikasi..." : "Verifikasi & Sambungkan"}
@@ -817,9 +833,16 @@ export default function SaluranPage({
                 label="App Secret"
                 value={cloudForm.appSecret}
                 onChange={(v) => setCloud({ appSecret: v })}
-                hint="Opsional"
+                hint="Dari aplikasi Meta Anda (Settings > Basic)"
                 disabled={!canAct}
                 type="password"
+              />
+              <Field
+                label="Verify Token"
+                value={cloudForm.verifyToken}
+                onChange={(v) => setCloud({ verifyToken: v })}
+                hint="Kosongkan untuk dibuat otomatis; ganti = rotasi token webhook"
+                disabled={!canAct}
               />
             </>
           )}
@@ -1355,7 +1378,6 @@ function ModalHeader(props: {
 
 type SaluranProps = {
   webhookUrl: string;
-  cloudVerifyToken: string | null;
 };
 
 export const getServerSideProps: GetServerSideProps<SaluranProps> = withAuth<
@@ -1367,30 +1389,8 @@ export const getServerSideProps: GetServerSideProps<SaluranProps> = withAuth<
   ).replace(/\/$/, "");
   const webhookUrl = `${apiBase || fallback}/api/webhooks/whatsapp`;
 
-  // PRD 15: the verify token is app-level (WHATSAPP_VERIFY_TOKEN on the api
-  // service). The legacy per-channel token is the transition fallback shown
-  // when env is unset.
-  const session = await getSSRSession(ctx);
-  let cloudVerifyToken: string | null = process.env.WHATSAPP_VERIFY_TOKEN ?? null;
-  if (session?.user.tenantId && !cloudVerifyToken) {
-    const tenantId = session.user.tenantId;
-    await withTenantContext(tenantId, async () => {
-      const existing = await prisma.channel.findFirst({
-        where: { tenantId, provider: "CLOUD_API" },
-      });
-      const parsedConfig = existing?.config;
-      const rawConfig =
-        parsedConfig && typeof parsedConfig === "object" && "verifyToken" in parsedConfig
-          ? parsedConfig
-          : {};
-      const existingToken =
-        "verifyToken" in rawConfig && typeof rawConfig.verifyToken === "string"
-          ? rawConfig.verifyToken
-          : undefined;
-      cloudVerifyToken = existingToken ?? null;
-    });
-  }
-
-  return { props: { webhookUrl, cloudVerifyToken } };
+  // PRD 15 amendment (tenant-own-WABA): the verify token lives in the DB per
+  // tenant channel (rendered from the channel list) - no env token here.
+  return { props: { webhookUrl } };
   // SEC-3 (PRD 16): channel configuration is OWNER-only (PRD 15.9).
 }, { requiredPermission: "saluran.lihat" });

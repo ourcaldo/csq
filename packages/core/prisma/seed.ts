@@ -231,7 +231,10 @@ export async function seedDemo(): Promise<void> {
         config: {
           phoneNumberId: "DEMO_PHONE_NUMBER_ID",
           token: "DEMO_TOKEN",
+          // PRD 15 amendment (tenant-own-WABA): the per-tenant webhook token
+          // and the tenant's own app secret live in config; no env fallback.
           verifyToken: "demo-verify-token",
+          appSecret: "demo-app-secret",
           businessAccountId: "DEMO_BUSINESS_ACCOUNT_ID",
         },
       },

@@ -67,7 +67,9 @@ Rules:
   anything to production needs the owner's explicit go.
 - MCP ids: Render workspace `tea-d776rkea2pns73df0610`, Neon project
   `winter-flower-03790042`. Env still missing on csq-dashboard (owner sets):
-  `LLM_*`, `GOOGLE_*`, `WHATSAPP_APP_SECRET`.
+  `LLM_*`, `GOOGLE_*`. WhatsApp credentials are per-tenant in the DB (PRD 15
+  amendment 2026-11-24) - `WHATSAPP_APP_SECRET` / `WHATSAPP_VERIFY_TOKEN`
+  no longer exist in the codebase.
 
 ## What We Are Building
 Self-hosted, multi-tenant AI agent platform for Indonesian UMKM. First agent: a Customer

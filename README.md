@@ -40,7 +40,7 @@ Edit `.env.production` and fill in:
 - **`API_JWT_SECRET`** — signs the `/api/v1` user access JWTs. Generate with `openssl rand -base64 32`.
 - **`API_SERVICE_TOKEN`** — the shared token the dashboard BFF sends to the api service. Generate a long random string; the api accepts it via `API_SERVICE_TOKENS`.
 - **`LLM_API_KEY`** / **`LLM_BASE_URL`** / **`LLM_CHAT_MODEL`** — any OpenAI-compatible LLM provider. Serves the agent loop, scenario AI node, and embeddings.
-- **`WHATSAPP_APP_SECRET`** — the App Secret from your Meta app (used for webhook HMAC validation).
+- **WhatsApp Cloud API** — all credentials (access token, phone number ID, App Secret, per-tenant Verify Token) are entered per store in the dashboard and stored in the database. No WhatsApp env vars are read by the app (PRD 15 amendment 2026-11-24).
 - **`GOOGLE_CLIENT_ID`** / **`GOOGLE_CLIENT_SECRET`** / **`GOOGLE_REDIRECT_URI`** — for Google Sheets OAuth (optional, only if stores import from Sheets).
 
 #### Database: self-hosted or managed — choose one

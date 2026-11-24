@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { randomBytes } from "crypto";
 import { z } from "zod";
 import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import { canManageChannel } from "@csq/core/lib/channel-access";
@@ -182,6 +183,24 @@ export default async function handler(
     let wabaId: string | null = null;
     if (provider === "CLOUD_API") {
       const cfg = cloudApiConfigSchema.parse(parsed.data.config);
+      // PRD 15 amendment (owner 2026-11-24, tenant-own-WABA model): the app
+      // secret is the TENANT's Meta app secret - stored per channel in the
+      // DB, never env (HMAC would never match another app's secret).
+      // Required on a NEW channel; on reconfig an empty field keeps the
+      // stored secret (label-only edits must not demand re-entry).
+      if (!cfg.appSecret && !existing) {
+        return respondError(
+          res,
+          "VALIDATION_ERROR",
+          "App Secret wajib diisi (Meta App Dashboard > Settings > Basic milik aplikasi Anda)."
+        );
+      }
+      if (!cfg.appSecret && existing) {
+        const parsedPrev = cloudApiConfigSchema.safeParse(existing.config);
+        if (parsedPrev.success && parsedPrev.data.appSecret) {
+          cfg.appSecret = parsedPrev.data.appSecret;
+        }
+      }
       // Verify against Meta BEFORE storing anything or checking duplicates:
       // a wrong ID/token must fail immediately with Meta's own error.
       try {
@@ -210,14 +229,28 @@ export default async function handler(
           "Nomor WhatsApp ini sudah terdaftar di workspace lain."
         );
       }
-      // Keep the per-channel verifyToken when reconfiguring (it may hold the
-      // legacy token Meta verified); it is app-level now but harmless.
+      // PRD 15 amendment (owner 2026-11-24, tenant-own-WABA model): the
+      // verify token is PER TENANT (one Meta app per tenant, one token per
+      // app), stored on each channel row in the DB - never env. Supplied
+      // token wins (the tenant may have configured theirs already);
+      // otherwise reuse the tenant's existing token from any other Cloud
+      // API channel, else this channel's own stored one, else generate.
       const parsedExisting = cloudApiConfigSchema.safeParse(existing?.config);
-      const legacyToken =
+      const ownToken =
         parsedExisting.success ? parsedExisting.data.verifyToken : undefined;
+      const sibling = await prisma.channel.findFirst({
+        where: { tenantId, provider: "CLOUD_API" },
+        orderBy: { createdAt: "asc" },
+        select: { config: true },
+      });
+      const siblingParsed = cloudApiConfigSchema.safeParse(sibling?.config);
+      const tenantToken =
+        siblingParsed.success ? siblingParsed.data.verifyToken : undefined;
+      const verifyToken =
+        cfg.verifyToken ?? tenantToken ?? ownToken ?? `csq-${randomBytes(16).toString("hex")}`;
       config = {
         ...cfg,
-        ...(legacyToken ? { verifyToken: legacyToken } : {}),
+        verifyToken,
       };
       status = "CONNECTED";
     } else {

@@ -80,24 +80,11 @@ export default async function handler(
       res.status(403).send("Forbidden");
       return;
     }
-    // PRD 15: verification is app-level. One Meta app, one callback URL,
-    // one WHATSAPP_VERIFY_TOKEN for every number. The legacy per-channel
-    // config.verifyToken is accepted as a transition fallback (removed
-    // after one release).
-    const appToken = process.env.WHATSAPP_VERIFY_TOKEN;
-    if (appToken) {
-      const a = Buffer.from(verifyToken);
-      const b = Buffer.from(appToken);
-      const appMatch =
-        a.length === b.length && crypto.timingSafeEqual(a, b);
-      if (appMatch) {
-        res.setHeader("Content-Type", "text/plain");
-        res.status(200).send(challenge);
-        return;
-      }
-    }
-    // Transition fallback: any CLOUD_API channel still carrying a matching
-    // legacy per-channel token.
+    // PRD 15 amendment (owner 2026-11-24, tenant-own-WABA): tokens are
+    // PER TENANT, stored in each Cloud API channel's config in the DB -
+    // never env. A subscription is verified when the presented token
+    // matches ANY channel row (all of one tenant's rows share the tenant
+    // token, generated at first connect).
     const channel = await withSystemContext(async () =>
       prisma.channel.findFirst({
         where: {
@@ -186,20 +173,20 @@ export default async function handler(
       return;
     }
 
-    // Signature verification - fail-closed. App secret from env first
-    // (PRD 15: app-level), then the per-channel config override for edge
-    // cases. If neither is set, reject (401): never accept unsigned inbound
-    // POSTs, since a spoofed message would flow straight into the agent
-    // loop. The HMAC is verified against the raw body with a constant-time
-    // compare.
+    // Signature verification - fail-closed. PRD 15 amendment (owner
+    // 2026-11-24, tenant-own-WABA): the app secret is the TENANT's own Meta
+    // app secret, stored per channel in the DB - there is no env fallback,
+    // a platform secret could never match another app's signature. Missing
+    // secret rejects (401): never accept unsigned inbound POSTs, since a
+    // spoofed message would flow straight into the agent loop. The HMAC is
+    // verified against the raw body with a constant-time compare.
     const sigHeader = req.headers["x-hub-signature-256"];
     const signature = Array.isArray(sigHeader) ? sigHeader[0] : sigHeader;
     const configResult = cloudApiConfigSchema.safeParse(channel.config);
-    const channelSecret = configResult.success ? configResult.data.appSecret : undefined;
-    const appSecret = channelSecret ?? process.env.WHATSAPP_APP_SECRET;
+    const appSecret = configResult.success ? configResult.data.appSecret : undefined;
     if (!appSecret) {
       console.error(
-        `[whatsapp-webhook] Channel ${channel.id} has no appSecret and WHATSAPP_APP_SECRET is unset; rejecting inbound (fail-closed).`
+        `[whatsapp-webhook] Channel ${channel.id} has no appSecret; rejecting inbound (fail-closed).`
       );
       recordWebhookDiag({
         at: new Date().toISOString(),
