@@ -1,13 +1,13 @@
 # 30 - Inbox Browser Notifications
 
-Status: proposed 2026-11-24, decisions resolved same day (owner): default
-scope is SEMUA for every user; notifications keep the system sound (no
-custom audio); Web Push is IN v1 scope (delivery when the browser is
-closed). Owner request: when a customer chats, the tenant staff currently
-learns nothing until someone opens the inbox. Add browser notifications
-(Chrome etc.) so an inbound customer message pops up on the staff
-member's screen, with a per-user choice between "notify for all
-conversations" and "notify only for conversations assigned to me".
+Status: implemented and live-verified 2026-11-24. Owner decisions
+resolved same day: default scope is SEMUA for every user; notifications
+keep the system sound (no custom audio); Web Push is IN v1 scope (delivery
+when the browser is closed). Live-verified: pref round-trip,
+subscribe/upsert/prune, tenant SSE emission on inbound, real
+web-push send to the push service with dead-endpoint pruning.
+In-browser toast delivery still needs a real user "Izinkan" grant
+(headless browsers pre-deny it).
 
 Related: PRD 29 (channel visibility, assignment), PRD 15 (multi-channel
 inbox), the existing per-conversation SSE stream
@@ -217,9 +217,10 @@ model PushSubscription {
   subscription), each gated on the session being the user themself (no
   permission key needed - self preference, not tenant configuration; a
   user can never write another user's prefs or subscriptions).
-- Read path: the shell GSSP already loads the session; it loads
-  `notificationPrefs` with it and passes the scope (and the VAPID public
-  key) to the client.
+- Read path (implemented): the notification context fetches
+  `GET /api/dashboard/settings/notifications` once on mount; the route
+  returns the user's `inboxNotify` scope and the VAPID public key (the
+  private key never leaves the api/worker processes).
 - Env (set on `csq-api` AND `csq-worker` - both ingest paths send):
   `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` (generated once with
   `npx web-push generate-vapid-keys`). The public key is public by
