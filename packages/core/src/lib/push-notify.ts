@@ -1,6 +1,18 @@
-import webpush from "web-push";
 import prisma from "@csq/core/lib/db";
 import { visibleChannelIdsForUser } from "@csq/core/lib/channel-access";
+
+// web-push is CommonJS: the worker runs pure ESM (tsx), where a static
+// default import fails ("does not provide an export named 'default'").
+// A cached dynamic import gives the same module under both the ESM worker
+// and the webpack-bundled Next services (default = module.exports there).
+type WebPushModule = typeof import("web-push");
+let webPushModule: WebPushModule | null = null;
+async function loadWebPush(): Promise<WebPushModule> {
+  if (webPushModule) return webPushModule;
+  const mod: WebPushModule & { default?: WebPushModule } = await import("web-push");
+  webPushModule = mod.default ?? mod;
+  return webPushModule;
+}
 
 // PRD 30: Web Push for inbound customer messages. Called fire-and-forget
 // from ingestInboundMessage (the single ingest choke point both the Cloud
@@ -29,18 +41,19 @@ const PUSH_WINDOW_MS = 10_000;
 const lastPushAt = new Map<string, number>();
 
 let vapidConfigured = false;
-function configureVapid(): boolean {
-  if (vapidConfigured) return true;
+async function configureVapid(): Promise<WebPushModule | null> {
+  const webpush = await loadWebPush();
+  if (vapidConfigured) return webpush;
   const publicKey = process.env.VAPID_PUBLIC_KEY;
   const privateKey = process.env.VAPID_PRIVATE_KEY;
-  if (!publicKey || !privateKey) return false;
+  if (!publicKey || !privateKey) return null;
   webpush.setVapidDetails(
     `mailto:${process.env.VAPID_CONTACT ?? "admin@csq.local"}`,
     publicKey,
     privateKey
   );
   vapidConfigured = true;
-  return true;
+  return webpush;
 }
 
 export type InboundPushInput = {
@@ -56,7 +69,8 @@ export type InboundPushInput = {
 // never affect ingest, and a missing VAPID env simply disables delivery.
 export async function sendInboundPush(input: InboundPushInput): Promise<void> {
   try {
-    if (!configureVapid()) {
+    const webpush = await configureVapid();
+    if (!webpush) {
       console.warn("[push] VAPID keys unset; skipping inbound push.");
       return;
     }
