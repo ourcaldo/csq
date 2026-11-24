@@ -4,6 +4,15 @@
 // focuses an open dashboard tab (navigating it to the conversation) or
 // opens a new one.
 
+// Activate updates immediately - without this, a fixed sw.js can sit
+// "waiting" indefinitely while every open dashboard tab keeps the old SW.
+self.addEventListener("install", () => {
+  self.skipWaiting();
+});
+self.addEventListener("activate", (event) => {
+  event.waitUntil(self.clients.claim());
+});
+
 self.addEventListener("push", (event) => {
   event.waitUntil(
     (async () => {
