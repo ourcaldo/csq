@@ -12,7 +12,6 @@ import {
   Copy,
   DeviceMobile,
   DotsThreeVertical,
-  Info,
   MagnifyingGlass,
   PaperPlaneRight,
   PaperPlaneTilt,
@@ -481,34 +480,21 @@ export default function SaluranPage({ webhookUrl, verifyToken }: SaluranProps) {
 
           {webhookOpen && (
             <div className="border-t border-zinc-100 bg-zinc-50/40 px-5 py-4">
+              <p className="mb-3 text-xs text-zinc-500">
+                Buka <strong>Meta App Dashboard milik Anda</strong> (bukan milik platform)
+                &rarr; <strong>WhatsApp &rarr; Configuration</strong>, tempel Callback URL dan
+                Verify Token di bawah, lalu klik <strong>Verify and Save</strong>. Semua nomor
+                di aplikasi Meta yang sama memakai token ini.
+              </p>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <CopyField label="Callback URL" hint="HTTPS Endpoint" value={webhookUrl} />
                 <CopyField
                   label="Verify Token"
                   hint="Token akun Anda - satu untuk semua nomor di aplikasi Meta yang sama"
                   value={verifyToken}
+                  onRotate={canConfig ? () => void rotateVerifyToken() : undefined}
+                  rotating={rotating}
                 />
-              </div>
-              <div className="mt-3 flex items-center justify-between gap-3">
-                <p className="flex items-start gap-1.5 text-xs text-zinc-500">
-                  <Info size={14} className="mt-0.5 shrink-0 text-zinc-400" />
-                  <span>
-                    Buka <strong>Meta App Dashboard milik Anda</strong> (bukan milik platform)
-                    &rarr; <strong>WhatsApp &rarr; Configuration</strong>, tempel Callback URL dan
-                    Verify Token di atas, lalu klik <strong>Verify and Save</strong>. Semua nomor
-                    di aplikasi Meta yang sama memakai token ini.
-                  </span>
-                </p>
-                {canConfig && (
-                  <button
-                    onClick={() => void rotateVerifyToken()}
-                    disabled={rotating}
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-50"
-                  >
-                    <ArrowClockwise size={13} className={rotating ? "animate-spin" : undefined} />
-                    {rotating ? "Memutar..." : "Rotasi Token"}
-                  </button>
-                )}
               </div>
             </div>
           )}
@@ -992,7 +978,13 @@ export default function SaluranPage({ webhookUrl, verifyToken }: SaluranProps) {
 
 // ── Sub-components ──
 
-function CopyField(props: { label: string; hint: string; value: string }) {
+function CopyField(props: {
+  label: string;
+  hint: string;
+  value: string;
+  onRotate?: () => void;
+  rotating?: boolean;
+}) {
   const [copied, setCopied] = useState(false);
   return (
     <div>
@@ -1004,24 +996,37 @@ function CopyField(props: { label: string; hint: string; value: string }) {
         <code className="truncate font-mono text-xs text-zinc-700 select-all">
           {props.value}
         </code>
-        <button
-          className="ml-2 inline-flex shrink-0 items-center gap-1 rounded px-2 py-1 text-xs font-medium text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
-          onClick={() => {
-            void navigator.clipboard.writeText(props.value).then(() => {
-              setCopied(true);
-              setTimeout(() => setCopied(false), 1800);
-            });
-          }}
-        >
-          {copied ? (
-            <CheckCircle size={14} weight="bold" className="text-emerald-600" />
-          ) : (
-            <Copy size={14} />
+        <div className="ml-2 flex shrink-0 items-center gap-1">
+          {props.onRotate && (
+            <button
+              onClick={props.onRotate}
+              disabled={props.rotating}
+              title="Rotasi token"
+              aria-label="Rotasi token"
+              className="inline-flex items-center rounded p-1.5 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 disabled:opacity-50"
+            >
+              <ArrowClockwise size={14} className={props.rotating ? "animate-spin" : undefined} />
+            </button>
           )}
-          <span className={copied ? "text-emerald-600" : ""}>
-            {copied ? "Tersalin" : "Salin"}
-          </span>
-        </button>
+          <button
+            className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900"
+            onClick={() => {
+              void navigator.clipboard.writeText(props.value).then(() => {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1800);
+              });
+            }}
+          >
+            {copied ? (
+              <CheckCircle size={14} weight="bold" className="text-emerald-600" />
+            ) : (
+              <Copy size={14} />
+            )}
+            <span className={copied ? "text-emerald-600" : ""}>
+              {copied ? "Tersalin" : "Salin"}
+            </span>
+          </button>
+        </div>
       </div>
     </div>
   );
