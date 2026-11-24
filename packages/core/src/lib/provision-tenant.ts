@@ -14,12 +14,19 @@ export type ProvisionTenantInput = {
   ownerEmail: string;
   ownerName: string;
   ownerPassword: string;
+  // Default true: the password is an admin-issued bootstrap credential -
+  // single-use by policy (audit run-3), rotated at first login. Public
+  // self-signup passes false: the user chose the password themselves, so
+  // forcing an immediate rotation (with the "set by the platform admin"
+  // message) is wrong.
+  requirePasswordChange?: boolean;
 };
 
 export async function createTenantWithOwner(
   input: ProvisionTenantInput
 ): Promise<{ tenantId: string; userId: string }> {
   const passwordHash = await hashPassword(input.ownerPassword);
+  const mustRotate = input.requirePasswordChange !== false;
   const tenant = await prisma.tenant.create({
     data: {
       name: input.name,
@@ -50,9 +57,10 @@ export async function createTenantWithOwner(
           isOwner: true,
           passwordHash,
           // Audit run-3: the emailed bootstrap password is single-use by
-          // policy - the owner rotates it at first login.
-          mustChangePassword: true,
-          passwordChangedAt: new Date(),
+          // policy - the owner rotates it at first login. Public self-signup
+          // (requirePasswordChange: false) chose the password itself.
+          mustChangePassword: mustRotate,
+          passwordChangedAt: mustRotate ? new Date() : null,
         },
       },
     },

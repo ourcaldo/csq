@@ -51,6 +51,9 @@ export default async function handler(
       ownerEmail: lowerEmail,
       ownerName: name,
       ownerPassword: password,
+      // Self-signup: the user picked this password themselves - no forced
+      // rotation banner on first login.
+      requirePasswordChange: false,
     });
 
     return res.status(201).json(apiOk({ tenantId }));
