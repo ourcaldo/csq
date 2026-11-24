@@ -84,6 +84,33 @@ export async function canManageChannel(
   return ids.includes(channelId);
 }
 
+// PRD 30: the push path has no session - resolve LIHAT for a raw userId.
+// Same lockout rules as visibleChannelIds: null = unrestricted.
+export async function visibleChannelIdsForUser(
+  tenantId: string,
+  userId: string
+): Promise<string[] | null> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { isOwner: true, roleId: true, role: { select: { name: true, isSystem: true } } },
+  });
+  if (!user) return [];
+  if (user.isOwner) return null;
+  if (user.role?.isSystem && user.role.name === ROLE_AKSES_PENUH) return null;
+  const rows = await prisma.channelAccess.findMany({
+    where: {
+      tenantId,
+      canView: true,
+      OR: [
+        { principal: "USER", principalId: userId },
+        ...(user.roleId ? [{ principal: "ROLE" as const, principalId: user.roleId }] : []),
+      ],
+    },
+    select: { channelId: true },
+  });
+  return [...new Set(rows.map((r) => r.channelId))];
+}
+
 // Can the user send on this conversation's channel at all (compose grant or
 // unrestricted)? Used by the inbox send paths.
 export async function canComposeOn(

@@ -30,7 +30,6 @@ import {
   Gear,
   Users,
   Wallet,
-  Bell,
   MagnifyingGlass,
   CaretDown,
   SignOut,
@@ -53,6 +52,8 @@ import {
   type EntitlementsView,
 } from "@/components/dashboard/entitlements-context";
 import { QuotaMenu } from "@/components/dashboard/quota-menu";
+import { NotificationsProvider } from "@/components/dashboard/notifications/notifications-context";
+import { NotificationBell } from "@/components/dashboard/notifications/notification-bell";
 
 type NavItem = {
   href: string;
@@ -186,6 +187,9 @@ export function DashboardShell({ title, description, actions, headerExtra, flush
 
   return (
     <EntitlementsProvider value={entitlements ?? null}>
+      {/* PRD 30: notifications provider wraps the whole shell so the bell
+          and the Pengaturan > Umum row share one SSE/push subscription. */}
+      <NotificationsProvider>
       <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-800">
       {/* Document title + meta for this dashboard route. Auth-gated pages are
           noindex; the title prop becomes the browser-tab title ("… - CSQ"). */}
@@ -368,10 +372,8 @@ export function DashboardShell({ title, description, actions, headerExtra, flush
           {/* Right actions */}
           <div className="flex items-center gap-3 md:gap-4">
             {!!session?.user?.isOwner && <QuotaMenu entitlements={entitlements ?? null} />}
-            <button className="relative text-slate-400 transition-colors hover:text-slate-600">
-              <Bell size={22} />
-              <span className="absolute right-0 top-0 h-2 w-2 rounded-full border-2 border-white bg-red-500" />
-            </button>
+            {/* PRD 30: live inbox notification bell (scope + permission). */}
+            <NotificationBell />
             <div className="mx-1 hidden h-6 w-px bg-slate-200 sm:block" />
             <div className="relative" ref={menuRef}>
               <button
@@ -441,6 +443,7 @@ export function DashboardShell({ title, description, actions, headerExtra, flush
         </main>
       </div>
       </div>
+      </NotificationsProvider>
     </EntitlementsProvider>
   );
 }

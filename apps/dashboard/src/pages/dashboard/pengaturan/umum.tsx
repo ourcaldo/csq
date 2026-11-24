@@ -13,6 +13,7 @@ import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
 import { SettingsShell } from "@/components/dashboard/settings/settings-shell";
+import { useNotifications, type InboxNotifyScope as NotifyScope } from "@/components/dashboard/notifications/notifications-context";
 
 type TenantInfo = {
   id: string;
@@ -342,6 +343,23 @@ export default function PengaturanUmumPage({
           </div>
         </div>
 
+        {/* Row: PRD 30 inbox notifications (the shell provider owns the
+            SSE/push machinery; this row is a second surface for the same
+            per-user preference, saved on pick). */}
+        <div className="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
+          <div className="md:col-span-4">
+            <span className="text-xs font-semibold text-slate-900">Notifikasi Percakapan Masuk</span>
+            <p className="mt-1 text-xs leading-relaxed text-slate-500">
+              Notifikasi browser muncul saat pelanggan mengirim pesan, walau
+              dashboard ditutup. Suara memakai bunyi bawaan perangkat. Di
+              iPhone, pasang CSQ ke layar utama agar notifikasi tersedia.
+            </p>
+          </div>
+          <div className="md:col-span-8">
+            <NotificationPrefsRow />
+          </div>
+        </div>
+
         {/* Action footer */}
         <div className="flex items-center justify-between gap-3 pt-5">
           <div>
@@ -360,6 +378,53 @@ export default function PengaturanUmumPage({
         </div>
       </form>
     </SettingsShell>
+  );
+}
+
+function NotificationPrefsRow() {
+  const { scope, setScope, permission, requestPermission } = useNotifications();
+  const options: { value: NotifyScope; label: string }[] = [
+    { value: "all", label: "Semua percakapan" },
+    { value: "assigned", label: "Hanya ditugaskan ke saya" },
+    { value: "off", label: "Nonaktif" },
+  ];
+  return (
+    <div className="space-y-2.5">
+      <div className="inline-flex rounded-lg border border-slate-200 bg-slate-100/80 p-0.5 text-xs font-medium">
+        {options.map((opt) => (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => {
+              setScope(opt.value);
+              if (permission === "default") void requestPermission();
+            }}
+            className={
+              scope === opt.value
+                ? "rounded-md bg-white px-3 py-1.5 text-slate-900 shadow-xs"
+                : "rounded-md px-3 py-1.5 text-slate-500 hover:text-slate-900"
+            }
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+      {permission === "default" && (
+        <p className="text-[11px] text-slate-500">
+          Izin notifikasi browser belum diberikan. Pilih salah satu opsi di atas
+          untuk mengaktifkannya.
+        </p>
+      )}
+      {permission === "denied" && (
+        <p className="text-[11px] text-red-600">
+          Notifikasi diblokir browser. Izinkan CSQ di pengaturan situs (ikon
+          kunci di address bar) untuk menerima notifikasi.
+        </p>
+      )}
+      {permission === "granted" && (
+        <p className="text-[11px] text-green-700">Notifikasi browser aktif.</p>
+      )}
+    </div>
   );
 }
 

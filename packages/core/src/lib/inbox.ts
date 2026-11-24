@@ -4,6 +4,7 @@ import prisma from "@csq/core/lib/db";
 import { HttpError } from "@csq/core/lib/queries";
 import { logAction } from "@csq/core/lib/audit";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
+import { sendInboundPush } from "@csq/core/lib/push-notify";
 import { enqueueOutbound, awaitOutbound } from "@csq/core/lib/outbox";
 import {
   ensureInitialDeal,
@@ -363,6 +364,20 @@ export async function ingestInboundMessage(
       // was why inbound photos rendered as "[image]".
       ...(msg.media ? { media: msg.media } : {}),
     });
+
+    // PRD 30: Web Push for a genuinely new inbound message (a redelivery
+    // must not re-notify). Fire-and-forget inside this tenant context;
+    // sendInboundPush swallows every failure.
+    if (!duplicate) {
+      void sendInboundPush({
+        tenantId: msg.tenantId,
+        conversationId: conversation.id,
+        channelId: msg.channelId,
+        customerPhone: msg.from,
+        customerName: msg.customerName,
+        body: msg.body,
+      }).catch(() => undefined);
+    }
 
     // The trigger fires only for a genuinely new message on a genuinely new
     // conversation - a redelivery must never start a second scenario run.

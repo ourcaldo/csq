@@ -383,6 +383,7 @@ model Tenant {
   outboundMessages    OutboundMessage[]
   channelCommands     ChannelCommand[]
   apiKeys             ApiKey[]
+  pushSubscriptions   PushSubscription[]
   refreshTokens       RefreshToken[]
   aiCreditUsage       AiCreditUsage[]
   invoices            Invoice[]
@@ -438,6 +439,9 @@ model User {
   // embedded in the JWT at sign-in and re-checked per request; every
   // password write bumps it so outstanding stateless sessions die.
   passwordChangedAt DateTime?
+  // PRD 30: per-user dashboard preferences. v1 holds
+  // { inboxNotify: "all" | "assigned" | "off" } (null = all).
+  notificationPrefs Json?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -448,6 +452,7 @@ model User {
   conversationReads     ConversationRead[]
   teamInvitesSent       TeamInvite[]       @relation("TeamInviteInviter")
   kpiTargets            KpiTarget[]        @relation("KpiTargetUser")
+  pushSubscriptions     PushSubscription[]
 
   @@index([tenantId])
 }
@@ -549,6 +554,27 @@ model ChannelAccess {
 
   @@unique([channelId, principal, principalId])
   @@index([tenantId])
+}
+
+// PRD 30: one Web Push subscription per browser/device per user. The
+// endpoint + keys are bearer capabilities for push delivery; stored
+// server-side only. Rows die with the user (CASCADE) or when the push
+// service answers 404/410 (pruned on send).
+model PushSubscription {
+  id        String   @id @default(uuid())
+  tenantId  String
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([userId])
 }
 
 // Baileys (bring-your-own-number) auth state, stored in the DB so it

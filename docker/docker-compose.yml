@@ -40,6 +40,9 @@ services:
       LLM_CHAT_MODEL: ${LLM_CHAT_MODEL:-}
       LLM_EMBEDDING_MODEL: ${LLM_EMBEDDING_MODEL:-}
       LLM_EMBEDDING_DIM: ${LLM_EMBEDDING_DIM:-1024}
+      # PRD 30: browser notifications. The dashboard serves the PUBLIC key to
+      # the client; the private key stays on api + worker (push senders).
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -79,6 +82,9 @@ services:
       LLM_EMBEDDING_DIM: ${LLM_EMBEDDING_DIM:-1024}
       SCENARIO_SCHEDULE_TZ: ${SCENARIO_SCHEDULE_TZ:-Asia/Jakarta}
       KNOWLEDGE_SIMILARITY_THRESHOLD: ${KNOWLEDGE_SIMILARITY_THRESHOLD:-0.5}
+      # PRD 30: push senders (Cloud API webhook ingest runs here).
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -112,6 +118,9 @@ services:
       WHATSAPP_TEMPLATE_LANG: ${WHATSAPP_TEMPLATE_LANG:-id}
       SCENARIO_SCHEDULE_TZ: ${SCENARIO_SCHEDULE_TZ:-Asia/Jakarta}
       KNOWLEDGE_SIMILARITY_THRESHOLD: ${KNOWLEDGE_SIMILARITY_THRESHOLD:-0.5}
+      # PRD 30: push senders (Baileys ingest runs here).
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
