@@ -9,6 +9,7 @@ import type { GetServerSideProps } from "next";
 import { useRouter } from "next/router";
 import { signOut, useSession } from "next-auth/react";
 import { withAuth } from "@csq/core/lib/auth";
+import { Seo } from "@csq/ui/components/seo";
 import { apiSend } from "@/lib/api-client";
 
 export default function ChangePasswordPage() {
@@ -44,6 +45,7 @@ export default function ChangePasswordPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+      <Seo title="Ubah Kata Sandi" noindex />
       <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
         <div className="mb-6">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-green-600 text-white">

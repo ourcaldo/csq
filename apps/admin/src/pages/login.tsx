@@ -35,7 +35,8 @@ export default function AdminLogin() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-4">
       <Head>
-        <title>Sign in - CSQ Console</title>
+        <title>Sign In - CSQ Admin Console</title>
+        <meta name="description" content="CSQ platform operator console login." />
         <meta name="robots" content="noindex,nofollow" />
       </Head>
 

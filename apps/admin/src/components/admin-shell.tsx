@@ -160,6 +160,7 @@ export function AdminShell({ title, children }: { title: string; children: React
     <div className="min-h-screen bg-background text-slate-900 selection:bg-emerald-100 selection:text-emerald-950">
       <Head>
         <title>{title} - CSQ Admin Console</title>
+        <meta name="description" content="CSQ platform operator console - tenant, plan, and operations management." />
         <meta name="robots" content="noindex,nofollow" />
       </Head>
 
