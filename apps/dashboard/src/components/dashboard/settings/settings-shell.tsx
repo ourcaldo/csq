@@ -28,6 +28,7 @@ import {
 import { cn } from "@csq/ui/lib/utils";
 import { Seo } from "@csq/ui/components/seo";
 import { useApi } from "@/hooks/use-api";
+import { NotificationsProvider } from "@/components/dashboard/notifications/notifications-context";
 
 export type SettingsSectionKey =
   | "umum"
@@ -154,6 +155,7 @@ export function SettingsShell(props: {
   }
 
   return (
+    <NotificationsProvider>
     <div className="min-h-screen bg-white text-slate-900">
       <Seo title={`Pengaturan - ${SECTION_LABELS[props.section]}`} description={props.description} path={router.pathname} noindex />
 
@@ -311,6 +313,7 @@ export function SettingsShell(props: {
         </main>
       </div>
     </div>
+    </NotificationsProvider>
   );
 }
 

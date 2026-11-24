@@ -162,6 +162,15 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     refresh();
   }, [router.pathname, refresh]);
+  // Pages that mark conversations read (the inbox) ping us through a window
+  // event: they render ABOVE this provider, so they cannot call the hook.
+  useEffect(() => {
+    function onPing() {
+      refresh();
+    }
+    window.addEventListener("csq-notifications-refresh", onPing);
+    return () => window.removeEventListener("csq-notifications-refresh", onPing);
+  }, [refresh]);
 
   const setScope = useCallback((next: InboxNotifyScope) => {
     setScopeState(next);

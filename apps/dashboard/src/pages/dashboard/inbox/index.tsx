@@ -14,7 +14,6 @@ import { usePolledApi } from "@/hooks/use-polled-api";
 import type { ListResult, Tag } from "@csq/core/types/dashboard";
 import type { ConversationListItem } from "@csq/core/types/inbox";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
-import { useNotifications } from "@/components/dashboard/notifications/notifications-context";
 import { ConversationList } from "@/components/dashboard/inbox/conversation-list";
 import { ChatPanel } from "@/components/dashboard/inbox/chat-panel";
 import { ContactDetails } from "@/components/dashboard/inbox/contact-details";
@@ -54,8 +53,6 @@ type InboxPageProps = {
 export default function InboxPage({ apiMediaBase }: InboxPageProps) {
   const router = useRouter();
   const { data: session } = useSession();
-  // PRD 30: opening a chat clears its bell notification too.
-  const { refresh: refreshNotifications } = useNotifications();
   const myUserId = session?.user?.id ?? null;
   // Assignment visibility (PRD 29): inbox.tugaskan holders see and work
   // every conversation; others only their own assigned ones.
@@ -96,7 +93,8 @@ export default function InboxPage({ apiMediaBase }: InboxPageProps) {
       void apiSend(`/api/dashboard/inbox/conversations/${c}`, "POST")
         .then(() => {
           refresh();
-          refreshNotifications();
+          // PRD 30: clear this conversation from the bell feed.
+          window.dispatchEvent(new Event("csq-notifications-refresh"));
         })
         .catch(() => undefined);
     }
@@ -181,7 +179,8 @@ export default function InboxPage({ apiMediaBase }: InboxPageProps) {
     void apiSend(`/api/dashboard/inbox/conversations/${id}`, "POST").then(
       () => {
         refresh();
-        refreshNotifications();
+        // PRD 30: clear this conversation from the bell feed.
+        window.dispatchEvent(new Event("csq-notifications-refresh"));
       }
     );
   }
