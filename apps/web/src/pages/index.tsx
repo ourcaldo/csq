@@ -1,4 +1,4 @@
-// Attcos marketing landing page, public front door at /.
+﻿// Attcos marketing landing page, public front door at /.
 //
 // Recreated from the four docs/demo specs (hero with coded dashboard preview,
 // triptych feature cards, cost calculator, parallax CTA) adapted to the real
@@ -17,6 +17,7 @@ import {
   BRAND_POSITIONING,
   BRAND_TAGLINE,
   BRAND_DESCRIPTION,
+  APP_URL,
 } from "@/lib/brand";
 import { Reveal } from "@/components/landing/reveal";
 import { DashboardPreview } from "@/components/landing/dashboard-preview";
@@ -109,9 +110,9 @@ function Navbar() {
           <a href="#faq" className="hover:text-slate-900">FAQ</a>
           <Link href="/getting-started" className="hover:text-slate-900">Memulai</Link>
         </div>
-        <Link href="/register" className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-800">
+        <a href={`${APP_URL}/register`} className="inline-flex items-center gap-1.5 rounded-full bg-slate-900 px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-800">
           Coba gratis <ArrowRight size={14} weight="bold" />
-        </Link>
+        </a>
       </nav>
     </header>
   );
@@ -123,14 +124,17 @@ function Navbar() {
 
 function Hero() {
   return (
-    <section className="relative h-[820px] overflow-hidden flex flex-col">
-      {/* Background video (per hero spec). Atmospheric, muted autoplay loop. */}
+    <section className="relative min-h-[820px] overflow-hidden flex flex-col">
+      {/* Background video (per hero spec). Atmospheric, muted autoplay loop.
+          Poster + preload=metadata keep the LCP paint off the video (audit
+          P1): the gradient poster shows instantly, the mp4 streams after. */}
       <video
         autoPlay
         loop
         muted
         playsInline
-        preload="auto"
+        preload="metadata"
+        poster="/hero-poster.svg"
         className="absolute inset-0 z-0 h-full w-full object-cover"
         aria-hidden
       >
@@ -170,9 +174,9 @@ function Hero() {
           </p>
 
           <div className="mt-7 flex items-center justify-center gap-3">
-            <Link href="/register" className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-6 py-3.5 text-sm font-medium text-white transition-colors hover:bg-slate-800">
+            <a href={`${APP_URL}/register`} className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-6 py-3.5 text-sm font-medium text-white transition-colors hover:bg-slate-800">
               Coba gratis <ArrowRight size={15} weight="bold" />
-            </Link>
+            </a>
             <a href="#cara-kerja" className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/70 px-6 py-3.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 backdrop-blur">
               Pelajari cara kerja
             </a>
@@ -195,7 +199,7 @@ function Channels() {
   return (
     <section className="border-y border-slate-100 bg-white/60 py-7">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-6 gap-y-2 px-6 text-center">
-        <span className="font-mono-data text-xs font-medium uppercase tracking-[0.14em] text-slate-400">Terhubung ke</span>
+        <span className="font-mono-data text-xs font-medium uppercase tracking-[0.14em] text-slate-500">Terhubung ke</span>
         {["WhatsApp", "Google Sheets", "Excel / CSV", "PDF", "Input manual"].map((c) => (
           <span key={c} className="text-sm font-medium text-slate-500">{c}</span>
         ))}
@@ -212,6 +216,7 @@ function Triptych() {
   return (
     <section id="fitur" className="bg-[#F4FBF7] py-24 md:py-32">
       <div className="mx-auto max-w-6xl px-6 md:px-12">
+        <h2 className="sr-only">Fitur</h2>
         <div className="grid grid-cols-1 gap-6 md:grid-cols-3 md:items-stretch">
           {TRIPTYCH.map((card, i) => (
             <Reveal key={card.title} delay={i === 1 ? 0 : i === 0 ? 120 : 240}>
@@ -239,10 +244,11 @@ function Triptych() {
 function TriptychVisual({ kind }: { kind: "inbox" | "agent" | "perms" }) {
   // Consistent min-height across all three so the titles sit at the
   // same y (the middle agent visual is smaller and centers in this area).
+  // Decorative illustrations only: hidden from the accessibility tree.
   const wrap = "flex min-h-[7.5rem] items-center justify-center rounded-xl bg-slate-50 p-4 select-none pointer-events-none";
   if (kind === "inbox") {
     return (
-      <div className={wrap + " flex-col items-stretch justify-center gap-2"}>
+      <div className={wrap + " flex-col items-stretch justify-center gap-2"} aria-hidden="true">
         <div className="ml-auto w-2/3 rounded-2xl rounded-[1rem_1rem_1rem_0.25rem] bg-slate-200 px-3 py-2 text-[10px] text-slate-700">Ada kopi arabika?</div>
         <div className="mr-auto w-2/3 rounded-2xl rounded-[1rem_1rem_0.25rem_1rem] bg-green-100 px-3 py-2 text-[10px] text-green-800">Masih, stok 12.</div>
         <div className="ml-auto w-1/2 rounded-2xl rounded-[1rem_1rem_1rem_0.25rem] bg-amber-50 px-3 py-2 text-[10px] text-amber-700">Perlu izin</div>
@@ -251,21 +257,21 @@ function TriptychVisual({ kind }: { kind: "inbox" | "agent" | "perms" }) {
   }
   if (kind === "agent") {
     return (
-      <div className={wrap}>
+      <div className={wrap} aria-hidden="true">
         <div className="flex items-center gap-3">
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-green-600 text-white">
             <ChatCircleDots size={20} weight="fill" />
           </span>
           <div>
             <p className="text-xs font-semibold text-slate-900">Attcos Agent</p>
-            <p className="text-[10px] text-green-600">AI menangani 24/7</p>
+            <p className="text-[10px] font-medium text-green-700">AI menangani 24/7</p>
           </div>
         </div>
       </div>
     );
   }
   return (
-    <div className={wrap + " flex-col justify-center gap-2.5"}>
+    <div className={wrap + " flex-col justify-center gap-2.5"} aria-hidden="true">
       {[
         { l: "Baca produk & stok", s: "Boleh", c: "bg-green-100 text-green-700" },
         { l: "Membuat pesanan", s: "Boleh", c: "bg-green-100 text-green-700" },
@@ -356,7 +362,7 @@ function Footer() {
               </span>
               <span className="font-display text-lg font-extrabold tracking-tight">Attcos</span>
             </Link>
-            <p className="max-w-[220px] text-[0.85rem] leading-[1.6] text-[#888]">
+            <p className="max-w-[220px] text-[0.85rem] leading-[1.6] text-[#6b7280]">
               {BRAND_POSITIONING} {BRAND_TAGLINE} untuk bisnis Indonesia.
             </p>
           </div>
@@ -368,29 +374,25 @@ function Footer() {
           {/* Pages */}
           <FooterCol
             title="Halaman"
-            links={[{ label: "Home", href: "/" }, { label: "Masuk", href: "/login" }, { label: "Daftar", href: "/register" }]}
+            links={[{ label: "Home", href: "/" }, { label: "Masuk", href: `${APP_URL}/login` }, { label: "Daftar", href: `${APP_URL}/register` }]}
           />
-          {/* Newsletter */}
+          {/* Start CTA (replaces the inert newsletter form: no backend exists,
+              so the column drives the one real action instead) */}
           <div>
-            <h4 className="mb-5 text-[0.95rem] font-semibold text-neutral-900">Newsletter</h4>
-            <p className="mb-[15px] text-[0.85rem] text-[#888]">Dapatkan pembaruan Attcos di email Anda.</p>
-            <div className="flex flex-col gap-[10px] sm:flex-row">
-              <input
-                type="email"
-                placeholder="Masukkan email..."
-                className="flex-grow border border-[#f0f0f0] bg-white text-[0.9rem] outline-none transition-colors duration-200 focus:border-[#ccc]"
-                style={{ padding: "12px 16px", borderRadius: "10px", boxShadow: "inset 0 1px 3px rgba(0,0,0,0.02)" }}
-              />
-              <button
-                className="bg-neutral-900 text-white border-none font-semibold cursor-pointer text-[0.9rem] transition-all duration-200 hover:-translate-y-0.5 w-full sm:w-auto"
-                style={{ padding: "12px 28px", borderRadius: "10px", boxShadow: "0 12px 24px rgba(0,0,0,0.4)" }}
-              >
-                Subscribe
-              </button>
-            </div>
+            <p className="mb-5 text-[0.95rem] font-semibold text-neutral-900">Mulai sekarang</p>
+            <p className="mb-[15px] text-[0.85rem] text-[#6b7280]">
+              Buat workspace, sambungkan WhatsApp, dan biarkan agent mulai membantu.
+            </p>
+            <a
+              href={`${APP_URL}/register`}
+              className="inline-flex items-center gap-2 bg-neutral-900 text-white font-semibold text-[0.9rem] transition-all duration-200 hover:-translate-y-0.5"
+              style={{ padding: "12px 28px", borderRadius: "10px", boxShadow: "0 12px 24px rgba(0,0,0,0.4)" }}
+            >
+              Coba gratis <ArrowRight size={14} weight="bold" />
+            </a>
           </div>
         </div>
-        <div className="flex justify-between border-t border-[#f0f0f0] pt-[25px] pb-[10px] text-[0.85rem] text-[#888] max-[480px]:flex-col max-[480px]:gap-[15px] max-[480px]:items-center">
+        <div className="flex justify-between border-t border-[#f0f0f0] pt-[25px] pb-[10px] text-[0.85rem] text-[#6b7280] max-[480px]:flex-col max-[480px]:gap-[15px] max-[480px]:items-center">
           <p>Semua hak dilindungi. &copy; {new Date().getFullYear()} {BRAND_NAME}.</p>
           <p>{BRAND_POSITIONING}</p>
         </div>
@@ -402,11 +404,11 @@ function Footer() {
 function FooterCol({ title, links }: { title: string; links: { label: string; href: string }[] }) {
   return (
     <div>
-      <h4 className="mb-5 text-[0.95rem] font-semibold text-neutral-900">{title}</h4>
+      <p className="mb-5 text-[0.95rem] font-semibold text-neutral-900">{title}</p>
       <ul>
         {links.map((l) => (
           <li key={l.label} className="mb-3">
-            <Link href={l.href} className="text-[0.85rem] text-[#888] no-underline transition-colors duration-200 hover:text-neutral-900">{l.label}</Link>
+            <Link href={l.href} className="text-[0.85rem] text-[#6b7280] no-underline transition-colors duration-200 hover:text-neutral-900">{l.label}</Link>
           </li>
         ))}
       </ul>

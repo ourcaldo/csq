@@ -7,3 +7,11 @@ export const BRAND_POSITIONING = "Assist. Think. Transform.";
 export const BRAND_TAGLINE = "AI-Powered Customer Operations System";
 export const BRAND_DESCRIPTION =
   "Attcos - AI-Powered Customer Operations System untuk UMKM Indonesia. Attcos membantu melayani pelanggan di WhatsApp: memahami data bisnis Anda, menjawab 24/7, dan menindak dengan izin Anda.";
+
+// Where the product app (register/login/dashboard) lives. apps/web is a
+// separate deploy with no auth routes, so every conversion CTA must leave
+// for the app origin; override with NEXT_PUBLIC_APP_URL when the app gets
+// its own domain. Self-hosted single-origin deploys set it to their domain.
+export const APP_URL = (
+  process.env.NEXT_PUBLIC_APP_URL ?? "https://csq-dashboard.onrender.com"
+).replace(/\/$/, "");

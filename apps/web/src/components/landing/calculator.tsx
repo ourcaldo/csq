@@ -84,10 +84,13 @@ export function Calculator() {
                   onChange={(e) => setConversations(Number(e.target.value))}
                   className="h-2 w-full cursor-pointer appearance-none rounded-full bg-green-100 accent-green-600"
                   aria-label="Jumlah percakapan"
+                  aria-valuemin={1}
+                  aria-valuemax={100}
+                  aria-valuenow={conversations}
                 />
                 <span className="w-10 shrink-0 text-right font-mono-data text-lg font-bold text-green-700">{conversations}</span>
               </div>
-              <div className="mt-2 flex justify-between text-xs text-slate-400">
+              <div className="mt-2 flex justify-between text-xs text-slate-500" aria-hidden="true">
                 <span>1</span>
                 <span>100</span>
               </div>
@@ -96,10 +99,12 @@ export function Calculator() {
             {/* Host tier */}
             <div className="py-8">
               <h3 className="text-sm font-semibold text-slate-900">Di mana Attcos dihosting?</h3>
-              <div className="mt-4 space-y-2.5">
+              <div className="mt-4 space-y-2.5" role="radiogroup" aria-label="Di mana Attcos dihosting?">
                 {HOSTS.map((h) => (
                   <button
                     key={h.tier}
+                    role="radio"
+                    aria-checked={host === h.tier}
                     onClick={() => setHost(h.tier)}
                     className="flex w-full items-center gap-3 text-left"
                   >
@@ -124,6 +129,7 @@ export function Calculator() {
                 {ADDONS.map((a) => (
                   <button
                     key={a.key}
+                    aria-pressed={addons[a.key]}
                     onClick={() => toggle(a.key)}
                     className="flex w-full items-center justify-between gap-3 text-left"
                   >
@@ -148,11 +154,11 @@ export function Calculator() {
           {/* Right: cost cards */}
           <div className="min-h-[717px] border border-green-200/60 bg-gradient-to-b from-white to-green-50/40 p-8 lg:p-12">
             <h3 className="text-sm font-semibold text-slate-900">Estimasi biaya per bulan</h3>
-            <p className="mt-2 text-xs text-slate-400">
+            <p className="mt-2 text-xs text-slate-500">
               Angka kasar untuk {conversations} percakapan{cloudComingSoon ? ", host Cloud (coming soon)" : ""}.
             </p>
 
-            <div className="mt-6 space-y-3">
+            <div className="mt-6 space-y-3" aria-live="polite">
               <CostCard
                 title="Server (host)"
                 subtitle={cloudComingSoon ? "Opsi Cloud segera hadir" : "Biaya tetap per bulan, tidak naik dengan volume"}
@@ -179,7 +185,7 @@ function CostCard({ title, subtitle, price, highlight = false }: { title: string
       className={cn(
         "rounded-2xl p-6",
         highlight
-          ? "bg-gradient-to-r from-green-600 to-emerald-500 text-white shadow-[0_20px_50px_-20px_rgba(21,128,61,0.55)]"
+          ? "bg-gradient-to-r from-green-800 to-green-700 text-white shadow-[0_20px_50px_-20px_rgba(21,128,61,0.55)]"
           : "border border-green-100 bg-white text-slate-900 shadow-sm"
       )}
     >
@@ -189,7 +195,7 @@ function CostCard({ title, subtitle, price, highlight = false }: { title: string
       ) : (
         <p className="mt-3 text-4xl font-bold tracking-tight">{formatRp(price)}</p>
       )}
-      <p className={cn("mt-1 text-xs", highlight ? "text-white/80" : "text-slate-400")}>{subtitle}</p>
+      <p className={cn("mt-1 text-xs", highlight ? "text-white/90" : "text-slate-500")}>{subtitle}</p>
     </div>
   );
 }

@@ -2,9 +2,9 @@
 // Two-column grid: left = animated-gradient CTA card (Attcos-green blobs, CSS
 // @property animation, GPU-friendly, reduced-motion safe), right = FAQ
 // accordion with chevron toggle. Attcos content, Phosphor icons (not Lucide).
-import { useState } from "react";
-import Link from "next/link";
+import { useState, useId } from "react";
 import { CaretDown, CaretUp } from "@phosphor-icons/react";
+import { APP_URL } from "@/lib/brand";
 
 const FAQS: { q: string; a: string }[] = [
   { q: "Apakah saya butuh coding?", a: "Tidak. Attcos dibuat untuk owner UMKM. Sambungkan data, ajarkan aturan, atur izin dari dashboard, tanpa kode." },
@@ -27,22 +27,22 @@ export function FaqCta() {
             <h2 className="font-normal leading-[1.1] mb-[15px]" style={{ fontSize: "3.5rem", letterSpacing: "-0.03em" }}>
               Siap membuat AI bekerja<br />untuk usaha Anda?
             </h2>
-            <p className="text-[0.9rem] mb-[30px] font-normal opacity-85">
+            <p className="text-[0.9rem] mb-[30px] font-normal text-white/95">
               Deploy agent ke WhatsApp dalam hitungan menit.
             </p>
-            <Link
-              href="/register"
+            <a
+              href={`${APP_URL}/register`}
               className="bg-neutral-900 text-white font-semibold cursor-pointer text-[0.95rem] transition-all duration-200 hover:-translate-y-0.5"
               style={{ padding: "14px 32px", borderRadius: "12px", boxShadow: "0 10px 20px rgba(0,0,0,0.3)" }}
             >
               Coba gratis
-            </Link>
+            </a>
           </div>
 
           {/* Right: FAQ accordion */}
           <div className="flex flex-col justify-center gap-3">
             {FAQS.map((f, i) => (
-              <FaqItem key={f.q} q={f.q} a={f.a} active={i === 0} />
+              <FaqItem key={f.q} q={f.q} a={f.a} active={i === 0} index={i} />
             ))}
           </div>
         </div>
@@ -51,22 +51,32 @@ export function FaqCta() {
   );
 }
 
-function FaqItem({ q, a, active: initialActive }: { q: string; a: string; active: boolean }) {
+function FaqItem({ q, a, active: initialActive, index }: { q: string; a: string; active: boolean; index: number }) {
   const [active, setActive] = useState(initialActive);
+  const panelId = useId();
   return (
     <div
-      onClick={() => setActive((v) => !v)}
-      className="cursor-pointer rounded-[10px] border bg-white px-5 py-[18px] transition-all duration-200"
+      className="rounded-[10px] border bg-white px-5 py-[18px] transition-all duration-200"
       style={{
         borderColor: active ? "#eaeaea" : "#f0f0f0",
         boxShadow: active ? "0 4px 12px rgba(0,0,0,0.04)" : "0 2px 8px rgba(0,0,0,0.02)",
       }}
     >
-      <div className="flex items-center justify-between text-[0.9rem] font-normal text-neutral-900">
+      <button
+        type="button"
+        aria-expanded={active}
+        aria-controls={panelId}
+        onClick={() => setActive((v) => !v)}
+        className="flex w-full items-center justify-between gap-3 text-left text-[0.9rem] font-normal text-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-green-600/60 focus-visible:ring-offset-2"
+      >
         <span>{q}</span>
-        {active ? <CaretUp size={20} /> : <CaretDown size={20} />}
-      </div>
-      {active && <p className="mt-3 text-[0.9rem] leading-[1.6] text-[#666]">{a}</p>}
+        {active ? <CaretUp size={20} aria-hidden /> : <CaretDown size={20} aria-hidden />}
+      </button>
+      {active && (
+        <p id={panelId} className="mt-3 text-[0.9rem] leading-[1.6] text-[#666]">
+          {a}
+        </p>
+      )}
     </div>
   );
 }
