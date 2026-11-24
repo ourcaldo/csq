@@ -6,9 +6,10 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { ArrowLeft, ChatCircleDots } from "@phosphor-icons/react";
 import { Seo } from "@csq/ui/components/seo";
+import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
 
 const DESCRIPTION =
-  "Panduan singkat memasang CSQ di server Anda sendiri: kloning repositori, menyiapkan environment dan database, menjalankan stack Docker, sampai deploy di VPS.";
+  "Panduan singkat memasang Attcos di server Anda sendiri: kloning repositori, menyiapkan environment dan database, menjalankan stack Docker, sampai deploy di VPS.";
 
 function CodeBlock({ children }: { children: string }) {
   return (
@@ -35,7 +36,13 @@ function Section({ n, title, children }: { n?: string; title: string; children: 
 export default function GettingStartedPage() {
   return (
     <>
-      <Seo title="Memulai" description={DESCRIPTION} path="/getting-started" />
+      <Seo
+        title="Memulai"
+        description={DESCRIPTION}
+        path="/getting-started"
+        siteName={BRAND_NAME}
+        siteTagline={BRAND_TAGLINE}
+      />
       <main className="min-h-screen bg-[#FAFAF8] text-slate-900">
         <header className="border-b border-slate-100 bg-white/70">
           <nav className="mx-auto flex h-16 max-w-3xl items-center justify-between px-6 md:px-12">
@@ -43,7 +50,7 @@ export default function GettingStartedPage() {
               <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-700 text-white">
                 <ChatCircleDots size={18} weight="fill" />
               </span>
-              <span className="font-display text-lg font-extrabold tracking-tight">CSQ</span>
+              <span className="font-display text-lg font-extrabold tracking-tight">Attcos</span>
             </Link>
             <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900">
               <ArrowLeft size={14} weight="bold" /> Kembali ke beranda
@@ -54,7 +61,7 @@ export default function GettingStartedPage() {
         <section className="mx-auto max-w-3xl px-6 pb-8 pt-14 md:px-12 md:pt-20">
           <p className="font-mono-data text-xs font-medium uppercase tracking-[0.2em] text-green-700">Memulai</p>
           <h1 className="mt-4 font-display text-3xl font-extrabold tracking-tight md:text-4xl lg:text-5xl">
-            Pasang CSQ di server Anda sendiri.
+            Pasang Attcos di server Anda sendiri.
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-600 md:text-lg">
             Langkah-langkah di bawah ini sama dengan README proyek: dari VPS
@@ -73,8 +80,8 @@ export default function GettingStartedPage() {
             </Section>
 
             <Section n="01" title="Kloning">
-              <p>Kloning repositori CSQ ke VPS.</p>
-              <CodeBlock>{"git clone <your-repo-url> /opt/csq && cd /opt/csq"}</CodeBlock>
+              <p>Kloning repositori Attcos ke VPS.</p>
+              <CodeBlock>{"git clone <your-repo-url> /opt/attcos && cd /opt/attcos"}</CodeBlock>
             </Section>
 
             <Section n="02" title="Install">
@@ -84,10 +91,10 @@ export default function GettingStartedPage() {
                 atau di CI, lalu dorong ke registry.
               </p>
               <CodeBlock>{`# From the repo root (on your build machine):
-docker build -f docker/Dockerfile -t ghcr.io/yourorg/csq-app:latest .
-docker build -f docker/nginx/Dockerfile -t ghcr.io/yourorg/csq-nginx:latest docker/nginx/
-docker push ghcr.io/yourorg/csq-app:latest
-docker push ghcr.io/yourorg/csq-nginx:latest`}</CodeBlock>
+docker build -f docker/Dockerfile -t ghcr.io/yourorg/attcos-app:latest .
+docker build -f docker/nginx/Dockerfile -t ghcr.io/yourorg/attcos-nginx:latest docker/nginx/
+docker push ghcr.io/yourorg/attcos-app:latest
+docker push ghcr.io/yourorg/attcos-nginx:latest`}</CodeBlock>
             </Section>
 
             <Section n="03" title="Environment">
@@ -99,7 +106,7 @@ docker push ghcr.io/yourorg/csq-nginx:latest`}</CodeBlock>
                 <li><span className="font-mono-data text-[13px]">NEXTAUTH_URL</span>: domain Anda, contoh <span className="font-mono-data text-[13px]">https://umkm.example.com</span>.</li>
                 <li><span className="font-mono-data text-[13px]">NEXTAUTH_SECRET</span>: buat dengan <span className="font-mono-data text-[13px]">openssl rand -base64 32</span>.</li>
                 <li><span className="font-mono-data text-[13px]">CERT_DOMAIN</span>: domain yang sama, contoh <span className="font-mono-data text-[13px]">umkm.example.com</span>.</li>
-                <li><span className="font-mono-data text-[13px]">CSQ_APP_IMAGE</span> dan <span className="font-mono-data text-[13px]">CSQ_NGINX_IMAGE</span>: nama image registry yang Anda dorong di langkah 02.</li>
+                <li><span className="font-mono-data text-[13px]">CSQ_APP_IMAGE</span> dan <span className="font-mono-data text-[13px]">CSQ_NGINX_IMAGE</span>: nama image registry yang Anda dorong di langkah 02 (nama variabelnya tetap memakai prefiks CSQ).</li>
                 <li><span className="font-mono-data text-[13px]">LLM_API_KEY</span>, <span className="font-mono-data text-[13px]">LLM_BASE_URL</span>, <span className="font-mono-data text-[13px]">LLM_CHAT_MODEL</span>: penyedia LLM apa pun yang kompatibel dengan OpenAI, untuk loop agent, skenario, dan embeddings.</li>
                 <li><span className="font-mono-data text-[13px]">GOOGLE_CLIENT_ID</span>, <span className="font-mono-data text-[13px]">GOOGLE_CLIENT_SECRET</span>, <span className="font-mono-data text-[13px]">GOOGLE_REDIRECT_URI</span>: untuk Google Sheets, opsional.</li>
               </ul>

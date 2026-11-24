@@ -1,4 +1,4 @@
-// Coded CSQ inbox preview for the hero (a real component preview of the
+// Coded Attcos inbox preview for the hero (a real component preview of the
 // product, not a fake screenshot and not a staged phone). Frosted-glass frame
 // wrapping the actual inbox layout: mini sidebar, conversation list, and a
 // chat thread that ends on the permission moment (agent quotes stock/price,

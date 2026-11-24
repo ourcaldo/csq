@@ -36,6 +36,10 @@ type SeoProps = {
   noindex?: boolean;
   /** Structured data; rendered as application/ld+json. */
   jsonLd?: Record<string, unknown> | Record<string, unknown>[];
+  /** Brand override for apps that carry their own name (e.g. apps/web = Attcos).
+   *  Defaults keep the legacy CSQ brand for the dashboard and admin. */
+  siteName?: string;
+  siteTagline?: string;
 };
 
 export function Seo({
@@ -45,8 +49,10 @@ export function Seo({
   ogType = "website",
   noindex = false,
   jsonLd,
+  siteName = SITE_NAME,
+  siteTagline = SITE_TAGLINE,
 }: SeoProps) {
-  const fullTitle = title ? `${title} - ${SITE_NAME}` : `${SITE_NAME} - ${SITE_TAGLINE}`;
+  const fullTitle = title ? `${title} - ${siteName}` : `${siteName} - ${siteTagline}`;
   const url = SITE_URL && path ? `${SITE_URL}${path}` : undefined;
   const image = SITE_URL ? `${SITE_URL}/og.svg` : undefined;
 
@@ -63,7 +69,7 @@ export function Seo({
 
       {/* Open Graph */}
       <meta property="og:type" content={ogType} />
-      <meta property="og:site_name" content={SITE_NAME} />
+      <meta property="og:site_name" content={siteName} />
       <meta property="og:title" content={fullTitle} />
       <meta property="og:description" content={description} />
       <meta property="og:locale" content="id_ID" />

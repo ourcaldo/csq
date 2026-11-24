@@ -1,12 +1,18 @@
 import Link from "next/link";
 import { Seo } from "@csq/ui/components/seo";
+import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
 
 // Branded 404 for the landing site - indexable pages elsewhere, but an
 // error page gains nothing from search, so noindex.
 export default function NotFound() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-white px-4 text-center">
-      <Seo title="Halaman Tidak Ditemukan" noindex />
+      <Seo
+        title="Halaman Tidak Ditemukan"
+        noindex
+        siteName={BRAND_NAME}
+        siteTagline={BRAND_TAGLINE}
+      />
       <p className="font-mono text-xs font-semibold uppercase tracking-widest text-green-600">404</p>
       <h1 className="mt-3 text-2xl font-semibold tracking-tight text-slate-900">
         Halaman tidak ditemukan

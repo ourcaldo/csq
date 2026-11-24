@@ -1,17 +1,17 @@
-// CTA + FAQ combined section (per the faq.txt spec), adapted to CSQ.
-// Two-column grid: left = animated-gradient CTA card (CSQ-green blobs, CSS
+﻿// CTA + FAQ combined section (per the faq.txt spec), adapted to Attcos.
+// Two-column grid: left = animated-gradient CTA card (Attcos-green blobs, CSS
 // @property animation, GPU-friendly, reduced-motion safe), right = FAQ
-// accordion with chevron toggle. CSQ content, Phosphor icons (not Lucide).
+// accordion with chevron toggle. Attcos content, Phosphor icons (not Lucide).
 import { useState } from "react";
 import Link from "next/link";
 import { CaretDown, CaretUp } from "@phosphor-icons/react";
 
 const FAQS: { q: string; a: string }[] = [
-  { q: "Apakah saya butuh coding?", a: "Tidak. CSQ dibuat untuk owner UMKM. Sambungkan data, ajarkan aturan, atur izin dari dashboard, tanpa kode." },
-  { q: "Apakah datanya aman?", a: "CSQ self-host: dipasang di server sendiri dengan Docker Compose. Data usaha dan pelanggan tetap di tangan Anda, terpisah per tenant." },
+  { q: "Apakah saya butuh coding?", a: "Tidak. Attcos dibuat untuk owner UMKM. Sambungkan data, ajarkan aturan, atur izin dari dashboard, tanpa kode." },
+  { q: "Apakah datanya aman?", a: "Attcos self-host: dipasang di server sendiri dengan Docker Compose. Data usaha dan pelanggan tetap di tangan Anda, terpisah per tenant." },
   { q: "Bisa pakai nomor WhatsApp sendiri?", a: "Bisa. Pilih Cloud API resmi Meta atau Baileys menggunakan nomor sendiri lewat QR. Anda memilih saat onboarding, keduanya tersedia." },
   { q: "Kalau AI salah jawab atau melakukan hal di luar batas?", a: "Agent membaca secara default dan menulis hanya dengan izin per tool. Aksi sensitif butuh persetujuan owner. Tiap aksi tercatat untuk audit, dan Anda bisa mengambil alih kapan saja." },
-  { q: "Berapa harganya?", a: "CSQ bersifat open untuk dihosting sendiri. Anda hanya perlu membayar server, VPS kecil sudah cukup, plus biaya WhatsApp Cloud API sesuai penggunaan." },
+  { q: "Berapa harganya?", a: "Attcos bersifat open untuk dihosting sendiri. Anda hanya perlu membayar server, VPS kecil sudah cukup, plus biaya WhatsApp Cloud API sesuai penggunaan." },
 ];
 
 export function FaqCta() {

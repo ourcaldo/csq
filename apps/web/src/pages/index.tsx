@@ -1,16 +1,23 @@
-// CSQ marketing landing page, public front door at /.
+// Attcos marketing landing page, public front door at /.
 //
 // Recreated from the four docs/demo specs (hero with coded dashboard preview,
-// triptych feature cards, cost calculator, parallax CTA) adapted to CSQ's
-// real stack and content: Phosphor icons (not Lucide), cn + Tailwind,
+// triptych feature cards, cost calculator, parallax CTA) adapted to the real
+// stack and content: Phosphor icons (not Lucide), cn + Tailwind,
 // IntersectionObserver reveals (not Framer), native range input (not shadcn
 // Slider), CSS scroll-driven parallax (not useScroll). Plus Jakarta with
-// italic same-family emphasis (no serif injection). CSQ content: inbox
+// italic same-family emphasis (no serif injection). Content: inbox
 // dashboard preview, audit/permission, self-host cost estimator.
+// Brand (apps/web only): Attcos - Assist. Think. Transform.
 // Semiformal copy, one accent, zero em-dashes, reduced-motion safe.
 import Link from "next/link";
 import { Check, ArrowRight, ChatCircleDots } from "@phosphor-icons/react";
-import { Seo, SITE_NAME, SITE_TAGLINE, DEFAULT_DESCRIPTION } from "@csq/ui/components/seo";
+import { Seo } from "@csq/ui/components/seo";
+import {
+  BRAND_NAME,
+  BRAND_POSITIONING,
+  BRAND_TAGLINE,
+  BRAND_DESCRIPTION,
+} from "@/lib/brand";
 import { Reveal } from "@/components/landing/reveal";
 import { DashboardPreview } from "@/components/landing/dashboard-preview";
 import { Calculator } from "@/components/landing/calculator";
@@ -42,27 +49,33 @@ const TRIPTYCH = [
 ];
 
 const FAQS: { q: string; a: string }[] = [
-  { q: "Apakah saya butuh coding?", a: "Tidak. CSQ dibuat untuk owner UMKM. Sambungkan data, ajarkan aturan, atur izin dari dashboard, tanpa kode." },
-  { q: "Apakah datanya aman?", a: "CSQ self-host: dipasang di server sendiri dengan Docker Compose. Data usaha dan pelanggan tetap di tangan Anda, terpisah per tenant." },
+  { q: "Apakah saya butuh coding?", a: "Tidak. Attcos dibuat untuk owner UMKM. Sambungkan data, ajarkan aturan, atur izin dari dashboard, tanpa kode." },
+  { q: "Apakah datanya aman?", a: "Attcos self-host: dipasang di server sendiri dengan Docker Compose. Data usaha dan pelanggan tetap di tangan Anda, terpisah per tenant." },
   { q: "Bisa pakai nomor WhatsApp sendiri?", a: "Bisa. Pilih Cloud API resmi Meta atau Baileys menggunakan nomor sendiri lewat QR. Anda memilih saat onboarding, keduanya tersedia." },
   { q: "Kalau AI salah jawab atau melakukan hal di luar batas?", a: "Agent membaca secara default dan menulis hanya dengan izin per tool. Aksi sensitif butuh persetujuan owner. Tiap aksi tercatat untuk audit, dan Anda bisa mengambil alih kapan saja." },
-  { q: "Berapa harganya?", a: "CSQ bersifat open untuk dihosting sendiri. Anda hanya perlu membayar server, VPS kecil sudah cukup, plus biaya WhatsApp Cloud API sesuai penggunaan." },
+  { q: "Berapa harganya?", a: "Attcos bersifat open untuk dihosting sendiri. Anda hanya perlu membayar server, VPS kecil sudah cukup, plus biaya WhatsApp Cloud API sesuai penggunaan." },
 ];
 
 const PRINCIPLE = ["Baca", "default.", "Tulis", "dengan", "izin.", "Bertindak", "sesuai", "aturan."];
 const PRINCIPLE_POINTS = ["Izin per-tool", "Approval owner", "Audit sebelum dan sesudah", "Ambil alih kapan saja"];
 
 const jsonLd = [
-  { "@context": "https://schema.org", "@type": "Organization", name: SITE_NAME, description: DEFAULT_DESCRIPTION, logo: "/icon.svg" },
-  { "@context": "https://schema.org", "@type": "WebSite", name: SITE_NAME, inLanguage: "id-ID", url: "/" },
-  { "@context": "https://schema.org", "@type": "SoftwareApplication", name: SITE_NAME, applicationCategory: "BusinessApplication", operatingSystem: "Web", description: DEFAULT_DESCRIPTION, offers: { "@type": "Offer", price: "0", priceCurrency: "IDR" } },
+  { "@context": "https://schema.org", "@type": "Organization", name: BRAND_NAME, description: BRAND_DESCRIPTION, logo: "/icon.svg", slogan: BRAND_POSITIONING },
+  { "@context": "https://schema.org", "@type": "WebSite", name: BRAND_NAME, inLanguage: "id-ID", url: "/" },
+  { "@context": "https://schema.org", "@type": "SoftwareApplication", name: BRAND_NAME, alternateName: BRAND_TAGLINE, applicationCategory: "BusinessApplication", operatingSystem: "Web", description: BRAND_DESCRIPTION, offers: { "@type": "Offer", price: "0", priceCurrency: "IDR" } },
   { "@context": "https://schema.org", "@type": "FAQPage", mainEntity: FAQS.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })) },
 ];
 
 export default function Home() {
   return (
     <>
-      <Seo description={DEFAULT_DESCRIPTION} path="/" jsonLd={jsonLd} />
+      <Seo
+        description={BRAND_DESCRIPTION}
+        path="/"
+        jsonLd={jsonLd}
+        siteName={BRAND_NAME}
+        siteTagline={BRAND_TAGLINE}
+      />
       <main className="w-full max-w-full overflow-x-hidden bg-[#FAFAF8] text-slate-900">
         <Hero />
         <Channels />
@@ -87,7 +100,7 @@ function Navbar() {
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-700 text-white">
             <ChatCircleDots size={18} weight="fill" />
           </span>
-          <span className="font-display text-lg font-extrabold tracking-tight">CSQ</span>
+          <span className="font-display text-lg font-extrabold tracking-tight">Attcos</span>
         </Link>
         <div className="hidden items-center gap-8 text-sm text-slate-500 md:flex">
           <a href="#fitur" className="hover:text-slate-900">Fitur</a>
@@ -142,7 +155,7 @@ function Hero() {
       <div className="relative z-20 flex flex-1 flex-col items-center px-6 pt-8 text-center md:px-12 md:pt-12">
         <div className="flex flex-col items-center">
           <span className="animate-fade-rise inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/80 px-4 py-1.5 text-sm text-slate-600 backdrop-blur">
-            <Check size={14} weight="bold" className="text-green-700" /> Self-host, data milik Anda
+            <Check size={14} weight="bold" className="text-green-700" /> {BRAND_POSITIONING}
           </span>
 
           <h1 className="animate-fade-rise-delay mt-6 max-w-3xl font-display text-5xl font-extrabold leading-[0.95] tracking-tight text-slate-900 md:text-6xl">
@@ -151,8 +164,9 @@ function Hero() {
           </h1>
 
           <p className="animate-fade-rise-delay-2 mt-5 max-w-[650px] text-base leading-relaxed text-slate-600 md:text-lg">
-            CSQ membaca stok, harga, dan kebijakan dari data yang sudah Anda
-            punya. Membaca secara default, menulis hanya jika Anda izinkan.
+            {BRAND_NAME} adalah {BRAND_TAGLINE}: membaca stok, harga, dan
+            kebijakan dari data yang sudah Anda punya. Membaca secara
+            default, menulis hanya jika Anda izinkan.
           </p>
 
           <div className="mt-7 flex items-center justify-center gap-3">
@@ -243,7 +257,7 @@ function TriptychVisual({ kind }: { kind: "inbox" | "agent" | "perms" }) {
             <ChatCircleDots size={20} weight="fill" />
           </span>
           <div>
-            <p className="text-xs font-semibold text-slate-900">CSQ Agent</p>
+            <p className="text-xs font-semibold text-slate-900">Attcos Agent</p>
             <p className="text-[10px] text-green-600">AI menangani 24/7</p>
           </div>
         </div>
@@ -340,10 +354,10 @@ function Footer() {
               <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-700 text-white">
                 <ChatCircleDots size={18} weight="fill" />
               </span>
-              <span className="font-display text-lg font-extrabold tracking-tight">CSQ</span>
+              <span className="font-display text-lg font-extrabold tracking-tight">Attcos</span>
             </Link>
             <p className="max-w-[220px] text-[0.85rem] leading-[1.6] text-[#888]">
-              Layanan pelanggan AI untuk UMKM Indonesia, di WhatsApp.
+              {BRAND_POSITIONING} {BRAND_TAGLINE} untuk bisnis Indonesia.
             </p>
           </div>
           {/* Navigation */}
@@ -359,7 +373,7 @@ function Footer() {
           {/* Newsletter */}
           <div>
             <h4 className="mb-5 text-[0.95rem] font-semibold text-neutral-900">Newsletter</h4>
-            <p className="mb-[15px] text-[0.85rem] text-[#888]">Dapatkan pembaruan CSQ di email Anda.</p>
+            <p className="mb-[15px] text-[0.85rem] text-[#888]">Dapatkan pembaruan Attcos di email Anda.</p>
             <div className="flex flex-col gap-[10px] sm:flex-row">
               <input
                 type="email"
@@ -377,8 +391,8 @@ function Footer() {
           </div>
         </div>
         <div className="flex justify-between border-t border-[#f0f0f0] pt-[25px] pb-[10px] text-[0.85rem] text-[#888] max-[480px]:flex-col max-[480px]:gap-[15px] max-[480px]:items-center">
-          <p>Semua hak dilindungi. &copy; {new Date().getFullYear()} {SITE_NAME}.</p>
-          <p>Self-host untuk UMKM Indonesia.</p>
+          <p>Semua hak dilindungi. &copy; {new Date().getFullYear()} {BRAND_NAME}.</p>
+          <p>{BRAND_POSITIONING}</p>
         </div>
       </div>
     </footer>

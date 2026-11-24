@@ -1,7 +1,7 @@
-// CSQ cost estimator. Host options: Self-host and Cloud (coming soon).
+﻿// Attcos cost estimator. Host options: Self-host and Cloud (coming soon).
 // Server/host cost is a flat monthly fee per tier (only the WhatsApp
 // Cloud API scales per conversation). All add-ons are free. Conversation
-// volume up to 100. CSQ-green design (not plain): soft green gradient
+// volume up to 100. Attcos-green design (not plain): soft green gradient
 // section, white form panel with a green border, total card with a green
 // gradient + glow. Native range input, Phosphor checks, cn, useState.
 import { useState } from "react";
@@ -59,9 +59,9 @@ export function Calculator() {
     <section id="biaya" className="bg-gradient-to-b from-green-50/70 via-[#F4FBF7] to-white py-16 text-slate-900 md:py-28">
       <div className="mx-auto max-w-7xl px-4 md:px-16">
         <div className="mb-12 text-center">
-          <p className="font-mono-data text-xs uppercase tracking-[0.2em] text-green-700">Estimasi biaya CSQ</p>
+          <p className="font-mono-data text-xs uppercase tracking-[0.2em] text-green-700">Estimasi biaya Attcos</p>
           <h2 className="mt-3 font-display text-3xl font-extrabold tracking-tight md:text-4xl lg:text-5xl">
-            Hitung biaya CSQ untuk usaha Anda
+            Hitung biaya Attcos untuk usaha Anda
           </h2>
           <p className="mt-4 max-w-xl mx-auto text-base leading-relaxed text-slate-600">
             Self-host gratis; Anda hanya membayar server dan biaya pesan WhatsApp.
@@ -95,7 +95,7 @@ export function Calculator() {
 
             {/* Host tier */}
             <div className="py-8">
-              <h3 className="text-sm font-semibold text-slate-900">Di mana CSQ dihosting?</h3>
+              <h3 className="text-sm font-semibold text-slate-900">Di mana Attcos dihosting?</h3>
               <div className="mt-4 space-y-2.5">
                 {HOSTS.map((h) => (
                   <button
