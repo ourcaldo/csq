@@ -33,6 +33,7 @@ the file contents and names.
 | `27-contact-profile-photos.md` | new | Contact WhatsApp profile photos: MediaAsset-backed avatars, Baileys-only fetch on first inbound + bounded backfill, inbox/contacts UI | Live - approved 2026-11-19 |
 | `28-channel-ux-and-fixes.md` | new | Inbox channel selector (pills + composer chip + remembered override + AI routing rule), pipeline auto-refresh, campaign edit data loss, campaign auto-pause + resend failed, collapsible sidebar, team invite fixes + management | Pending - approved direction for Part A; priority order set |
 | `29-tenant-roles-and-channel-access.md` | new | Tenant custom roles: permission catalog, Baca/Edit/Penuh presets + editable matrix, seeded defaults (Akses Penuh, Admin Chat full-power), per-channel access grants (LIHAT/KIRIM/KELOLA incl. QR-scan power), channel CRUD permissions, thread-per-channel identity, pipeline one-card-per-customer | Final - all 6 decisions resolved 2026-11-23 |
+| `30-inbox-browser-notifications.md` | new | Browser notifications for inbound customer messages: tenant-wide SSE event stream, per-user scope (semua / ditugaskan / nonaktif), channel-access filtering, click-to-open, title badge; Web Push deferred to Phase 2 | Proposed 2026-11-24 - 3 open questions for owner |
 
 Companion working documents (plans, registers, status) stay in `docs/`
 with date prefixes, e.g. `docs/plans/2026-11-08-enterprise-architecture-plan.md`.
