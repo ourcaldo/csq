@@ -1,6 +1,7 @@
 import prisma from "@csq/core/lib/db";
 import { hashPassword } from "@csq/core/lib/password";
 import { AKSES_PENUH_KEYS, ADMIN_CHAT_KEYS } from "@csq/core/lib/permissions-catalog";
+import { generateWebhookVerifyToken } from "@csq/core/lib/webhook-token";
 
 // Shared tenant provisioning (PRD 16 ADM-8): dashboard register and admin
 // tenant-create both go through this helper so every tenant starts with
@@ -33,6 +34,9 @@ export async function createTenantWithOwner(
       slug: input.slug,
       status: "ACTIVE",
       settings: { sourcePriority: ["MANUAL", "GOOGLE_SHEETS", "EXCEL", "MEMORY"] },
+      // One Meta app per tenant (tenant-own-WABA): the webhook verify token
+      // exists from day one so the panel never shows an empty state.
+      webhookVerifyToken: generateWebhookVerifyToken(),
       roles: {
         create: [
           {

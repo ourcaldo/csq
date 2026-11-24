@@ -80,20 +80,16 @@ export default async function handler(
       res.status(403).send("Forbidden");
       return;
     }
-    // PRD 15 amendment (owner 2026-11-24, tenant-own-WABA): tokens are
-    // PER TENANT, stored in each Cloud API channel's config in the DB -
-    // never env. A subscription is verified when the presented token
-    // matches ANY channel row (all of one tenant's rows share the tenant
-    // token, generated at first connect).
-    const channel = await withSystemContext(async () =>
-      prisma.channel.findFirst({
-        where: {
-          provider: "CLOUD_API",
-          config: { path: ["verifyToken"], equals: verifyToken },
-        },
+    // PRD 15 amendment (owner 2026-11-24, tenant-own-WABA): ONE token per
+    // TENANT (one Meta app per tenant), stored on the Tenant row and minted
+    // at provisioning - never env, never per channel.
+    const tenant = await withSystemContext(async () =>
+      prisma.tenant.findUnique({
+        where: { webhookVerifyToken: verifyToken },
+        select: { id: true },
       })
     );
-    if (channel) {
+    if (tenant) {
       res.setHeader("Content-Type", "text/plain");
       res.status(200).send(challenge);
       return;

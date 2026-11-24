@@ -373,7 +373,7 @@ model Channel {
   agent     Agent?           @relation(fields: [agentId], references: [id])
   type      ChannelType      @default(WHATSAPP)
   provider  ChannelProvider  @default(CLOUD_API)
-  config    Json             // CLOUD_API: phoneNumberId, verifyToken ref. BAILEYS: sessionId, authStateRef.
+  config    Json             // CLOUD_API: phoneNumberId, token, appSecret. BAILEYS: sessionId, authStateRef.
   status    ChannelStatus    @default(DISCONNECTED)
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
@@ -1101,7 +1101,8 @@ type InboundMessage = {
   service window; outside the window, outbound must use pre-approved templates
   [SRS FR-MS-003].
 - Stateless — no persistent connection. Config in `Channel.config`
-  (phoneNumberId, verifyToken).
+  (phoneNumberId, token, appSecret). The webhook verify token is
+  `Tenant.webhookVerifyToken` (PRD 15 amendment 2026-11-24).
 
 **Baileys provider** (`src/services/whatsapp-baileys.ts`):
 - Uses `@whiskeysockets/baileys` (pure, no Puppeteer — light on RAM).
@@ -1390,7 +1391,7 @@ dashboard-initiated tool calls).
 
 **GET verification:**
 - Query params: `hub.mode`, `hub.challenge`, `hub.verify_token`.
-- If `hub.mode === "subscribe"` and `hub.verify_token` matches any Cloud API channel's stored per-tenant `config.verifyToken` (PRD 15 amendment 2026-11-24, tenant-own-WABA; no env token):
+- If `hub.mode === "subscribe"` and `hub.verify_token` matches a tenant's `Tenant.webhookVerifyToken` (PRD 15 amendment 2026-11-24, tenant-own-WABA; minted at provisioning, no env token, no per-channel copy):
   return `hub.challenge` as plain text, status 200.
 - Otherwise: return 403.
 

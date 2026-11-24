@@ -334,6 +334,11 @@ model Tenant {
   status          TenantStatus @default(ACTIVE)
   planId          String?
   settings        Json?
+  // PRD 15 amendment (owner 2026-11-24, tenant-own-WABA): the Meta webhook
+  // verify token belongs to the TENANT (one Meta app per tenant), minted at
+  // provisioning so it exists before the first channel. Rotatable from the
+  // Saluran page; the webhook handshake matches it here, never env/config.
+  webhookVerifyToken String   @unique
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

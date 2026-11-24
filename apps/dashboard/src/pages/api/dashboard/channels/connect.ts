@@ -1,5 +1,4 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { randomBytes } from "crypto";
 import { z } from "zod";
 import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import { canManageChannel } from "@csq/core/lib/channel-access";
@@ -229,29 +228,9 @@ export default async function handler(
           "Nomor WhatsApp ini sudah terdaftar di workspace lain."
         );
       }
-      // PRD 15 amendment (owner 2026-11-24, tenant-own-WABA model): the
-      // verify token is PER TENANT (one Meta app per tenant, one token per
-      // app), stored on each channel row in the DB - never env. Supplied
-      // token wins (the tenant may have configured theirs already);
-      // otherwise reuse the tenant's existing token from any other Cloud
-      // API channel, else this channel's own stored one, else generate.
-      const parsedExisting = cloudApiConfigSchema.safeParse(existing?.config);
-      const ownToken =
-        parsedExisting.success ? parsedExisting.data.verifyToken : undefined;
-      const sibling = await prisma.channel.findFirst({
-        where: { tenantId, provider: "CLOUD_API" },
-        orderBy: { createdAt: "asc" },
-        select: { config: true },
-      });
-      const siblingParsed = cloudApiConfigSchema.safeParse(sibling?.config);
-      const tenantToken =
-        siblingParsed.success ? siblingParsed.data.verifyToken : undefined;
-      const verifyToken =
-        cfg.verifyToken ?? tenantToken ?? ownToken ?? `csq-${randomBytes(16).toString("hex")}`;
-      config = {
-        ...cfg,
-        verifyToken,
-      };
+      // No verify token here: it lives on the Tenant row (tenant-own-WABA,
+      // PRD 15 amendment 2026-11-24), minted at provisioning.
+      config = cfg;
       status = "CONNECTED";
     } else {
       const cfg = baileysConfigSchema.parse(parsed.data.config);

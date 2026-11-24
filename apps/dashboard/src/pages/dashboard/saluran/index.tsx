@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { GetServerSideProps } from "next";
+import { useRouter } from "next/router";
 import { useSession } from "next-auth/react";
 import {
   Archive,
+  ArrowClockwise,
   CaretRight,
   CaretUp,
   CheckCircle,
@@ -28,7 +30,8 @@ import {
   X,
 } from "@phosphor-icons/react";
 import { QRCodeSVG } from "qrcode.react";
-import { withAuth } from "@csq/core/lib/auth";
+import { withAuth, getSSRSession } from "@csq/core/lib/auth";
+import prisma from "@csq/core/lib/db";
 import { useEntitlements } from "@/components/dashboard/entitlements-context";
 import { apiFetch, apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
@@ -61,7 +64,8 @@ function errMsg(e: unknown, fallback: string): string {
 
 type FilterTab = "all" | "connected" | "disconnected" | "archived";
 
-export default function SaluranPage({ webhookUrl }: SaluranProps) {
+export default function SaluranPage({ webhookUrl, verifyToken }: SaluranProps) {
+  const router = useRouter();
   const { data: session } = useSession();
   const isOwner = !!session?.user?.isOwner;
   const canConfig =
@@ -81,11 +85,6 @@ export default function SaluranPage({ webhookUrl }: SaluranProps) {
   );
 
   const channels = channelsData?.items ?? [];
-  // PRD 15 amendment (tenant-own-WABA): the tenant's verify token - all of a
-  // tenant's Cloud API channel rows carry the same token (generated at first
-  // connect); take it from any channel that has one.
-  const tenantVerifyToken =
-    channels.find((c) => c.provider === "CLOUD_API" && c.verifyToken)?.verifyToken ?? null;
   const activeAgents = (agentsData?.items ?? []).filter(
     (a) => a.status === "ACTIVE"
   );
@@ -122,6 +121,7 @@ export default function SaluranPage({ webhookUrl }: SaluranProps) {
   }
 
   const [connecting, setConnecting] = useState(false);
+  const [rotating, setRotating] = useState(false);
   const [tos, setTos] = useState(false);
   const [qr, setQr] = useState<string | null>(null);
   const [qrAt, setQrAt] = useState<number | null>(null);
@@ -228,7 +228,6 @@ export default function SaluranPage({ webhookUrl }: SaluranProps) {
       token: "",
       appSecret: "",
       businessAccountId: "",
-      verifyToken: channel.verifyToken ?? "",
     });
   }
 
@@ -269,9 +268,6 @@ export default function SaluranPage({ webhookUrl }: SaluranProps) {
                 token: cloudForm.token.trim(),
                 appSecret: cloudForm.appSecret.trim(),
                 businessAccountId: cloudForm.businessAccountId.trim() || undefined,
-                ...(cloudForm.verifyToken.trim()
-                  ? { verifyToken: cloudForm.verifyToken.trim() }
-                  : {}),
               },
             }
           : { config: { tosAcknowledged: true } }),
@@ -312,6 +308,26 @@ export default function SaluranPage({ webhookUrl }: SaluranProps) {
       setModalError(errMsg(e, "Gagal memulai sambungan."));
     } finally {
       setConnecting(false);
+    }
+  }
+
+  async function rotateVerifyToken() {
+    if (
+      !window.confirm(
+        "Rotasi Verify Token? Token lama langsung tidak berlaku dan webhook Meta Anda berhenti terverifikasi sampai token baru ditempel di Meta App Dashboard."
+      )
+    ) {
+      return;
+    }
+    setRotating(true);
+    try {
+      await apiSend("/api/dashboard/channels/rotate-webhook-token", "POST");
+      showToast("Verify Token diputar. Tempel token baru di Meta App Dashboard.");
+      router.replace(router.asPath);
+    } catch (e) {
+      showToast(errMsg(e, "Gagal memutar token."), "error");
+    } finally {
+      setRotating(false);
     }
   }
 
@@ -469,19 +485,31 @@ export default function SaluranPage({ webhookUrl }: SaluranProps) {
                 <CopyField label="Callback URL" hint="HTTPS Endpoint" value={webhookUrl} />
                 <CopyField
                   label="Verify Token"
-                  hint="Token akun Anda - dibuat otomatis, dapat dirotasi"
-                  value={tenantVerifyToken ?? "(belum ada - dibuat saat saluran Cloud API pertama ditambahkan)"}
+                  hint="Token akun Anda - satu untuk semua nomor di aplikasi Meta yang sama"
+                  value={verifyToken}
                 />
               </div>
-              <p className="mt-3 flex items-start gap-1.5 text-xs text-zinc-500">
-                <Info size={14} className="mt-0.5 shrink-0 text-zinc-400" />
-                <span>
-                  Buka <strong>Meta App Dashboard milik Anda</strong> (bukan milik platform) &rarr;{" "}
-                  <strong>WhatsApp &rarr; Configuration</strong>, tempel Callback URL dan Verify
-                  Token di atas, lalu klik <strong>Verify and Save</strong>. Semua nomor di
-                  aplikasi Meta yang sama memakai token ini.
-                </span>
-              </p>
+              <div className="mt-3 flex items-center justify-between gap-3">
+                <p className="flex items-start gap-1.5 text-xs text-zinc-500">
+                  <Info size={14} className="mt-0.5 shrink-0 text-zinc-400" />
+                  <span>
+                    Buka <strong>Meta App Dashboard milik Anda</strong> (bukan milik platform)
+                    &rarr; <strong>WhatsApp &rarr; Configuration</strong>, tempel Callback URL dan
+                    Verify Token di atas, lalu klik <strong>Verify and Save</strong>. Semua nomor
+                    di aplikasi Meta yang sama memakai token ini.
+                  </span>
+                </p>
+                {canConfig && (
+                  <button
+                    onClick={() => void rotateVerifyToken()}
+                    disabled={rotating}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-50"
+                  >
+                    <ArrowClockwise size={13} className={rotating ? "animate-spin" : undefined} />
+                    {rotating ? "Memutar..." : "Rotasi Token"}
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </section>
@@ -675,13 +703,6 @@ export default function SaluranPage({ webhookUrl }: SaluranProps) {
                 disabled={!canAct}
                 type="password"
               />
-              <Field
-                label="Verify Token"
-                value={cloudForm.verifyToken}
-                onChange={(v) => setCloud({ verifyToken: v })}
-                hint="Kosongkan untuk dibuat otomatis (satu token per akun)"
-                disabled={!canAct}
-              />
               <div className="flex items-start gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-xs text-zinc-600">
                 <CheckCircle size={14} weight="fill" className="mt-0.5 shrink-0 text-emerald-600" />
                 <span>
@@ -836,13 +857,6 @@ export default function SaluranPage({ webhookUrl }: SaluranProps) {
                 hint="Dari aplikasi Meta Anda (Settings > Basic)"
                 disabled={!canAct}
                 type="password"
-              />
-              <Field
-                label="Verify Token"
-                value={cloudForm.verifyToken}
-                onChange={(v) => setCloud({ verifyToken: v })}
-                hint="Kosongkan untuk dibuat otomatis; ganti = rotasi token webhook"
-                disabled={!canAct}
               />
             </>
           )}
@@ -1378,6 +1392,7 @@ function ModalHeader(props: {
 
 type SaluranProps = {
   webhookUrl: string;
+  verifyToken: string;
 };
 
 export const getServerSideProps: GetServerSideProps<SaluranProps> = withAuth<
@@ -1389,8 +1404,18 @@ export const getServerSideProps: GetServerSideProps<SaluranProps> = withAuth<
   ).replace(/\/$/, "");
   const webhookUrl = `${apiBase || fallback}/api/webhooks/whatsapp`;
 
-  // PRD 15 amendment (tenant-own-WABA): the verify token lives in the DB per
-  // tenant channel (rendered from the channel list) - no env token here.
-  return { props: { webhookUrl } };
+  // PRD 15 amendment (tenant-own-WABA): the verify token lives on the Tenant
+  // row (minted at provisioning) - read it straight from the DB, no env token.
+  const session = await getSSRSession(ctx);
+  const tenant = session?.user.tenantId
+    ? await prisma.tenant.findUnique({
+        where: { id: session.user.tenantId },
+        select: { webhookVerifyToken: true },
+      })
+    : null;
+  if (!tenant) {
+    return { props: { webhookUrl, verifyToken: "" } };
+  }
+  return { props: { webhookUrl, verifyToken: tenant.webhookVerifyToken } };
   // SEC-3 (PRD 16): channel configuration is OWNER-only (PRD 15.9).
 }, { requiredPermission: "saluran.lihat" });

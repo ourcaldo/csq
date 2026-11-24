@@ -13,10 +13,6 @@ export type ChannelView = {
   archivedAt: string | null;
   phoneNumberId?: string;
   tosAcknowledged?: boolean;
-  // PRD 15 amendment (tenant-own-WABA): the tenant's webhook verify token,
-  // stored per channel in the DB; the tenant copies it into their own Meta
-  // app's webhook config.
-  verifyToken?: string;
   // PRD 29 section 6.1: per-channel KELOLA for the requesting user.
   canManage?: boolean;
   createdAt: string;
@@ -31,7 +27,6 @@ export type CloudForm = {
   token: string;
   appSecret: string;
   businessAccountId: string;
-  verifyToken: string;
 };
 
 export const EMPTY_CLOUD: CloudForm = {
@@ -40,7 +35,6 @@ export const EMPTY_CLOUD: CloudForm = {
   token: "",
   appSecret: "",
   businessAccountId: "",
-  verifyToken: "",
 };
 
 export type ToastState = { msg: string; tone: "success" | "error" };

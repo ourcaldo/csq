@@ -28,10 +28,6 @@ export type ChannelView = {
   archivedAt: string | null;
   phoneNumberId?: string;
   tosAcknowledged?: boolean;
-  // PRD 15 amendment (tenant-own-WABA): the tenant's webhook verify token,
-  // stored per channel in the DB. Not a secret (it authorizes nothing); the
-  // tenant must copy it into their own Meta app's webhook config.
-  verifyToken?: string;
   // PRD 29 section 6.1: whether the requesting user holds KELOLA on this
   // channel (QR scan, disconnect, test) - drives the Saluran page buttons.
   canManage?: boolean;
@@ -58,13 +54,9 @@ type RawChannel = {
 function sanitize(channel: RawChannel): ChannelView {
   let phoneNumberId: string | undefined;
   let tosAcknowledged: boolean | undefined;
-  let verifyToken: string | undefined;
   if (channel.provider === "CLOUD_API") {
     const parsed = cloudApiConfigSchema.safeParse(channel.config);
-    if (parsed.success) {
-      phoneNumberId = parsed.data.phoneNumberId;
-      verifyToken = parsed.data.verifyToken;
-    }
+    if (parsed.success) phoneNumberId = parsed.data.phoneNumberId;
   } else if (channel.provider === "BAILEYS") {
     const parsed = baileysConfigSchema.safeParse(channel.config);
     if (parsed.success) tosAcknowledged = parsed.data.tosAcknowledged;
@@ -82,7 +74,6 @@ function sanitize(channel: RawChannel): ChannelView {
     archivedAt: channel.archivedAt ? channel.archivedAt.toISOString() : null,
     phoneNumberId,
     tosAcknowledged,
-    verifyToken,
     canManage: false,
     createdAt: channel.createdAt.toISOString(),
     updatedAt: channel.updatedAt.toISOString(),

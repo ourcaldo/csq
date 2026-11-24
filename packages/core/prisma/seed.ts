@@ -36,6 +36,7 @@ export async function seedDemo(): Promise<void> {
       name: "Toko Kopi Nusantara",
       slug: "toko-kopi-nusantara",
       settings: { sourcePriority: ["MANUAL", "GOOGLE_SHEETS", "EXCEL"] },
+      webhookVerifyToken: "csq-demo-seed-token-do-not-use-in-prod",
     },
   });
 
@@ -231,9 +232,8 @@ export async function seedDemo(): Promise<void> {
         config: {
           phoneNumberId: "DEMO_PHONE_NUMBER_ID",
           token: "DEMO_TOKEN",
-          // PRD 15 amendment (tenant-own-WABA): the per-tenant webhook token
-          // and the tenant's own app secret live in config; no env fallback.
-          verifyToken: "demo-verify-token",
+          // PRD 15 amendment (tenant-own-WABA): the tenant's own app secret
+          // lives in config; the webhook verify token is Tenant.webhookVerifyToken.
           appSecret: "demo-app-secret",
           businessAccountId: "DEMO_BUSINESS_ACCOUNT_ID",
         },

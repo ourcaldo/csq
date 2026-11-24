@@ -44,8 +44,16 @@ async function main(): Promise<void> {
   await withSystemContext(async () => {
     await prisma.tenant.createMany({
       data: [
-        { name: `${stamp}-a`, slug: `${stamp}-a` },
-        { name: `${stamp}-b`, slug: `${stamp}-b` },
+        {
+          name: `${stamp}-a`,
+          slug: `${stamp}-a`,
+          webhookVerifyToken: `csq-selfcheck-${stamp}-a`,
+        },
+        {
+          name: `${stamp}-b`,
+          slug: `${stamp}-b`,
+          webhookVerifyToken: `csq-selfcheck-${stamp}-b`,
+        },
       ],
     });
   });

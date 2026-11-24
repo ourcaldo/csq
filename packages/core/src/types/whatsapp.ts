@@ -5,12 +5,13 @@ import { z } from "zod";
 // src/lib/whatsapp-provider.ts parses these with Zod - no `as` narrowing.
 
 // Cloud API (official). Tokens live server-side only; never leak to client.
-// `verifyToken` + `appSecret` are only needed on the channel that receives
-// webhooks; `token` + `phoneNumberId` are required to send.
+// `token` + `phoneNumberId` are required to send. The webhook verify token
+// is NOT here: it lives on the Tenant row (tenant-own-WABA, PRD 15 amendment
+// 2026-11-24). `appSecret` (the tenant's Meta app secret) is stored per
+// channel - required to verify inbound webhook HMAC.
 export const cloudApiConfigSchema = z.object({
   phoneNumberId: z.string().min(1),
   token: z.string().min(1),
-  verifyToken: z.string().min(1).optional(),
   appSecret: z.string().optional(),
   businessAccountId: z.string().optional(),
 });
