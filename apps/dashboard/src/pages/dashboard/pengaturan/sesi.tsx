@@ -98,7 +98,9 @@ export default function PengaturanSesiPage() {
                   <p className="mt-1 leading-relaxed text-slate-500">
                     Sistem akan mengirimkan pesan penutup standar dan menandai status chat menjadi{" "}
                     <strong>Selesai</strong>. Percakapan yang belum pernah dibalas oleh agen{" "}
-                    <strong>tidak akan pernah</strong> ditutup otomatis.
+                    <strong>tidak akan pernah</strong> ditutup otomatis. Percakapan tanpa pesan
+                    masuk pelanggan lebih dari 24 jam ditutup tanpa mengirim pesan, dan pesan
+                    penutup dikirim bertahap agar tidak terlihat seperti spam.
                   </p>
                 </div>
               </label>

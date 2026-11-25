@@ -195,11 +195,13 @@ async function runScenarioTick(): Promise<void> {
 // Session-close: send the tenant's `session_end` template to conversations
 // whose last message is the agent's reply and whose customer has been
 // silent for the tenant's configured auto-close window. Free-form WhatsApp
-// is allowed here (idle = still inside Meta's 24h customer-service window),
-// so no Meta template approval is needed. One message per conversation per
-// window (tracked in Conversation.settings), skipped for RESOLVED or
-// human-owned conversations, and only for tenants that enabled the
-// auto-close setting (see the block below for the trigger semantics).
+// is allowed only inside Meta's 24h customer-service window (counted from
+// the last INBOUND message); older threads are closed silently without a
+// send. Sends are paced (per-tick cap + gap) so enabling the feature or
+// draining a backlog never fans out as a burst. One message per
+// conversation per window (tracked in Conversation.settings), skipped for
+// RESOLVED or human-owned conversations, and only for tenants that enabled
+// the auto-close setting (see the block below for the trigger semantics).
 const conversationSettingsSchema = z.record(z.unknown());
 
 // Auto session close (owner decision 2026-11-11, PRD 03 amendment): the
@@ -210,6 +212,17 @@ const conversationSettingsSchema = z.record(z.unknown());
 // flips to RESOLVED and the next inbound reopens the conversation.
 const AUTO_CLOSE_MIN_IDLE_MINUTES = 15; // the schema's lower bound
 const AUTO_CLOSE_SLACK_MS = 5 * 60 * 1000; // missed-tick tolerance
+// Send pacing. The first sweep after a tenant enables this setting faces the
+// whole backlog, and sending identical end-of-chat messages back to back is
+// exactly the pattern WhatsApp flags as broadcast spam. Cap messages per
+// tick and space them out; the remainder is picked up on the next minutes.
+const AUTO_CLOSE_MAX_SENDS_PER_TICK = 5;
+const AUTO_CLOSE_SEND_GAP_MS = 4000;
+// Free-form text is only allowed inside Meta's 24h customer-service window,
+// counted from the last INBOUND (customer) message. Outside it there is no
+// legitimate way to deliver the close message: close silently instead of
+// firing at stale threads.
+const CUSTOMER_SERVICE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 async function closeIdleSessions(): Promise<void> {
   // Coarse pre-filter at the MINIMUM configurable idle (+ slack); the exact
@@ -239,7 +252,9 @@ async function closeIdleSessions(): Promise<void> {
     })
   );
 
+  let sends = 0;
   for (const conversation of conversations) {
+    if (sends >= AUTO_CLOSE_MAX_SENDS_PER_TICK) break;
     try {
       // RLS context + suspension guard (PRD 16 SEC-1/SEC-4).
       await withTenantContext(conversation.tenantId, async () => {
@@ -267,7 +282,40 @@ async function closeIdleSessions(): Promise<void> {
         const settings = rawSettings.success ? rawSettings.data : {};
         if (settings.lastAutoClosedMessageId === last.id) return;
 
+        const markResolved = () =>
+          prisma.conversation.update({
+            where: { id: conversation.id },
+            data: {
+              // "Closed the chat" means the status too: leaves the inbox's
+              // active filter. The next inbound flips it back to OPEN
+              // (inbox.ts findOrCreateConversation).
+              status: "RESOLVED",
+              settings: {
+                ...settings,
+                sessionClosedAt: new Date().toISOString(),
+                lastAutoClosedMessageId: last.id,
+              },
+            },
+          });
+
+        // Outside Meta's 24h customer-service window (no inbound, or the
+        // last customer message is older than 24h) a free-form close message
+        // cannot be delivered. Close silently: no message goes out at all.
+        const lastInbound = await prisma.message.findFirst({
+          where: { conversationId: conversation.id, direction: "INBOUND" },
+          orderBy: { createdAt: "desc" },
+          select: { createdAt: true },
+        });
+        if (
+          !lastInbound ||
+          Date.now() - lastInbound.createdAt.getTime() > CUSTOMER_SERVICE_WINDOW_MS
+        ) {
+          await markResolved();
+          return;
+        }
+
         if (conversation.channel.status !== "CONNECTED") return;
+        if (sends >= AUTO_CLOSE_MAX_SENDS_PER_TICK) return;
 
         const body = await getTemplateBody(
           conversation.tenantId,
@@ -276,6 +324,9 @@ async function closeIdleSessions(): Promise<void> {
         );
         if (!body) return;
 
+        if (sends > 0) {
+          await new Promise((r) => setTimeout(r, AUTO_CLOSE_SEND_GAP_MS));
+        }
         await sendAgentMessage({
           channel: conversation.channel,
           conversationId: conversation.id,
@@ -284,21 +335,9 @@ async function closeIdleSessions(): Promise<void> {
           agentId: null,
           action: "conversation.session_closed",
         });
+        sends += 1;
 
-        await prisma.conversation.update({
-          where: { id: conversation.id },
-          data: {
-            // "Closed the chat" means the status too: leaves the inbox's
-            // active filter. The next inbound flips it back to OPEN
-            // (inbox.ts findOrCreateConversation).
-            status: "RESOLVED",
-            settings: {
-              ...settings,
-              sessionClosedAt: new Date().toISOString(),
-              lastAutoClosedMessageId: last.id,
-            },
-          },
-        });
+        await markResolved();
       });
     } catch (err) {
       console.error(
