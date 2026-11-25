@@ -890,6 +890,12 @@ model Knowledge {
   type        KnowledgeType
   title       String
   content     String
+  // PRD 31: category label from the fixed vocabulary in types/knowledge.ts
+  // (null renders as "Umum"), and the entry grouping id. FAQ entries hold
+  // multiple Q&A pairs as one row per pair sharing a groupId, so each pair
+  // keeps its own embedding (KnowledgeEmbedding stays 1:1 per row).
+  category    String?
+  groupId     String
   // FEA-1 (PRD 16): provenance for uploaded documents (PDF/DOCX). Manual
   // entries leave both null.
   sourceName  String?
@@ -901,6 +907,7 @@ model Knowledge {
   embedding KnowledgeEmbedding?
 
   @@index([tenantId, type])
+  @@index([tenantId, groupId])
 }
 
 model KnowledgeEmbedding {

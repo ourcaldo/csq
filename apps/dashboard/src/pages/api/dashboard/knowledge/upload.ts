@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { randomUUID } from "crypto";
 import type { Knowledge } from "@prisma/client";
 import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
@@ -7,8 +8,7 @@ import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import { knowledgeUploadSchema } from "@csq/core/types/knowledge";
-import { upsertEmbedding } from "@csq/core/lib/vector";
-import { embed, isEmbeddingsConfigured } from "@csq/core/services/embeddings";
+import { embedKnowledgeRow } from "@csq/core/lib/knowledge-embed";
 import {
   extractDocumentText,
   MIME_DOCX,
@@ -87,6 +87,9 @@ export default async function handler(
         type: "POLICY",
         title: title ?? (fallbackTitle || filename),
         content,
+        // PRD 31: uploads are single-row entries; category stays null
+        // ("Umum") and is editable afterwards.
+        groupId: randomUUID(),
         sourceName: filename,
         mimeType: mime,
       },
@@ -100,17 +103,7 @@ export default async function handler(
     });
     // Same best-effort embedding path as knowledge/create.ts so the extracted
     // text is retrievable via knowledge.search.
-    if (isEmbeddingsConfigured()) {
-      try {
-        const vec = await embed(`${knowledge.title}\n${knowledge.content}`);
-        await upsertEmbedding("KnowledgeEmbedding", knowledge.id, tenantId, vec);
-      } catch (err) {
-        console.warn(
-          `[knowledge.upload] embedding upsert skipped for ${knowledge.id}:`,
-          err
-        );
-      }
-    }
+    await embedKnowledgeRow(knowledge, tenantId);
     return res.status(201).json(apiOk(knowledge));
   });
 }

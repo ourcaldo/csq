@@ -1,4 +1,5 @@
-﻿import prisma from "../src/lib/db";
+﻿import { randomUUID } from "crypto";
+import prisma from "../src/lib/db";
 import { hashPassword } from "../src/lib/password";
 import { upsertEmbedding } from "../src/lib/vector";
 import { embed, isEmbeddingsConfigured } from "../src/services/embeddings";
@@ -258,7 +259,7 @@ async function ensureKnowledge(
     await prisma.knowledge.update({ where: { id: existing.id }, data: { content } });
   } else {
     const created = await prisma.knowledge.create({
-      data: { tenantId, type, title, content },
+      data: { tenantId, type, title, content, groupId: randomUUID() },
     });
     await embedKnowledge(tenantId, created.id, title, content);
     return;

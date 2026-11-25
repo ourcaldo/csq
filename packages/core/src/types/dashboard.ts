@@ -122,11 +122,36 @@ export type Knowledge = {
   type: KnowledgeType;
   title: string;
   content: string;
+  // PRD 31: category label (null = "Umum") and entry grouping id. FAQ
+  // entries are one row per Q&A pair sharing a groupId.
+  category: string | null;
+  groupId: string;
   // FEA-1 (PRD 16): provenance for uploaded documents; null for manual entries.
   sourceName: string | null;
   mimeType: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+// PRD 31: grouped list item - one FAQ entry (N pairs) or one single-row
+// entry, as returned by GET /api/dashboard/knowledge.
+export type KnowledgeQaPair = { id: string; q: string; a: string };
+export type KnowledgeGroup = {
+  id: string;
+  type: KnowledgeType;
+  category: string | null;
+  title: string;
+  preview: string;
+  pairCount: number;
+  pairs: KnowledgeQaPair[];
+  sourceName: string | null;
+  updatedAt: string;
+};
+export type KnowledgeStats = {
+  total: number;
+  FAQ: number;
+  POLICY: number;
+  BUSINESS_INFO: number;
 };
 
 // Serialized joined classification rows - the shape the API returns for a

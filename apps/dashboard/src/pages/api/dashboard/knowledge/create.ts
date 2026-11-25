@@ -1,4 +1,5 @@
 ﻿import type { NextApiRequest, NextApiResponse } from "next";
+import { randomUUID } from "crypto";
 import type { Knowledge } from "@prisma/client";
 import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
@@ -6,9 +7,8 @@ import { logHuman } from "@csq/core/lib/audit";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
-import { knowledgeCreateSchema } from "@csq/core/types/knowledge";
-import { upsertEmbedding } from "@csq/core/lib/vector";
-import { embed, isEmbeddingsConfigured } from "@csq/core/services/embeddings";
+import { knowledgeCreateAnySchema } from "@csq/core/types/knowledge";
+import { embedKnowledgeRow } from "@csq/core/lib/knowledge-embed";
 
 export default async function handler(
   req: NextApiRequest,
@@ -27,13 +27,52 @@ export default async function handler(
       return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat membuat knowledge.");
     }
 
-    const parsed = knowledgeCreateSchema.safeParse(req.body);
+    const parsed = knowledgeCreateAnySchema.safeParse(req.body);
     if (!parsed.success) {
       return respondError(res, "VALIDATION_ERROR", parsed.error.message);
     }
 
+    // PRD 31: multi-pair FAQ entry = one row per Q&A pair sharing a groupId,
+    // so every pair keeps its own embedding and knowledge.search matches the
+    // specific pair. Single entries keep one row.
+    if (parsed.data.type === "FAQ" && "pairs" in parsed.data) {
+      const groupId = randomUUID();
+      const rows = await prisma.$transaction(
+        parsed.data.pairs.map((p) =>
+          prisma.knowledge.create({
+            data: {
+              tenantId,
+              type: "FAQ",
+              title: p.q,
+              content: p.a,
+              category: parsed.data.category ?? null,
+              groupId,
+            },
+          })
+        )
+      );
+      await logHuman({
+        tenantId,
+        action: "knowledge.create",
+        entityType: "Knowledge",
+        entityId: groupId,
+        afterValue: rows,
+      });
+      for (const row of rows) {
+        await embedKnowledgeRow(row, tenantId);
+      }
+      return res.status(200).json(apiOk(rows[0]));
+    }
+
     const knowledge = await prisma.knowledge.create({
-      data: { ...parsed.data, tenantId },
+      data: {
+        type: parsed.data.type,
+        title: parsed.data.title,
+        content: parsed.data.content,
+        category: parsed.data.category ?? null,
+        groupId: randomUUID(),
+        tenantId,
+      },
     });
     await logHuman({
       tenantId,
@@ -42,22 +81,7 @@ export default async function handler(
       entityId: knowledge.id,
       afterValue: knowledge,
     });
-    // Best-effort embedding so knowledge.search can retrieve this semantically.
-    // Graceful degradation: if the key is missing or the provider fails, the row is
-    // already saved - skip the embedding with a warning and let retrieval fall
-    // back to keyword search. A knowledge write MUST NEVER fail because of
-    // embeddings. All vector writes go through lib/vector.ts.
-    if (isEmbeddingsConfigured()) {
-      try {
-        const vec = await embed(`${knowledge.title}\n${knowledge.content}`);
-        await upsertEmbedding("KnowledgeEmbedding", knowledge.id, tenantId, vec);
-      } catch (err) {
-        console.warn(
-          `[knowledge.create] embedding upsert skipped for ${knowledge.id}:`,
-          err
-        );
-      }
-    }
-    return res.status(201).json(apiOk(knowledge));
+    await embedKnowledgeRow(knowledge, tenantId);
+    return res.status(200).json(apiOk(knowledge));
   });
 }
