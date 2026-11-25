@@ -1,9 +1,9 @@
 # PRD 31 - Pengetahuan: Kategori and Multi-Q&A FAQ Entries
 
-Status: DRAFT - written 2026-11-25 after the owner approved the design
-template (`docs/demo/2026-11-25-pengetahuan-page-demo.html`). Not yet
-approved for implementation; the open decisions in section 8 need the
-owner's word before build starts.
+Status: LIVE - approved by the owner on 2026-11-25 ("Please implement
+it"); the section 8 decisions were taken as the proposed defaults:
+six categories, 20-pair cap, no separate category filter in v1.
+Implemented and live-verified the same day (commit 5bee0ff).
 
 Related: PRD 03 section 15.4 (knowledge owner actions), PRD 16 FEA-1
 (document upload), PRD 06 section 23A (pgvector retrieval),
