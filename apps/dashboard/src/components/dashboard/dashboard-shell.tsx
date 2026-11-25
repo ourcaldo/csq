@@ -7,7 +7,7 @@
 // Client-side: session user comes from useSession() (pages are SSR-guarded by
 // withAuth, so a session always exists once mounted). Sidebar is static on md+
 // and a togglable overlay on mobile.
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
@@ -55,6 +55,11 @@ import { QuotaMenu } from "@/components/dashboard/quota-menu";
 import { NotificationsProvider } from "@/components/dashboard/notifications/notifications-context";
 import { NotificationBell } from "@/components/dashboard/notifications/notification-bell";
 import { NotificationPrefsMenu } from "@/components/dashboard/notifications/notification-prefs-menu";
+
+// The shell remounts on every route change, which recreates the nav and
+// snaps it back to the top. Module scope survives client-side navigation, so
+// the scroll position is remembered across pages.
+let navScrollTop = 0;
 
 type NavItem = {
   href: string;
@@ -133,6 +138,12 @@ export function DashboardShell({ title, description, actions, headerExtra, flush
   const [navOpen, setNavOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const navRef = useRef<HTMLElement>(null);
+  // Restore the nav scroll before paint so the sidebar does not flash to top
+  // on navigation (the module variable was saved by the previous instance).
+  useLayoutEffect(() => {
+    if (navRef.current) navRef.current.scrollTop = navScrollTop;
+  }, []);
 
   // PRD 28 Part E: collapsible sidebar. Persisted per browser; collapsed
   // shows icon-only items with title tooltips.
@@ -257,7 +268,13 @@ export function DashboardShell({ title, description, actions, headerExtra, flush
         </div>
 
         {/* Nav groups */}
-        <nav className="scrollbar-slim flex-1 space-y-4 overflow-y-auto overflow-x-hidden py-4 px-3">
+        <nav
+          ref={navRef}
+          onScroll={(e) => {
+            navScrollTop = e.currentTarget.scrollTop;
+          }}
+          className="scrollbar-slim flex-1 space-y-4 overflow-y-auto overflow-x-hidden py-4 px-3"
+        >
           {navGroups.map((group) => (
             <div key={group.label}>
               {!collapsed && (
