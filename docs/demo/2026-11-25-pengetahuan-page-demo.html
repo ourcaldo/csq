@@ -182,8 +182,9 @@
               <tr class="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                 <th class="px-4 py-3 font-medium">Judul</th>
                 <th class="px-4 py-3 font-medium">Jenis</th>
+                <th class="hidden px-4 py-3 font-medium md:table-cell">Kategori</th>
                 <th class="hidden px-4 py-3 font-medium sm:table-cell">Sumber</th>
-                <th class="hidden px-4 py-3 font-medium md:table-cell">Diperbarui</th>
+                <th class="hidden px-4 py-3 font-medium lg:table-cell">Diperbarui</th>
                 <th class="px-4 py-3 text-right font-medium">Aksi</th>
               </tr>
             </thead>
@@ -237,19 +238,41 @@
                   </div>
                 </div>
                 <div>
-                  <label for="entry-title" class="mb-1.5 block text-xs font-semibold text-slate-900">Judul</label>
-                  <input id="entry-title" required maxlength="120" placeholder="Contoh: Berapa lama pengiriman ke luar kota?"
-                    class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm placeholder-slate-400 focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/15" />
-                  <p class="mt-1 text-[11px] text-slate-500">Tulis seperti pertanyaan pelanggan agar mudah dicocokkan.</p>
+                  <label for="entry-category" class="mb-1.5 block text-xs font-semibold text-slate-900">Kategori</label>
+                  <select id="entry-category" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/15">
+                    <option value="Umum">Umum</option>
+                    <option value="Produk">Produk</option>
+                    <option value="Pengiriman">Pengiriman</option>
+                    <option value="Pembayaran">Pembayaran</option>
+                    <option value="Kebijakan">Kebijakan</option>
+                    <option value="Layanan">Layanan</option>
+                  </select>
+                  <p class="mt-1 text-[11px] text-slate-500">Kategori memudahkan pencarian dan pengelompokan di daftar.</p>
                 </div>
-                <div>
-                  <label for="entry-content" class="mb-1.5 block text-xs font-semibold text-slate-900">Isi jawaban</label>
-                  <textarea id="entry-content" required rows="10" placeholder="Tulis jawaban lengkap, termasuk angka, syarat, dan pengecualian..."
-                    class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm leading-relaxed placeholder-slate-400 focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/15"></textarea>
-                  <div class="mt-1 flex items-center justify-between text-[11px] text-slate-500">
-                    <span>Agen mengutip isi ini apa adanya. Sebutkan sumber harga atau kebijakan bila ada.</span>
-                    <span id="char-count" class="font-mono">0 karakter</span>
+
+                <!-- Mode tunggal (Kebijakan / Info Usaha) -->
+                <div id="field-single">
+                  <label for="entry-title" class="mb-1.5 block text-xs font-semibold text-slate-900">Judul</label>
+                  <input id="entry-title" maxlength="120" placeholder="Contoh: Kebijakan retur dan penukaran"
+                    class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm placeholder-slate-400 focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/15" />
+                  <div class="mt-4">
+                    <label for="entry-content" class="mb-1.5 block text-xs font-semibold text-slate-900">Isi</label>
+                    <textarea id="entry-content" rows="8" placeholder="Tulis isi lengkap, termasuk angka, syarat, dan pengecualian..."
+                      class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm leading-relaxed placeholder-slate-400 focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/15"></textarea>
+                    <p class="mt-1 text-[11px] text-slate-500">Agen mengutip isi ini apa adanya. Sebutkan sumber harga atau kebijakan bila ada.</p>
                   </div>
+                </div>
+
+                <!-- Mode FAQ: beberapa pasangan Q&A dalam satu entri -->
+                <div id="field-faq" class="hidden">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-semibold text-slate-900">Daftar pertanyaan &amp; jawaban</span>
+                    <button type="button" onclick="addQa()" class="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                      <i class="ph ph-plus"></i> Tambah Q&amp;A
+                    </button>
+                  </div>
+                  <p class="mt-1 text-[11px] text-slate-500">Satu entri FAQ bisa memuat beberapa pertanyaan yang saling terkait. Minimal satu pasangan.</p>
+                  <div id="faq-list" class="mt-3 space-y-3"></div>
                 </div>
               </div>
               <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-3">
@@ -339,15 +362,43 @@
 <script>
   // Demo data. Di aplikasi asli data datang dari /api/dashboard/knowledge.
   var entries = [
-    { id: 1, type: "FAQ", title: "Berapa lama pengiriman ke luar kota?", content: "Pengiriman reguler 3 sampai 5 hari kerja. Ekspedisi instan 1 sampai 2 hari kerja dengan biaya tambahan.", source: null, updated: "2026-11-24" },
-    { id: 2, type: "POLICY", title: "Kebijakan retur dan penukaran", content: "Retur diterima maksimal 7 hari setelah barang diterima, kemasan belum dibuka, dan pembeli menyertakan video unboxing.", source: "return-policy.pdf", updated: "2026-11-23" },
-    { id: 3, type: "BUSINESS_INFO", title: "Jam operasional dan alamat toko", content: "Buka Senin sampai Sabtu, 08.00 sampai 20.00 WIB. Minggu tutup. Alamat: Jl. Kopi Raya No. 12, Bandung.", source: null, updated: "2026-11-22" },
-    { id: 4, type: "FAQ", title: "Apakah bisa bayar di tempat?", content: "Bisa untuk area Bandung dan sekitarnya, maksimal Rp 2.000.000 per pesanan.", source: null, updated: "2026-11-21" },
-    { id: 5, type: "POLICY", title: "Garansi biji kopi", content: "Biji kopi bergaransi rasa maksimal 14 hari setelah tanggal roasting. Simpan di wadah kedap udara.", source: "garansi-produk.docx", updated: "2026-11-20" },
-    { id: 6, type: "BUSINESS_INFO", title: "Metode pembayaran yang diterima", content: "Transfer bank (BCA, Mandiri, BNI), QRIS, dan tunai di toko. Tidak menerima cek.", source: null, updated: "2026-11-18" },
-    { id: 7, type: "FAQ", title: "Minimal pembelian grosir?", content: "Grosir mulai 5 kg per varian dengan harga khusus. Hubungi tim untuk daftar harga grosir terbaru.", source: null, updated: "2026-11-15" },
-    { id: 8, type: "FAQ", title: "Bisa kirim ke luar Indonesia?", content: "Belum. Saat ini pengiriman hanya di dalam Indonesia.", source: null, updated: "2026-11-12" }
+    { id: 1, type: "FAQ", category: "Pengiriman", pairs: [
+        { q: "Berapa lama pengiriman ke luar kota?", a: "Pengiriman reguler 3 sampai 5 hari kerja. Ekspedisi instan 1 sampai 2 hari kerja dengan biaya tambahan." },
+        { q: "Apakah bisa pilih ekspedisi?", a: "Bisa JNE, J&T, atau SiCepat. Biaya menyesuaikan berat dan tujuan." },
+        { q: "Bagaimana cara cek resi?", a: "Kirim nomor pesanan ke chat ini, kami kirimkan status terbarunya." }
+      ], source: null, updated: "2026-11-24" },
+    { id: 2, type: "POLICY", category: "Kebijakan", title: "Kebijakan retur dan penukaran", content: "Retur diterima maksimal 7 hari setelah barang diterima, kemasan belum dibuka, dan pembeli menyertakan video unboxing.", source: "return-policy.pdf", updated: "2026-11-23" },
+    { id: 3, type: "BUSINESS_INFO", category: "Umum", title: "Jam operasional dan alamat toko", content: "Buka Senin sampai Sabtu, 08.00 sampai 20.00 WIB. Minggu tutup. Alamat: Jl. Kopi Raya No. 12, Bandung.", source: null, updated: "2026-11-22" },
+    { id: 4, type: "FAQ", category: "Pembayaran", pairs: [
+        { q: "Apakah bisa bayar di tempat?", a: "Bisa untuk area Bandung dan sekitarnya, maksimal Rp 2.000.000 per pesanan." },
+        { q: "Metode pembayaran apa yang diterima?", a: "Transfer bank (BCA, Mandiri, BNI), QRIS, dan tunai di toko." }
+      ], source: null, updated: "2026-11-21" },
+    { id: 5, type: "POLICY", category: "Produk", title: "Garansi biji kopi", content: "Biji kopi bergaransi rasa maksimal 14 hari setelah tanggal roasting. Simpan di wadah kedap udara.", source: "garansi-produk.docx", updated: "2026-11-20" },
+    { id: 6, type: "BUSINESS_INFO", category: "Pembayaran", title: "Metode pembayaran yang diterima", content: "Transfer bank (BCA, Mandiri, BNI), QRIS, dan tunai di toko. Tidak menerima cek.", source: null, updated: "2026-11-18" },
+    { id: 7, type: "FAQ", category: "Produk", pairs: [
+        { q: "Minimal pembelian grosir?", a: "Grosir mulai 5 kg per varian dengan harga khusus. Hubungi tim untuk daftar harga grosir terbaru." }
+      ], source: null, updated: "2026-11-15" },
+    { id: 8, type: "FAQ", category: "Pengiriman", pairs: [
+        { q: "Bisa kirim ke luar Indonesia?", a: "Belum. Saat ini pengiriman hanya di dalam Indonesia." }
+      ], source: null, updated: "2026-11-12" }
   ];
+
+  // FAQ entries hold a list of Q&A pairs; other types hold a single title/content body.
+  function entryTitle(e) { return e.type === "FAQ" ? (e.pairs && e.pairs[0] ? e.pairs[0].q : "(FAQ kosong)") : e.title; }
+  function entryPreview(e) {
+    if (e.type === "FAQ") {
+      var n = e.pairs ? e.pairs.length : 0;
+      if (n === 0) return "";
+      var heads = e.pairs.map(function (p) { return p.q; }).slice(0, 2).join(" | ");
+      return n + (n === 1 ? " pertanyaan: " : " pertanyaan: ") + heads + (n > 2 ? " (+" + (n - 2) + " lagi)" : "");
+    }
+    return e.content;
+  }
+  function searchText(e) {
+    var base = (e.category || "") + " " + (e.title || "") + " " + (e.content || "");
+    if (e.pairs) base += " " + e.pairs.map(function (p) { return p.q + " " + p.a; }).join(" ");
+    return base.toLowerCase();
+  }
   var activeType = "";
   var editingId = null;
   var pickedType = "FAQ";
@@ -383,17 +434,17 @@
     var rows = entries.filter(function (e) {
       if (activeType && e.type !== activeType) return false;
       if (!q) return true;
-      return (e.title + " " + e.content).toLowerCase().indexOf(q) !== -1;
+      return searchText(e).indexOf(q) !== -1;
     });
     rows.sort(function (a, b) {
-      if (sort === "title") return a.title.localeCompare(b.title, "id");
+      if (sort === "title") return entryTitle(a).localeCompare(entryTitle(b), "id");
       if (sort === "type") return a.type.localeCompare(b.type);
       return b.updated.localeCompare(a.updated);
     });
 
     var tbody = document.getElementById("tbody");
     if (rows.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-16 text-center">' +
+      tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-16 text-center">' +
         '<i class="ph ph-books text-3xl text-slate-300"></i>' +
         '<p class="mt-2 text-sm font-medium text-slate-700">Belum ada pengetahuan</p>' +
         '<p class="mt-1 text-xs text-slate-500">Tambahkan FAQ, kebijakan, atau unggah dokumen agar agen bisa menjawab.</p>' +
@@ -406,12 +457,13 @@
           : '<span class="text-xs text-slate-500">Manual</span>';
         return '<tr class="border-b border-slate-100 last:border-0 hover:bg-slate-50/60">' +
           '<td class="px-4 py-3">' +
-            '<p class="font-medium text-slate-900">' + esc(e.title) + "</p>" +
-            '<p class="mt-0.5 line-clamp-1 max-w-xl text-xs text-slate-500">' + esc(e.content) + "</p>" +
+            '<p class="font-medium text-slate-900">' + esc(entryTitle(e)) + "</p>" +
+            '<p class="mt-0.5 line-clamp-1 max-w-xl text-xs text-slate-500">' + esc(entryPreview(e)) + "</p>" +
           "</td>" +
-          '<td class="px-4 py-3"><span class="inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ' + TYPE_BADGE[e.type] + '">' + TYPE_LABEL[e.type] + "</span></td>" +
+          '<td class="px-4 py-3"><span class="inline-flex whitespace-nowrap rounded-md border px-2 py-0.5 text-[11px] font-medium ' + TYPE_BADGE[e.type] + '">' + TYPE_LABEL[e.type] + "</span></td>" +
+          '<td class="hidden px-4 py-3 md:table-cell"><span class="inline-flex items-center gap-1 whitespace-nowrap rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">' + esc(e.category || "Umum") + "</span></td>" +
           '<td class="hidden px-4 py-3 sm:table-cell">' + sourceCell + "</td>" +
-          '<td class="hidden px-4 py-3 text-xs text-slate-500 md:table-cell">' + formatDate(e.updated) + "</td>" +
+          '<td class="hidden px-4 py-3 text-xs text-slate-500 lg:table-cell">' + formatDate(e.updated) + "</td>" +
           '<td class="px-4 py-3 text-right">' +
             '<div class="flex justify-end gap-1.5">' +
               '<button onclick="editEntry(' + e.id + ')" class="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Edit</button>' +
@@ -442,6 +494,56 @@
         : "border-slate-200 bg-white font-medium text-slate-600 hover:border-slate-300");
       btns[i].setAttribute("aria-pressed", on ? "true" : "false");
     }
+    // FAQ = repeatable Q&A pairs; Kebijakan / Info Usaha = single title + body.
+    var isFaq = pickedType === "FAQ";
+    document.getElementById("field-single").classList.toggle("hidden", isFaq);
+    document.getElementById("field-faq").classList.toggle("hidden", !isFaq);
+    if (isFaq && document.getElementById("faq-list").children.length === 0) addQa();
+  }
+
+  function addQa(q, a) {
+    var list = document.getElementById("faq-list");
+    var div = document.createElement("div");
+    div.className = "qa-block rounded-lg border border-slate-200 bg-slate-50/60 p-4";
+    div.innerHTML =
+      '<div class="mb-2 flex items-center justify-between">' +
+        '<span class="qa-num text-[11px] font-semibold uppercase tracking-wide text-slate-500"></span>' +
+        '<button type="button" class="qa-remove rounded p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-600" aria-label="Hapus Q&A"><i class="ph ph-trash text-base"></i></button>' +
+      "</div>" +
+      '<label class="mb-1 block text-[11px] font-semibold text-slate-600">Pertanyaan</label>' +
+      '<input type="text" class="qa-q w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm placeholder-slate-400 focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/15" placeholder="Contoh: Berapa lama pengiriman?" />' +
+      '<label class="mb-1 mt-3 block text-[11px] font-semibold text-slate-600">Jawaban</label>' +
+      '<textarea rows="2" class="qa-a w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm leading-relaxed placeholder-slate-400 focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/15" placeholder="Jawab singkat dan spesifik..."></textarea>';
+    list.appendChild(div);
+    if (typeof q === "string") div.querySelector(".qa-q").value = q;
+    if (typeof a === "string") div.querySelector(".qa-a").value = a;
+    div.querySelector(".qa-remove").addEventListener("click", function () { removeQa(div); });
+    renumberQa();
+  }
+
+  function removeQa(block) {
+    var list = document.getElementById("faq-list");
+    if (list.children.length <= 1) { toast("Minimal satu pasang Q&A"); return; }
+    block.remove();
+    renumberQa();
+  }
+
+  function renumberQa() {
+    var blocks = document.querySelectorAll("#faq-list .qa-block");
+    for (var i = 0; i < blocks.length; i++) {
+      blocks[i].querySelector(".qa-num").textContent = "Q&A #" + (i + 1);
+    }
+  }
+
+  function collectQa() {
+    var out = [];
+    var blocks = document.querySelectorAll("#faq-list .qa-block");
+    for (var i = 0; i < blocks.length; i++) {
+      var q = blocks[i].querySelector(".qa-q").value.trim();
+      var a = blocks[i].querySelector(".qa-a").value.trim();
+      if (q || a) out.push({ q: q, a: a });
+    }
+    return out;
   }
 
   function showView(name) {
@@ -459,7 +561,8 @@
     document.getElementById("editor-title").textContent = "Tambah Pengetahuan";
     document.getElementById("entry-title").value = "";
     document.getElementById("entry-content").value = "";
-    document.getElementById("char-count").textContent = "0 karakter";
+    document.getElementById("entry-category").value = "Umum";
+    document.getElementById("faq-list").innerHTML = "";
     pickType(document.querySelector('.type-btn[data-type="FAQ"]'));
   }
 
@@ -469,26 +572,53 @@
     editingId = id;
     document.getElementById("editor-crumb").textContent = "Edit";
     document.getElementById("editor-title").textContent = "Edit Pengetahuan";
-    document.getElementById("entry-title").value = e.title;
-    document.getElementById("entry-content").value = e.content;
-    document.getElementById("char-count").textContent = e.content.length + " karakter";
+    document.getElementById("entry-category").value = e.category || "Umum";
+    if (e.type === "FAQ") {
+      document.getElementById("entry-title").value = "";
+      document.getElementById("entry-content").value = "";
+      document.getElementById("faq-list").innerHTML = "";
+      var pairs = e.pairs || [];
+      for (var i = 0; i < pairs.length; i++) addQa(pairs[i].q, pairs[i].a);
+    } else {
+      document.getElementById("entry-title").value = e.title || "";
+      document.getElementById("entry-content").value = e.content || "";
+      document.getElementById("faq-list").innerHTML = "";
+    }
     pickType(document.querySelector('.type-btn[data-type="' + e.type + '"]'));
     showView("editor");
   }
 
   function saveEntry(ev) {
     ev.preventDefault();
-    var title = document.getElementById("entry-title").value.trim();
-    var content = document.getElementById("entry-content").value.trim();
-    if (!title || !content) return;
+    var category = document.getElementById("entry-category").value;
     var today = new Date().toISOString().slice(0, 10);
-    if (editingId !== null) {
-      var e = entries.find(function (x) { return x.id === editingId; });
-      if (e) { e.title = title; e.content = content; e.type = pickedType; e.updated = today; }
-      toast("Pengetahuan diperbarui");
+
+    if (pickedType === "FAQ") {
+      var pairs = collectQa();
+      if (pairs.length === 0) { toast("Tambahkan minimal satu pasangan Q&A"); return; }
+      for (var i = 0; i < pairs.length; i++) {
+        if (!pairs[i].q || !pairs[i].a) { toast("Lengkapi pertanyaan dan jawaban di Q&A #" + (i + 1)); return; }
+      }
+      if (editingId !== null) {
+        var fe = entries.find(function (x) { return x.id === editingId; });
+        if (fe) { fe.type = "FAQ"; fe.category = category; fe.pairs = pairs; delete fe.title; delete fe.content; fe.updated = today; }
+        toast("Pengetahuan diperbarui");
+      } else {
+        entries.unshift({ id: Date.now(), type: "FAQ", category: category, pairs: pairs, source: null, updated: today });
+        toast("Pengetahuan ditambahkan");
+      }
     } else {
-      entries.unshift({ id: Date.now(), type: pickedType, title: title, content: content, source: null, updated: today });
-      toast("Pengetahuan ditambahkan");
+      var title = document.getElementById("entry-title").value.trim();
+      var content = document.getElementById("entry-content").value.trim();
+      if (!title || !content) { toast("Isi judul dan isi terlebih dahulu"); return; }
+      if (editingId !== null) {
+        var e = entries.find(function (x) { return x.id === editingId; });
+        if (e) { e.type = pickedType; e.category = category; e.title = title; e.content = content; delete e.pairs; e.updated = today; }
+        toast("Pengetahuan diperbarui");
+      } else {
+        entries.unshift({ id: Date.now(), type: pickedType, category: category, title: title, content: content, source: null, updated: today });
+        toast("Pengetahuan ditambahkan");
+      }
     }
     showView("list");
     renderRows();
@@ -497,7 +627,7 @@
   function deleteEntry(id) {
     var e = entries.find(function (x) { return x.id === id; });
     if (!e) return;
-    if (!confirm('Hapus "' + e.title + '"? Tindakan ini tidak dapat dibatalkan.')) return;
+    if (!confirm('Hapus "' + entryTitle(e) + '"? Tindakan ini tidak dapat dibatalkan.')) return;
     entries = entries.filter(function (x) { return x.id !== id; });
     renderRows();
     toast("Pengetahuan dihapus");
@@ -515,7 +645,7 @@
     if (f.size > 10 * 1024 * 1024) { toast("Dokumen maksimal 10 MB"); return; }
     var title = document.getElementById("upload-title").value.trim() || f.name.replace(/\.(pdf|docx)$/i, "");
     entries.unshift({
-      id: Date.now(), type: "BUSINESS_INFO", title: title,
+      id: Date.now(), type: "BUSINESS_INFO", category: "Umum", title: title,
       content: "Dokumen terunggah. Teks diekstrak otomatis dan diindeks untuk pencarian agen.",
       source: f.name, updated: new Date().toISOString().slice(0, 10)
     });
@@ -543,10 +673,6 @@
     if (open) { sb.classList.remove("-translate-x-full"); ov.classList.remove("hidden"); }
     else { sb.classList.add("-translate-x-full"); ov.classList.add("hidden"); }
   }
-
-  document.getElementById("entry-content").addEventListener("input", function () {
-    document.getElementById("char-count").textContent = this.value.length + " karakter";
-  });
 
   renderRows();
 </script>
