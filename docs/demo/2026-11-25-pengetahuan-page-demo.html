@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pengetahuan - CSQ (Demo Interaktif)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<style>
+  body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .modal-backdrop { background: rgba(15, 23, 42, 0.45); }
+  .nav-item-active { background-color: rgb(240 253 244); color: rgb(21 128 61); font-weight: 600; }
+  .chip-active { background-color: #15803d !important; color: #fff !important; border-color: #15803d !important; }
+  .stat-value { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+<!-- ======== Sidebar (sama dengan shell dashboard) ======== -->
+<aside id="sidebar" class="fixed inset-y-0 left-0 z-40 flex w-64 shrink-0 -translate-x-full flex-col border-r border-slate-200 bg-white transition-transform md:translate-x-0">
+  <div class="flex h-16 items-center gap-2 border-b border-slate-100 px-6">
+    <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-green-600 text-white"><i class="ph-fill ph-chat-circle-dots text-xl"></i></div>
+    <span class="text-xl font-bold tracking-tight text-slate-900">CSQ</span>
+  </div>
+  <nav class="flex-1 space-y-4 overflow-y-auto px-3 py-4 text-sm">
+    <div>
+      <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Utama</p>
+      <div class="space-y-0.5">
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-chart-bar text-lg text-slate-500"></i>Ringkasan</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-chat-circle-dots text-lg text-slate-500"></i>Percakapan</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-lifebuoy text-lg text-slate-500"></i>Tiket</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-megaphone text-lg text-slate-500"></i>Kampanye</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-notepad text-lg text-slate-500"></i>Template Pesan</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-whatsapp-logo text-lg text-slate-500"></i>Saluran</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-kanban text-lg text-slate-500"></i>Manajemen Pipeline</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-target text-lg text-slate-500"></i>KPI</a>
+      </div>
+    </div>
+    <div>
+      <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Data Bisnis</p>
+      <div class="space-y-0.5">
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-package text-lg text-slate-500"></i>Produk</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-stack text-lg text-slate-500"></i>Inventaris</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-shopping-cart text-lg text-slate-500"></i>Pesanan</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-address-book text-lg text-slate-500"></i>Kontak</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-tag text-lg text-slate-500"></i>Tag</a>
+      </div>
+    </div>
+    <div>
+      <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Pengetahuan</p>
+      <div class="space-y-0.5">
+        <a class="nav-item-active flex items-center gap-3 rounded-lg px-3 py-2"><i class="ph ph-books text-lg"></i>Pengetahuan</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-brain text-lg text-slate-500"></i>Memori</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-database text-lg text-slate-500"></i>Sumber Data</a>
+      </div>
+    </div>
+    <div>
+      <p class="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Agent</p>
+      <div class="space-y-0.5">
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-robot text-lg text-slate-500"></i>Agent</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-flow-arrow text-lg text-slate-500"></i>Skenario</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-seal-check text-lg text-slate-500"></i>Approval</a>
+        <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-clock-counter-clockwise text-lg text-slate-500"></i>Aktivitas</a>
+      </div>
+    </div>
+  </nav>
+  <div class="space-y-0.5 border-t border-slate-200 p-3 text-sm">
+    <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-gear text-lg text-slate-500"></i>Pengaturan</a>
+    <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-users text-lg text-slate-500"></i>Tim</a>
+    <a class="flex items-center gap-3 rounded-lg px-3 py-2 text-slate-600 hover:bg-slate-50"><i class="ph ph-wallet text-lg text-slate-500"></i>Paket &amp; Kuota</a>
+  </div>
+</aside>
+
+<div id="nav-overlay" class="modal-backdrop fixed inset-0 z-30 hidden md:hidden" onclick="toggleNav(false)"></div>
+
+<!-- ======== Main ======== -->
+<div class="flex min-w-0 flex-col md:pl-64">
+
+  <header class="flex h-16 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4 md:px-6">
+    <button class="rounded-md p-2 text-slate-600 hover:bg-slate-100 md:hidden" onclick="toggleNav(true)" aria-label="Buka menu"><i class="ph ph-list text-2xl"></i></button>
+    <div class="relative mx-2 hidden w-full max-w-xl sm:block">
+      <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+      <input type="text" placeholder="Cari atau ketik perintah..." class="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-10 pr-4 text-sm placeholder-slate-400 focus:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-200" />
+    </div>
+    <div class="flex items-center gap-3 md:gap-4">
+      <button class="relative text-slate-400 transition-colors hover:text-slate-600" aria-label="Notifikasi"><i class="ph ph-bell text-2xl"></i></button>
+      <div class="mx-1 hidden h-6 w-px bg-slate-200 sm:block"></div>
+      <div class="relative">
+        <button class="flex items-center gap-2 rounded-md p-1 hover:bg-slate-100">
+          <div class="flex h-8 w-8 items-center justify-center rounded-full bg-green-600 text-sm font-semibold text-white">B</div>
+          <i class="ph ph-caret-down hidden text-slate-400 sm:block"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 overflow-y-auto">
+
+    <!-- ======== VIEW 1: Daftar ======== -->
+    <section id="view-list">
+      <div class="border-b border-slate-200 bg-white px-4 py-4 md:px-6">
+        <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+          <div class="min-w-0">
+            <h1 class="text-xl font-bold text-slate-900">Pengetahuan</h1>
+            <p class="mt-0.5 text-sm text-slate-500">FAQ, kebijakan, dan info usaha yang dipakai agen saat menjawab pelanggan.</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button onclick="showView('upload')" class="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+              <i class="ph ph-upload-simple text-base"></i> Unggah Dokumen
+            </button>
+            <button onclick="showView('editor')" class="inline-flex items-center gap-2 rounded-md bg-green-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-green-700">
+              <i class="ph ph-plus text-base"></i> Tambah Pengetahuan
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-4 md:p-6">
+        <!-- Stat strip -->
+        <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div class="rounded-xl border border-slate-200 bg-white p-4">
+            <div class="flex items-center justify-between">
+              <p class="text-xs font-medium text-slate-500">Total entri</p>
+              <i class="ph ph-books text-lg text-slate-300"></i>
+            </div>
+            <p class="stat-value mt-2 text-2xl font-bold text-slate-900" id="stat-total">0</p>
+            <p class="mt-0.5 text-[11px] text-slate-400">Semua jenis pengetahuan</p>
+          </div>
+          <div class="rounded-xl border border-slate-200 bg-white p-4">
+            <div class="flex items-center justify-between">
+              <p class="text-xs font-medium text-slate-500">FAQ</p>
+              <i class="ph ph-question text-lg text-green-500"></i>
+            </div>
+            <p class="stat-value mt-2 text-2xl font-bold text-slate-900" id="stat-faq">0</p>
+            <p class="mt-0.5 text-[11px] text-slate-400">Pertanyaan yang sering ditanya</p>
+          </div>
+          <div class="rounded-xl border border-slate-200 bg-white p-4">
+            <div class="flex items-center justify-between">
+              <p class="text-xs font-medium text-slate-500">Kebijakan</p>
+              <i class="ph ph-scroll text-lg text-amber-500"></i>
+            </div>
+            <p class="stat-value mt-2 text-2xl font-bold text-slate-900" id="stat-policy">0</p>
+            <p class="mt-0.5 text-[11px] text-slate-400">Aturan retur, kirim, garansi</p>
+          </div>
+          <div class="rounded-xl border border-slate-200 bg-white p-4">
+            <div class="flex items-center justify-between">
+              <p class="text-xs font-medium text-slate-500">Info usaha</p>
+              <i class="ph ph-storefront text-lg text-blue-500"></i>
+            </div>
+            <p class="stat-value mt-2 text-2xl font-bold text-slate-900" id="stat-info">0</p>
+            <p class="mt-0.5 text-[11px] text-slate-400">Jam buka, alamat, pembayaran</p>
+          </div>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="mt-4 flex flex-wrap items-center gap-2">
+          <div class="relative min-w-[220px] flex-1 md:max-w-sm">
+            <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <input id="search" type="search" oninput="renderRows()" placeholder="Cari judul atau isi pengetahuan..." aria-label="Cari pengetahuan"
+              class="w-full rounded-lg border border-slate-200 bg-white py-2 pl-10 pr-4 text-sm placeholder-slate-400 focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/15" />
+          </div>
+          <div class="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filter jenis">
+            <button class="chip chip-active rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300" data-type="" onclick="setType(this)">Semua</button>
+            <button class="chip rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300" data-type="FAQ" onclick="setType(this)">FAQ</button>
+            <button class="chip rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300" data-type="POLICY" onclick="setType(this)">Kebijakan</button>
+            <button class="chip rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:border-slate-300" data-type="BUSINESS_INFO" onclick="setType(this)">Info Usaha</button>
+          </div>
+          <div class="ml-auto flex items-center gap-2">
+            <label for="sort" class="sr-only">Urutkan</label>
+            <select id="sort" onchange="renderRows()" class="rounded-lg border border-slate-200 bg-white py-2 pl-3 pr-8 text-xs text-slate-600 focus:border-green-600 focus:outline-none">
+              <option value="updated">Terbaru diperbarui</option>
+              <option value="title">Judul A-Z</option>
+              <option value="type">Jenis</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Table -->
+        <div class="mt-3 overflow-x-auto rounded-xl border border-slate-200 bg-white">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-slate-200 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+                <th class="px-4 py-3 font-medium">Judul</th>
+                <th class="px-4 py-3 font-medium">Jenis</th>
+                <th class="hidden px-4 py-3 font-medium sm:table-cell">Sumber</th>
+                <th class="hidden px-4 py-3 font-medium md:table-cell">Diperbarui</th>
+                <th class="px-4 py-3 text-right font-medium">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+          <div class="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 px-4 py-3">
+            <p id="count-label" class="text-xs text-slate-500"></p>
+            <div class="flex items-center gap-1">
+              <button class="rounded-md border border-slate-200 px-2.5 py-1.5 text-xs text-slate-500 disabled:opacity-40" disabled><i class="ph ph-caret-left"></i></button>
+              <span class="rounded-md bg-green-50 px-2.5 py-1.5 text-xs font-semibold text-green-700">1</span>
+              <button class="rounded-md border border-slate-200 px-2.5 py-1.5 text-xs text-slate-500 disabled:opacity-40" disabled><i class="ph ph-caret-right"></i></button>
+            </div>
+          </div>
+        </div>
+
+        <p class="mt-3 flex items-start gap-1.5 text-xs text-slate-500">
+          <i class="ph ph-info mt-0.5 text-sm text-slate-400"></i>
+          Pengetahuan dicari agen sesuai kebutuhan percakapan, bukan dimuat sekaligus ke prompt.
+        </p>
+      </div>
+    </section>
+
+    <!-- ======== VIEW 2: Editor halaman penuh (bukan modal) ======== -->
+    <section id="view-editor" class="hidden">
+      <div class="border-b border-slate-200 bg-white px-4 py-4 md:px-6">
+        <nav class="flex items-center gap-1.5 text-xs text-slate-500" aria-label="Breadcrumb">
+          <button onclick="showView('list')" class="inline-flex items-center gap-1 hover:text-slate-800"><i class="ph ph-arrow-left"></i> Pengetahuan</button>
+          <span>/</span>
+          <span id="editor-crumb" class="font-medium text-slate-800">Tambah</span>
+        </nav>
+        <div class="mt-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <div>
+            <h1 id="editor-title" class="text-xl font-bold text-slate-900">Tambah Pengetahuan</h1>
+            <p class="mt-0.5 text-sm text-slate-500">Tulis satu topik per entri agar agen mudah menemukan jawaban yang tepat.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-4 md:p-6">
+        <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <!-- Form -->
+          <form id="editor-form" class="lg:col-span-2" onsubmit="saveEntry(event)">
+            <div class="rounded-xl border border-slate-200 bg-white">
+              <div class="space-y-5 p-5">
+                <div>
+                  <span class="mb-1.5 block text-xs font-semibold text-slate-900">Jenis pengetahuan</span>
+                  <div class="flex flex-wrap gap-2" role="radiogroup" aria-label="Jenis pengetahuan">
+                    <button type="button" class="type-btn rounded-lg border border-green-600 bg-green-50 px-3 py-2 text-xs font-semibold text-green-700" data-type="FAQ" onclick="pickType(this)" aria-pressed="true">FAQ</button>
+                    <button type="button" class="type-btn rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:border-slate-300" data-type="POLICY" onclick="pickType(this)" aria-pressed="false">Kebijakan</button>
+                    <button type="button" class="type-btn rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600 hover:border-slate-300" data-type="BUSINESS_INFO" onclick="pickType(this)" aria-pressed="false">Info Usaha</button>
+                  </div>
+                </div>
+                <div>
+                  <label for="entry-title" class="mb-1.5 block text-xs font-semibold text-slate-900">Judul</label>
+                  <input id="entry-title" required maxlength="120" placeholder="Contoh: Berapa lama pengiriman ke luar kota?"
+                    class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm placeholder-slate-400 focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/15" />
+                  <p class="mt-1 text-[11px] text-slate-500">Tulis seperti pertanyaan pelanggan agar mudah dicocokkan.</p>
+                </div>
+                <div>
+                  <label for="entry-content" class="mb-1.5 block text-xs font-semibold text-slate-900">Isi jawaban</label>
+                  <textarea id="entry-content" required rows="10" placeholder="Tulis jawaban lengkap, termasuk angka, syarat, dan pengecualian..."
+                    class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm leading-relaxed placeholder-slate-400 focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/15"></textarea>
+                  <div class="mt-1 flex items-center justify-between text-[11px] text-slate-500">
+                    <span>Agen mengutip isi ini apa adanya. Sebutkan sumber harga atau kebijakan bila ada.</span>
+                    <span id="char-count" class="font-mono">0 karakter</span>
+                  </div>
+                </div>
+              </div>
+              <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-3">
+                <button type="button" onclick="showView('list')" class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Batal</button>
+                <button type="submit" class="rounded-md bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700">Simpan Pengetahuan</button>
+              </div>
+            </div>
+          </form>
+
+          <!-- Rail -->
+          <div class="space-y-3">
+            <div class="rounded-xl border border-slate-200 bg-white p-4">
+              <p class="flex items-center gap-1.5 text-xs font-semibold text-slate-900"><i class="ph ph-magic-wand text-sm text-green-600"></i> Cara agen memakai entri ini</p>
+              <ul class="mt-2 space-y-1.5 text-xs leading-relaxed text-slate-500">
+                <li class="flex gap-1.5"><i class="ph ph-check mt-0.5 text-sm text-green-600"></i> Dicari saat pelanggan bertanya hal yang mirip.</li>
+                <li class="flex gap-1.5"><i class="ph ph-check mt-0.5 text-sm text-green-600"></i> Jawaban tetap dalam batas izin dan kebijakan Anda.</li>
+                <li class="flex gap-1.5"><i class="ph ph-check mt-0.5 text-sm text-green-600"></i> Bila tidak yakin, agen mengalihkan ke staf, tidak mengarang.</li>
+              </ul>
+            </div>
+            <div class="rounded-xl border border-amber-200 bg-amber-50/60 p-4">
+              <p class="flex items-center gap-1.5 text-xs font-semibold text-amber-800"><i class="ph ph-lightbulb text-sm"></i> Tips menulis</p>
+              <ul class="mt-2 space-y-1.5 text-xs leading-relaxed text-amber-800/90">
+                <li>Satu topik per entri, judul singkat dan spesifik.</li>
+                <li>Tulis angka dan satuan dengan jelas (Rp, hari, jam).</li>
+                <li>Perbarui saat harga atau kebijakan berubah.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======== VIEW 3: Unggah dokumen halaman penuh ======== -->
+    <section id="view-upload" class="hidden">
+      <div class="border-b border-slate-200 bg-white px-4 py-4 md:px-6">
+        <nav class="flex items-center gap-1.5 text-xs text-slate-500" aria-label="Breadcrumb">
+          <button onclick="showView('list')" class="inline-flex items-center gap-1 hover:text-slate-800"><i class="ph ph-arrow-left"></i> Pengetahuan</button>
+          <span>/</span>
+          <span class="font-medium text-slate-800">Unggah Dokumen</span>
+        </nav>
+        <div class="mt-2">
+          <h1 class="text-xl font-bold text-slate-900">Unggah Dokumen</h1>
+          <p class="mt-0.5 text-sm text-slate-500">PDF atau DOCX. Teks diekstrak otomatis dan langsung bisa dicari agen.</p>
+        </div>
+      </div>
+
+      <div class="p-4 md:p-6">
+        <form onsubmit="saveUpload(event)" class="max-w-3xl">
+          <div class="rounded-xl border border-slate-200 bg-white">
+            <div class="space-y-5 p-5">
+              <div>
+                <span class="mb-1.5 block text-xs font-semibold text-slate-900">Berkas</span>
+                <label for="upload-file" class="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-slate-50/60 px-6 py-10 text-center transition-colors hover:border-green-500 hover:bg-green-50/40">
+                  <i class="ph ph-file-arrow-up text-3xl text-slate-400"></i>
+                  <span id="upload-name" class="mt-2 text-sm font-medium text-slate-700">Pilih berkas atau tarik ke sini</span>
+                  <span class="mt-1 text-xs text-slate-500">PDF atau DOCX, maksimal 10 MB</span>
+                  <input id="upload-file" type="file" accept=".pdf,.docx" class="sr-only" onchange="onFile(this)" />
+                </label>
+              </div>
+              <div>
+                <label for="upload-title" class="mb-1.5 block text-xs font-semibold text-slate-900">Judul (opsional)</label>
+                <input id="upload-title" placeholder="Kosongkan untuk memakai nama berkas"
+                  class="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm placeholder-slate-400 focus:border-green-600 focus:outline-none focus:ring-2 focus:ring-green-600/15" />
+              </div>
+              <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
+                <p class="flex items-start gap-1.5"><i class="ph ph-info mt-0.5 text-sm text-slate-400"></i>
+                  Setelah diunggah, dokumen dipecah menjadi potongan kecil dan diberi indeks agar agen bisa mengutip bagian yang relevan saat menjawab.</p>
+              </div>
+            </div>
+            <div class="flex items-center justify-end gap-2 border-t border-slate-200 px-5 py-3">
+              <button type="button" onclick="showView('list')" class="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">Batal</button>
+              <button type="submit" class="rounded-md bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700">Unggah Dokumen</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="pointer-events-none fixed bottom-6 right-6 z-50 hidden items-center gap-2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-lg">
+  <i class="ph ph-check-circle text-lg text-green-400"></i><span id="toast-text">Tersimpan</span>
+</div>
+
+<script>
+  // Demo data. Di aplikasi asli data datang dari /api/dashboard/knowledge.
+  var entries = [
+    { id: 1, type: "FAQ", title: "Berapa lama pengiriman ke luar kota?", content: "Pengiriman reguler 3 sampai 5 hari kerja. Ekspedisi instan 1 sampai 2 hari kerja dengan biaya tambahan.", source: null, updated: "2026-11-24" },
+    { id: 2, type: "POLICY", title: "Kebijakan retur dan penukaran", content: "Retur diterima maksimal 7 hari setelah barang diterima, kemasan belum dibuka, dan pembeli menyertakan video unboxing.", source: "return-policy.pdf", updated: "2026-11-23" },
+    { id: 3, type: "BUSINESS_INFO", title: "Jam operasional dan alamat toko", content: "Buka Senin sampai Sabtu, 08.00 sampai 20.00 WIB. Minggu tutup. Alamat: Jl. Kopi Raya No. 12, Bandung.", source: null, updated: "2026-11-22" },
+    { id: 4, type: "FAQ", title: "Apakah bisa bayar di tempat?", content: "Bisa untuk area Bandung dan sekitarnya, maksimal Rp 2.000.000 per pesanan.", source: null, updated: "2026-11-21" },
+    { id: 5, type: "POLICY", title: "Garansi biji kopi", content: "Biji kopi bergaransi rasa maksimal 14 hari setelah tanggal roasting. Simpan di wadah kedap udara.", source: "garansi-produk.docx", updated: "2026-11-20" },
+    { id: 6, type: "BUSINESS_INFO", title: "Metode pembayaran yang diterima", content: "Transfer bank (BCA, Mandiri, BNI), QRIS, dan tunai di toko. Tidak menerima cek.", source: null, updated: "2026-11-18" },
+    { id: 7, type: "FAQ", title: "Minimal pembelian grosir?", content: "Grosir mulai 5 kg per varian dengan harga khusus. Hubungi tim untuk daftar harga grosir terbaru.", source: null, updated: "2026-11-15" },
+    { id: 8, type: "FAQ", title: "Bisa kirim ke luar Indonesia?", content: "Belum. Saat ini pengiriman hanya di dalam Indonesia.", source: null, updated: "2026-11-12" }
+  ];
+  var activeType = "";
+  var editingId = null;
+  var pickedType = "FAQ";
+
+  var TYPE_LABEL = { FAQ: "FAQ", POLICY: "Kebijakan", BUSINESS_INFO: "Info Usaha" };
+  var TYPE_BADGE = {
+    FAQ: "bg-green-50 text-green-700 border-green-200",
+    POLICY: "bg-amber-50 text-amber-700 border-amber-200",
+    BUSINESS_INFO: "bg-blue-50 text-blue-700 border-blue-200"
+  };
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+
+  function formatDate(iso) {
+    var d = new Date(iso + "T00:00:00");
+    return d.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" });
+  }
+
+  function stats() {
+    document.getElementById("stat-total").textContent = entries.length;
+    document.getElementById("stat-faq").textContent = entries.filter(function (e) { return e.type === "FAQ"; }).length;
+    document.getElementById("stat-policy").textContent = entries.filter(function (e) { return e.type === "POLICY"; }).length;
+    document.getElementById("stat-info").textContent = entries.filter(function (e) { return e.type === "BUSINESS_INFO"; }).length;
+  }
+
+  function renderRows() {
+    var q = (document.getElementById("search").value || "").toLowerCase().trim();
+    var sort = document.getElementById("sort").value;
+    var rows = entries.filter(function (e) {
+      if (activeType && e.type !== activeType) return false;
+      if (!q) return true;
+      return (e.title + " " + e.content).toLowerCase().indexOf(q) !== -1;
+    });
+    rows.sort(function (a, b) {
+      if (sort === "title") return a.title.localeCompare(b.title, "id");
+      if (sort === "type") return a.type.localeCompare(b.type);
+      return b.updated.localeCompare(a.updated);
+    });
+
+    var tbody = document.getElementById("tbody");
+    if (rows.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-16 text-center">' +
+        '<i class="ph ph-books text-3xl text-slate-300"></i>' +
+        '<p class="mt-2 text-sm font-medium text-slate-700">Belum ada pengetahuan</p>' +
+        '<p class="mt-1 text-xs text-slate-500">Tambahkan FAQ, kebijakan, atau unggah dokumen agar agen bisa menjawab.</p>' +
+        '<button onclick="showView(\'editor\')" class="mt-4 inline-flex items-center gap-1.5 rounded-md bg-green-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-green-700"><i class="ph ph-plus"></i> Tambah Pengetahuan</button>' +
+        "</td></tr>";
+    } else {
+      tbody.innerHTML = rows.map(function (e) {
+        var sourceCell = e.source
+          ? '<span class="inline-flex max-w-[180px] items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[11px] text-slate-600"><i class="ph ph-file-text"></i><span class="truncate">' + esc(e.source) + "</span></span>"
+          : '<span class="text-xs text-slate-500">Manual</span>';
+        return '<tr class="border-b border-slate-100 last:border-0 hover:bg-slate-50/60">' +
+          '<td class="px-4 py-3">' +
+            '<p class="font-medium text-slate-900">' + esc(e.title) + "</p>" +
+            '<p class="mt-0.5 line-clamp-1 max-w-xl text-xs text-slate-500">' + esc(e.content) + "</p>" +
+          "</td>" +
+          '<td class="px-4 py-3"><span class="inline-flex rounded-md border px-2 py-0.5 text-[11px] font-medium ' + TYPE_BADGE[e.type] + '">' + TYPE_LABEL[e.type] + "</span></td>" +
+          '<td class="hidden px-4 py-3 sm:table-cell">' + sourceCell + "</td>" +
+          '<td class="hidden px-4 py-3 text-xs text-slate-500 md:table-cell">' + formatDate(e.updated) + "</td>" +
+          '<td class="px-4 py-3 text-right">' +
+            '<div class="flex justify-end gap-1.5">' +
+              '<button onclick="editEntry(' + e.id + ')" class="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50">Edit</button>' +
+              '<button onclick="deleteEntry(' + e.id + ')" class="rounded-md px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50">Hapus</button>' +
+            "</div>" +
+          "</td></tr>";
+      }).join("");
+    }
+    document.getElementById("count-label").textContent = rows.length + " dari " + entries.length + " entri";
+    stats();
+  }
+
+  function setType(btn) {
+    activeType = btn.getAttribute("data-type");
+    var chips = document.querySelectorAll(".chip");
+    for (var i = 0; i < chips.length; i++) chips[i].classList.remove("chip-active");
+    btn.classList.add("chip-active");
+    renderRows();
+  }
+
+  function pickType(btn) {
+    pickedType = btn.getAttribute("data-type");
+    var btns = document.querySelectorAll(".type-btn");
+    for (var i = 0; i < btns.length; i++) {
+      var on = btns[i] === btn;
+      btns[i].className = "type-btn rounded-lg border px-3 py-2 text-xs " + (on
+        ? "border-green-600 bg-green-50 font-semibold text-green-700"
+        : "border-slate-200 bg-white font-medium text-slate-600 hover:border-slate-300");
+      btns[i].setAttribute("aria-pressed", on ? "true" : "false");
+    }
+  }
+
+  function showView(name) {
+    document.getElementById("view-list").classList.toggle("hidden", name !== "list");
+    document.getElementById("view-editor").classList.toggle("hidden", name !== "editor");
+    document.getElementById("view-upload").classList.toggle("hidden", name !== "upload");
+    if (name === "editor" && editingId === null) resetEditor();
+    window.scrollTo(0, 0);
+  }
+
+  function resetEditor() {
+    editingId = null;
+    pickedType = "FAQ";
+    document.getElementById("editor-crumb").textContent = "Tambah";
+    document.getElementById("editor-title").textContent = "Tambah Pengetahuan";
+    document.getElementById("entry-title").value = "";
+    document.getElementById("entry-content").value = "";
+    document.getElementById("char-count").textContent = "0 karakter";
+    pickType(document.querySelector('.type-btn[data-type="FAQ"]'));
+  }
+
+  function editEntry(id) {
+    var e = entries.find(function (x) { return x.id === id; });
+    if (!e) return;
+    editingId = id;
+    document.getElementById("editor-crumb").textContent = "Edit";
+    document.getElementById("editor-title").textContent = "Edit Pengetahuan";
+    document.getElementById("entry-title").value = e.title;
+    document.getElementById("entry-content").value = e.content;
+    document.getElementById("char-count").textContent = e.content.length + " karakter";
+    pickType(document.querySelector('.type-btn[data-type="' + e.type + '"]'));
+    showView("editor");
+  }
+
+  function saveEntry(ev) {
+    ev.preventDefault();
+    var title = document.getElementById("entry-title").value.trim();
+    var content = document.getElementById("entry-content").value.trim();
+    if (!title || !content) return;
+    var today = new Date().toISOString().slice(0, 10);
+    if (editingId !== null) {
+      var e = entries.find(function (x) { return x.id === editingId; });
+      if (e) { e.title = title; e.content = content; e.type = pickedType; e.updated = today; }
+      toast("Pengetahuan diperbarui");
+    } else {
+      entries.unshift({ id: Date.now(), type: pickedType, title: title, content: content, source: null, updated: today });
+      toast("Pengetahuan ditambahkan");
+    }
+    showView("list");
+    renderRows();
+  }
+
+  function deleteEntry(id) {
+    var e = entries.find(function (x) { return x.id === id; });
+    if (!e) return;
+    if (!confirm('Hapus "' + e.title + '"? Tindakan ini tidak dapat dibatalkan.')) return;
+    entries = entries.filter(function (x) { return x.id !== id; });
+    renderRows();
+    toast("Pengetahuan dihapus");
+  }
+
+  function onFile(input) {
+    var f = input.files && input.files[0];
+    document.getElementById("upload-name").textContent = f ? f.name : "Pilih berkas atau tarik ke sini";
+  }
+
+  function saveUpload(ev) {
+    ev.preventDefault();
+    var f = document.getElementById("upload-file").files[0];
+    if (!f) { toast("Pilih berkas PDF atau DOCX dulu"); return; }
+    if (f.size > 10 * 1024 * 1024) { toast("Dokumen maksimal 10 MB"); return; }
+    var title = document.getElementById("upload-title").value.trim() || f.name.replace(/\.(pdf|docx)$/i, "");
+    entries.unshift({
+      id: Date.now(), type: "BUSINESS_INFO", title: title,
+      content: "Dokumen terunggah. Teks diekstrak otomatis dan diindeks untuk pencarian agen.",
+      source: f.name, updated: new Date().toISOString().slice(0, 10)
+    });
+    document.getElementById("upload-file").value = "";
+    document.getElementById("upload-name").textContent = "Pilih berkas atau tarik ke sini";
+    document.getElementById("upload-title").value = "";
+    showView("list");
+    renderRows();
+    toast("Dokumen diunggah dan sedang diindeks");
+  }
+
+  var toastTimer = null;
+  function toast(msg) {
+    var el = document.getElementById("toast");
+    document.getElementById("toast-text").textContent = msg;
+    el.classList.remove("hidden");
+    el.classList.add("flex");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { el.classList.add("hidden"); el.classList.remove("flex"); }, 2600);
+  }
+
+  function toggleNav(open) {
+    var sb = document.getElementById("sidebar");
+    var ov = document.getElementById("nav-overlay");
+    if (open) { sb.classList.remove("-translate-x-full"); ov.classList.remove("hidden"); }
+    else { sb.classList.add("-translate-x-full"); ov.classList.add("hidden"); }
+  }
+
+  document.getElementById("entry-content").addEventListener("input", function () {
+    document.getElementById("char-count").textContent = this.value.length + " karakter";
+  });
+
+  renderRows();
+</script>
+</body>
+</html>
