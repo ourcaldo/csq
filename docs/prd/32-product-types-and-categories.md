@@ -139,7 +139,7 @@ PHYSICAL keeps what it has today: sku, price, description, stock.
 - `inventory.read` on an untracked product answers explicitly that
   stock does not apply - never "0".
 - Tool contracts otherwise unchanged; permission keys unchanged
-  (produkk.kelola / inventaris.kelola).
+  (produk.kelola / inventaris.kelola).
 
 ### 5.3 Dashboard
 
