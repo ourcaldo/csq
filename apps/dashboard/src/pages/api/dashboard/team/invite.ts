@@ -86,6 +86,29 @@ export default async function handler(
       return respondError(res, "VALIDATION_ERROR", "Email sudah terdaftar.");
     }
 
+    // FEA-5 amendment (owner report 2026-11-26): re-inviting the same email
+    // must leave exactly ONE live link. Cancel deletes rows, so every earlier
+    // invite email kept a link that failed with "tidak valid atau sudah
+    // dibatalkan" while the newest one worked - the invitee cannot tell which
+    // email to open. Supersede the older pending invites here.
+    const superseded = await prisma.teamInvite.findMany({
+      where: { tenantId, email, acceptedAt: null },
+      select: { id: true },
+    });
+    if (superseded.length > 0) {
+      await prisma.teamInvite.deleteMany({
+        where: { id: { in: superseded.map((s) => s.id) } },
+      });
+      await logHuman({
+        actorEmail: session.user.email ?? undefined,
+        tenantId,
+        action: "team.invite_superseded",
+        entityType: "TeamInvite",
+        entityId: superseded[0].id,
+        beforeValue: { email, inviteIds: superseded.map((s) => s.id) },
+      });
+    }
+
     const token = randomBytes(32).toString("hex");
 
     // Plan staff seats (PRD 13). Owner is not a seat; only STAFF users count.
