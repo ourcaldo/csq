@@ -103,6 +103,11 @@ type SocketEntry = {
 };
 const sockets = new Map<string, SocketEntry>();
 
+// Consecutive code-500 (badSession) closes per channel without a successful
+// OPEN in between. A deploy shutdown produces exactly one, and the session
+// resumes on reconnect; only a session that keeps failing is declared dead.
+const badSessionStrikes = new Map<string, number>();
+
 // PRD 27: fetch and store a contact's WhatsApp profile photo (Baileys
 // only - Cloud API has no per-recipient photo fetch). Called from the
 // worker's inbound path; never blocks ingest - all errors swallowed.
@@ -355,20 +360,32 @@ export function disconnectCode(err: unknown): number | undefined {
 }
 
 // Fatal closes mean the WhatsApp session is dead server-side (device
-// unlinked, corrupt creds, account blocked). Reconnecting is pointless, and
-// resuming with the saved creds can never produce a QR - the close handler
-// clears creds so the next connect starts a fresh QR pairing. 440
-// (connectionReplaced) is NOT fatal and is handled separately in the close
-// handler: another connection took over, the creds may still be valid, so we
-// stand down without touching them. Everything else (timedOut,
+// unlinked, account blocked). Reconnecting is pointless, and resuming with
+// the saved creds can never produce a QR - the close handler clears creds so
+// the next connect starts a fresh QR pairing. 440 (connectionReplaced) is NOT
+// fatal and is handled separately in the close handler: another connection
+// took over, the creds may still be valid, so we stand down without touching
+// them. 500 (badSession / "Stream Errored") is NOT immediately fatal either:
+// it fires routinely on process shutdown and socket restarts, and the session
+// resumes fine on reconnect. It becomes fatal only after consecutive retries
+// (see badSessionIsFatal) so a genuinely corrupt session still falls back to
+// a fresh QR instead of reconnect-churning. Everything else (timedOut,
 // connectionClosed, connectionLost, restartRequired, ...) is transient:
 // auto-reconnect keeps the agent on 24/7.
 export function isFatalDisconnect(code: number | null | undefined): boolean {
   return (
     code === DisconnectReason.loggedOut || // 401: device unlinked / logged out
-    code === DisconnectReason.badSession || // 500: corrupt session
     code === DisconnectReason.forbidden // 403: account blocked
   );
+}
+
+// 500 strikes: a deploy-time "Stream Errored (ack)" must reconnect with the
+// saved creds, not wipe the pairing. Only this many consecutive 500s without
+// a successful OPEN are treated as a corrupt session.
+export const BAD_SESSION_MAX_RETRIES = 3;
+
+export function badSessionIsFatal(strikes: number): boolean {
+  return strikes >= BAD_SESSION_MAX_RETRIES;
 }
 
 // Extract the inbound content from a Baileys message: a display body plus the
@@ -529,6 +546,7 @@ async function connectBaileysChannelInner(
       if (update.connection === "open") {
         entry.open = true;
         entry.qr = null;
+        badSessionStrikes.delete(channel.id);
         console.log(`[baileys:${channel.id}] OPEN - marking channel CONNECTED`);
         // PRD 15: capture the paired number on open. sock.user.id is the
         // logged-in JID ("62812...@s.whatsapp.net"); the bare digits are the
@@ -572,11 +590,11 @@ async function connectBaileysChannelInner(
           );
           return;
         }
-        if (isFatalDisconnect(code)) {
-          // Session is dead server-side. Mark the row so the dashboard stops
-          // claiming "Terhubung", and destroy the saved creds - they can never
-          // resume, and as long as they exist Baileys retries the dead session
-          // instead of showing a fresh QR.
+        // Session dead server-side: mark the row so the dashboard stops
+        // claiming "Terhubung", and destroy the saved creds - they can never
+        // resume, and as long as they exist Baileys retries the dead session
+        // instead of showing a fresh QR.
+        const markSessionDead = (): void => {
           console.log(
             `[baileys:${channel.id}] session dead (code=${code}) - marking DISCONNECTED, clearing creds`
           );
@@ -605,17 +623,38 @@ async function connectBaileysChannelInner(
             (err: unknown) =>
               console.error(`[baileys:${channel.id}] lease release failed:`, err)
           );
-        } else {
-          // Reconnect on transient close; reload the channel row for fresh state.
-          prisma.channel
-            .findUnique({ where: { id: channel.id } })
-            .then((fresh) => {
-              if (fresh) void connectBaileysChannel(fresh);
-            })
-            .catch((err: unknown) =>
-              console.error(`[baileys:${channel.id}] reconnect failed:`, err)
-            );
+        };
+
+        if (isFatalDisconnect(code)) {
+          badSessionStrikes.delete(channel.id);
+          markSessionDead();
+          return;
         }
+        if (code === DisconnectReason.badSession) {
+          // 500 "Stream Errored" fires on every deploy shutdown and usually
+          // resumes with the same creds. Only repeated failures without an
+          // OPEN in between mean the session is actually corrupt.
+          const strikes = (badSessionStrikes.get(channel.id) ?? 0) + 1;
+          badSessionStrikes.set(channel.id, strikes);
+          if (badSessionIsFatal(strikes)) {
+            badSessionStrikes.delete(channel.id);
+            markSessionDead();
+            return;
+          }
+          console.log(
+            `[baileys:${channel.id}] badSession strike ${strikes}/${BAD_SESSION_MAX_RETRIES} - reconnecting with saved creds`
+          );
+        }
+        // Reconnect on transient close (and on a badSession retry); reload the
+        // channel row for fresh state.
+        prisma.channel
+          .findUnique({ where: { id: channel.id } })
+          .then((fresh) => {
+            if (fresh) void connectBaileysChannel(fresh);
+          })
+          .catch((err: unknown) =>
+            console.error(`[baileys:${channel.id}] reconnect failed:`, err)
+          );
       }
     });
 

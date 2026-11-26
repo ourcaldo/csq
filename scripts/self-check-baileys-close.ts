@@ -13,7 +13,12 @@
 // values, so a package update that shifts a code can't silently reopen the
 // bug.
 import { DisconnectReason } from "@whiskeysockets/baileys";
-import { disconnectCode, isFatalDisconnect } from "../packages/core/src/services/baileys";
+import {
+  BAD_SESSION_MAX_RETRIES,
+  badSessionIsFatal,
+  disconnectCode,
+  isFatalDisconnect,
+} from "../packages/core/src/services/baileys";
 
 // @hapi/boom-shaped error, parsed with Zod at the boundary (no `as` casts).
 const boom = (statusCode: number): { output: { statusCode: number } } => ({
@@ -34,8 +39,16 @@ const checks: Array<[string, boolean]> = [
   ["disconnectCode(non-boom) === undefined", disconnectCode({}) === undefined],
   // Fatal: session is dead server-side - must NOT auto-reconnect.
   ["401 loggedOut is fatal", isFatalDisconnect(disconnectCode(boom(401)))],
-  ["500 badSession is fatal", isFatalDisconnect(disconnectCode(boom(500)))],
   ["403 forbidden is fatal", isFatalDisconnect(disconnectCode(boom(403)))],
+  // 500 badSession is a deploy-time "Stream Errored" first, corrupt session
+  // only after repeated failures (owner incident 2026-11-26: a worker deploy
+  // closed the socket with 500 and the fatal classification wiped a freshly
+  // paired channel's creds). The strike counter decides, not the code alone.
+  ["500 badSession is NOT immediately fatal", !isFatalDisconnect(disconnectCode(boom(500)))],
+  ["badSessionIsFatal(0) is false", !badSessionIsFatal(0)],
+  ["badSessionIsFatal(1) is false", !badSessionIsFatal(1)],
+  ["badSessionIsFatal(2) is false", !badSessionIsFatal(2)],
+  ["badSessionIsFatal(BAD_SESSION_MAX_RETRIES) is true", badSessionIsFatal(BAD_SESSION_MAX_RETRIES)],
   // 440 is NOT fatal: another connection replaced this one (often our own
   // successor) - the creds may still be valid, so the handler stands down
   // without deleting them. Deleting them here caused a creds-wipe every
