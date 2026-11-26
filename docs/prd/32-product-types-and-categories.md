@@ -6,7 +6,8 @@ voucher/akun fulfilled by the business; Downloadable = buyer downloads
 via link); (2) course duration is structured (number + unit
 Minggu/Bulan/Tahun) and courses get a searchable pick-or-add Level list;
 (3) category optional; (4) product type is freely changeable; (5)
-imported rows stay PHYSICAL.
+imported rows stay PHYSICAL. Implemented and live-verified the same day
+(commit bd27a91).
 
 Related: PRD 02 section 9-12 (capability model, inventory authority),
 PRD 16 FEA-7 (product/inventory list), PRD 08 (RLS on new tenant
