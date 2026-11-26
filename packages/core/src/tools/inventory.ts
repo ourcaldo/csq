@@ -41,6 +41,25 @@ const inventoryRead: ToolDefinition<InventoryReadParams> = {
   defaultPermission: { allowed: true, requiresApproval: false },
   async handler(ctx): Promise<ToolResult> {
     const p = ctx.params;
+    // PRD 32: untracked products (DIGITAL / DOWNLOADABLE) have no quantity -
+    // answer explicitly, never "0".
+    const product = await ctx.prisma.product.findFirst({
+      where: { id: p.productId, tenantId: ctx.tenantId },
+      select: { id: true, name: true, type: true },
+    });
+    if (!product || product.type === "DIGITAL" || product.type === "DOWNLOADABLE") {
+      await ctx.audit({
+        action: "inventory.read",
+        entityType: "inventory",
+        entityId: p.productId,
+      });
+      return {
+        success: false,
+        error:
+          "Stok tidak berlaku untuk produk ini (produk digital). Produk tersedia tanpa batas.",
+        errorCode: "NOT_APPLICABLE",
+      };
+    }
     // G8: resolve the authoritative quantity by Tenant.settings.sourcePriority
     // across per-source snapshots, falling back to the canonical Inventory row.
     const resolved = await resolveInventory(ctx.tenantId, p.productId);
@@ -56,6 +75,8 @@ const inventoryRead: ToolDefinition<InventoryReadParams> = {
       success: true,
       data: {
         productId: p.productId,
+        // COURSE products speak in kuota, physical in stok.
+        kind: product.type === "COURSE" ? "kuota" : "stok",
         quantity: resolved.quantity,
         source: resolved.source,
         sourceRef: resolved.sourceRef,
@@ -81,6 +102,18 @@ const inventoryUpdate: ToolDefinition<InventoryUpdateParams> = {
   defaultPermission: { allowed: false, requiresApproval: true },
   async handler(ctx): Promise<ToolResult> {
     const p = ctx.params;
+    // PRD 32: refuse quantity writes for untracked (digital) products.
+    const product = await ctx.prisma.product.findFirst({
+      where: { id: p.productId, tenantId: ctx.tenantId },
+      select: { type: true },
+    });
+    if (product && (product.type === "DIGITAL" || product.type === "DOWNLOADABLE")) {
+      return {
+        success: false,
+        error: "Stok tidak berlaku untuk produk ini (produk digital).",
+        errorCode: "NOT_APPLICABLE",
+      };
+    }
     const before = await ctx.prisma.inventory.findFirst({
       where: { tenantId: ctx.tenantId, productId: p.productId },
     });

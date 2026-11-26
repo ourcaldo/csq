@@ -7,6 +7,7 @@ import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import { inventoryUpdateSchema } from "@csq/core/types/inventory";
+import { isStockTracked } from "@csq/core/types/product";
 
 // FEA-8 (PRD 16): GET returns the per-source snapshots (with confidence) for
 // the inventory detail dialog; PUT updates the canonical row.
@@ -46,12 +47,22 @@ export default async function handler(
       // globally-unique productId, so a foreign tenant's product UUID would
       // otherwise claim the key and break the victim's stock/order flows.
       // The product must belong to this tenant, mirroring products/[id].
+      // PRD 32: only tracked types (PHYSICAL stok / COURSE kuota) may have
+      // an Inventory row - refuse writes for digital products instead of
+      // silently creating stock for them.
       const product = await prisma.product.findFirst({
         where: { id: productId, tenantId },
-        select: { id: true },
+        select: { id: true, type: true },
       });
       if (!product) {
         return respondError(res, "NOT_FOUND", "Produk tidak ditemukan dalam tenant ini.");
+      }
+      if (!isStockTracked(product.type)) {
+        return respondError(
+          res,
+          "VALIDATION_ERROR",
+          "Produk ini tidak memakai stok atau kuota. Ubah jenisnya dulu ke Produk Fisik atau Kursus/Program."
+        );
       }
       // Verify the inventory row belongs to this tenant before mutating;
       // a product just created has no Inventory row yet - upsert it.

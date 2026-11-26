@@ -290,7 +290,7 @@ export default function InventoryPage() {
                 <thead>
                   <tr className="border-y border-slate-200 text-[11px] font-semibold uppercase tracking-wider text-slate-400">
                     <th className="py-3 pr-4">Produk</th>
-                    <th className="px-4 py-3 text-right">Stok Efektif</th>
+                    <th className="px-4 py-3 text-right">Stok / Kuota</th>
                     <th className="px-4 py-3">Sumber Utama</th>
                     <th className="hidden px-4 py-3 sm:table-cell">Sinkronisasi Terakhir</th>
                     <th className="py-3 pl-4 text-right">Tindakan</th>
@@ -310,6 +310,11 @@ export default function InventoryPage() {
                         <span className="text-xs font-semibold text-slate-900">{inv.product.name}</span>
                         {inv.product.sku && (
                           <span className="ml-2 font-mono text-[11px] text-slate-400">{inv.product.sku}</span>
+                        )}
+                        {inv.product.type === "COURSE" && (
+                          <span className="ml-2 inline-flex whitespace-nowrap rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                            Kursus / Program
+                          </span>
                         )}
                       </td>
                       <td className="px-4 py-3.5 text-right">
@@ -337,7 +342,8 @@ export default function InventoryPage() {
                           onClick={() => openDetail(inv)}
                           className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-green-700 transition hover:border-green-300 hover:bg-green-50"
                         >
-                          <SlidersHorizontal size={12} />Sesuaikan Stok
+                          <SlidersHorizontal size={12} />
+                          {inv.product.type === "COURSE" ? "Sesuaikan Kuota" : "Sesuaikan Stok"}
                         </button>
                       </td>
                     </tr>

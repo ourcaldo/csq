@@ -6,12 +6,27 @@ import type { ToolDefinition, ToolResult } from "@csq/core/types/tools";
 // (denied + approval by default). Every query filters by tenantId - the agent
 // never supplies tenantId, it comes from ToolContext (prompt-injection defense).
 
+// PRD 32: the agent must see the product type, its category/level, and
+// availability in the type's own vocabulary (stok / kuota / unlimited).
+const productInclude = {
+  category: { select: { name: true } },
+  level: { select: { name: true } },
+  inventory: { select: { quantity: true } },
+} satisfies Prisma.ProductInclude;
+
 type ProductRow = {
   id: string;
   name: string;
   description: string | null;
   sku: string | null;
   price: Prisma.Decimal;
+  type: "PHYSICAL" | "DIGITAL" | "DOWNLOADABLE" | "COURSE";
+  deliveryInfo: string | null;
+  durationValue: number | null;
+  durationUnit: "MINGGU" | "BULAN" | "TAHUN" | null;
+  category: { name: string } | null;
+  level: { name: string } | null;
+  inventory: { quantity: number } | null;
 };
 
 type SerializedProduct = {
@@ -20,15 +35,40 @@ type SerializedProduct = {
   description: string | null;
   sku: string | null;
   price: string;
+  type: ProductRow["type"];
+  category: string | null;
+  level: string | null;
+  deliveryInfo: string | null;
+  duration: string | null;
+  availability: string;
+};
+
+const UNIT_LABEL: Record<string, string> = {
+  MINGGU: "minggu",
+  BULAN: "bulan",
+  TAHUN: "tahun",
 };
 
 function serializeProduct(p: ProductRow): SerializedProduct {
+  const tracked = p.type === "PHYSICAL" || p.type === "COURSE";
+  const quantityLabel = p.type === "COURSE" ? "kuota" : "stok";
   return {
     id: p.id,
     name: p.name,
     description: p.description,
     sku: p.sku,
     price: p.price.toString(),
+    type: p.type,
+    category: p.category?.name ?? null,
+    level: p.level?.name ?? null,
+    deliveryInfo: p.deliveryInfo,
+    duration:
+      p.durationValue !== null && p.durationUnit !== null
+        ? `${p.durationValue} ${UNIT_LABEL[p.durationUnit]}`
+        : null,
+    availability: tracked
+      ? `${quantityLabel} ${p.inventory?.quantity ?? 0}`
+      : "tersedia tanpa batas",
   };
 }
 
@@ -52,6 +92,7 @@ const productRead: ToolDefinition<ProductReadParams> = {
     const p = ctx.params;
     const product = await ctx.prisma.product.findFirst({
       where: { tenantId: ctx.tenantId, id: p.productId, name: p.name },
+      include: productInclude,
     });
     if (!product) {
       return { success: false, error: "Product not found", errorCode: "NOT_FOUND" };
@@ -88,6 +129,7 @@ const productSearch: ToolDefinition<ProductSearchParams> = {
       },
       take: p.limit ?? 20,
       orderBy: { name: "asc" },
+      include: productInclude,
     });
     await ctx.audit({
       action: "product.search",
@@ -118,6 +160,7 @@ const productUpdate: ToolDefinition<ProductUpdateParams> = {
     const p = ctx.params;
     const before = await ctx.prisma.product.findFirst({
       where: { tenantId: ctx.tenantId, id: p.productId },
+      include: productInclude,
     });
     if (!before) {
       return { success: false, error: "Product not found", errorCode: "NOT_FOUND" };
@@ -140,6 +183,7 @@ const productUpdate: ToolDefinition<ProductUpdateParams> = {
     }
     const after = await ctx.prisma.product.findFirstOrThrow({
       where: { id: p.productId, tenantId: ctx.tenantId },
+      include: productInclude,
     });
     await ctx.audit({
       action: "product.update",
@@ -157,6 +201,7 @@ const productUpdate: ToolDefinition<ProductUpdateParams> = {
   }> {
     const before = await prisma.product.findFirst({
       where: { tenantId, id: params.productId },
+      include: productInclude,
     });
     const proposedBefore: Prisma.InputJsonValue = before
       ? serializeProduct(before)

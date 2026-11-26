@@ -34,9 +34,14 @@ export default async function handler(
       const search = strQuery(req.query, "search");
       const where: Prisma.InventoryWhereInput = {
         tenantId,
-        ...(search
-          ? { product: { name: { contains: search, mode: "insensitive" } } }
-          : {}),
+        // PRD 32: only tracked types (stok / kuota) are listed here; digital
+        // products have no quantity.
+        product: {
+          type: { in: ["PHYSICAL", "COURSE"] },
+          ...(search
+            ? { name: { contains: search, mode: "insensitive" } }
+            : {}),
+        },
       };
       const [items, total] = await Promise.all([
         prisma.inventory.findMany({

@@ -16,6 +16,9 @@ export type ListResult<T> = {
   pageSize: number;
 };
 
+export type ProductTypeKey = "PHYSICAL" | "DIGITAL" | "DOWNLOADABLE" | "COURSE";
+export type CourseDurationUnitKey = "MINGGU" | "BULAN" | "TAHUN";
+
 export type Product = {
   id: string;
   tenantId: string;
@@ -23,12 +26,24 @@ export type Product = {
   description: string | null;
   sku: string | null;
   price: string;
-  // FEA-7 (PRD 16): present on list responses (one-to-one Inventory include);
-  // create/update responses return the bare Product, so it stays optional.
+  // PRD 32: type drives fields and stock behavior.
+  type: ProductTypeKey;
+  categoryId: string | null;
+  levelId: string | null;
+  deliveryInfo: string | null;
+  durationValue: number | null;
+  durationUnit: CourseDurationUnitKey | null;
+  // Present on list responses (one-to-one Inventory include + joined names);
+  // create/update responses return the bare Product, so these stay optional.
+  category?: { id: string; name: string } | null;
+  level?: { id: string; name: string } | null;
   inventory?: { quantity: number } | null;
   createdAt: string;
   updatedAt: string;
 };
+
+export type ProductCategory = { id: string; name: string };
+export type CourseLevel = { id: string; name: string };
 
 export type InventorySource = "MANUAL" | "EXCEL" | "GOOGLE_SHEETS";
 

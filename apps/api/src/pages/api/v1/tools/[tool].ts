@@ -100,7 +100,11 @@ export default async function handler(
         // Handler-reported business failure (NOT_FOUND, insufficient stock, ...).
         const code = outcome.result.errorCode ?? "INTERNAL_ERROR";
         const status =
-          code === "NOT_FOUND" ? 404 : code === "VALIDATION_ERROR" ? 400 : 500;
+          code === "NOT_FOUND"
+            ? 404
+            : code === "VALIDATION_ERROR" || code === "NOT_APPLICABLE"
+              ? 400
+              : 500;
         return res
           .status(status)
           .json(apiError(code, outcome.result.error ?? "Tool failed"));

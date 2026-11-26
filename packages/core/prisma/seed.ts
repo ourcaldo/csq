@@ -80,10 +80,24 @@ export async function seedDemo(): Promise<void> {
   });
   void aksesPenuh;
 
+  // PRD 32: demo categories so the seeded catalog shows grouping.
+  const ensureCategory = async (name: string): Promise<string> => {
+    const existing = await prisma.productCategory.findFirst({
+      where: { tenantId: tenant.id, name },
+    });
+    if (existing) return existing.id;
+    const created = await prisma.productCategory.create({
+      data: { tenantId: tenant.id, name },
+    });
+    return created.id;
+  };
+  const catBiji = await ensureCategory("Biji Kopi");
+  const catPerlengkapan = await ensureCategory("Perlengkapan");
+
   const products = [
-    { name: "Kopi Arabica 250g", sku: "ARAB-250", price: 85000, stock: 12 },
-    { name: "Kopi Robusta 250g", sku: "ROB-250", price: 65000, stock: 8 },
-    { name: "Kopi Liberica 200g", sku: "LIB-200", price: 75000, stock: 5 },
+    { name: "Kopi Arabica 250g", sku: "ARAB-250", price: 85000, stock: 12, categoryId: catBiji },
+    { name: "Kopi Robusta 250g", sku: "ROB-250", price: 65000, stock: 8, categoryId: catBiji },
+    { name: "Kopi Liberica 200g", sku: "LIB-200", price: 75000, stock: 5, categoryId: catPerlengkapan },
   ];
 
   for (const p of products) {
@@ -92,7 +106,7 @@ export async function seedDemo(): Promise<void> {
         where: { tenantId: tenant.id, sku: p.sku },
       })) ??
       (await prisma.product.create({
-        data: { tenantId: tenant.id, name: p.name, sku: p.sku, price: p.price },
+        data: { tenantId: tenant.id, name: p.name, sku: p.sku, price: p.price, categoryId: p.categoryId },
       }));
 
     await prisma.inventory.upsert({

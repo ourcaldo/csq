@@ -1,7 +1,12 @@
 # PRD 32 - Product Types, Categories, and Stock vs Quota
 
-Status: DRAFT - written 2026-11-26 from the owner's direction. Not yet
-approved; section 8 needs the owner's answers before implementation.
+Status: LIVE - all five section 8 decisions resolved by the owner on
+2026-11-26: (1) Digital and Downloadable stay SEPARATE types (Digital =
+voucher/akun fulfilled by the business; Downloadable = buyer downloads
+via link); (2) course duration is structured (number + unit
+Minggu/Bulan/Tahun) and courses get a searchable pick-or-add Level list;
+(3) category optional; (4) product type is freely changeable; (5)
+imported rows stay PHYSICAL.
 
 Related: PRD 02 section 9-12 (capability model, inventory authority),
 PRD 16 FEA-7 (product/inventory list), PRD 08 (RLS on new tenant
@@ -68,11 +73,25 @@ model ProductCategory {
   products  Product[]
   @@unique([tenantId, name])
 }
+
+model CourseLevel {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  createdAt DateTime @default(now())
+  tenant    Tenant   @relation(...)
+  products  Product[]
+  @@unique([tenantId, name])
+}
+
 Product.categoryId String?   // FK, nullable - category optional in v1
+Product.levelId    String?   // FK, COURSE only
 ```
 
-New tenant table: gets `tenantId`, RLS policy (pattern of the 2026-11-23
-RLS set), index on tenantId. Categories are flat (no hierarchy).
+Both are new tenant tables: `tenantId`, RLS policy (pattern of the
+2026-11-23 RLS set), index on tenantId. Flat, no hierarchy. The Level
+picker is searchable (native datalist) and creates a new level inline
+when the typed name is not in the list.
 
 ### 4.3 Inventory stays - it is not redundant
 
@@ -94,9 +113,9 @@ Additive, all nullable, validated per type at the API boundary:
 
 | Column | Used by | Meaning |
 |---|---|---|
-| `deliveryInfo` | DIGITAL, DOWNLOADABLE | How the buyer gets it: download link, license code, account instructions. UI label differs per type ("Tautan unduhan" / "Cara pengiriman"). |
-| `durationLabel` | COURSE | Free text, e.g. "8 pertemuan" |
-| `scheduleLabel` | COURSE | Free text, e.g. "Selasa & Kamis 19.00 WIB" |
+| `deliveryInfo` | DIGITAL, DOWNLOADABLE | DIGITAL: voucher/akun instructions or code. DOWNLOADABLE: the download link. UI label differs per type ("Cara pengiriman" / "Tautan unduhan"). |
+| `durationValue` + `durationUnit` | COURSE | Structured duration: number + MINGGU / BULAN / TAHUN |
+| `levelId` | COURSE | FK to `CourseLevel` (tenant-defined, searchable pick-or-add list) |
 
 PHYSICAL keeps what it has today: sku, price, description, stock.
 
@@ -186,20 +205,21 @@ PHYSICAL keeps what it has today: sku, price, description, stock.
 6. Regression: PHYSICAL order flow identical to today (lock, decrement,
    cancel restore, import sync).
 
-## 8. Open decisions (owner)
+## 8. Resolved decisions (owner, 2026-11-26)
 
-1. DIGITAL vs DOWNLOADABLE semantics - proposal: DIGITAL is fulfilled by
-   the business (akun, kode lisensi, akses manual), DOWNLOADABLE is a
-   file/link the buyer downloads themselves. Confirm or merge.
-2. Course fields: is `durasi` + `jadwal` (free text) enough for v1, or
-   add lokasi/level?
-3. Category: optional on products (recommended) - and is inline-add
-   enough for v1, or do you want a category manage UI (rename/delete)
-   right away?
-4. Changing a product's type after creation: allowed only while it has
-   no orders (recommended - switching COURSE to DIGITAL would orphan the
-   kuota), or locked forever after first order?
-5. Imported rows without a stock column: keep them PHYSICAL-without-row
-   (they act sold-out until stock is set - current behavior), or treat
-   missing stock as a hint to make them DIGITAL? (Recommend keep
-   PHYSICAL; explicit is safer.)
+1. DIGITAL vs DOWNLOADABLE: keep both. DIGITAL is a voucher/akun
+   fulfilled by the business (deliveryInfo = instructions/code);
+   DOWNLOADABLE is a link the buyer uses to download the product
+   (deliveryInfo = download URL).
+2. Course fields: duration is structured - `durationValue` (number) +
+   `durationUnit` (MINGGU / BULAN / TAHUN) - plus a Level chosen from a
+   tenant-defined, searchable pick-or-add list (`CourseLevel`).
+3. Category is optional on products; inline add from the composer is
+   enough for v1 (rename/delete deferred).
+4. Product type can be changed after creation, with side effects:
+   switching to an untracked type (DIGITAL / DOWNLOADABLE) deletes the
+   Inventory row; switching to a tracked type (PHYSICAL / COURSE)
+   creates a zero-quantity Inventory row when missing. Past orders keep
+   their unitPrice snapshots, so history is unaffected.
+5. Imported rows without a stock column stay PHYSICAL (current
+   behavior).

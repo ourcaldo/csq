@@ -67,6 +67,42 @@ function serializeOrder(
   };
 }
 
+// PRD 32: per-item delivery info the agent can relay to the buyer.
+// PHYSICAL items carry nothing (shipping is handled by the tenant);
+// untracked types carry their deliveryInfo; COURSE carries its duration
+// and level.
+type FulfillableProduct = {
+  name: string;
+  type: "PHYSICAL" | "DIGITAL" | "DOWNLOADABLE" | "COURSE";
+  deliveryInfo: string | null;
+  durationValue: number | null;
+  durationUnit: "MINGGU" | "BULAN" | "TAHUN" | null;
+  level: { name: string } | null;
+};
+
+function buildFulfillment(
+  product: FulfillableProduct
+): Record<string, string> | null {
+  const UNIT_LABEL: Record<string, string> = {
+    MINGGU: "minggu",
+    BULAN: "bulan",
+    TAHUN: "tahun",
+  };
+  if (product.type === "PHYSICAL") return null;
+  if (product.type === "COURSE") {
+    const parts = [
+      `durasi: ${product.durationValue ?? "?"} ${UNIT_LABEL[product.durationUnit ?? "MINGGU"]}`,
+      ...(product.level ? [`level: ${product.level.name}`] : []),
+    ];
+    return { productName: product.name, type: "COURSE", info: parts.join(", ") };
+  }
+  return {
+    productName: product.name,
+    type: product.type,
+    info: product.deliveryInfo ?? "Tanyakan cara pengiriman ke penjual.",
+  };
+}
+
 const orderReadSchema = z.object({
   orderId: z.string().uuid(),
 });
@@ -305,9 +341,21 @@ const orderCreate: ToolDefinition<OrderCreateParams> = {
         if (!pr) {
           throw new Error(`Product not found: ${item.productId}`);
         }
-        const have = lockedById.get(item.productId) ?? 0;
-        if (have < item.quantity) {
-          throw new Error(`Insufficient stock for ${pr.name} (have ${have})`);
+        // PRD 32: only PHYSICAL (stok) and COURSE (kuota) validate/decrement.
+        // DIGITAL and DOWNLOADABLE are unlimited and have no Inventory row.
+        if (pr.type === "PHYSICAL" || pr.type === "COURSE") {
+          const have = lockedById.get(item.productId) ?? 0;
+          if (have < item.quantity) {
+            throw new Error(
+              pr.type === "COURSE"
+                ? `Kuota penuh untuk ${pr.name} (sisa ${have})`
+                : `Insufficient stock for ${pr.name} (have ${have})`
+            );
+          }
+          stockAdjust.push({
+            productId: item.productId,
+            newQuantity: have - item.quantity,
+          });
         }
         const unitPrice = pr.price;
         const subtotal = unitPrice.mul(item.quantity);
@@ -318,10 +366,6 @@ const orderCreate: ToolDefinition<OrderCreateParams> = {
           quantity: item.quantity,
           unitPrice,
           subtotal,
-        });
-        stockAdjust.push({
-          productId: item.productId,
-          newQuantity: have - item.quantity,
         });
       }
 
@@ -336,7 +380,7 @@ const orderCreate: ToolDefinition<OrderCreateParams> = {
           status: "CONFIRMED",
           items: { createMany: { data: orderItems } },
         },
-        include: { items: { include: { product: true } } },
+        include: { items: { include: { product: { include: { level: true } } } } },
       });
 
       // Decrement stock for each validated item. G9: tenant-gated compound
@@ -376,7 +420,16 @@ const orderCreate: ToolDefinition<OrderCreateParams> = {
       })),
     });
 
-    return { success: true, data: serializeOrder(order) };
+    return {
+      success: true,
+      data: {
+        ...serializeOrder(order),
+        // PRD 32: delivery info per item for digital/course products.
+        fulfillment: order.items
+          .map((it) => buildFulfillment(it.product))
+          .filter((f): f is Record<string, string> => f !== null),
+      },
+    };
   },
   async describeChange(params): Promise<{
     proposedBefore: Prisma.InputJsonValue;

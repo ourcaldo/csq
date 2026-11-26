@@ -6,12 +6,20 @@ import { logHuman } from "@csq/core/lib/audit";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { paginate, requireTenant, respondError, strQuery } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
-import { productCreateSchema } from "@csq/core/types/product";
+import {
+  isStockTracked,
+  productCreateSchema,
+  type ProductTypeValue,
+} from "@csq/core/types/product";
 
 // FEA-7 (PRD 16): list rows carry the one-to-one Inventory quantity so the
 // products table can show stock; create/update return the bare Product.
+// PRD 32: also join the category and course level names, and support
+// category/type filters.
 const productInclude = {
   inventory: { select: { quantity: true } },
+  category: { select: { id: true, name: true } },
+  level: { select: { id: true, name: true } },
 } satisfies Prisma.ProductInclude;
 
 type ProductWithStock = Prisma.ProductGetPayload<{ include: typeof productInclude }>;
@@ -34,9 +42,18 @@ export default async function handler(
       }
       const { skip, take, page, pageSize } = paginate(req.query);
       const search = strQuery(req.query, "search");
+      const categoryId = strQuery(req.query, "categoryId");
+      const typeKey = strQuery(req.query, "type");
+      const type = (["PHYSICAL", "DIGITAL", "DOWNLOADABLE", "COURSE"] as const).find(
+        (t) => t === typeKey
+      );
       const where: Prisma.ProductWhereInput = {
         tenantId,
-        ...(search ? { name: { contains: search, mode: "insensitive" } } : {}),
+        ...(search
+          ? { name: { contains: search, mode: "insensitive" } }
+          : {}),
+        ...(categoryId ? { categoryId } : {}),
+        ...(type ? { type } : {}),
       };
       const [items, total] = await Promise.all([
         prisma.product.findMany({
@@ -59,8 +76,20 @@ export default async function handler(
       if (!parsed.success) {
         return respondError(res, "VALIDATION_ERROR", parsed.error.message);
       }
+      const { type, ...rest } = parsed.data;
+      const productType: ProductTypeValue = type ?? "PHYSICAL";
+      // PRD 32: tracked types own an Inventory row from the start (quantity
+      // 0; the composer sets it right after), untracked types never do.
       const product = await prisma.product.create({
-        data: { ...parsed.data, tenantId },
+        data: {
+          ...rest,
+          type: productType,
+          tenantId,
+          ...(isStockTracked(productType)
+            ? { inventory: { create: { tenantId, quantity: 0, source: "MANUAL" } } }
+            : {}),
+        },
+        include: productInclude,
       });
       await logHuman({
         tenantId,

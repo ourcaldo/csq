@@ -215,6 +215,23 @@ enum OrderStatus {
   CANCELLED
 }
 
+// PRD 32: product type drives fields and stock behavior. UI labels:
+// PHYSICAL = Produk Fisik, DIGITAL = Produk Digital,
+// DOWNLOADABLE = Produk Unduhan, COURSE = Kursus/Program.
+enum ProductType {
+  PHYSICAL
+  DIGITAL
+  DOWNLOADABLE
+  COURSE
+}
+
+// PRD 32: course duration unit (durationValue is the number).
+enum CourseDurationUnit {
+  MINGGU
+  BULAN
+  TAHUN
+}
+
 enum KnowledgeType {
   FAQ
   POLICY
@@ -347,6 +364,8 @@ model Tenant {
   agents              Agent[]
   channels            Channel[]
   products            Product[]
+  productCategories   ProductCategory[]
+  courseLevels        CourseLevel[]
   inventory           Inventory[]
   orders              Order[]
   knowledge           Knowledge[]
@@ -789,10 +808,22 @@ model Product {
   description String?
   sku         String?
   price       Decimal  @db.Decimal(12, 2)
+  // PRD 32: the type drives behavior and fields. PHYSICAL and COURSE are
+  // quantity-tracked (stok / kuota) via their Inventory row; DIGITAL and
+  // DOWNLOADABLE are unlimited and have no Inventory row.
+  type           ProductType          @default(PHYSICAL)
+  categoryId     String?
+  levelId        String?
+  // DIGITAL: voucher/akun instructions. DOWNLOADABLE: download link.
+  deliveryInfo   String?
+  durationValue  Int?
+  durationUnit   CourseDurationUnit?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category           ProductCategory?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  level              CourseLevel?        @relation(fields: [levelId], references: [id], onDelete: SetNull)
   inventory          Inventory?
   orderItems         OrderItem[]
   inventorySnapshots InventorySnapshot[]
@@ -802,6 +833,35 @@ model Product {
   // allowed (Postgres treats NULLs as distinct in a UNIQUE index).
   @@unique([tenantId, sku])
   @@index([tenantId, name])
+  @@index([tenantId, categoryId])
+}
+
+// PRD 32: tenant-defined product grouping. Flat, unique name per tenant.
+model ProductCategory {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  createdAt DateTime @default(now())
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  products Product[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+}
+
+// PRD 32: tenant-defined course level list (searchable pick-or-add).
+model CourseLevel {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  createdAt DateTime @default(now())
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  products Product[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
 }
 
 model Inventory {

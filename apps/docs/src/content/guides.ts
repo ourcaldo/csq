@@ -226,6 +226,7 @@ Branch on \`error.code\`, not on the message text - messages are human-facing an
 | \`PERMISSION_DENIED\` | 403 | Token valid, action not allowed (tool permission, wrong tenant, or service token used for a tenant action) |
 | \`VALIDATION_ERROR\` | 400 | Request body or parameters failed schema validation |
 | \`NOT_FOUND\` | 404 | Tool or entity does not exist |
+| \`NOT_APPLICABLE\` | 400 | The operation does not apply to this entity (for example stock on a digital product) |
 | \`METHOD_NOT_ALLOWED\` | 405 | Wrong HTTP method for the endpoint |
 | \`INTERNAL_ERROR\` | 500 | Server-side failure; safe to retry with backoff |
 

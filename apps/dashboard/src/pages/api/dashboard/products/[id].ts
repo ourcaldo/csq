@@ -6,7 +6,7 @@ import { logHuman } from "@csq/core/lib/audit";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
-import { productUpdateSchema } from "@csq/core/types/product";
+import { isStockTracked, productUpdateSchema, type ProductTypeValue } from "@csq/core/types/product";
 
 export default async function handler(
   req: NextApiRequest,
@@ -40,6 +40,23 @@ export default async function handler(
       const existing = await prisma.product.findFirst({ where: { id, tenantId } });
       if (!existing) return respondError(res, "NOT_FOUND", "Produk tidak ditemukan.");
       const product = await prisma.product.update({ where: { id }, data: parsed.data });
+
+      // PRD 32: type can change. Tracked types (PHYSICAL / COURSE) own the
+      // Inventory row; untracked types (DIGITAL / DOWNLOADABLE) must not have
+      // one. Switching keeps history intact (orders store their own prices).
+      const nextType: ProductTypeValue = parsed.data.type ?? existing.type;
+      if (nextType !== existing.type) {
+        if (isStockTracked(nextType)) {
+          await prisma.inventory.upsert({
+            where: { tenantId_productId: { tenantId, productId: id } },
+            update: {},
+            create: { tenantId, productId: id, quantity: 0, source: "MANUAL" },
+          });
+        } else {
+          await prisma.inventory.deleteMany({ where: { tenantId, productId: id } });
+        }
+      }
+
       await logHuman({
         tenantId,
         action: "product.update",
