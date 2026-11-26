@@ -489,6 +489,9 @@ export async function recordOutboundMessage(input: {
   kind?: "TEXT" | "MEDIA";
   mediaId?: string;
   filename?: string;
+  // WhatsApp timestamp for messages recorded from the paired phone (the
+  // Baileys echo path); dashboard/API sends keep now().
+  createdAt?: Date;
 }): Promise<Message> {
   return prisma.message.create({
     data: {
@@ -500,6 +503,7 @@ export async function recordOutboundMessage(input: {
       body: input.body,
       waMessageId: input.waMessageId,
       isInternal: input.isInternal ?? false,
+      ...(input.createdAt ? { createdAt: input.createdAt } : {}),
       ...(input.kind ? { kind: input.kind } : {}),
       ...(input.mediaId ? { mediaId: input.mediaId } : {}),
       ...(input.filename ? { filename: input.filename } : {}),

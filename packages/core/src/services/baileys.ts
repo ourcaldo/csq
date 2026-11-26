@@ -1,19 +1,25 @@
-import makeWASocket, {
+﻿import makeWASocket, {
   DisconnectReason,
   downloadMediaMessage,
   fetchLatestBaileysVersion,
   getContentType,
   normalizeMessageContent,
   proto,
+  type WAMessage,
   type WAVersion,
   type WASocket,
 } from "@whiskeysockets/baileys";
+import { Prisma } from "@prisma/client";
 import { pino } from "pino";
 import { randomUUID } from "crypto";
 import { z } from "zod";
 import prisma from "@csq/core/lib/db";
-import { withSystemContext } from "@csq/core/lib/tenant-context";
-import { ingestInboundMessage } from "@csq/core/lib/inbox";
+import { withSystemContext, withTenantContext } from "@csq/core/lib/tenant-context";
+import {
+  findOrCreateConversation,
+  ingestInboundMessage,
+  recordOutboundMessage,
+} from "@csq/core/lib/inbox";
 import { processInboundWithAgent } from "@csq/core/lib/agent-loop";
 import { replyToNonText } from "@csq/core/lib/agent-outbox";
 import { isVisionImage } from "@csq/core/lib/vision";
@@ -191,6 +197,87 @@ export function toJid(number: string): string {
 // Bare number from a JID (strip @s.whatsapp.net / @lid).
 function fromJid(jid: string | undefined | null): string {
   return (jid ?? "").split("@")[0];
+}
+
+// messages.upsert type=append replays chat history (pairing, socket restarts).
+// Only messages inside this window are treated as live; older rows are
+// history, not new conversations.
+const APPEND_RECENCY_MS = 6 * 60 * 60 * 1000;
+
+// Baileys message timestamps are seconds; some sources hand back milliseconds.
+function isRecentWaMessage(ts: unknown): boolean {
+  const raw = typeof ts === "number" ? ts : ts ? Number(ts) : 0;
+  if (!raw || Number.isNaN(raw)) return false;
+  const ms = raw > 1e12 ? raw : raw * 1000;
+  return Date.now() - ms <= APPEND_RECENCY_MS;
+}
+
+// A message the human typed on the paired phone arrives as fromMe=true. An
+// echo of a platform send is deduped by waMessageId (already recorded);
+// anything else is recorded as human outbound so the conversation panel
+// mirrors the phone. No agent reply is triggered for outbound messages.
+async function recordPhoneOutbound(
+  channel: Channel,
+  m: WAMessage,
+  eventType: string
+): Promise<void> {
+  const waMessageId = m.key?.id ?? "";
+  if (!waMessageId) return;
+  const tenantId = channel.tenantId;
+  const alreadyStored = await withTenantContext(tenantId, () =>
+    prisma.message.findFirst({
+      where: { tenantId, waMessageId },
+      select: { id: true },
+    })
+  );
+  if (alreadyStored) return;
+  if (eventType === "append" && !isRecentWaMessage(m.messageTimestamp)) return;
+  const content = extractContent(m.message);
+  if (content.kind === "other" || (!content.body && !content.image)) return;
+  const resolved = await resolveInboundIdentity(
+    channel.id,
+    m.key?.remoteJid ?? "",
+    m.key?.remoteJidAlt ?? m.key?.participantAlt ?? null
+  );
+  if (!resolved) return;
+  const receivedAt = new Date();
+  const recorded = await withTenantContext(tenantId, async () => {
+    const { conversation } = await findOrCreateConversation(
+      tenantId,
+      channel.id,
+      resolved.from
+    );
+    try {
+      await recordOutboundMessage({
+        tenantId,
+        conversationId: conversation.id,
+        senderType: "HUMAN",
+        body: content.body || "[media]",
+        waMessageId,
+        kind: content.kind === "media" ? "MEDIA" : "TEXT",
+        createdAt: receivedAt,
+      });
+    } catch (err) {
+      // P2002 = the echo raced the platform send's own record; harmless.
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === "P2002"
+      ) {
+        return false;
+      }
+      throw err;
+    }
+    await prisma.conversation.update({
+      where: { id: conversation.id },
+      data: { lastMessageAt: receivedAt },
+    });
+    return true;
+  });
+  if (recorded) {
+    console.log(
+      `[baileys:${channel.id}] recorded phone-sent outbound to=${resolved.from}`
+    );
+  }
 }
 
 // Audit run-3 hardening (lid.alt-poisoning-family, rejected as a finding):
@@ -557,13 +644,13 @@ async function connectBaileysChannelInner(
       console.log(
         `[baileys:${channel.id}] messages.upsert type=${event.type} count=${event.messages?.length ?? 0}`
       );
-      if (event.type !== "notify") return;
+      // notify = live delivery; append = history sync. Append matters too:
+      // messages that arrived while the socket was restarting (code 515
+      // loops, deploys) reach us only as append - dropping the type dropped
+      // customer messages entirely (owner report 2026-11-26). Recency is
+      // enforced per message so a fresh QR pair never replays whole chats.
+      if (event.type !== "notify" && event.type !== "append") return;
       for (const m of event.messages) {
-        // Skip own outgoing messages.
-        if (m.key.fromMe) {
-          console.log(`[baileys:${channel.id}] skip own message`);
-          continue;
-        }
         // Skip group/broadcast/newsletter messages - the CS agent handles
         // 1:1 customer chats only, not groups the number joined.
         const jid = m.key.remoteJid ?? "";
@@ -572,6 +659,27 @@ async function connectBaileysChannelInner(
           jid.endsWith("@broadcast") ||
           jid.endsWith("@newsletter")
         ) {
+          continue;
+        }
+        // Own outgoing messages: the echo of a send the platform already
+        // recorded (dedupe by waMessageId), OR a message a human typed on
+        // the paired phone. The latter must appear in the panel (owner
+        // report 2026-11-26: phone-sent messages never showed up), so
+        // record them as human outbound - no agent reply is triggered.
+        if (m.key.fromMe) {
+          try {
+            await recordPhoneOutbound(channel, m, event.type);
+          } catch (err) {
+            console.error(
+              `[baileys:${channel.id}] phone-outbound record failed for ${m.key.id ?? ""}:`,
+              err
+            );
+          }
+          continue;
+        }
+        // History sync: only ingest messages that are genuinely recent;
+        // anything older than the cutoff is chat history, not a live lead.
+        if (event.type === "append" && !isRecentWaMessage(m.messageTimestamp)) {
           continue;
         }
         const content = extractContent(m.message);
