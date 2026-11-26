@@ -35,6 +35,7 @@ the file contents and names.
 | `29-tenant-roles-and-channel-access.md` | new | Tenant custom roles: permission catalog, Baca/Edit/Penuh presets + editable matrix, seeded defaults (Akses Penuh, Admin Chat full-power), per-channel access grants (LIHAT/KIRIM/KELOLA incl. QR-scan power), channel CRUD permissions, thread-per-channel identity, pipeline one-card-per-customer | Final - all 6 decisions resolved 2026-11-23 |
 | `30-inbox-browser-notifications.md` | new | Browser notifications for inbound customer messages: tenant-wide SSE (foreground) + Web Push with service worker (closed browser), per-user scope (semua default / ditugaskan / nonaktif), channel-access filtering, click-to-open, title badge, OS default sound | Live - implemented and live-verified 2026-11-24 |
 | `31-pengetahuan-categories-and-faq-pairs.md` | new | Pengetahuan: Kategori on every entry (fixed vocabulary) and FAQ entries holding multiple Q&A pairs (rows-per-pair with groupId so retrieval stays per-pair), plus the approved full-page composer layout | Live - implemented and live-verified 2026-11-25 |
+| `32-product-types-and-categories.md` | new | Product types (Fisik, Digital, Downloadable, Course/Program) with type-driven fields, tenant-defined categories, and one quantity mechanism: Inventory holds both stok (PHYSICAL) and kuota (COURSE); digital types are untracked | Draft - pending owner decisions in section 8 (2026-11-26) |
 
 Companion working documents (plans, registers, status) stay in `docs/`
 with date prefixes, e.g. `docs/plans/2026-11-08-enterprise-architecture-plan.md`.
