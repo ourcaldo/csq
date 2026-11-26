@@ -64,6 +64,15 @@ Owner-only in v1 (NOT grantable): `peran.kelola`,
 plan/quota page), `pengaturan.kelola`. These stay attached to the OWNER
 account only. Revisit later if tenants ask for delegated admins.
 
+Amendment (owner decision 2026-11-26): the keys above gate CHANGES only.
+The Pengaturan area itself, its sidebar entry, and every section's INFO
+are readable by every tenant member (staff included): all settings
+GET APIs are open to authenticated members (secret values masked), the
+settings pages render without a read gate, and each page disables its
+write controls (shared read-only mode in settings-access.tsx) unless
+the member holds the section's key. Owner-only keys therefore mean
+"owner-write, everyone-read" from this date on.
+
 Adding a permission to the catalog is a code change; the PRD constraint is
 that every catalog key MUST map to at least one enforced gate (no dead
 permissions).
