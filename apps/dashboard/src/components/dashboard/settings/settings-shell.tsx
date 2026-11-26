@@ -137,15 +137,12 @@ export function SettingsShell(props: {
   const orgInitial = orgName.trim().charAt(0).toUpperCase() || "U";
   const email = session?.user?.email ?? "";
   const role = session?.user?.isOwner ? "Pemilik" : "Staf";
-  // PRD 29: hide settings sections the role cannot enter (the page gates
-  // remain the real enforcement).
-  const visibleSections = SECTIONS.filter(
-    (s) =>
-      !s.permission ||
-      !!session?.user?.isOwner ||
-      !!session?.user?.permissions?.includes(s.permission)
-  );
-  const visibleGroups = [...new Set(visibleSections.map((s) => s.group))];
+  // Owner decision 2026-11-26: every settings section is VISIBLE to every
+  // member (info is open); the pages render read-only and their write
+  // controls are hidden without the section permission. Enforcement stays
+  // server-side on each page/API.
+  const visibleSections = SECTIONS;
+  const visibleGroups = groups;
 
   function onQuickJump(value: string) {
     const target = jumpTarget(value);

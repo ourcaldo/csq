@@ -1,6 +1,6 @@
-import type { NextApiRequest, NextApiResponse } from "next";
+﻿import type { NextApiRequest, NextApiResponse } from "next";
 import type { DataSource } from "@prisma/client";
-import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
+import { getAuthSession } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { paginate, requireTenant, respondError } from "@csq/core/lib/queries";
@@ -20,12 +20,8 @@ export default async function handler(
   const session = await getAuthSession(req, res);
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
   const tenantId = requireTenant(session);
-  // Audit run-4 (ungated-list-read): the catalog's read key gates this
-  // route - a role without sumberdata.kelola must not read this data.
-  if (!requirePermission(session, "sumberdata.kelola")) {
-    return respondError(res, "PERMISSION_DENIED", "Tidak punya akses.");
-  }
-
+  // GET-only route. Owner decision 2026-11-26: source info is readable by
+  // every member; source mutations live in their own gated handlers.
 
   return withTenantContext(tenantId, async () => {
     if (req.method === "GET") {

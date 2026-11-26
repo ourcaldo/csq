@@ -1,17 +1,17 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
+import { getAuthSession } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { paginate, requireTenant, respondError } from "@csq/core/lib/queries";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import type { ListResult } from "@csq/core/types/dashboard";
 
-// List of the tenant's users. The team management page needs pengaturan.tim
-// (owner-only), but the inbox assignment picker (FEA-6, PRD 16) also reads
-// this list - so inbox.tugaskan holders may read it too. All mutations on
-// team routes stay pengaturan.tim. Tenant scoping comes from the session
-// (requireTenant), never the query. Select is explicit so we never leak
-// passwordHash to the dashboard.
+// List of the tenant's users. Readable by every member (owner decision
+// 2026-11-26: settings info is open, changes gated) - the team page renders
+// view-only without pengaturan.tim, and the inbox assignment picker
+// (FEA-6, PRD 16) reads it too. All mutations on team routes stay
+// pengaturan.tim. Tenant scoping comes from the session (requireTenant),
+// never the query. Select is explicit so we never leak passwordHash.
 
 export type UserItem = {
   id: string;
@@ -33,12 +33,6 @@ export default async function handler(
 
   const session = await getAuthSession(req, res);
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
-  if (
-    !requirePermission(session, "pengaturan.tim") &&
-    !requirePermission(session, "inbox.tugaskan")
-  ) {
-    return respondError(res, "PERMISSION_DENIED", "Akses ditolak.");
-  }
   const tenantId = requireTenant(session);
 
   return withTenantContext(tenantId, async () => {

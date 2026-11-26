@@ -1,12 +1,13 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
+import { getAuthSession } from "@csq/core/lib/auth";
 import prisma from "@csq/core/lib/db";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 
 // Tenant configuration audit log (PRD 28 follow-up): the tenant's own
-// AuditLog rows, newest first. OWNER-only.
+// AuditLog rows, newest first. Readable by every member (owner decision
+// 2026-11-26: settings info is open, changes gated).
 // Audit run-3 (audit.actor-misattribution): the actor comes from the row -
 // the agent relation for AI actions, the NEW actorEmail snapshot for human
 // actions. Legacy rows (pre-backfill, actorEmail null) render "Pengguna"
@@ -27,9 +28,9 @@ export default async function handler(
 ) {
   const session = await getAuthSession(req, res);
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
-  if (!requirePermission(session, "audit.lihat")) {
-    return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat melihat log audit.");
-  }
+  // Owner decision 2026-11-26: the audit log is readable by every member
+  // (GET-only route). The rows carry before/after values that are already
+  // secret-masked where they ever contain credentials.
   const tenantId = requireTenant(session);
 
   return withTenantContext(tenantId, async () => {

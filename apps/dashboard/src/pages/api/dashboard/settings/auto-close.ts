@@ -26,7 +26,9 @@ export default async function handler(
 ) {
   const session = await getAuthSession(req, res);
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
-  if (!requirePermission(session, "pengaturan.kelola")) {
+  // Owner decision 2026-11-26: the auto-close policy is readable by every
+  // member; changing it stays owner-gated.
+  if (req.method !== "GET" && !requirePermission(session, "pengaturan.kelola")) {
     return respondError(
       res,
       "PERMISSION_DENIED",

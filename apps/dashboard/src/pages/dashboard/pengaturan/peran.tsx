@@ -32,6 +32,7 @@ import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { FlushPage } from "@/components/dashboard/flush-page";
+import { ReadOnlyBanner, useCanEdit } from "@/components/dashboard/settings/settings-access";
 import { cn } from "@csq/ui/lib/utils";
 
 type RoleItem = {
@@ -68,6 +69,7 @@ function groupSummary(perms: string[]) {
 }
 
 export default function PengaturanPeranPage() {
+  const canEdit = useCanEdit("peran.kelola");
   const { data, loading, error, refresh } = useApi<{ items: RoleItem[] }>(
     "/api/dashboard/roles"
   );
@@ -113,7 +115,7 @@ export default function PengaturanPeranPage() {
     }
   }
 
-  if (editing !== null) {
+  if (editing !== null && canEdit) {
     const role = editing === "new" ? null : roles.find((r) => r.id === editing) ?? null;
     return (
       <DashboardShell title="Peran & Izin" flush>
@@ -154,19 +156,27 @@ export default function PengaturanPeranPage() {
               izinnya tetap dapat disesuaikan.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setEditing("new")}
-            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-green-600 px-4 text-xs font-semibold text-white shadow-xs transition hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-          >
-            <Plus size={14} />
-            Buat Peran Kustom
-          </button>
+          {canEdit ? (
+            <button
+              type="button"
+              onClick={() => setEditing("new")}
+              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-green-600 px-4 text-xs font-semibold text-white shadow-xs transition hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+            >
+              <Plus size={14} />
+              Buat Peran Kustom
+            </button>
+          ) : undefined}
         </div>
+        {!canEdit && (
+          <div className="pt-4">
+            <ReadOnlyBanner />
+          </div>
+        )}
         <RoleDirectory
           roles={roles}
           loading={loading}
           error={error}
+          canEdit={canEdit}
           confirmDeleteCardId={confirmDeleteCardId}
           onRequestDelete={(id) => setConfirmDeleteCardId(id)}
           onCancelDelete={() => setConfirmDeleteCardId(null)}
@@ -188,6 +198,7 @@ function RoleDirectory({
   roles,
   loading,
   error,
+  canEdit,
   confirmDeleteCardId,
   onRequestDelete,
   onCancelDelete,
@@ -198,6 +209,7 @@ function RoleDirectory({
   roles: RoleItem[];
   loading: boolean;
   error: string | null;
+  canEdit: boolean;
   confirmDeleteCardId: string | null;
   onRequestDelete: (id: string) => void;
   onCancelDelete: () => void;
@@ -334,13 +346,19 @@ function RoleDirectory({
                   <tr key={r.id} className="group transition-colors hover:bg-slate-50/70">
                     <td className="max-w-md py-4 pr-4 align-top">
                       <div className="flex flex-wrap items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => onOpen(r.id)}
-                          className="text-left text-xs font-semibold text-slate-900 hover:text-green-700 hover:underline"
-                        >
-                          {r.name}
-                        </button>
+                        {canEdit ? (
+                          <button
+                            type="button"
+                            onClick={() => onOpen(r.id)}
+                            className="text-left text-xs font-semibold text-slate-900 hover:text-green-700 hover:underline"
+                          >
+                            {r.name}
+                          </button>
+                        ) : (
+                          <span className="text-left text-xs font-semibold text-slate-900">
+                            {r.name}
+                          </span>
+                        )}
                         {r.isSystem ? (
                           <span className="inline-flex items-center rounded border border-green-200 bg-green-50 px-1.5 py-0.5 font-mono text-[9px] font-semibold text-green-700">
                             BAWAAN
@@ -400,6 +418,7 @@ function RoleDirectory({
                       <span className="font-mono text-[11px] text-slate-500">{fmtDate(r.updatedAt)}</span>
                     </td>
                     <td className="whitespace-nowrap py-4 pl-4 text-right align-top">
+                      {canEdit ? (
                       <div className="inline-flex items-center justify-end gap-1.5">
                         {confirming ? (
                           <>
@@ -450,6 +469,9 @@ function RoleDirectory({
                           </>
                         )}
                       </div>
+                      ) : (
+                        <span className="text-[11px] text-slate-400">Lihat saja</span>
+                      )}
                     </td>
                   </tr>
                 );
@@ -1237,6 +1259,5 @@ function ToastBar({ msg }: { msg: string }) {
 }
 
 export const getServerSideProps: GetServerSideProps = withAuth(
-  async () => ({ props: {} }),
-  { requiredPermission: "peran.kelola" }
+  async () => ({ props: {} })
 );

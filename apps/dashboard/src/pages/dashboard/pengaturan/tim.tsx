@@ -1,4 +1,4 @@
-// /dashboard/pengaturan/tim - Tim & Hak Akses (reference: docs/demo/
+﻿// /dashboard/pengaturan/tim - Tim & Hak Akses (reference: docs/demo/
 // manajemen_tim_csq_enterprise.html). Inline invite composer (no modal),
 // telemetry strip, tabs: Anggota Aktif / Riwayat Undangan / Matriks Peran.
 // All wired to the existing team APIs.
@@ -12,6 +12,7 @@ import { withAuth } from "@csq/core/lib/auth";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
 import { SettingsShell } from "@/components/dashboard/settings/settings-shell";
+import { ReadOnlyBanner, useCanEdit } from "@/components/dashboard/settings/settings-access";
 import { cn } from "@csq/ui/lib/utils";
 
 type TeamMember = {
@@ -71,6 +72,10 @@ function initials(name: string | null, email: string): string {
 export default function PengaturanTimPage() {
   const { data: session } = useSession();
   const isOwner = !!session?.user?.isOwner;
+  // Owner decision 2026-11-26: the team page is readable by every member;
+  // invite/role/remove actions require the section's permission.
+  const canEdit = useCanEdit("pengaturan.tim");
+  const canEditRoles = useCanEdit("peran.kelola");
 
   const { data, loading, error, refresh } = useApi<{ items: TeamMember[] }>(
     `/api/dashboard/team?page=1&pageSize=${PAGE_SIZE}`
@@ -202,18 +207,21 @@ export default function PengaturanTimPage() {
       title="Tim & Hak Akses"
       description="Kelola anggota organisasi, peran operasional, serta izin eksekusi kampanye pada dashboard."
       headerExtra={
-        <button
-          type="button"
-          onClick={() => setInviteOpen((v) => !v)}
-          className="inline-flex h-9 items-center gap-2 rounded-md bg-green-600 px-3.5 text-xs font-semibold text-white transition hover:bg-green-700"
-        >
-          <UserPlus size={14} />
-          <span>Undang Staff</span>
-        </button>
+        canEdit ? (
+          <button
+            type="button"
+            onClick={() => setInviteOpen((v) => !v)}
+            className="inline-flex h-9 items-center gap-2 rounded-md bg-green-600 px-3.5 text-xs font-semibold text-white transition hover:bg-green-700"
+          >
+            <UserPlus size={14} />
+            <span>Undang Staff</span>
+          </button>
+        ) : undefined
       }
     >
+      {!canEdit && <ReadOnlyBanner />}
       {/* Inline invitation composer (no modal) */}
-      {inviteOpen && (
+      {canEdit && inviteOpen && (
         <div className="mt-6 border-y border-slate-200 bg-slate-50/70 px-4 py-5 sm:px-5">
           <form onSubmit={submitInvitation} className="space-y-4">
             <div className="flex items-center justify-between">
@@ -437,7 +445,7 @@ export default function PengaturanTimPage() {
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700">
                         Pemilik
                       </span>
-                    ) : isOwner && m.id !== session?.user?.id ? (
+                    ) : !m.isOwner && canEdit && m.id !== session?.user?.id ? (
                       <select
                         value={m.roleId ?? ""}
                         disabled={busyId === m.id}
@@ -463,7 +471,7 @@ export default function PengaturanTimPage() {
                     {fmtDate(m.createdAt)}
                   </td>
                   <td className="py-3 pl-4 text-right">
-                    {isOwner && m.id !== session?.user?.id && (
+                    {canEdit && m.id !== session?.user?.id && !m.isOwner && (
                       <button
                         type="button"
                         onClick={() => void removeMember(m)}
@@ -529,7 +537,7 @@ export default function PengaturanTimPage() {
                     {fmtDate(inv.expiresAt)}
                   </td>
                   <td className="py-3 pl-4 text-right">
-                    {inv.status !== "ACCEPTED" && isOwner && (
+                    {inv.status !== "ACCEPTED" && canEdit && (
                       <div className="flex justify-end gap-3">
                         <button
                           type="button"
@@ -601,12 +609,18 @@ export default function PengaturanTimPage() {
               </tbody>
             </table>
           </div>
-          <Link
-            href="/dashboard/pengaturan/peran"
-            className="mt-4 inline-flex h-9 items-center gap-2 rounded-md bg-green-600 px-3.5 text-xs font-semibold text-white transition hover:bg-green-700"
-          >
-            Kelola Peran &amp; Izin
-          </Link>
+          {canEditRoles ? (
+            <Link
+              href="/dashboard/pengaturan/peran"
+              className="mt-4 inline-flex h-9 items-center gap-2 rounded-md bg-green-600 px-3.5 text-xs font-semibold text-white transition hover:bg-green-700"
+            >
+              Kelola Peran &amp; Izin
+            </Link>
+          ) : (
+            <p className="mt-4 text-xs text-slate-500">
+              Hanya pemilik atau peran dengan izin yang sesuai yang dapat mengubah peran.
+            </p>
+          )}
         </div>
       )}
 
@@ -622,6 +636,5 @@ export default function PengaturanTimPage() {
 }
 
 export const getServerSideProps: GetServerSideProps = withAuth(
-  async () => ({ props: {} }),
-  { requiredPermission: "pengaturan.tim" }
+  async () => ({ props: {} })
 );

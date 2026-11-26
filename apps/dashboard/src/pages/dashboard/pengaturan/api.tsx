@@ -9,6 +9,7 @@ import { withAuth } from "@csq/core/lib/auth";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
 import { SettingsShell } from "@/components/dashboard/settings/settings-shell";
+import { ReadOnlyBanner, useCanEdit } from "@/components/dashboard/settings/settings-access";
 
 type KeyRow = {
   id: string;
@@ -31,6 +32,7 @@ function when(iso: string | null): string {
 }
 
 export default function PengaturanApiPage({ apiBaseUrl }: { apiBaseUrl: string }) {
+  const canEdit = useCanEdit("apikeys.kelola");
   const { data, loading, error, refresh } = useApi<KeysData>("/api/dashboard/api-keys");
 
   const [name, setName] = useState("");
@@ -103,7 +105,9 @@ export default function PengaturanApiPage({ apiBaseUrl }: { apiBaseUrl: string }
       }
     >
       {/* Token creation bar */}
+      {!canEdit && <ReadOnlyBanner />}
       <form onSubmit={mint} className="flex flex-col gap-2.5 border-b border-slate-200 py-5 sm:flex-row sm:items-center">
+        <fieldset disabled={!canEdit} className="flex w-full flex-col gap-2.5 sm:flex-row sm:items-center">
         <input
           type="text"
           maxLength={64}
@@ -121,6 +125,7 @@ export default function PengaturanApiPage({ apiBaseUrl }: { apiBaseUrl: string }
           <Plus size={14} />
           {minting ? "Menerbitkan..." : "Terbitkan Kunci Baru"}
         </button>
+        </fieldset>
       </form>
 
       {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
@@ -191,7 +196,7 @@ export default function PengaturanApiPage({ apiBaseUrl }: { apiBaseUrl: string }
                     )}
                   </td>
                   <td className="py-3 pl-4 text-right">
-                    {!k.revokedAt && (
+                    {!k.revokedAt && canEdit && (
                       <button
                         type="button"
                         onClick={() => setPendingRevoke(k)}
@@ -274,6 +279,5 @@ export const getServerSideProps: GetServerSideProps = withAuth<{ apiBaseUrl: str
       process.env.NEXTAUTH_URL ?? `https://${ctx.req.headers.host}`
     ).replace(/\/$/, "");
     return { props: { apiBaseUrl: apiBase || fallback } };
-  },
-  { requiredPermission: "apikeys.kelola" }
+  }
 );

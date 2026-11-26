@@ -1,4 +1,4 @@
-// /dashboard/pengaturan/sumber-data - data source priority (drag + arrows),
+﻿// /dashboard/pengaturan/sumber-data - data source priority (drag + arrows),
 // the reference's section 2. Same API as the old page; new presentation:
 // a table with sync-mechanism and status columns, unsaved-changes pill,
 // reset + save footer.
@@ -9,6 +9,7 @@ import { withAuth } from "@csq/core/lib/auth";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
 import { SettingsShell } from "@/components/dashboard/settings/settings-shell";
+import { ReadOnlyBanner, useCanEdit } from "@/components/dashboard/settings/settings-access";
 import { cn } from "@csq/ui/lib/utils";
 
 type SourceType = "MANUAL" | "EXCEL" | "GOOGLE_SHEETS";
@@ -30,6 +31,7 @@ function isSourceType(value: string): value is SourceType {
 }
 
 export default function PengaturanSumberDataPage() {
+  const canEdit = useCanEdit("sumberdata.kelola");
   const { data, loading, error, refresh } = useApi<{ sourcePriority: string[] }>(
     "/api/dashboard/sources/priority"
   );
@@ -99,6 +101,7 @@ export default function PengaturanSumberDataPage() {
       }
     >
       <div className="py-6">
+        {!canEdit && <ReadOnlyBanner />}
         {loading && <p className="text-sm text-slate-500">Memuat hierarki sumber...</p>}
         {error && <p className="text-sm text-red-600">{error}</p>}
         {saveError && <p className="mb-3 text-sm text-red-600">{saveError}</p>}
@@ -139,7 +142,7 @@ export default function PengaturanSumberDataPage() {
                           <button
                             type="button"
                             onClick={() => shift(idx, -1)}
-                            disabled={idx === 0}
+                            disabled={idx === 0 || !canEdit}
                             aria-label="Naikkan"
                             className="inline-flex h-7 w-7 items-center justify-center rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:pointer-events-none disabled:opacity-30"
                           >
@@ -148,7 +151,7 @@ export default function PengaturanSumberDataPage() {
                           <button
                             type="button"
                             onClick={() => shift(idx, 1)}
-                            disabled={idx === order.length - 1}
+                            disabled={idx === order.length - 1 || !canEdit}
                             aria-label="Turunkan"
                             className="inline-flex h-7 w-7 items-center justify-center rounded border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:pointer-events-none disabled:opacity-30"
                           >
@@ -170,7 +173,7 @@ export default function PengaturanSumberDataPage() {
               <button
                 type="button"
                 onClick={resetOrder}
-                disabled={!dirty || saving}
+                disabled={!dirty || saving || !canEdit}
                 className="rounded-md border border-slate-300 bg-white px-3.5 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:pointer-events-none disabled:opacity-40"
               >
                 Batalkan Perubahan
@@ -178,7 +181,7 @@ export default function PengaturanSumberDataPage() {
               <button
                 type="button"
                 onClick={() => void saveOrder()}
-                disabled={!dirty || saving}
+                disabled={!dirty || saving || !canEdit}
                 className="rounded-md bg-green-600 px-4 py-2 text-xs font-semibold text-white hover:bg-green-700 disabled:pointer-events-none disabled:opacity-40"
               >
                 {saving ? "Menyimpan..." : "Simpan Urutan Prioritas"}
@@ -192,6 +195,5 @@ export default function PengaturanSumberDataPage() {
 }
 
 export const getServerSideProps: GetServerSideProps = withAuth(
-  async () => ({ props: {} }),
-  { requiredPermission: "sumberdata.kelola" }
+  async () => ({ props: {} })
 );

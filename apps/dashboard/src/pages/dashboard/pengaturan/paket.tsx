@@ -11,6 +11,7 @@ import { withAuth } from "@csq/core/lib/auth";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
 import { SettingsShell } from "@/components/dashboard/settings/settings-shell";
+import { ReadOnlyBanner, useCanEdit } from "@/components/dashboard/settings/settings-access";
 import { cn } from "@csq/ui/lib/utils";
 
 type BillingData = {
@@ -84,6 +85,9 @@ const MODULE_LABELS: Record<string, string> = {
 };
 
 export default function PengaturanPaketPage() {
+  // Owner decision 2026-11-26: usage, plan and invoice info is readable by
+  // every member; submitting a plan-change request stays owner-gated.
+  const canRequestPlan = useCanEdit("billing.lihat");
   const { data: session } = useSession();
   const { data, loading, error, refresh } = useApi<BillingData>("/api/dashboard/billing");
 
@@ -183,6 +187,7 @@ export default function PengaturanPaketPage() {
         </button>
       }
     >
+      {!canRequestPlan && <ReadOnlyBanner />}
       {/* Plan comparison drawer */}
       {compareOpen && (
         <div className="border-b border-slate-200 bg-slate-50/70 px-4 py-5 sm:px-5">
@@ -265,7 +270,7 @@ export default function PengaturanPaketPage() {
                         <span className="font-mono text-[11px] text-amber-600">
                           Menunggu: {data.openRequest.requestedPlanName}
                         </span>
-                      ) : (
+                      ) : canRequestPlan ? (
                         <button
                           type="button"
                           onClick={() => void requestPlan(p.id, p.name)}
@@ -274,6 +279,8 @@ export default function PengaturanPaketPage() {
                         >
                           {requesting === p.id ? "Mengirim..." : "Ajukan Upgrade"}
                         </button>
+                      ) : (
+                        <span className="font-mono text-[11px] text-slate-400">Hanya pemilik</span>
                       )}
                     </td>
                   ))}
@@ -540,6 +547,5 @@ export default function PengaturanPaketPage() {
 }
 
 export const getServerSideProps: GetServerSideProps = withAuth(
-  async () => ({ props: {} }),
-  { requiredPermission: "pengaturan.kelola" }
+  async () => ({ props: {} })
 );

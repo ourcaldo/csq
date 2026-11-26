@@ -8,6 +8,7 @@ import { withAuth } from "@csq/core/lib/auth";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
 import { SettingsShell } from "@/components/dashboard/settings/settings-shell";
+import { ReadOnlyBanner, useCanEdit } from "@/components/dashboard/settings/settings-access";
 import { cn } from "@csq/ui/lib/utils";
 
 type EmailStatus =
@@ -25,6 +26,7 @@ type EmailStatus =
     };
 
 export default function PengaturanEmailPage() {
+  const canEdit = useCanEdit("pengaturan.kelola");
   const { data: status, loading, error, refresh } = useApi<EmailStatus>(
     "/api/dashboard/settings/email"
   );
@@ -146,7 +148,9 @@ export default function PengaturanEmailPage() {
         </span>
       }
     >
-      <form onSubmit={onSave} className="divide-y divide-slate-200">
+      <form onSubmit={onSave}>
+        {!canEdit && <ReadOnlyBanner />}
+        <fieldset disabled={!canEdit} className="divide-y divide-slate-200">
         {/* Provider selection */}
         <div className="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
           <div className="md:col-span-4">
@@ -324,12 +328,12 @@ export default function PengaturanEmailPage() {
             {saving ? "Menyimpan..." : "Simpan Gateway Email"}
           </button>
         </div>
+        </fieldset>
       </form>
     </SettingsShell>
   );
 }
 
 export const getServerSideProps: GetServerSideProps = withAuth(
-  async () => ({ props: {} }),
-  { requiredPermission: "pengaturan.kelola" }
+  async () => ({ props: {} })
 );

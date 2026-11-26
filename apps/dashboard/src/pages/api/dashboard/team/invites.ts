@@ -38,7 +38,9 @@ export default async function handler(
 ) {
   const session = await getAuthSession(req, res);
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
-  if (!requirePermission(session, "pengaturan.tim")) {
+  // Owner decision 2026-11-26: invite status is readable by every member;
+  // cancel/resend stay owner-gated.
+  if (req.method !== "GET" && !requirePermission(session, "pengaturan.tim")) {
     return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengelola undangan.");
   }
   const tenantId = requireTenant(session);

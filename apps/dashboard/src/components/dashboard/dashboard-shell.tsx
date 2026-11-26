@@ -116,7 +116,9 @@ const NAV_GROUPS: NavGroup[] = [
 ];
 
 const NAV_BOTTOM: NavItem[] = [
-  { href: "/dashboard/pengaturan/umum", label: "Pengaturan", icon: <Gear size={18} />, permission: "pengaturan.kelola" },
+  // Owner decision 2026-11-26: Pengaturan is visible to every member; the
+  // settings pages render read-only without their write permissions.
+  { href: "/dashboard/pengaturan", label: "Pengaturan", icon: <Gear size={18} /> },
 ];
 
 type DashboardShellProps = {

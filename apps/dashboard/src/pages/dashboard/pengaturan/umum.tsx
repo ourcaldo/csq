@@ -13,6 +13,7 @@ import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
 import { SettingsShell } from "@/components/dashboard/settings/settings-shell";
+import { ReadOnlyBanner, useCanEdit } from "@/components/dashboard/settings/settings-access";
 import { useNotifications, type InboxNotifyScope as NotifyScope } from "@/components/dashboard/notifications/notifications-context";
 
 type TenantInfo = {
@@ -35,6 +36,7 @@ export default function PengaturanUmumPage({
   tenantSlug: string;
 }) {
   const { data: session } = useSession();
+  const canEdit = useCanEdit("pengaturan.kelola");
   const { data: tenant, refresh } = useApi<TenantInfo>("/api/dashboard/tenant");
 
   const [name, setName] = useState("");
@@ -141,7 +143,9 @@ export default function PengaturanUmumPage({
       title="Umum & Identitas Organisasi"
       description="Kelola profil resmi perusahaan, kontak penanggung jawab, dan standar lokal untuk seluruh aktivitas workspace."
     >
-      <form onSubmit={onSave} className="divide-y divide-slate-200">
+      <form onSubmit={onSave}>
+        {!canEdit && <ReadOnlyBanner />}
+        <fieldset disabled={!canEdit} className="divide-y divide-slate-200">
         {/* Row 0: business logo */}
         <div className="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
           <div className="md:col-span-4">
@@ -342,11 +346,13 @@ export default function PengaturanUmumPage({
             </dl>
           </div>
         </div>
+        </fieldset>
 
         {/* Row: PRD 30 inbox notifications (the shell provider owns the
             SSE/push machinery; this row is a second surface for the same
-            per-user preference, saved on pick). */}
-        <div className="grid grid-cols-1 gap-y-4 py-6 md:grid-cols-12 md:gap-x-8">
+            per-user preference, saved on pick). Personal setting - stays
+            active for every role even when the tenant form is read-only. */}
+        <div className="grid grid-cols-1 gap-y-4 border-t border-slate-200 py-6 md:grid-cols-12 md:gap-x-8">
           <div className="md:col-span-4">
             <span className="text-xs font-semibold text-slate-900">Notifikasi Percakapan Masuk</span>
             <p className="mt-1 text-xs leading-relaxed text-slate-500">
@@ -370,7 +376,7 @@ export default function PengaturanUmumPage({
           </div>
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || !canEdit}
             className="rounded-md bg-green-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-green-700 disabled:opacity-50"
           >
             {saving ? "Menyimpan..." : "Simpan Perubahan"}
@@ -445,6 +451,5 @@ export const getServerSideProps: GetServerSideProps = withAuth<{ tenantId: strin
         tenantSlug: tenant?.slug ?? "",
       },
     };
-  },
-  { requiredPermission: "pengaturan.kelola" }
+  }
 );

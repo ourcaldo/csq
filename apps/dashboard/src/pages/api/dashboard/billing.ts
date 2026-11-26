@@ -24,8 +24,10 @@ export default async function handler(
 ) {
   const session = await getAuthSession(req, res);
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
-  if (!requirePermission(session, "billing.lihat")) {
-    return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat melihat tagihan.");
+  // Owner decision 2026-11-26: plan/usage info is readable by every member;
+  // plan-change requests (POST) stay owner-gated.
+  if (req.method !== "GET" && !requirePermission(session, "billing.lihat")) {
+    return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengubah paket.");
   }
   const tenantId = requireTenant(session);
 

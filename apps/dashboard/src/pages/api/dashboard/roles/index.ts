@@ -46,7 +46,10 @@ export default async function handler(
 ) {
   const session = await getAuthSession(req, res);
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
-  if (!requirePermission(session, "peran.kelola")) {
+  // Owner decision 2026-11-26: the role catalog is readable by every member
+  // (the Peran page renders view-only without peran.kelola); creating and
+  // editing roles stay gated.
+  if (req.method !== "GET" && !requirePermission(session, "peran.kelola")) {
     return respondError(res, "PERMISSION_DENIED", "Hanya pemilik yang dapat mengelola peran.");
   }
   const tenantId = requireTenant(session);

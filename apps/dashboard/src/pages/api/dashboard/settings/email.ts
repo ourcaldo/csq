@@ -58,14 +58,17 @@ export default async function handler(
 ) {
   const session = await getAuthSession(req, res);
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
-  if (!requirePermission(session, "pengaturan.kelola")) {
+  const tenantId = requireTenant(session);
+
+  // Owner decision 2026-11-26: settings INFO is readable by every member;
+  // only changes are permission-gated. GET returns masked status only.
+  if (req.method !== "GET" && !requirePermission(session, "pengaturan.kelola")) {
     return respondError(
       res,
       "PERMISSION_DENIED",
       "Hanya owner yang dapat mengatur integrasi email."
     );
   }
-  const tenantId = requireTenant(session);
 
   return withTenantContext(tenantId, async () => {
     // Shared across responses: whether the platform SMTP fallback exists.
