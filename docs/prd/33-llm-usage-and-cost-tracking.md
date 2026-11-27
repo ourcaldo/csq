@@ -1,6 +1,10 @@
 # 33. LLM Usage and Cost Tracking (owner request 2026-11-27)
 
-Status: **approved** (owner decisions 2026-11-27, below). Not yet implemented.
+Status: **live** (2026-11-27). Implemented and verified: schema + migration on
+the clone, capture at all five call sites (agent turn, scenario AI, embeddings,
+guard), worker daily FX tick, self-check, admin LLM Usage page, Overview tiles,
+Plans column. An end-to-end LLM turn writing usage rows still needs a real
+inbound WhatsApp message on the clone (channel must be reconnected first).
 
 ## Problem
 
