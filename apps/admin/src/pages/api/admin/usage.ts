@@ -22,7 +22,7 @@ export default async function handler(
     const now = new Date();
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 
-    const [tenants, creditRows, mediaBytes, staffCounts, channelCounts, mauRows] =
+    const [tenants, creditRows, mediaBytes, staffCounts, channelCounts, mauRows, llmRows] =
       await Promise.all([
         prisma.tenant.findMany({
           orderBy: { createdAt: "asc" },
@@ -64,6 +64,14 @@ export default async function handler(
             GROUP BY m."tenantId"
           `
         ),
+        // LLM cost (PRD 33): one groupBy gives both the platform totals and
+        // the per-tenant costIdr sum. CostUsd rides along for the totals.
+        prisma.llmUsage.groupBy({
+          by: ["tenantId", "source"],
+          where: { createdAt: { gte: monthStart } },
+          _count: true,
+          _sum: { costIdr: true, costUsd: true },
+        }),
       ]);
 
     const mediaMap = new Map(mediaBytes.map((m) => [m.tenantId, m._sum.byteSize ?? 0]));
@@ -77,6 +85,27 @@ export default async function handler(
       if (row.source === "REPLY") replyMap.set(row.tenantId, credits);
       if (row.source === "SCENARIO_MODULE") scenarioMap.set(row.tenantId, credits);
     }
+
+    const llmCostByTenant = new Map<string, number>();
+    let llmCostIdr = 0;
+    let llmCostUsd = 0;
+    let llmCalls = 0;
+    let llmAgentCostIdr = 0;
+    for (const row of llmRows) {
+      const costIdr = row._sum.costIdr ? row._sum.costIdr.toNumber() : 0;
+      llmCostIdr += costIdr;
+      llmCostUsd += row._sum.costUsd ? row._sum.costUsd.toNumber() : 0;
+      llmCalls += row._count;
+      if (row.source === "AGENT_CALL") llmAgentCostIdr += costIdr;
+      llmCostByTenant.set(row.tenantId, (llmCostByTenant.get(row.tenantId) ?? 0) + costIdr);
+    }
+    const replyTotal = Array.from(replyMap.values()).reduce((s, v) => s + v, 0);
+    const llm = {
+      costIdr: llmCostIdr,
+      costUsd: llmCostUsd,
+      calls: llmCalls,
+      costPerReply: replyTotal > 0 ? llmAgentCostIdr / replyTotal : null,
+    };
 
     // Platform-wide messages per day for the last 30 days (the overview chart).
     const DAYS = 30;
@@ -169,12 +198,13 @@ export default async function handler(
         channelLimit,
         channelOver: channelLimit !== null && channelCount > channelLimit,
         mediaBytes: mediaMap.get(t.id) ?? 0,
+        llmCostIdr: llmCostByTenant.get(t.id) ?? 0,
       };
     });
 
     return res
       .status(200)
-      .json(apiOk({ items, monthStart: monthStart.toISOString(), daily, kpis }));
+      .json(apiOk({ items, monthStart: monthStart.toISOString(), daily, kpis, llm }));
 
   });
 }

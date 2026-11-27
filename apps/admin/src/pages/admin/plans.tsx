@@ -34,6 +34,7 @@ type UsageItem = {
   channelCount: number;
   channelLimit: number | null;
   mediaBytes: number;
+  llmCostIdr: number;
 };
 
 function limitLabel(v: number | null): string {
@@ -147,6 +148,7 @@ export default function PlansPage() {
                 <th className="px-3 py-3 text-right">AI Credits</th>
                 <th className="px-3 py-3 text-right">Staff / Channels</th>
                 <th className="px-3 py-3 text-right">Media Storage</th>
+                <th className="py-3 pl-3 text-right">LLM Cost</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 border-b border-slate-200">
@@ -182,6 +184,14 @@ export default function PlansPage() {
                     {u.staff}/{u.staffLimit ?? "∞"} - {u.channelCount}/{u.channelLimit ?? "∞"}
                   </td>
                   <td className="px-3 py-3.5 text-right font-mono text-slate-600 tabular-nums">{bytes(u.mediaBytes)}</td>
+                  <td className="py-3.5 pl-3 text-right">
+                    <Link
+                      href="/admin/llm-usage"
+                      className="font-mono text-slate-600 tabular-nums hover:text-emerald-700 hover:underline"
+                    >
+                      {idr(Math.round(u.llmCostIdr))}
+                    </Link>
+                  </td>
                 </tr>
               ))}
             </tbody>

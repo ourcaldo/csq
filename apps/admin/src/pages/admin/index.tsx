@@ -10,7 +10,7 @@ import {
   YAxis,
 } from "recharts";
 import { AdminShell } from "@/components/admin-shell";
-import { StatusLabel, btnPrimary, btnOutline } from "@/components/console";
+import { StatCell, StatusLabel, btnPrimary, btnOutline, idr } from "@/components/console";
 import { withAdminAuth } from "@/lib/admin-auth";
 import { useAdminApi } from "@/lib/admin-api";
 
@@ -24,6 +24,7 @@ type Usage = {
   items: { tenantId: string; tenantName: string; planName: string | null }[];
   daily: { date: string; count: number }[];
   monthStart: string;
+  llm: { costIdr: number; costUsd: number; calls: number; costPerReply: number | null };
 };
 
 export const getServerSideProps = withAdminAuth(async () => ({ props: {} }));
@@ -90,6 +91,30 @@ export default function AdminOverview() {
           <p className="text-[11px] font-medium text-slate-400">Cycle Start</p>
           <p className="mt-1 font-mono text-lg font-semibold text-slate-900 tabular-nums">{monthStart}</p>
         </div>
+        <Link
+          href="/admin/llm-usage"
+          className="border-t border-slate-200 pr-4 hover:bg-slate-50/60 sm:border-t sm:px-5"
+        >
+          <StatCell
+            label="LLM Cost (Month)"
+            value={idr(Math.round(usageData?.llm.costIdr ?? 0))}
+            sub={`$${(usageData?.llm.costUsd ?? 0).toFixed(2)} total`}
+          />
+        </Link>
+        <Link
+          href="/admin/llm-usage"
+          className="border-t border-slate-200 pr-4 hover:bg-slate-50/60 sm:border-t sm:px-5"
+        >
+          <StatCell
+            label="LLM Cost / AI Reply"
+            value={
+              usageData && usageData.llm.costPerReply !== null
+                ? idr(Math.round(usageData.llm.costPerReply))
+                : "-"
+            }
+            sub={`${(usageData?.llm.calls ?? 0).toLocaleString("en-GB")} LLM calls`}
+          />
+        </Link>
       </div>
 
       {/* 30-day throughput chart (Recharts - shadcn's chart library) */}
