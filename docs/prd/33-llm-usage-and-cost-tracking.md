@@ -1,6 +1,6 @@
 # 33. LLM Usage and Cost Tracking (owner request 2026-11-27)
 
-Status: **draft** - awaiting owner approval. Not implemented.
+Status: **approved** (owner decisions 2026-11-27, below). Not yet implemented.
 
 ## Problem
 
@@ -27,10 +27,14 @@ All LLM calls are OpenAI-compatible against `LLM_BASE_URL` with
 | 3 | `packages/core/src/services/embeddings.ts` embed/embedBatch (knowledge write + knowledge.search query) | `LLM_EMBEDDING_MODEL` | api + worker + dashboard | prompt tokens |
 | 4 | `packages/core/src/lib/guardrail.ts` decide (Google Decisions API, `gemini-decision-1`) | n/a (Decisions API) | api + worker | per request, no token usage in response |
 
-In scope: 1, 2, 3. Out of scope: 4 (the Decisions API response carries only
-calibrated scores, no token usage, so there is nothing token-priced to
-record; if its provider bill becomes material, it gets its own dated
-amendment - verify live provider docs first, repo rule).
+In scope: 1, 2, 3, and 4 (owner decision 2026-11-27: guard calls are
+included). For the guard, the Decisions API response carries only
+calibrated scores and MAY carry no token usage - the implementation must
+parse its live response shape against the official docs, never from
+memory. If the response exposes usage, guard rows are priced like chat
+calls; if it does not, they are recorded as call-count rows with null
+tokens and null cost, shown as unpriced in the admin page - visible, not
+silent.
 
 ## Non-goals (do not build)
 
@@ -60,11 +64,13 @@ model LlmUsage {
   tenantId         String
   source           LlmUsageSource
   refId            String?    // turn ref (trigger Message id) or ScenarioRunStep id
-  conversationId   String?    // only for agent-turn calls
+  conversationId   String?    // only for agent-turn and guard calls
   model            String     // actual model string from the request
   promptTokens     Int?       // null when the provider omits usage
   completionTokens Int?
-  costIdr          Decimal?   @db.Decimal(16, 4)  // snapshot, null = unpriced
+  costUsd          Decimal?   @db.Decimal(16, 8)  // provider cost snapshot, null = unpriced
+  fxRateIdrPerUsd  Decimal?   @db.Decimal(12, 2)  // FX rate snapshot used for costIdr
+  costIdr          Decimal?   @db.Decimal(16, 4)  // = costUsd * fxRate, null when either input is missing
   createdAt        DateTime  @default(now())
 
   tenant Tenant @relation(..., onDelete: Cascade)
@@ -77,12 +83,15 @@ model LlmUsage {
 
 - `source`: enum `AGENT_CALL` (agent-turn chat completions, one row per
   loop iteration - a 5-tool-call turn writes up to 6 rows), `SCENARIO_AI`
-  (generateText), `EMBEDDING` (embed/embedBatch).
+  (generateText), `EMBEDDING` (embed/embedBatch), `GUARD` (Decisions API
+  pre- and post-turn checks; one row per decide() call - an
+  enforce-mode retry turn writes up to 3: 1 pre + 2 post).
 - `refId` ties rows to the same ref the credit ledger uses:
-  - `AGENT_CALL`: the turn ref = trigger inbound `Message.id` (or a
-    pre-generated UUID when absent). Today `chargeRef` is computed AFTER
-    the turn in `runAgentReply`; it must move to the TOP of the turn and
-    be threaded into `runConversation` so both `LlmUsage` rows and the
+  - `AGENT_CALL` and `GUARD`: the turn ref = trigger inbound `Message.id`
+    (or a pre-generated UUID when absent). Today `chargeRef` is computed
+    AFTER the turn in `runAgentReply`; it must move to the TOP of the turn
+    and be threaded into `runConversation` AND both guard entry points
+    (`checkInboundMessage`, `checkAgentReply`) so `LlmUsage` rows and the
     `AiCreditUsage` charge share one ref. A guard-enforce retry reuses the
     same ref, so the whole turn (original + retry) sums into one reply.
   - `SCENARIO_AI`: the `ScenarioRunStep.id` (scenario engine path); null
@@ -96,39 +105,79 @@ model LlmUsage {
 
 ### `LlmModelPrice` (platform, no tenantId)
 
-Operator-configured price per model. Prices are NEVER seeded or hardcoded
-in code: the repo rule about live platform pricing applies, and the
-operator enters current provider prices (which they must verify against the
-provider's official pricing themselves).
+Operator-configured price per model in **USD per 1M tokens** (owner
+decision 2026-11-27: provider prices are USD; IDR is derived daily).
+Prices are NEVER seeded or hardcoded in code: the repo rule about live
+platform pricing applies, and the operator enters current provider prices
+(which they must verify against the provider's official pricing
+themselves).
 
 ```
 model LlmModelPrice {
   id              String   @id @default(uuid())
   model           String   @unique
-  inputIdrPer1M   Decimal  @db.Decimal(14, 2)   // per 1M prompt tokens
-  outputIdrPer1M  Decimal  @db.Decimal(14, 2)   // per 1M completion tokens (0 for embedding models)
+  inputUsdPer1M   Decimal  @db.Decimal(14, 6)   // per 1M prompt tokens
+  outputUsdPer1M  Decimal  @db.Decimal(14, 6)   // per 1M completion tokens (0 for embedding models)
   updatedById     String
   updatedAt       DateTime @updatedAt
 }
 ```
 
+### `FxRate` (platform, no tenantId) - daily USD to IDR
+
+Owner decision 2026-11-27: the IDR value of a call is computed with the
+conversion rate OF THAT DAY, and the rate is stored so historical cost
+never drifts when the currency moves.
+
+```
+model FxRate {
+  date        DateTime @unique   // UTC calendar day, midnight
+  usdIdr      Decimal @db.Decimal(12, 2)
+  source      FxRateSource       // AUTO | MANUAL
+  updatedById String?            // set on MANUAL edits
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+```
+
+- **AUTO**: the worker's existing daily tick fetches the day's USD/IDR
+  rate once per day from a public FX endpoint. The concrete endpoint is
+  chosen and verified against its live docs at implementation time - repo
+  rule, no quoting API terms from memory. A fetch failure is fail-soft:
+  reuse the most recent existing rate for that day's rows and log it.
+- **MANUAL**: the operator can add or correct any day's rate from the LLM
+  Usage page (audited). Manual edits change only FUTURE usage rows - rows
+  already written keep their `fxRateIdrPerUsd` snapshot.
+- Usage rows snapshot the rate at write time (`fxRateIdrPerUsd` on
+  `LlmUsage`), so the `FxRate` table being edited later never rewrites
+  recorded cost. If NO rate row exists at all yet, `costIdr` is null and
+  the admin page flags "no FX rate" - visible, not silent.
+
 ### Cost computation (at write time, snapshot)
 
-`costIdr = promptTokens * inputIdrPer1M / 1_000_000 +
-completionTokens * outputIdrPer1M / 1_000_000`, rounded to 4 decimals,
-computed when the row is written using the CURRENT price row. Consequences,
-accepted deliberately (same posture as invoice plan snapshots):
+Two steps, both at row-write time:
 
-- A later price edit changes only future rows; history is never rewritten.
-- A mis-keyed price is fixed forward; the operator can void-and-reissue any
-  affected manual invoice - there is no automatic reconciliation.
-- No price row for a model: `costIdr` is null and the row still records
-  tokens. The admin page surfaces "unpriced calls" so the gap is visible,
+1. `costUsd = promptTokens * inputUsdPer1M / 1_000_000 +
+   completionTokens * outputUsdPer1M / 1_000_000`, rounded to 8 decimals,
+   using the CURRENT price row. No price row for the model: `costUsd`
+   null (tokens still recorded).
+2. `costIdr = costUsd * fxRateIdrPerUsd` (that day's rate, snapshot onto
+   the row), rounded to 4 decimals. No rate available: `costIdr` null.
+
+Consequences, accepted deliberately (same posture as invoice plan
+snapshots):
+
+- A later price or rate edit changes only future rows; history is never
+  rewritten. The snapshot columns (`costUsd`, `fxRateIdrPerUsd`,
+  `costIdr`) are the recorded truth for old data - this is exactly why
+  the rate is stored per row and per day, not recomputed at read time
+  (owner decision 2026-11-27).
+- A mis-keyed price or rate is fixed forward; the operator can
+  void-and-reissue any affected manual invoice - there is no automatic
+  reconciliation.
+- The admin page shows BOTH USD and IDR figures, plus the rate in effect,
+  and flags unpriced calls and missing-FX calls so gaps are visible,
   never silent.
-
-Prices are entered in IDR per 1M tokens directly (not USD + FX rate): the
-operator's provider bills or reseller quotes are the source of truth, and
-avoiding an FX-rate config keeps one variable out.
 
 ## Capture points (implementation map)
 
@@ -148,9 +197,17 @@ avoiding an FX-rate config keeps one variable out.
 5. `embeddings.ts`: parse usage from the embeddings response, write
    `EMBEDDING` row when the caller supplies a tenantId (knowledge write,
    knowledge.search); calls without a tenant context are skipped.
-6. Shared core helper `recordLlmUsage` in `packages/core/src/lib/llm-usage.ts`
-   (price lookup + insert + warn-on-fail), used by all five sites. No
-   changes to any dashboard/tenant surface.
+6. `guardrail.ts` `decide()`: after a successful Decisions API response,
+   write a `GUARD` row (tenant, turn ref, conversationId,
+   model `gemini-decision-1`, tokens from the response when it has usage,
+   else null). The pre- and post-turn call sites in `agent-loop.ts` gain
+   tenantId + refId + conversationId args. If `GUARD_MODE=off`, no rows.
+   The response schema tolerates an optional usage object - verify the
+   real shape against live docs during implementation.
+7. Worker daily tick: upsert today's `FxRate` row (AUTO), fail-soft.
+8. Shared core helper `recordLlmUsage` in `packages/core/src/lib/llm-usage.ts`
+   (price lookup + latest FxRate lookup + insert + warn-on-fail), used by
+   all call sites. No changes to any dashboard/tenant surface.
 
 ## Admin console surfaces (English UI, PRD 13 amendment 2026-11-13)
 
@@ -158,20 +215,30 @@ avoiding an FX-rate config keeps one variable out.
 
 1. **Month selector** - default current month; options back to the first
    recorded month.
-2. **Stat strip**: total LLM cost (IDR) for the month, calls, prompt
-   tokens, completion tokens, unpriced calls, and **cost per AI reply**
-   (sum of `AGENT_CALL` cost / count of `AiCreditUsage` REPLY rows - both
-   sides keyed by the same turn ref, so retries and unsent replies land
-   on both sides equally).
-3. **Daily cost chart** for the selected month.
-4. **Model breakdown table**: model, calls, tokens in/out, cost, share %;
-   inline price editor per model (input/output IDR per 1M) and an
-   "unpriced" badge when a model has calls but no price row. Price edits
-   write `AdminActionLog`.
-5. **Per-tenant table**: tenant, plan, AI replies (ledger), LLM cost,
-   cost per reply, plan price, and cost as a % of plan price. Sortable by
-   cost. A cost % above 100 is the operator's margin-loss flag - the page
-   only surfaces it, it does not act.
+2. **Stat strip**: total LLM cost (USD and IDR) for the month, calls,
+   prompt tokens, completion tokens, unpriced calls, missing-FX calls, and
+   **cost per AI reply** (sum of `AGENT_CALL` cost / count of
+   `AiCreditUsage` REPLY rows - both sides keyed by the same turn ref, so
+   retries and unsent replies land on both sides equally).
+3. **Daily cost chart** for the selected month (IDR, from the daily
+   snapshots).
+4. **Model breakdown table**: model, calls, tokens in/out, cost USD, cost
+   IDR, share %; inline price editor per model (input/output USD per 1M)
+   and an "unpriced" badge when a model has calls but no price row. Price
+   edits write `AdminActionLog`.
+5. **Per-tenant table**: tenant, plan, AI replies (ledger), LLM cost
+   (IDR), cost per reply, plan price, and cost as a % of plan price.
+   Sortable by cost. A cost % above 100 is the operator's margin-loss
+   flag - the page only surfaces it, it does not act.
+6. **FX rate section**: the current rate, a list of recent daily rates
+   (AUTO/MANUAL), and a manual add/correct form per day. Edits audited.
+
+### `/admin` (Overview, owner decision 2026-11-27)
+
+The main dashboard shows this month's LLM cost directly: two tiles in the
+existing telemetry strip - "LLM cost (month)" in IDR and "LLM cost / AI
+reply" - both linking to `/admin/llm-usage`. Served by the existing
+`/api/admin/usage` call (extended), no extra request on page load.
 
 ### `/admin/plans` (existing usage table)
 
@@ -185,14 +252,20 @@ One added column: LLM cost (current month, IDR), linking to
   `requireAdmin` + `AdminActionLog`, matching existing admin route
   conventions. Decimal values cross the boundary as strings and are
   Zod-parsed.
+- `POST /api/admin/llm-usage/fx` (add/correct one day's USD/IDR rate) -
+  same conventions, audited.
+- `/api/admin/usage` extended with `llmCostIdr`, `llmCostUsd`,
+  `llmCalls`, `llmCostPerReply` (platform totals for the Overview tiles)
+  and per-tenant `llmCostIdr`.
 
 No tenant-facing page or endpoint changes.
 
 ## Security and audit
 
-- `LlmUsage` and prices are operator-only. No tenant API exposes them; no
-  tenant role can read cost data (it is the operator's margin information).
-- Price edits are audited (`AdminActionLog` actor + before/after).
+- `LlmUsage`, `LlmModelPrice`, and `FxRate` are operator-only. No tenant
+  API exposes them; no tenant role can read cost data (it is the
+  operator's margin information).
+- Price and FX edits are audited (`AdminActionLog` actor + before/after).
 - Usage rows carry no message content, no prompts, no secrets - only
   counts, model names, and refs.
 - All queries are platform-scoped inside `withSystemContext` in admin
@@ -200,9 +273,10 @@ No tenant-facing page or endpoint changes.
 
 ## Migration and backfill
 
-- Migration creates the two tables and the enum. No backfill: token usage
-  was never captured, so history starts at deploy. The credit ledger's
-  history is untouched and still correct for quotas.
+- Migration creates the three tables, the `LlmUsageSource` and
+  `FxRateSource` enums. No backfill: token usage was never captured, so
+  history starts at deploy. The credit ledger's history is untouched and
+  still correct for quotas.
 - Worker's `migrate deploy` must skip the manual clone application, per the
   standing migration ritual for this repo.
 
@@ -226,26 +300,35 @@ never deleted in v1: they are the cost paper trail behind manual invoices.
 - A failed LLM write never fails or delays the customer reply (verified by
   forcing the insert to throw in a self-check).
 - Credit charge ref and `AGENT_CALL` ref are identical for the same turn.
-- With a price row set: `costIdr` matches the formula to 4 decimals; with
-  no price row: null cost, and the admin page shows the unpriced count.
+- With a price row and an FX rate set: `costUsd` matches the token
+  formula to 8 decimals and `costIdr = costUsd * fxRateIdrPerUsd` to 4
+  decimals; with no price row: null costs, and the admin page shows the
+  unpriced count; with no FX rate: `costUsd` set, `costIdr` null, flagged.
+- Historical rows are immutable: editing today's FX rate or a model price
+  does not change any already-written `LlmUsage` row.
+- Guard rows: a turn in `GUARD_MODE=shadow` writes 1 pre + 1 post `GUARD`
+  row on the turn's ref; `GUARD_MODE=off` writes none.
+- The worker's daily tick writes exactly one `FxRate` row per UTC day
+  (idempotent upsert); a failed fetch reuses the latest rate and logs.
 - `/admin/llm-usage` shows stat strip, daily chart, model breakdown with
-  working price editor, and per-tenant cost table; `/admin/plans` shows
-  the LLM cost column.
+  working price editor, FX section, and per-tenant cost table; `/admin`
+  Overview shows the two LLM tiles; `/admin/plans` shows the LLM cost
+  column.
 - A tenant user (any role, any token) cannot reach any new endpoint or see
   any cost number.
-- Price edit writes an `AdminActionLog` row.
+- Price and FX edits each write an `AdminActionLog` row.
 
-## Open decisions (owner)
+## Resolved decisions (owner, 2026-11-27)
 
-1. **Cost basis** - recommended: operator-configured IDR per 1M tokens
-   (this PRD as written). Alternative: record provider USD + an FX-rate
-   setting. IDR-direct avoids FX config but assumes the operator's
-   provider quotes in IDR or converts once when entering prices.
-2. **Page shape** - recommended: new `/admin/llm-usage` page plus one
-   column on Plans & Usage. Alternative: everything crammed into
-   `/admin/plans` (fewer routes, but the price editor + model breakdown
-   make that page unwieldy).
-3. **Guard calls** - excluded from v1 (no token data in the Decisions API
-   response). Confirm or override.
-4. **Tenant visibility** - tenants see nothing new (credits remain their
-   meter). Confirm or override.
+1. **Cost basis**: USD per 1M tokens, IDR derived with the day's USD/IDR
+   conversion rate. The rate is stored per day (`FxRate`) AND snapshotted
+   per usage row, so old data keeps the rate that was actually applied
+   and historical cost never drifts.
+2. **Page shape**: dedicated `/admin/llm-usage` page + LLM cost column on
+   Plans & Usage + two cost tiles on the admin Overview (main page), so
+   usage/cost is visible directly on the admin dashboard.
+3. **Guard calls**: included. Decisions API calls are recorded as `GUARD`
+   rows on the turn ref; cost when the response exposes usage, otherwise
+   counted and flagged unpriced.
+4. **Tenant visibility**: tenants see nothing - credits remain their only
+   meter; cost numbers are operator-only.
