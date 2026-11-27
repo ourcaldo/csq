@@ -248,7 +248,7 @@ function RoleDirectory({
       </div>
 
       {/* Filter & search bar */}
-      <div className="flex flex-col justify-between gap-3 border-b border-slate-200 py-4 sm:flex-row sm:items-center">
+      <div className="flex flex-col flex-wrap justify-between gap-3 border-b border-slate-200 py-4 sm:flex-row sm:items-center">
         <div className="inline-flex rounded-lg bg-slate-100 p-1" role="tablist">
           {tabs.map((t) => (
             <button
@@ -271,7 +271,7 @@ function RoleDirectory({
           ))}
         </div>
         <div className="flex items-center gap-2.5">
-          <div className="relative flex-1 sm:w-72">
+          <div className="relative min-w-0 flex-1 sm:w-72">
             <MagnifyingGlass
               size={14}
               weight="bold"
