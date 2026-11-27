@@ -7,6 +7,7 @@ import {
   withTenantContext,
 } from "@csq/core/lib/tenant-context";
 import { tenantActive } from "@csq/core/lib/tenant-status";
+import { computeCostUsd } from "@csq/core/lib/llm-usage";
 import { applyImport } from "@csq/core/lib/import-apply";
 import { applyMapping } from "@csq/core/services/excel";
 import { readSheet } from "@csq/core/services/sheets";
@@ -113,8 +114,9 @@ export function startScheduler(): void {
   };
   cron.schedule("20 0 * * *", fxTick);
   fxTick();
-  // PRD 33 amendment 2026-11-27: auto-sync model prices daily (00:40 UTC)
-  // plus a boot catch-up, so cost is known without any operator input.
+  // PRD 33 amendment 2026-11-27: auto-sync model prices every 6 hours plus a
+  // boot catch-up, so cost is known without any operator input and calls made
+  // before a model's first price are backfilled within one tick.
   const priceTick = (): void => {
     void withSystemLock("llm-price-tick", 120, syncLlmPrices)
       .then(() => undefined)
@@ -122,7 +124,7 @@ export function startScheduler(): void {
         console.error("[scheduler] LLM price tick threw:", err);
       });
   };
-  cron.schedule("40 0 * * *", priceTick);
+  cron.schedule("40 */6 * * *", priceTick);
   priceTick();
   // PRD 27 avatar backfill: every 6 hours, bounded at 50 contacts per run
   // (WhatsApp rate-limit guard), for avatarless contacts on a Baileys
@@ -280,6 +282,37 @@ async function syncLlmPrices(): Promise<void> {
       },
       update: { inputUsdPer1M, outputUsdPer1M, updatedById: "system" },
     });
+    // Fill cost on rows recorded before this model had a price. Those rows
+    // were UNKNOWN, not priced differently, so filling them is not a history
+    // rewrite; each row keeps its own FX snapshot (costIdr stays null when
+    // the row has none). Bounded per run - the next tick continues.
+    const unpriced = await prisma.llmUsage.findMany({
+      where: { model, costUsd: null },
+      select: {
+        id: true,
+        promptTokens: true,
+        completionTokens: true,
+        fxRateIdrPerUsd: true,
+      },
+      take: 1000,
+    });
+    for (const u of unpriced) {
+      const costUsd = computeCostUsd({
+        promptTokens: u.promptTokens ?? undefined,
+        completionTokens: u.completionTokens ?? undefined,
+        inputUsdPer1M,
+        outputUsdPer1M,
+      });
+      await prisma.llmUsage.update({
+        where: { id: u.id },
+        data: {
+          costUsd,
+          costIdr: u.fxRateIdrPerUsd
+            ? costUsd.mul(u.fxRateIdrPerUsd).toDecimalPlaces(4)
+            : null,
+        },
+      });
+    }
     synced += 1;
   }
   console.log(`[scheduler] LLM prices synced for ${synced} model(s)`);
