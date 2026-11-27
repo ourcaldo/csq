@@ -47,6 +47,7 @@ const MAIN_NAV: { group: string; items: { href: string; label: string; icon: Rea
       { href: "/admin/tenants", label: "Tenants", icon: <Storefront size={16} />, countKey: "tenants" },
       { href: "/admin/channels", label: "Channels", icon: <ChatCircleDots size={16} />, countKey: "channels" },
       { href: "/admin/api-keys", label: "API Keys", icon: <Key size={16} />, countKey: "apiKeys" },
+      { href: "/admin/llm-usage", label: "LLM Usage", icon: <Coins size={16} /> },
     ],
   },
   {
@@ -64,7 +65,6 @@ const SETTINGS_NAV: { group: string; items: { href: string; label: string; icon:
     group: "Monetization & Quotas",
     items: [
       { href: "/admin/plans", label: "Plans & Usage", icon: <Tag size={16} /> },
-      { href: "/admin/llm-usage", label: "LLM Usage", icon: <Coins size={16} /> },
       { href: "/admin/billing", label: "Billing & Invoices", icon: <Receipt size={16} /> },
     ],
   },
@@ -77,7 +77,7 @@ const SETTINGS_NAV: { group: string; items: { href: string; label: string; icon:
   },
 ];
 
-const SETTINGS_ROUTES = ["/admin/plans", "/admin/llm-usage", "/admin/billing", "/admin/email", "/admin/admins"];
+const SETTINGS_ROUTES = ["/admin/plans", "/admin/billing", "/admin/email", "/admin/admins"];
 
 function isActive(pathname: string, href: string): boolean {
   return href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);

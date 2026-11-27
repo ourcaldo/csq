@@ -14,13 +14,11 @@ import {
   StatCell,
   StatusLabel,
   SectionLabel,
-  btnSmOutline,
   idr,
   pad,
 } from "@/components/console";
-import { showToast } from "@/components/toast";
 import { withAdminAuth } from "@/lib/admin-auth";
-import { useAdminApi, adminFetch } from "@/lib/admin-api";
+import { useAdminApi } from "@/lib/admin-api";
 
 // LLM usage and cost (PRD 33): month-scoped spend from the write-time cost
 // snapshots. Operator-only margin data - the page only surfaces it.
@@ -102,189 +100,24 @@ function usd(n: number): string {
   return `$${n.toFixed(4)}`;
 }
 
-function PriceEditor({
-  model,
-  price,
-  onSaved,
-  onError,
-}: {
-  model: string;
-  price: LlmPrice | null;
-  onSaved: () => void;
-  onError: (msg: string) => void;
-}) {
-  const [input, setInput] = useState(price?.inputUsdPer1M ?? "");
-  const [output, setOutput] = useState(price?.outputUsdPer1M ?? "");
-  const [busy, setBusy] = useState(false);
-
-  async function save() {
-    setBusy(true);
-    try {
-      await adminFetch("/api/admin/llm-usage/prices", "POST", {
-        model,
-        inputUsdPer1M: input,
-        outputUsdPer1M: output,
-      });
-      showToast(`Price saved for ${model}`);
-      onSaved();
-    } catch (e) {
-      onError(e instanceof Error ? e.message : "Failed to save price.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div className="flex items-center justify-end gap-1.5">
-      <input
-        type="number"
-        min="0"
-        step="0.000001"
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        placeholder="in"
-        aria-label={`${model} input USD per 1M tokens`}
-        className="h-7 w-20 rounded border border-slate-300 bg-card px-2 font-mono text-[11px] text-slate-800 focus:border-emerald-600 focus:outline-none"
-      />
-      <input
-        type="number"
-        min="0"
-        step="0.000001"
-        value={output}
-        onChange={(e) => setOutput(e.target.value)}
-        placeholder="out"
-        aria-label={`${model} output USD per 1M tokens`}
-        className="h-7 w-20 rounded border border-slate-300 bg-card px-2 font-mono text-[11px] text-slate-800 focus:border-emerald-600 focus:outline-none"
-      />
-      <button
-        type="button"
-        onClick={() => void save()}
-        disabled={busy || input === "" || output === ""}
-        className={btnSmOutline()}
-      >
-        {busy ? "..." : "Save"}
-      </button>
-    </div>
-  );
-}
-
-// Prices must be enterable BEFORE any usage exists, so day-one calls are
-// priced, not recorded unpriced and fixed forward.
-function AddModelPrice({
-  onSaved,
-  onError,
-}: {
-  onSaved: () => void;
-  onError: (msg: string) => void;
-}) {
-  const [model, setModel] = useState("");
-  const [input, setInput] = useState("");
-  const [output, setOutput] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  async function save() {
-    const name = model.trim();
-    setBusy(true);
-    try {
-      await adminFetch("/api/admin/llm-usage/prices", "POST", {
-        model: name,
-        inputUsdPer1M: input,
-        outputUsdPer1M: output,
-      });
-      showToast(`Price saved for ${name}`);
-      setModel("");
-      setInput("");
-      setOutput("");
-      onSaved();
-    } catch (e) {
-      onError(e instanceof Error ? e.message : "Failed to save price.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-200 pt-3">
-      <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-        Add or update price
-      </span>
-      <input
-        type="text"
-        value={model}
-        onChange={(e) => setModel(e.target.value)}
-        placeholder="model name"
-        aria-label="Model name"
-        className="h-7 w-48 rounded border border-slate-300 bg-card px-2 font-mono text-[11px] text-slate-800 focus:border-emerald-600 focus:outline-none"
-      />
-      <input
-        type="number"
-        min="0"
-        step="0.000001"
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        placeholder="input USD/1M"
-        aria-label="Input USD per 1M tokens"
-        className="h-7 w-28 rounded border border-slate-300 bg-card px-2 font-mono text-[11px] text-slate-800 focus:border-emerald-600 focus:outline-none"
-      />
-      <input
-        type="number"
-        min="0"
-        step="0.000001"
-        value={output}
-        onChange={(e) => setOutput(e.target.value)}
-        placeholder="output USD/1M"
-        aria-label="Output USD per 1M tokens"
-        className="h-7 w-28 rounded border border-slate-300 bg-card px-2 font-mono text-[11px] text-slate-800 focus:border-emerald-600 focus:outline-none"
-      />
-      <button
-        type="button"
-        onClick={() => void save()}
-        disabled={busy || model.trim() === "" || input === "" || output === ""}
-        className={btnSmOutline()}
-      >
-        {busy ? "..." : "Save price"}
-      </button>
-    </div>
-  );
-}
 
 export const getServerSideProps = withAdminAuth(async () => ({ props: {} }));
 export default function LlmUsagePage() {
   const [month, setMonth] = useState("");
   const [sortDesc, setSortDesc] = useState(true);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [fxDate, setFxDate] = useState(new Date().toISOString().slice(0, 10));
-  const [fxRate, setFxRate] = useState("");
-  const [fxBusy, setFxBusy] = useState(false);
 
-  const { data, loading, error, refresh } = useAdminApi<LlmData>(
+  const { data, loading, error } = useAdminApi<LlmData>(
     `/api/admin/llm-usage${month ? `?month=${month}` : ""}`
   );
 
   const totals = data?.totals;
   const months = monthOptions(data?.firstRecordedAt);
   const selected = month || data?.month || months[months.length - 1];
-  const priceByModel = new Map((data?.prices ?? []).map((p) => [p.model, p]));
   const tenants = [...(data?.tenants ?? [])].sort((a, b) =>
     sortDesc ? b.costIdr - a.costIdr : a.costIdr - b.costIdr
   );
   const daily = data?.daily ?? [];
   const fx = data?.fx;
-
-  async function saveFx() {
-    setFxBusy(true);
-    setSaveError(null);
-    try {
-      await adminFetch("/api/admin/llm-usage/fx", "POST", { date: fxDate, usdIdr: fxRate });
-      showToast(`FX rate saved for ${fxDate}`);
-      setFxRate("");
-      refresh();
-    } catch (e) {
-      setSaveError(e instanceof Error ? e.message : "Failed to save FX rate.");
-    } finally {
-      setFxBusy(false);
-    }
-  }
 
   return (
     <AdminShell title="LLM Usage">
@@ -292,7 +125,7 @@ export default function LlmUsagePage() {
         <div>
           <h1 className="text-xl font-semibold tracking-tight text-slate-900">LLM Usage &amp; Cost</h1>
           <p className="mt-1 text-xs text-slate-500">
-            Provider spend per model and tenant, computed from the price and FX snapshots recorded with each call.
+            Provider spend per model and tenant. Model prices and the USD/IDR rate are synced automatically; each call keeps the price and rate snapshot of its own day.
           </p>
         </div>
         <select
@@ -309,9 +142,9 @@ export default function LlmUsagePage() {
         </select>
       </div>
 
-      {(error || saveError) && (
+      {error && (
         <div className="mt-5 rounded-md border border-slate-200 border-l-2 border-l-red-500 bg-card px-4 py-2.5 text-xs text-red-600">
-          {error ?? saveError}
+          {error}
         </div>
       )}
 
@@ -440,7 +273,6 @@ export default function LlmUsagePage() {
                 <th className="px-3 py-3 text-right">Cost IDR</th>
                 <th className="px-3 py-3 text-right">Share</th>
                 <th className="px-3 py-3">Status</th>
-                <th className="py-3 pl-3 text-right">Input / Output USD per 1M</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 border-b border-slate-200">
@@ -467,23 +299,11 @@ export default function LlmUsagePage() {
                       <StatusLabel tone="warn">Unpriced ({m.unpricedCalls})</StatusLabel>
                     )}
                   </td>
-                  <td className="py-3 pl-3">
-                    <PriceEditor
-                      key={`${m.model}:${priceByModel.get(m.model)?.inputUsdPer1M ?? ""}:${priceByModel.get(m.model)?.outputUsdPer1M ?? ""}`}
-                      model={m.model}
-                      price={priceByModel.get(m.model) ?? null}
-                      onSaved={() => {
-                        setSaveError(null);
-                        refresh();
-                      }}
-                      onError={setSaveError}
-                    />
-                  </td>
                 </tr>
               ))}
               {!loading && (data?.models ?? []).length === 0 && (
                 <tr>
-                  <td colSpan={8} className="py-10 text-center text-xs text-slate-400">
+                  <td colSpan={7} className="py-10 text-center text-xs text-slate-400">
                     No model usage for this month.
                   </td>
                 </tr>
@@ -491,18 +311,11 @@ export default function LlmUsagePage() {
             </tbody>
           </table>
         </div>
-        <AddModelPrice
-          onSaved={() => {
-            setSaveError(null);
-            refresh();
-          }}
-          onError={setSaveError}
-        />
         {(data?.prices ?? []).length > 0 && (
           <p className="mt-2 text-[11px] text-slate-500">
-            Configured prices:{" "}
+            Prices synced automatically (USD per 1M tokens):{" "}
             {(data?.prices ?? [])
-              .map((p) => `${p.model} (in $${p.inputUsdPer1M} / out $${p.outputUsdPer1M} per 1M)`)
+              .map((p) => `${p.model} (in $${p.inputUsdPer1M} / out $${p.outputUsdPer1M})`)
               .join(", ")}
           </p>
         )}
@@ -524,40 +337,13 @@ export default function LlmUsagePage() {
                   </span>
                   <span className="font-mono text-[11px] text-slate-400">{fx.current.date}</span>
                 </div>
+                <p className="mt-4 border-t border-slate-100 pt-3 text-[11px] text-slate-500">
+                  Synced automatically every day by the worker. Each call keeps the rate of its own day.
+                </p>
               </>
             ) : (
               <p className="text-xs text-slate-400">No FX rate recorded yet. Calls get no IDR cost until one exists.</p>
             )}
-            <div className="mt-4 space-y-2 border-t border-slate-100 pt-4">
-              <p className="text-[11px] font-medium text-slate-500">Add or correct a day rate</p>
-              <div className="flex items-center gap-1.5">
-                <input
-                  type="date"
-                  value={fxDate}
-                  onChange={(e) => setFxDate(e.target.value)}
-                  aria-label="FX date"
-                  className="h-8 w-32 rounded border border-slate-300 bg-card px-2 font-mono text-[11px] text-slate-800 focus:border-emerald-600 focus:outline-none"
-                />
-                <input
-                  type="number"
-                  min="1"
-                  step="0.01"
-                  value={fxRate}
-                  onChange={(e) => setFxRate(e.target.value)}
-                  placeholder="e.g. 16000"
-                  aria-label="USD to IDR rate"
-                  className="h-8 w-28 rounded border border-slate-300 bg-card px-2 font-mono text-[11px] text-slate-800 focus:border-emerald-600 focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => void saveFx()}
-                  disabled={fxBusy || !fxDate || fxRate === ""}
-                  className={btnSmOutline()}
-                >
-                  {fxBusy ? "..." : "Save"}
-                </button>
-              </div>
-            </div>
           </div>
         </div>
         <div className="lg:col-span-2">

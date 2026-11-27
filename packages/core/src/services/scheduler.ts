@@ -113,6 +113,17 @@ export function startScheduler(): void {
   };
   cron.schedule("20 0 * * *", fxTick);
   fxTick();
+  // PRD 33 amendment 2026-11-27: auto-sync model prices daily (00:40 UTC)
+  // plus a boot catch-up, so cost is known without any operator input.
+  const priceTick = (): void => {
+    void withSystemLock("llm-price-tick", 120, syncLlmPrices)
+      .then(() => undefined)
+      .catch((err: unknown) => {
+        console.error("[scheduler] LLM price tick threw:", err);
+      });
+  };
+  cron.schedule("40 0 * * *", priceTick);
+  priceTick();
   // PRD 27 avatar backfill: every 6 hours, bounded at 50 contacts per run
   // (WhatsApp rate-limit guard), for avatarless contacts on a Baileys
   // channel. New inbound messages fetch their avatar immediately; this
@@ -175,6 +186,103 @@ async function refreshFxRate(): Promise<void> {
   console.log(
     `[scheduler] FX rate ${day.toISOString().slice(0, 10)}: 1 USD = ${parsed.data.rates.IDR} IDR`
   );
+}
+
+// PRD 33 amendment 2026-11-27 (owner direction): model prices are
+// AUTO-SYNCED, never hand-entered. Source is the community-maintained LiteLLM
+// catalog (USD per token for ~7k models), fetched daily and matched against
+// the models this installation actually uses (usage rows + LLM env vars).
+// Fail-soft: a failed fetch keeps the existing price rows.
+const LLM_PRICE_CATALOG_URL =
+  "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json";
+const catalogEntrySchema = z
+  .object({
+    input_cost_per_token: z.number().optional(),
+    output_cost_per_token: z.number().optional(),
+  })
+  .passthrough();
+const catalogSchema = z.record(z.string(), catalogEntrySchema);
+
+type CatalogEntry = z.infer<typeof catalogEntrySchema>;
+
+// Exact key first; otherwise the shortest provider-prefixed key that ends
+// with "/<model>" (LiteLLM lists e.g. "gemini/gemini-2.5-flash" next to the
+// plain key, plus azure/vertex variants with the same price).
+function matchCatalogEntry(
+  catalog: Record<string, CatalogEntry>,
+  model: string
+): CatalogEntry | null {
+  if (catalog[model]) return catalog[model];
+  const lower = model.toLowerCase();
+  const candidates = Object.keys(catalog)
+    .filter((k) => k.toLowerCase().endsWith(`/${lower}`))
+    .sort((a, b) => a.split("/").length - b.split("/").length);
+  return candidates.length > 0 ? catalog[candidates[0]] : null;
+}
+
+async function syncLlmPrices(): Promise<void> {
+  const res = await fetch(LLM_PRICE_CATALOG_URL, {
+    signal: AbortSignal.timeout(30_000),
+  });
+  if (!res.ok) {
+    console.error(
+      `[scheduler] LLM price catalog fetch failed: ${res.status} ${res.statusText}`
+    );
+    return;
+  }
+  const parsed = catalogSchema.safeParse(await res.json());
+  if (!parsed.success) {
+    console.error("[scheduler] LLM price catalog shape unexpected");
+    return;
+  }
+  const catalog = parsed.data;
+
+  const used = new Set<string>();
+  const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+  const rows = await prisma.llmUsage.findMany({
+    where: { createdAt: { gte: since } },
+    select: { model: true },
+    distinct: ["model"],
+  });
+  for (const r of rows) used.add(r.model);
+  for (const m of [
+    process.env.LLM_CHAT_MODEL,
+    process.env.LLM_SCENARIO_MODEL,
+    process.env.LLM_EMBEDDING_MODEL,
+  ]) {
+    if (m) used.add(m);
+  }
+  used.add("gemini-decision-1");
+
+  let synced = 0;
+  for (const model of used) {
+    const entry = matchCatalogEntry(catalog, model);
+    if (!entry) continue;
+    if (
+      entry.input_cost_per_token === undefined &&
+      entry.output_cost_per_token === undefined
+    ) {
+      continue;
+    }
+    const inputUsdPer1M = new Prisma.Decimal(
+      String(entry.input_cost_per_token ?? 0)
+    ).mul(1_000_000);
+    const outputUsdPer1M = new Prisma.Decimal(
+      String(entry.output_cost_per_token ?? 0)
+    ).mul(1_000_000);
+    await prisma.llmModelPrice.upsert({
+      where: { model },
+      create: {
+        model,
+        inputUsdPer1M,
+        outputUsdPer1M,
+        updatedById: "system",
+      },
+      update: { inputUsdPer1M, outputUsdPer1M, updatedById: "system" },
+    });
+    synced += 1;
+  }
+  console.log(`[scheduler] LLM prices synced for ${synced} model(s)`);
 }
 
 async function backfillContactAvatars(): Promise<number> {
