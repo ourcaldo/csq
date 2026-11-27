@@ -6,6 +6,25 @@ guard), worker daily FX tick, self-check, admin LLM Usage page, Overview tiles,
 Plans column. An end-to-end LLM turn writing usage rows still needs a real
 inbound WhatsApp message on the clone (channel must be reconnected first).
 
+Amendment 2026-11-27 (owner direction, implemented same day):
+
+- **Model prices are AUTOMATIC.** No operator input. The worker syncs USD
+  per 1M token prices every 6 hours (plus a boot catch-up) from the
+  community-maintained LiteLLM price catalog, matched against the models this
+  installation actually uses (usage rows in the last 90 days plus
+  `LLM_CHAT_MODEL`, `LLM_SCENARIO_MODEL`, `LLM_EMBEDDING_MODEL`, and the
+  fixed `gemini-decision-1`). This supersedes the operator-entered
+  `LlmModelPrice` editing in the original decision; the price editor and its
+  POST endpoint were removed.
+- **Unpriced rows are backfilled.** When a model gets a price, rows already
+  recorded with `costUsd` null for that model are filled using the same
+  formula and each row's own FX snapshot. Filling an unknown price is not a
+  history rewrite; a later price CHANGE still never touches old rows.
+- **The FX rate is not editable.** The daily AUTO rate is the only source;
+  the manual FX form and its POST endpoint were removed.
+- **The page lives on the main admin nav** (Platform group), not inside
+  Platform Settings, so usage and cost are one click from the main dashboard.
+
 ## Problem
 
 The platform pays the LLM provider for every AI reply, but records nothing
