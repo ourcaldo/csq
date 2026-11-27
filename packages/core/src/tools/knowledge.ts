@@ -53,7 +53,7 @@ const knowledgeSearch: ToolDefinition<KnowledgeSearchParams> = {
     // to the keyword path below.
     if (isEmbeddingsConfigured()) {
       try {
-        const queryVec = await embed(p.query);
+        const queryVec = await embed(p.query, { tenantId: ctx.tenantId });
         const similar = await findSimilar("KnowledgeEmbedding", ctx.tenantId, queryVec, {
           limit,
           threshold: SIMILARITY_THRESHOLD,

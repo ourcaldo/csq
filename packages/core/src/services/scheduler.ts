@@ -1,6 +1,6 @@
 import cron from "node-cron";
 import { z } from "zod";
-import { InventorySource } from "@prisma/client";
+import { InventorySource, Prisma } from "@prisma/client";
 import prisma from "@csq/core/lib/db";
 import {
   withSystemContext,
@@ -100,6 +100,19 @@ export function startScheduler(): void {
   };
   cron.schedule("10 17 * * *", kpiTick);
   kpiTick();
+  // PRD 33: daily USD/IDR rate for LLM cost conversion. open.er-api.com is a
+  // free, keyless endpoint (verified live 2026-11-27, refreshes ~00:02 UTC);
+  // the tick runs at 00:20 UTC plus a boot catch-up. Fail-soft: a failed
+  // fetch leaves the latest existing rate in place (recordLlmUsage reuses it).
+  const fxTick = (): void => {
+    void withSystemLock("fx-rate-tick", 120, refreshFxRate)
+      .then(() => undefined)
+      .catch((err: unknown) => {
+        console.error("[scheduler] FX rate tick threw:", err);
+      });
+  };
+  cron.schedule("20 0 * * *", fxTick);
+  fxTick();
   // PRD 27 avatar backfill: every 6 hours, bounded at 50 contacts per run
   // (WhatsApp rate-limit guard), for avatarless contacts on a Baileys
   // channel. New inbound messages fetch their avatar immediately; this
@@ -117,6 +130,52 @@ export function startScheduler(): void {
 }
 
 const AVATAR_BACKFILL_BATCH = 50;
+
+// PRD 33: daily USD/IDR rate (AUTO). The response shape is the documented
+// open.er-api.com v6 payload: { result: "success", rates: { IDR: number } }.
+const FX_RATE_URL = "https://open.er-api.com/v6/latest/USD";
+const fxRateResponseSchema = z.object({
+  result: z.literal("success"),
+  rates: z.object({ IDR: z.number() }),
+});
+
+function utcDayStart(date: Date): Date {
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())
+  );
+}
+
+// Exactly one AUTO row per UTC day. `update: {}` is a no-op, so an existing
+// row (AUTO or a MANUAL correction) is never overwritten.
+async function refreshFxRate(): Promise<void> {
+  const day = utcDayStart(new Date());
+  const res = await fetch(FX_RATE_URL, {
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!res.ok) {
+    console.error(
+      `[scheduler] FX rate fetch failed: ${res.status} ${res.statusText}`
+    );
+    return;
+  }
+  const parsed = fxRateResponseSchema.safeParse(await res.json());
+  if (!parsed.success) {
+    console.error("[scheduler] FX rate response shape unexpected");
+    return;
+  }
+  await prisma.fxRate.upsert({
+    where: { date: day },
+    update: {},
+    create: {
+      date: day,
+      usdIdr: new Prisma.Decimal(String(parsed.data.rates.IDR)).toDecimalPlaces(2),
+      source: "AUTO",
+    },
+  });
+  console.log(
+    `[scheduler] FX rate ${day.toISOString().slice(0, 10)}: 1 USD = ${parsed.data.rates.IDR} IDR`
+  );
+}
 
 async function backfillContactAvatars(): Promise<number> {
   // Avatarless contacts whose latest conversation is on a connected

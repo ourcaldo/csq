@@ -2,6 +2,7 @@ import { executeTool } from "@csq/core/tools/execute";
 import { listTools } from "@csq/core/tools";
 import { zodToJsonSchema, type JsonSchema } from "@csq/core/lib/zod-to-json";
 import { buildUserContent } from "@csq/core/lib/vision";
+import { recordLlmUsage } from "@csq/core/lib/llm-usage";
 import type { ExecuteOutcome } from "@csq/core/types/tools";
 import {
   chatCompletionResponseSchema,
@@ -166,6 +167,9 @@ export type RunConversationArgs = {
   // Vision (PRD 03 amendment 2026-11-12): the triggering customer photo rides
   // along as an image_url part. History stays text-only - bounded prompt.
   image?: { data: Uint8Array; mimeType: string };
+  // PRD 33: cost telemetry for the AGENT_CALL rows. Falls back to the
+  // conversation's own tenant/conversation ids when omitted.
+  usage?: { tenantId: string; refId?: string; conversationId?: string };
 };
 
 // Run one customer turn against the CS agent: prepend the system prompt (if
@@ -183,6 +187,10 @@ export async function runConversation(args: RunConversationArgs): Promise<RunRes
   messages.push(...args.history, { role: "user", content: userContent });
   const toolCallLog: ToolCallRecord[] = [];
   const deadline = Date.now() + TURN_BUDGET_MS;
+  const usage = args.usage ?? {
+    tenantId: args.tenantId,
+    conversationId: args.conversationId,
+  };
 
   const lastAssistantText = (): string => {
     const last = [...messages]
@@ -202,6 +210,18 @@ export async function runConversation(args: RunConversationArgs): Promise<RunRes
     }
 
     const resp = await chatCompletion(messages, args.conversationId);
+    // PRD 33: one AGENT_CALL row per successful completion (a tool-loop turn
+    // writes one per iteration, sharing the turn ref). Fire-and-forget so the
+    // telemetry write can never delay the customer reply.
+    void recordLlmUsage({
+      tenantId: usage.tenantId,
+      refId: usage.refId,
+      conversationId: usage.conversationId,
+      source: "AGENT_CALL",
+      model: LLM_CHAT_MODEL,
+      promptTokens: resp.usage?.prompt_tokens,
+      completionTokens: resp.usage?.completion_tokens,
+    });
     const choice = resp.choices[0];
     if (!choice) break;
 

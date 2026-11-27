@@ -128,6 +128,11 @@ export async function runAgentReply(args: {
 }): Promise<AgentTurnResult> {
   const { tenantId, conversationId, customerPhone, body, triggerMessageId } = args;
 
+  // PRD 33: the turn ref is generated BEFORE any LLM call so the AGENT_CALL
+  // and GUARD usage rows and the credit charge below share ONE ref for the
+  // whole turn (original + guard-enforce retry).
+  const chargeRef = triggerMessageId ?? randomUUID();
+
   const conversation = await prisma.conversation.findFirst({
     where: { id: conversationId, tenantId },
     include: { deal: { include: { stage: true } } },
@@ -252,6 +257,9 @@ export async function runAgentReply(args: {
       })
     ).map((p) => p.name),
     message: body.trim() ? body : "(customer sent a photo)",
+    tenantId,
+    refId: chargeRef,
+    conversationId,
   });
   if (guardPre?.blocked) {
     const enforcing = guardMode() === "enforce";
@@ -386,6 +394,7 @@ export async function runAgentReply(args: {
       userMessage,
       customerPhone,
       ...(args.image ? { image: args.image } : {}),
+      usage: { tenantId, refId: chargeRef, conversationId },
     });
 
   let result = await runTurn(baseUserMessage);
@@ -404,6 +413,9 @@ export async function runAgentReply(args: {
     let post = await checkAgentReply({
       reply: result.reply,
       toolResultsJson: toolLog(result),
+      tenantId,
+      refId: chargeRef,
+      conversationId,
     });
     if (post?.flagged) {
       let retried = false;
@@ -413,6 +425,9 @@ export async function runAgentReply(args: {
         const retryPost = await checkAgentReply({
           reply: result.reply,
           toolResultsJson: toolLog(result),
+          tenantId,
+          refId: chargeRef,
+          conversationId,
         });
         // Still flagged (or unverifiable): never send the raw reply. A
         // truncated retry is handled by the G6 fallback downstream.
@@ -442,9 +457,9 @@ export async function runAgentReply(args: {
   }
 
   // Charge the reply after the LLM cost is incurred. The ref is the inbound
-  // message that started the turn, so a retry cannot double charge. A failed
-  // billing write is audited but never blocks the customer's reply.
-  const chargeRef = triggerMessageId ?? randomUUID();
+  // message that started the turn (hoisted to the top of the turn, PRD 33), so
+  // a retry cannot double charge. A failed billing write is audited but never
+  // blocks the customer's reply.
   try {
     await chargeCredits({ tenantId, source: "REPLY", refId: chargeRef });
   } catch (err) {

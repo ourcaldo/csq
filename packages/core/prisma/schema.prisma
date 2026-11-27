@@ -75,6 +75,68 @@ model AiCreditUsage {
   @@index([tenantId, createdAt])
 }
 
+// ─────────────────────────── LLM usage and cost tracking (PRD 33) ───────────────────────────
+// One row per successful LLM call, written AFTER the response, fail-soft: a
+// write error is logged and never breaks the turn. refId ties rows to the same
+// ref the credit ledger uses. Snapshots (costUsd, fxRateIdrPerUsd, costIdr)
+// are the recorded truth: later price or FX edits change only future rows.
+
+enum LlmUsageSource {
+  AGENT_CALL
+  SCENARIO_AI
+  EMBEDDING
+  GUARD
+}
+
+enum FxRateSource {
+  AUTO
+  MANUAL
+}
+
+model LlmUsage {
+  id               String         @id @default(uuid())
+  tenantId         String
+  source           LlmUsageSource
+  refId            String?
+  conversationId   String?
+  model            String
+  promptTokens     Int?
+  completionTokens Int?
+  costUsd          Decimal?       @db.Decimal(16, 8)
+  fxRateIdrPerUsd  Decimal?       @db.Decimal(12, 2)
+  costIdr          Decimal?       @db.Decimal(16, 4)
+  createdAt        DateTime       @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@index([createdAt])
+  @@index([tenantId, source, refId])
+}
+
+// Operator-entered provider prices, USD per 1M tokens. NEVER seeded or
+// hardcoded: the operator verifies current provider pricing themselves.
+// Platform table - no tenantId.
+model LlmModelPrice {
+  id             String   @id @default(uuid())
+  model          String   @unique
+  inputUsdPer1M  Decimal  @db.Decimal(14, 6)
+  outputUsdPer1M Decimal  @db.Decimal(14, 6)
+  updatedById    String
+  updatedAt      DateTime @updatedAt
+}
+
+// Daily USD to IDR conversion rate. AUTO rows come from the worker's daily
+// FX tick; MANUAL from the admin LLM Usage page. Platform table - no tenantId.
+model FxRate {
+  date        DateTime     @unique
+  usdIdr      Decimal      @db.Decimal(12, 2)
+  source      FxRateSource
+  updatedById String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
 // Manual monthly invoice (PRD 14). Plan name is snapshotted so deleting a
 // plan never rewrites history. Number comes from the Invoice_number_seq
 // Postgres sequence.
@@ -405,6 +467,7 @@ model Tenant {
   pushSubscriptions   PushSubscription[]
   refreshTokens       RefreshToken[]
   aiCreditUsage       AiCreditUsage[]
+  llmUsage            LlmUsage[]
   invoices            Invoice[]
   planRequests        PlanRequest[]
   refunds             Refund[]

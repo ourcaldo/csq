@@ -18,7 +18,7 @@ export async function embedKnowledgeRow(
     const text = knowledge.category
       ? `${knowledge.title}\n${knowledge.content}\n${knowledge.category}`
       : `${knowledge.title}\n${knowledge.content}`;
-    const vec = await embed(text);
+    const vec = await embed(text, { tenantId, refId: knowledge.id });
     await upsertEmbedding("KnowledgeEmbedding", knowledge.id, tenantId, vec);
   } catch (err) {
     console.warn(

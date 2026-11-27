@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { recordLlmUsage } from "@csq/core/lib/llm-usage";
 
 // Embeddings for knowledge semantic retrieval (closes Gap G3). Any
 // OpenAI-compatible provider (LLM_BASE_URL + LLM_API_KEY + a provider-specific
@@ -34,8 +35,19 @@ const embeddingResponseSchema = z
         index: z.number().optional(),
       })
     ),
+    // PRD 33: optional provider usage; a missing object still parses.
+    usage: z
+      .object({
+        prompt_tokens: z.number().optional(),
+        total_tokens: z.number().optional(),
+      })
+      .optional(),
   })
   .passthrough();
+
+// PRD 33: cost telemetry. Callers without a tenant context (e.g. the seed
+// script) omit it and no usage row is written.
+type EmbeddingUsageMeta = { tenantId?: string; refId?: string };
 
 export function isEmbeddingsConfigured(): boolean {
   return Boolean(LLM_API_KEY && LLM_BASE_URL && LLM_EMBEDDING_MODEL);
@@ -45,7 +57,10 @@ export function isEmbeddingsConfigured(): boolean {
 // missing key or non-2xx response; callers wrap in try/catch and degrade
 // gracefully (knowledge write skips the embedding; knowledge.search falls back
 // to keyword `contains`).
-export async function embed(text: string): Promise<number[]> {
+export async function embed(
+  text: string,
+  meta?: EmbeddingUsageMeta
+): Promise<number[]> {
   if (!isEmbeddingsConfigured()) {
     throw new Error("LLM_API_KEY / LLM_BASE_URL / LLM_EMBEDDING_MODEL not set");
   }
@@ -70,13 +85,26 @@ export async function embed(text: string): Promise<number[]> {
   if (parsed.data.length === 0) {
     throw new Error("Embeddings returned no data");
   }
+  if (meta?.tenantId) {
+    // PRD 33: embedding calls are billed on prompt tokens only.
+    void recordLlmUsage({
+      tenantId: meta.tenantId,
+      refId: meta.refId,
+      source: "EMBEDDING",
+      model: LLM_EMBEDDING_MODEL,
+      promptTokens: parsed.usage?.prompt_tokens,
+    });
+  }
   return parsed.data[0].embedding;
 }
 
 // Embed a batch of texts, returned in input order. Sorts the provider response
 // by `index` defensively and validates the count matches. Provided for a future
 // bulk backfill script; the core write path uses single-item `embed`.
-export async function embedBatch(texts: string[]): Promise<number[][]> {
+export async function embedBatch(
+  texts: string[],
+  meta?: EmbeddingUsageMeta
+): Promise<number[][]> {
   if (!isEmbeddingsConfigured()) {
     throw new Error("LLM_API_KEY / LLM_BASE_URL / LLM_EMBEDDING_MODEL not set");
   }
@@ -108,6 +136,16 @@ export async function embedBatch(texts: string[]): Promise<number[][]> {
     throw new Error(
       `Embeddings count mismatch: sent ${texts.length}, got ${ordered.length}`
     );
+  }
+  if (meta?.tenantId) {
+    // PRD 33: one row per batch call, prompt tokens = the whole batch.
+    void recordLlmUsage({
+      tenantId: meta.tenantId,
+      refId: meta.refId,
+      source: "EMBEDDING",
+      model: LLM_EMBEDDING_MODEL,
+      promptTokens: parsed.usage?.prompt_tokens,
+    });
   }
   return ordered.map((d) => d.embedding);
 }

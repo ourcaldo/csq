@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { recordLlmUsage } from "@csq/core/lib/llm-usage";
 
 // One-shot text generation for the scenario `ai` node. A plain, tool-less
 // chat completion against any OpenAI-compatible provider (LLM_BASE_URL +
@@ -26,6 +27,14 @@ const textCompletionResponseSchema = z
         }),
       })
     ),
+    // PRD 33: optional provider usage; a missing object still parses.
+    usage: z
+      .object({
+        prompt_tokens: z.number().optional(),
+        completion_tokens: z.number().optional(),
+        total_tokens: z.number().optional(),
+      })
+      .optional(),
   })
   .passthrough();
 
@@ -39,12 +48,17 @@ export function isTextLlmConfigured(): boolean {
 // callers skip + audit rather than sending a blank message. Throws on a
 // missing key or non-2xx response; callers degrade gracefully (scenario run
 // skips the send with an audit row - never a silent drop).
-export async function generateText(input: {
-  system: string;
-  prompt: string;
-  maxTokens?: number;
-  temperature?: number;
-}): Promise<string> {
+export async function generateText(
+  input: {
+    system: string;
+    prompt: string;
+    maxTokens?: number;
+    temperature?: number;
+  },
+  // PRD 33: cost telemetry. The scenario engine passes tenantId + the run
+  // step id; BFF drafting passes tenantId only.
+  meta?: { tenantId?: string; refId?: string }
+): Promise<string> {
   if (!isTextLlmConfigured()) {
     throw new Error("LLM_API_KEY / LLM_BASE_URL / LLM_SCENARIO_MODEL (or LLM_CHAT_MODEL) not set");
   }
@@ -73,6 +87,16 @@ export async function generateText(input: {
   const content = parsed.choices[0]?.message.content?.trim() ?? "";
   if (!content) {
     throw new Error("Text completion returned no content");
+  }
+  if (meta?.tenantId) {
+    void recordLlmUsage({
+      tenantId: meta.tenantId,
+      refId: meta.refId,
+      source: "SCENARIO_AI",
+      model: LLM_TEXT_MODEL,
+      promptTokens: parsed.usage?.prompt_tokens,
+      completionTokens: parsed.usage?.completion_tokens,
+    });
   }
   return content;
 }

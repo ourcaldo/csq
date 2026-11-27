@@ -48,6 +48,15 @@ export const chatCompletionResponseSchema = z.object({
       finish_reason: z.string(),
     })
   ),
+  // PRD 33: provider usage is optional - compat layers may omit it. A missing
+  // usage still parses and yields a row with null tokens and null cost.
+  usage: z
+    .object({
+      prompt_tokens: z.number().optional(),
+      completion_tokens: z.number().optional(),
+      total_tokens: z.number().optional(),
+    })
+    .optional(),
 });
 export type ChatCompletionResponse = z.infer<typeof chatCompletionResponseSchema>;
 

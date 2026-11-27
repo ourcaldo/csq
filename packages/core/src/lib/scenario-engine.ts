@@ -359,6 +359,7 @@ async function advanceRunInner(run: ScenarioRunWithScenario): Promise<void> {
 
       const transition = await executeNode(node, {
         runId: run.id,
+        stepId: step.id,
         tenantId: run.tenantId,
         conversationId: run.conversationId,
         context,
@@ -460,6 +461,7 @@ async function executeNode(
   node: ScenarioNode,
   ctx: {
     runId: string;
+    stepId: string;
     tenantId: string;
     conversationId: string;
     context: RunContext;
@@ -508,7 +510,12 @@ async function executeNode(
 
     case "ai": {
       const prompt = interpolate(node.data.prompt, ctx.context);
-      const generated = await generateScenarioBody(ctx.tenantId, ctx.conversationId, prompt);
+      const generated = await generateScenarioBody(
+        ctx.tenantId,
+        ctx.conversationId,
+        prompt,
+        ctx.stepId
+      );
       if (!generated) {
         return {
           kind: "continue",
@@ -724,7 +731,8 @@ const AI_NODE_SYSTEM_PROMPT =
 async function generateScenarioBody(
   tenantId: string,
   conversationId: string,
-  prompt: string
+  prompt: string,
+  stepId: string
 ): Promise<string | null> {
   if (!isTextLlmConfigured()) {
     await logAction({
@@ -739,7 +747,10 @@ async function generateScenarioBody(
     return null;
   }
   try {
-    return await generateText({ system: AI_NODE_SYSTEM_PROMPT, prompt });
+    return await generateText(
+      { system: AI_NODE_SYSTEM_PROMPT, prompt },
+      { tenantId, refId: stepId }
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Gagal generate teks.";
     await logAction({

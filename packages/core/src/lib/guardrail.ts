@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { recordLlmUsage } from "@csq/core/lib/llm-usage";
 
 // Guardrail layer (PRD 03 amendment 2026-11-13, owner decision): Google's
 // Decisions API (gemini-decision-1) judges every agent turn on both sides -
@@ -67,7 +68,9 @@ export const GUARD_CORRECTIVE_NOTE =
   "\n\n[Catatan sistem: balasan sebelumnya melanggar aturan (menyebut data yang tidak ada di hasil tools, keluar topik toko, atau membocorkan detail internal). Buat ulang balasan yang sesuai aturan.]";
 
 // Response boundary: only what the caller reads is modeled. Zod parse, no
-// `as` casts.
+// `as` casts. The live response carries a usage object (verified against
+// aistudio.google.com/docs/decisions-api, 2026-11-27): total_input_tokens,
+// total_output_tokens (always 0), total_tokens.
 const decisionAnswerSchema = z.object({
   type: z.enum(["noul", "choice", "score"]),
   noul: z.number().optional(),
@@ -75,14 +78,30 @@ const decisionAnswerSchema = z.object({
 });
 const decisionsResponseSchema = z.object({
   answers: z.record(decisionAnswerSchema),
+  usage: z
+    .object({
+      total_input_tokens: z.number().optional(),
+      total_output_tokens: z.number().optional(),
+      total_tokens: z.number().optional(),
+    })
+    .optional(),
 });
 
 type NoulQuestion = { type: "noul"; instructions: string };
 type TextInput = Array<{ type: "text"; text: string }>;
 
+// PRD 33: cost telemetry for the GUARD rows - the turn's tenant, ref, and
+// conversation.
+type GuardUsageMeta = {
+  tenantId?: string;
+  refId?: string;
+  conversationId?: string;
+};
+
 async function decide(
   input: TextInput,
-  questions: Record<string, NoulQuestion>
+  questions: Record<string, NoulQuestion>,
+  meta?: GuardUsageMeta
 ): Promise<Record<string, number> | null> {
   if (guardMode() === "off") return null;
   const apiKey = process.env.LLM_API_KEY ?? "";
@@ -98,6 +117,19 @@ async function decide(
     });
     if (!res.ok) throw new Error(`decisions API ${res.status}`);
     const parsed = decisionsResponseSchema.parse(await res.json());
+    if (meta?.tenantId) {
+      // PRD 33: one GUARD row per decide() call, fire-and-forget like the
+      // other capture points.
+      void recordLlmUsage({
+        tenantId: meta.tenantId,
+        refId: meta.refId,
+        conversationId: meta.conversationId,
+        source: "GUARD",
+        model: DECISIONS_MODEL,
+        promptTokens: parsed.usage?.total_input_tokens,
+        completionTokens: parsed.usage?.total_output_tokens,
+      });
+    }
     const out: Record<string, number> = {};
     for (const [key, answer] of Object.entries(parsed.answers)) {
       if (typeof answer.noul === "number") out[key] = answer.noul;
@@ -164,6 +196,9 @@ export async function checkInboundMessage(args: {
   tenantName: string;
   productNames: string[];
   message: string;
+  tenantId?: string;
+  refId?: string;
+  conversationId?: string;
 }): Promise<PreVerdict | null> {
   const input: TextInput = [
     {
@@ -174,7 +209,11 @@ export async function checkInboundMessage(args: {
     },
     { type: "text", text: args.message },
   ];
-  const answers = await decide(input, PRE_QUESTIONS);
+  const answers = await decide(input, PRE_QUESTIONS, {
+    tenantId: args.tenantId,
+    refId: args.refId,
+    conversationId: args.conversationId,
+  });
   const storeIntent = answers?.store_intent;
   const injection = answers?.injection;
   if (typeof storeIntent !== "number" || typeof injection !== "number") {
@@ -192,6 +231,9 @@ export async function checkInboundMessage(args: {
 export async function checkAgentReply(args: {
   reply: string;
   toolResultsJson: string;
+  tenantId?: string;
+  refId?: string;
+  conversationId?: string;
 }): Promise<PostVerdict | null> {
   const input: TextInput = [
     {
@@ -200,7 +242,11 @@ export async function checkAgentReply(args: {
     },
     { type: "text", text: `Agent reply:\n${args.reply}` },
   ];
-  const answers = await decide(input, POST_QUESTIONS);
+  const answers = await decide(input, POST_QUESTIONS, {
+    tenantId: args.tenantId,
+    refId: args.refId,
+    conversationId: args.conversationId,
+  });
   const grounded = answers?.grounded;
   const onTopic = answers?.on_topic;
   const revealsInternals = answers?.reveals_internals;
