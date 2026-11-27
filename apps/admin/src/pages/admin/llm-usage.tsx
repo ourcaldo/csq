@@ -168,8 +168,87 @@ function PriceEditor({
   );
 }
 
-export const getServerSideProps = withAdminAuth(async () => ({ props: {} }));
+// Prices must be enterable BEFORE any usage exists, so day-one calls are
+// priced, not recorded unpriced and fixed forward.
+function AddModelPrice({
+  onSaved,
+  onError,
+}: {
+  onSaved: () => void;
+  onError: (msg: string) => void;
+}) {
+  const [model, setModel] = useState("");
+  const [input, setInput] = useState("");
+  const [output, setOutput] = useState("");
+  const [busy, setBusy] = useState(false);
 
+  async function save() {
+    const name = model.trim();
+    setBusy(true);
+    try {
+      await adminFetch("/api/admin/llm-usage/prices", "POST", {
+        model: name,
+        inputUsdPer1M: input,
+        outputUsdPer1M: output,
+      });
+      showToast(`Price saved for ${name}`);
+      setModel("");
+      setInput("");
+      setOutput("");
+      onSaved();
+    } catch (e) {
+      onError(e instanceof Error ? e.message : "Failed to save price.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-200 pt-3">
+      <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+        Add or update price
+      </span>
+      <input
+        type="text"
+        value={model}
+        onChange={(e) => setModel(e.target.value)}
+        placeholder="model name"
+        aria-label="Model name"
+        className="h-7 w-48 rounded border border-slate-300 bg-card px-2 font-mono text-[11px] text-slate-800 focus:border-emerald-600 focus:outline-none"
+      />
+      <input
+        type="number"
+        min="0"
+        step="0.000001"
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        placeholder="input USD/1M"
+        aria-label="Input USD per 1M tokens"
+        className="h-7 w-28 rounded border border-slate-300 bg-card px-2 font-mono text-[11px] text-slate-800 focus:border-emerald-600 focus:outline-none"
+      />
+      <input
+        type="number"
+        min="0"
+        step="0.000001"
+        value={output}
+        onChange={(e) => setOutput(e.target.value)}
+        placeholder="output USD/1M"
+        aria-label="Output USD per 1M tokens"
+        className="h-7 w-28 rounded border border-slate-300 bg-card px-2 font-mono text-[11px] text-slate-800 focus:border-emerald-600 focus:outline-none"
+      />
+      <button
+        type="button"
+        onClick={() => void save()}
+        disabled={busy || model.trim() === "" || input === "" || output === ""}
+        className={btnSmOutline()}
+      >
+        {busy ? "..." : "Save price"}
+      </button>
+    </div>
+  );
+}
+
+export const getServerSideProps = withAdminAuth(async () => ({ props: {} }));
 export default function LlmUsagePage() {
   const [month, setMonth] = useState("");
   const [sortDesc, setSortDesc] = useState(true);
@@ -412,6 +491,21 @@ export default function LlmUsagePage() {
             </tbody>
           </table>
         </div>
+        <AddModelPrice
+          onSaved={() => {
+            setSaveError(null);
+            refresh();
+          }}
+          onError={setSaveError}
+        />
+        {(data?.prices ?? []).length > 0 && (
+          <p className="mt-2 text-[11px] text-slate-500">
+            Configured prices:{" "}
+            {(data?.prices ?? [])
+              .map((p) => `${p.model} (in $${p.inputUsdPer1M} / out $${p.outputUsdPer1M} per 1M)`)
+              .join(", ")}
+          </p>
+        )}
       </div>
 
       {/* FX rates */}

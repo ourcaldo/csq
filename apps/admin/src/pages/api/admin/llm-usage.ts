@@ -195,7 +195,7 @@ export default async function handler(
         monthEnd: w.end.toISOString(),
         firstRecordedAt: firstUsage ? firstUsage.createdAt.toISOString() : null,
         totals: {
-          calls: totals._count,
+          calls: totals._count._all,
           promptTokens: num(totals._sum.promptTokens),
           completionTokens: num(totals._sum.completionTokens),
           costUsd: num(totals._sum.costUsd),
