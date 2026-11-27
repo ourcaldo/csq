@@ -1060,6 +1060,7 @@ type ChannelCardProps = {
 
 function ChannelCard(props: ChannelCardProps) {
   const c = props.channel;
+  const [idCopied, setIdCopied] = useState(false);
   const connected = c.status === "CONNECTED";
   const archived = !!c.archivedAt;
   return (
@@ -1137,11 +1138,30 @@ function ChannelCard(props: ChannelCardProps) {
                     +{c.phoneNumber.replace(/^\+/, "")}
                   </span>
                 )}
-                {c.externalId && (
+                <span className="text-zinc-300">&bull;</span>
+                <button
+                  type="button"
+                  title="Salin Channel ID"
+                  onClick={() => {
+                    void navigator.clipboard.writeText(c.id).then(() => {
+                      setIdCopied(true);
+                      setTimeout(() => setIdCopied(false), 1800);
+                    });
+                  }}
+                  className="inline-flex items-center gap-1 font-mono text-[11px] tabular-nums text-zinc-500 transition hover:text-zinc-900"
+                >
+                  Channel ID: {c.id}
+                  {idCopied ? (
+                    <CheckCircle size={11} weight="bold" className="text-emerald-600" />
+                  ) : (
+                    <Copy size={11} />
+                  )}
+                </button>
+                {c.provider === "CLOUD_API" && c.externalId && (
                   <>
                     <span className="text-zinc-300">&bull;</span>
                     <span className="font-mono text-[11px] tabular-nums text-zinc-400">
-                      ID: {c.externalId}
+                      Phone Number ID: {c.externalId}
                     </span>
                   </>
                 )}
