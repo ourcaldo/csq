@@ -30,8 +30,7 @@ import {
 } from "@csq/core/lib/permissions-catalog";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
-import { DashboardShell } from "@/components/dashboard/dashboard-shell";
-import { FlushPage } from "@/components/dashboard/flush-page";
+import { SettingsShell } from "@/components/dashboard/settings/settings-shell";
 import { ReadOnlyBanner, useCanEdit } from "@/components/dashboard/settings/settings-access";
 import { cn } from "@csq/ui/lib/utils";
 
@@ -118,75 +117,63 @@ export default function PengaturanPeranPage() {
   if (editing !== null && canEdit) {
     const role = editing === "new" ? null : roles.find((r) => r.id === editing) ?? null;
     return (
-      <DashboardShell title="Peran & Izin" flush>
-        <FlushPage>
-          <RoleEditor
-            role={role}
-            onDone={(msg) => {
-              setEditing(null);
-              refresh();
-              if (msg) showToast(msg);
-            }}
-            onForceClose={() => setEditing(null)}
-            showToast={showToast}
-          />
-          {toast && <ToastBar msg={toast} />}
-        </FlushPage>
-      </DashboardShell>
+      <SettingsShell
+        section="peran"
+        title={role ? `Edit Peran - ${role.name}` : "Peran Baru"}
+        description="Atur nama, deskripsi, dan izin per modul. Perubahan berlaku untuk semua anggota dengan peran ini."
+      >
+        <RoleEditor
+          role={role}
+          onDone={(msg) => {
+            setEditing(null);
+            refresh();
+            if (msg) showToast(msg);
+          }}
+          onForceClose={() => setEditing(null)}
+          showToast={showToast}
+        />
+        {toast && <ToastBar msg={toast} />}
+      </SettingsShell>
     );
   }
 
   return (
-    <DashboardShell title="Peran & Izin" flush>
-      <FlushPage>
-        {/* Page title & primary CTA */}
-        <div className="flex flex-col justify-between gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-end">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-xl font-semibold tracking-tight text-slate-900">
-                Peran &amp; Kontrol Akses (RBAC)
-              </h1>
-              <span className="rounded border border-slate-200 bg-slate-50 px-2 py-0.5 font-mono text-[11px] font-medium text-slate-600">
-                {ALL_KEYS.length} Granular Scopes
-              </span>
-            </div>
-            <p className="mt-1.5 max-w-3xl text-xs leading-relaxed text-slate-500">
-              Kelola kebijakan keamanan dan matriks hak akses tim. Peran bawaan sistem
-              memiliki struktur perlindungan terhadap penghapusan, namun cakupan
-              izinnya tetap dapat disesuaikan.
-            </p>
-          </div>
-          {canEdit ? (
-            <button
-              type="button"
-              onClick={() => setEditing("new")}
-              className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-green-600 px-4 text-xs font-semibold text-white shadow-xs transition hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-            >
-              <Plus size={14} />
-              Buat Peran Kustom
-            </button>
-          ) : undefined}
+    <SettingsShell
+      section="peran"
+      title="Peran & Kontrol Akses (RBAC)"
+      description="Kelola kebijakan keamanan dan matriks hak akses tim. Peran bawaan sistem memiliki struktur perlindungan terhadap penghapusan, namun cakupan izinnya tetap dapat disesuaikan."
+      headerExtra={
+        canEdit ? (
+          <button
+            type="button"
+            onClick={() => setEditing("new")}
+            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-green-600 px-4 text-xs font-semibold text-white shadow-xs transition hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+          >
+            <Plus size={14} />
+            Buat Peran Kustom
+          </button>
+        ) : undefined
+      }
+    >
+      {!canEdit && (
+        <div className="pt-4">
+          <ReadOnlyBanner />
         </div>
-        {!canEdit && (
-          <div className="pt-4">
-            <ReadOnlyBanner />
-          </div>
-        )}
-        <RoleDirectory
-          roles={roles}
-          loading={loading}
-          error={error}
-          canEdit={canEdit}
-          confirmDeleteCardId={confirmDeleteCardId}
-          onRequestDelete={(id) => setConfirmDeleteCardId(id)}
-          onCancelDelete={() => setConfirmDeleteCardId(null)}
-          onConfirmDelete={(id) => void deleteRole(id)}
-          onDuplicate={(r) => void duplicateRole(r)}
-          onOpen={(id) => setEditing(id)}
-        />
-        {toast && <ToastBar msg={toast} />}
-      </FlushPage>
-    </DashboardShell>
+      )}
+      <RoleDirectory
+        roles={roles}
+        loading={loading}
+        error={error}
+        canEdit={canEdit}
+        confirmDeleteCardId={confirmDeleteCardId}
+        onRequestDelete={(id) => setConfirmDeleteCardId(id)}
+        onCancelDelete={() => setConfirmDeleteCardId(null)}
+        onConfirmDelete={(id) => void deleteRole(id)}
+        onDuplicate={(r) => void duplicateRole(r)}
+        onOpen={(id) => setEditing(id)}
+      />
+      {toast && <ToastBar msg={toast} />}
+    </SettingsShell>
   );
 }
 
@@ -682,8 +669,8 @@ function RoleEditor({
 
   return (
     <form onSubmit={save}>
-      {/* Sticky action header */}
-      <div className="sticky top-0 z-20 -mx-4 border-b border-slate-200 bg-white/95 px-4 py-4 backdrop-blur-md md:-mx-8 md:px-8">
+      {/* Sticky action header - sits under the settings top bar (h-14) */}
+      <div className="sticky top-14 z-20 -mx-4 border-b border-slate-200 bg-white/95 px-4 py-4 backdrop-blur-md md:-mx-8 md:px-8">
         <div className="flex w-full flex-col justify-between gap-4 md:flex-row md:items-center">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
