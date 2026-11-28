@@ -9,6 +9,7 @@ import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import { knowledgeUploadSchema } from "@csq/core/types/knowledge";
 import { embedKnowledgeRow } from "@csq/core/lib/knowledge-embed";
+import { checkMediaQuota } from "@csq/core/lib/media-quota";
 import {
   extractDocumentText,
   MIME_DOCX,
@@ -61,6 +62,16 @@ export default async function handler(
     }
     if (bytes.length > MAX_DOCUMENT_BYTES) {
       return respondError(res, "VALIDATION_ERROR", "Dokumen maksimal 10 MB.");
+    }
+    // PRD 14 amendment 2026-11-28 item 7: uploads also count against the
+    // tenant's media storage quota.
+    const quota = await checkMediaQuota(tenantId, bytes.length);
+    if (!quota.allowed) {
+      return respondError(
+        res,
+        "PERMISSION_DENIED",
+        "Kuota penyimpanan media paket habis. Hapus media lama atau upgrade paket."
+      );
     }
     const mime = mimeFromFilename(filename);
     if (!mime) {

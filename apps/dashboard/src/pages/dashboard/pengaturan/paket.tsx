@@ -3,15 +3,14 @@
 // usage ledger + invoices tab; right = subscription/billing rail.
 // All wired to the existing /api/dashboard/billing API.
 import { useEffect, useMemo, useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 import type { GetServerSideProps } from "next";
 import { useSession } from "next-auth/react";
 import { ArrowsOutSimple, CheckCircle, LockSimple, PlusCircle, Receipt, X } from "@phosphor-icons/react";
-import { withAuth } from "@csq/core/lib/auth";
+import { withAuth, getSSRSession, requirePermission } from "@csq/core/lib/auth";
 import { apiSend } from "@/lib/api-client";
 import { useApi } from "@/hooks/use-api";
 import { SettingsShell } from "@/components/dashboard/settings/settings-shell";
-import { ReadOnlyBanner, useCanEdit } from "@/components/dashboard/settings/settings-access";
 import { cn } from "@csq/ui/lib/utils";
 
 type BillingData = {
@@ -21,6 +20,8 @@ type BillingData = {
     mauLimit: number | null;
     staffLimit: number | null;
     channelLimit: number | null;
+    agentLimit: number | null;
+    mediaBytesLimit: number | null;
     features: string[];
   };
   usage: {
@@ -29,6 +30,8 @@ type BillingData = {
     staffCount: number;
     channelCount: number;
   };
+  agentCount: number;
+  mediaBytes: number;
   monthStart: string;
   invoices: {
     id: string;
@@ -76,6 +79,18 @@ function pct(used: number, limit: number | null): number {
   return Math.min(100, Math.round((used / limit) * 100));
 }
 
+function fmtBytes(n: number): string {
+  if (!n) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  let i = 0;
+  let v = n;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i++;
+  }
+  return `${v.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+}
+
 const MODULE_LABELS: Record<string, string> = {
   campaigns: "Kampanye Broadcast",
   scenarios: "Skenario Otomasi",
@@ -85,9 +100,6 @@ const MODULE_LABELS: Record<string, string> = {
 };
 
 export default function PengaturanPaketPage() {
-  // Owner decision 2026-11-26: usage, plan and invoice info is readable by
-  // every member; submitting a plan-change request stays owner-gated.
-  const canRequestPlan = useCanEdit("billing.lihat");
   const { data: session } = useSession();
   const { data, loading, error, refresh } = useApi<BillingData>("/api/dashboard/billing");
 
@@ -133,10 +145,23 @@ export default function PengaturanPaketPage() {
     }
   }
 
-  const currentPlanName = data?.entitlements.planName ?? "Legacy";
+  const currentPlanName = data?.entitlements.planName ?? "Free";
+  const currentPlanPrice = (data?.plans ?? []).find((p) => p.name === currentPlanName);
+  const isFree = !!data && !data.entitlements.planName;
   const activeInvoices = data?.invoices ?? [];
 
-  const ledgerRows = [
+  type LedgerRow = {
+    key: string;
+    name: string;
+    desc: string;
+    used: number;
+    limit: number | null;
+    detail: ReactNode;
+    unit: string;
+    format?: (n: number) => string;
+  };
+
+  const ledgerRows: LedgerRow[] = [
     {
       key: "credits",
       name: "Kredit AI",
@@ -144,6 +169,7 @@ export default function PengaturanPaketPage() {
       used: data?.usage.aiCreditsUsed ?? 0,
       limit: data?.entitlements.aiCreditsPerMonth ?? null,
       detail: <>Balasan AI: <strong className="text-slate-900">{data?.usage.aiCreditsUsed ?? 0}</strong></>,
+      unit: "kredit",
     },
     {
       key: "mau",
@@ -152,6 +178,7 @@ export default function PengaturanPaketPage() {
       used: data?.usage.mauCount ?? 0,
       limit: data?.entitlements.mauLimit ?? null,
       detail: <>Nomor kontak unik</>,
+      unit: "kontak",
     },
     {
       key: "staff",
@@ -160,6 +187,7 @@ export default function PengaturanPaketPage() {
       used: data?.usage.staffCount ?? 0,
       limit: data?.entitlements.staffLimit ?? null,
       detail: null,
+      unit: "slot",
     },
     {
       key: "channels",
@@ -168,6 +196,26 @@ export default function PengaturanPaketPage() {
       used: data?.usage.channelCount ?? 0,
       limit: data?.entitlements.channelLimit ?? null,
       detail: null,
+      unit: "saluran",
+    },
+    {
+      key: "agents",
+      name: "Agen AI",
+      desc: "Agent di workspace",
+      used: data?.agentCount ?? 0,
+      limit: data?.entitlements.agentLimit ?? null,
+      detail: null,
+      unit: "agen",
+    },
+    {
+      key: "storage",
+      name: "Penyimpanan Media",
+      desc: "Total berkas media tersimpan",
+      used: data?.mediaBytes ?? 0,
+      limit: data?.entitlements.mediaBytesLimit ?? null,
+      detail: null,
+      unit: "media",
+      format: fmtBytes,
     },
   ];
 
@@ -187,7 +235,6 @@ export default function PengaturanPaketPage() {
         </button>
       }
     >
-      {!canRequestPlan && <ReadOnlyBanner />}
       {/* Plan comparison drawer */}
       {compareOpen && (
         <div className="border-b border-slate-200 bg-slate-50/70 px-4 py-5 sm:px-5">
@@ -270,7 +317,7 @@ export default function PengaturanPaketPage() {
                         <span className="font-mono text-[11px] text-amber-600">
                           Menunggu: {data.openRequest.requestedPlanName}
                         </span>
-                      ) : canRequestPlan ? (
+                      ) : (
                         <button
                           type="button"
                           onClick={() => void requestPlan(p.id, p.name)}
@@ -279,8 +326,6 @@ export default function PengaturanPaketPage() {
                         >
                           {requesting === p.id ? "Mengirim..." : "Ajukan Upgrade"}
                         </button>
-                      ) : (
-                        <span className="font-mono text-[11px] text-slate-400">Hanya pemilik</span>
                       )}
                     </td>
                   ))}
@@ -344,6 +389,7 @@ export default function PengaturanPaketPage() {
                 <tbody className="divide-y divide-slate-200 border-b border-slate-200">
                   {ledgerRows.map((row) => {
                     const p = pct(row.used, row.limit);
+                    const fmt = row.format ?? ((n: number) => n.toLocaleString("id-ID"));
                     return (
                       <tr key={row.key} className="hover:bg-slate-50/70">
                         <td className="py-4 pr-4">
@@ -351,10 +397,10 @@ export default function PengaturanPaketPage() {
                           <p className="mt-0.5 text-[11px] text-slate-500">{row.desc}</p>
                         </td>
                         <td className="whitespace-nowrap px-3 py-4 font-mono text-xs">
-                          <span className="font-semibold text-slate-900">{row.used}</span>
+                          <span className="font-semibold text-slate-900">{fmt(row.used)}</span>
                           <span className="text-slate-400">
                             {" "}
-                            / {row.limit === null ? "Unlimited" : row.limit.toLocaleString("id-ID")}
+                            / {row.limit === null ? "Tanpa batas" : fmt(row.limit)}
                           </span>
                         </td>
                         <td className="px-3 py-4">
@@ -378,9 +424,9 @@ export default function PengaturanPaketPage() {
                             (row.limit !== null ? (
                               <>
                                 Sisa <strong className="font-mono text-slate-800">
-                                  {Math.max(0, row.limit - row.used)}
+                                  {fmt(Math.max(0, row.limit - row.used))}
                                 </strong>{" "}
-                                {row.key === "channels" ? "saluran" : "slot"}
+                                {row.unit}
                               </>
                             ) : null)}
                         </td>
@@ -460,13 +506,19 @@ export default function PengaturanPaketPage() {
             </p>
             <div className="mt-2 flex items-baseline justify-between">
               <span className="text-2xl font-bold tracking-tight text-slate-900">{currentPlanName}</span>
-              {(data?.plans ?? []).find((p) => p.name === currentPlanName) && (
+              {(currentPlanPrice || isFree) && (
                 <span className="font-mono text-sm font-semibold text-slate-900">
-                  {idr((data?.plans ?? []).find((p) => p.name === currentPlanName)!.priceIdr)}
+                  {idr(currentPlanPrice?.priceIdr ?? 0)}
                   <span className="text-xs font-normal text-slate-400">/bln</span>
                 </span>
               )}
             </div>
+            {isFree && (
+              <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+                Paket Free (Rp 0): 1 saluran, 0 staf, 250 kredit AI, 100 MAU,
+                1 agen, 500 MB media. Tanpa fitur premium.
+              </p>
+            )}
             <div className="mt-4 space-y-2 border-t border-slate-100 pt-3.5 text-xs">
               <div className="flex items-center justify-between">
                 <span className="text-slate-500">Reset Kuota</span>
@@ -546,6 +598,12 @@ export default function PengaturanPaketPage() {
   );
 }
 
-export const getServerSideProps: GetServerSideProps = withAuth(
-  async () => ({ props: {} })
-);
+// PRD 14 amendment 2026-11-28 item 3: billing/invoice info is OWNER-only -
+// non-owners land on the settings index instead of this page.
+export const getServerSideProps: GetServerSideProps = withAuth(async (ctx) => {
+  const session = await getSSRSession(ctx);
+  if (!session || !requirePermission(session, "billing.lihat")) {
+    return { redirect: { destination: "/dashboard/pengaturan", permanent: false } };
+  }
+  return { props: {} };
+});

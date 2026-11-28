@@ -15,6 +15,7 @@ import {
   CLOUD_API_WINDOW_MS,
   sendHumanReply,
 } from "@csq/core/lib/inbox";
+import { checkMediaQuota } from "@csq/core/lib/media-quota";
 
 // Inbox media/document send (PRD 24 amendment 2026-11-18). Raw-bytes body -
 // the same streaming pattern as the campaign media upload, so no multipart
@@ -185,6 +186,15 @@ export default async function handler(
       // sendHumanReply pipeline as a typed reply (outbox, audit).
       // `isDocument` is not passed further: the worker routes on the asset's
       // mime (image/* -> image send, else document).
+      // PRD 14 amendment 2026-11-28 item 7: total media bytes per plan.
+      const quota = await checkMediaQuota(tenantId, bytes.length);
+      if (!quota.allowed) {
+        return respondError(
+          res,
+          "PERMISSION_DENIED",
+          "Kuota penyimpanan media paket habis. Hapus media lama atau upgrade paket."
+        );
+      }
       const asset = await prisma.mediaAsset.create({
         data: { tenantId, mimeType, byteSize: bytes.length, data: bytes },
       });

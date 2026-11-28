@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
 import { getTenantEntitlements, getTenantUsage, monthStartUtc } from "@csq/core/lib/entitlements";
+import { getMediaBytesUsed } from "@csq/core/lib/media-quota";
 import { logAction } from "@csq/core/lib/audit";
 import prisma from "@csq/core/lib/db";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
@@ -24,10 +25,11 @@ export default async function handler(
 ) {
   const session = await getAuthSession(req, res);
   if (!session) return respondError(res, "UNAUTHORIZED", "Masuk diperlukan.");
-  // Owner decision 2026-11-26: plan/usage info is readable by every member;
-  // plan-change requests (POST) stay owner-gated.
-  if (req.method !== "GET" && !requirePermission(session, "billing.lihat")) {
-    return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat mengubah paket.");
+  // PRD 14 amendment 2026-11-28 item 3: invoice amounts and bank details are
+  // OWNER-only, so the read gate matches the write gate (supersedes the
+  // 2026-11-26 "readable by every member" decision for this section).
+  if (!requirePermission(session, "billing.lihat")) {
+    return respondError(res, "PERMISSION_DENIED", "Hanya owner yang dapat melihat paket dan tagihan.");
   }
   const tenantId = requireTenant(session);
 
@@ -37,47 +39,50 @@ export default async function handler(
       // BIL-2 (PRD 16): one fetch for the newest request of any status. The
       // one-open-request guard means an open request is always the newest
       // one, so openRequest is derived from the same row.
-      const [entitlements, usage, invoices, plans, latestRequest, settings] = await Promise.all([
-        getTenantEntitlements(tenantId),
-        getTenantUsage(tenantId, monthStart),
-        prisma.invoice.findMany({
-          where: { tenantId },
-          orderBy: { periodStart: "desc" },
-          take: 24,
-          select: {
-            id: true,
-            number: true,
-            planName: true,
-            periodStart: true,
-            periodEnd: true,
-            amountIdr: true,
-            status: true,
-            dueAt: true,
-            paidAt: true,
-            method: true,
-            reference: true,
-          },
-        }),
-        prisma.plan.findMany({
-          orderBy: { priceIdr: "asc" },
-          select: {
-            id: true,
-            name: true,
-            priceIdr: true,
-            aiCreditsPerMonth: true,
-            mauLimit: true,
-            staffLimit: true,
-            channelLimit: true,
-            features: true,
-          },
-        }),
-        prisma.planRequest.findFirst({
-          where: { tenantId },
-          orderBy: { createdAt: "desc" },
-          include: { requestedPlan: { select: { name: true } } },
-        }),
-        prisma.billingSetting.findUnique({ where: { id: "singleton" } }),
-      ]);
+      const [entitlements, usage, invoices, plans, latestRequest, settings, agentCount, mediaBytes] =
+        await Promise.all([
+          getTenantEntitlements(tenantId),
+          getTenantUsage(tenantId, monthStart),
+          prisma.invoice.findMany({
+            where: { tenantId },
+            orderBy: { periodStart: "desc" },
+            take: 24,
+            select: {
+              id: true,
+              number: true,
+              planName: true,
+              periodStart: true,
+              periodEnd: true,
+              amountIdr: true,
+              status: true,
+              dueAt: true,
+              paidAt: true,
+              method: true,
+              reference: true,
+            },
+          }),
+          prisma.plan.findMany({
+            orderBy: { priceIdr: "asc" },
+            select: {
+              id: true,
+              name: true,
+              priceIdr: true,
+              aiCreditsPerMonth: true,
+              mauLimit: true,
+              staffLimit: true,
+              channelLimit: true,
+              features: true,
+            },
+          }),
+          prisma.planRequest.findFirst({
+            where: { tenantId },
+            orderBy: { createdAt: "desc" },
+            include: { requestedPlan: { select: { name: true } } },
+          }),
+          prisma.billingSetting.findUnique({ where: { id: "singleton" } }),
+          prisma.agent.count({ where: { tenantId } }),
+          getMediaBytesUsed(tenantId),
+        ]);
       const openRequest =
         latestRequest && (latestRequest.status === "NEW" || latestRequest.status === "CONTACTED")
           ? latestRequest
@@ -87,6 +92,8 @@ export default async function handler(
         apiOk({
           entitlements,
           usage,
+          agentCount,
+          mediaBytes,
           monthStart: monthStart.toISOString(),
           invoices: invoices.map((i) => ({
             ...i,

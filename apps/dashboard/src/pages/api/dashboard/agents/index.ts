@@ -2,6 +2,7 @@
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { getAuthSession, requirePermission } from "@csq/core/lib/auth";
+import { getTenantEntitlements } from "@csq/core/lib/entitlements";
 import prisma from "@csq/core/lib/db";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
@@ -68,6 +69,19 @@ export default async function handler(
       const parsed = createSchema.safeParse(req.body);
       if (!parsed.success) {
         return respondError(res, "VALIDATION_ERROR", parsed.error.message);
+      }
+      // PRD 14 amendment 2026-11-28 item 7: Plan.agentLimit caps how many
+      // agents the tenant may create (NULL = unlimited; Free = 1).
+      const entitlements = await getTenantEntitlements(tenantId);
+      if (entitlements.agentLimit !== null) {
+        const count = await prisma.agent.count({ where: { tenantId } });
+        if (count >= entitlements.agentLimit) {
+          return respondError(
+            res,
+            "PERMISSION_DENIED",
+            `Paket ${entitlements.planName ?? "Free"} hanya mendukung ${entitlements.agentLimit} agen.`
+          );
+        }
       }
       const agent = await prisma.agent.create({
         data: {

@@ -19,6 +19,8 @@ type Plan = {
   mauLimit: number | null;
   staffLimit: number | null;
   channelLimit: number | null;
+  agentLimit: number | null;
+  mediaBytesLimit: number | null;
   features: string[];
 };
 
@@ -45,6 +47,8 @@ export default function PlanEditorPage({ editId }: { editId?: string }) {
     mau: "",
     staff: "",
     channels: "",
+    agents: "",
+    storageMb: "",
   });
   const [features, setFeatures] = useState<PlanFeature[]>([]);
   const [busy, setBusy] = useState(false);
@@ -59,6 +63,11 @@ export default function PlanEditorPage({ editId }: { editId?: string }) {
       mau: existing.mauLimit === null ? "" : String(existing.mauLimit),
       staff: existing.staffLimit === null ? "" : String(existing.staffLimit),
       channels: existing.channelLimit === null ? "" : String(existing.channelLimit),
+      agents: existing.agentLimit === null ? "" : String(existing.agentLimit),
+      storageMb:
+        existing.mediaBytesLimit === null
+          ? ""
+          : String(Math.round(existing.mediaBytesLimit / (1024 * 1024))),
     });
     setFeatures(
       // Drop legacy keys no longer in the catalog so resubmitting passes
@@ -90,6 +99,10 @@ export default function PlanEditorPage({ editId }: { editId?: string }) {
       mauLimit: intOrNull(form.mau),
       staffLimit: intOrNull(form.staff),
       channelLimit: intOrNull(form.channels),
+      agentLimit: intOrNull(form.agents),
+      // MB in the editor, bytes on the wire and in the Plan row.
+      mediaBytesLimit:
+        form.storageMb.trim() === "" ? null : Math.round(Number(form.storageMb) * 1024 * 1024),
       features,
     };
     try {
@@ -192,6 +205,8 @@ export default function PlanEditorPage({ editId }: { editId?: string }) {
                 ["mau", "MAU Contacts"],
                 ["staff", "Staff Seats"],
                 ["channels", "WA Channels"],
+                ["agents", "Agent Limit"],
+                ["storageMb", "Media Storage (MB)"],
               ] as const
             ).map(([key, label]) => (
               <div key={key}>

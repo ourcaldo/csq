@@ -17,6 +17,10 @@ const planInputSchema = z.object({
   mauLimit: z.number().int().positive().nullable(),
   staffLimit: z.number().int().positive().nullable(),
   channelLimit: z.number().int().positive().nullable(),
+  // PRD 14 amendment 2026-11-28 item 7: agent and media-storage caps.
+  // mediaBytesLimit is stored in BYTES; the editor converts MB -> bytes.
+  agentLimit: z.number().int().min(0).nullable(),
+  mediaBytesLimit: z.number().int().min(0).nullable(),
   features: z.array(z.enum(PLAN_FEATURE_KEYS)),
 });
 
@@ -49,6 +53,8 @@ export default async function handler(
           mauLimit: p.mauLimit,
           staffLimit: p.staffLimit,
           channelLimit: p.channelLimit,
+          agentLimit: p.agentLimit,
+          mediaBytesLimit: p.mediaBytesLimit,
           features: p.features,
           tenantCount: p._count.tenants,
           createdAt: p.createdAt.toISOString(),

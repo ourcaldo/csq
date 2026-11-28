@@ -96,7 +96,9 @@ export function QuotaMenu({ entitlements }: { entitlements: EntitlementsView | n
               Kuota bulan ini
             </p>
             <p className="text-[12px] font-medium text-slate-700">
-              {entitlements.planName ?? "Tanpa paket"}
+              {/* PRD 14 amendment 2026-11-28: a no-plan tenant is on the Free
+                tier, not an unlimited legacy state. */}
+              {entitlements.planName ?? "Free"}
             </p>
           </div>
 

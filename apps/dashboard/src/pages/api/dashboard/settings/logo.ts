@@ -4,6 +4,7 @@ import prisma from "@csq/core/lib/db";
 import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { logHuman } from "@csq/core/lib/audit";
+import { checkMediaQuota } from "@csq/core/lib/media-quota";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 
 // Business logo upload (PRD 28 follow-up, /dashboard/pengaturan/umum).
@@ -64,6 +65,16 @@ export default async function handler(
       }
       if (bytes.length === 0) {
         return respondError(res, "VALIDATION_ERROR", "Berkas kosong.");
+      }
+
+      // PRD 14 amendment 2026-11-28 item 7: total media bytes per plan.
+      const quota = await checkMediaQuota(tenantId, bytes.length);
+      if (!quota.allowed) {
+        return respondError(
+          res,
+          "PERMISSION_DENIED",
+          "Kuota penyimpanan media paket habis. Hapus media lama atau upgrade paket."
+        );
       }
 
       const asset = await prisma.mediaAsset.create({

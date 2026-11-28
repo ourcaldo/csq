@@ -5,6 +5,7 @@ import { requireTenant, respondError } from "@csq/core/lib/queries";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
 import { apiOk, type ApiResponse } from "@csq/core/types/api";
 import { canRunCampaigns } from "@csq/core/lib/campaign-access";
+import { checkMediaQuota } from "@csq/core/lib/media-quota";
 
 // Campaign image upload (plan 3.2.1). Raw-bytes body - the same streaming
 // pattern the WhatsApp webhook uses, so no multipart parser and no new
@@ -70,6 +71,16 @@ export default async function handler(
     }
     if (bytes.length === 0) {
       return respondError(res, "VALIDATION_ERROR", "Berkas kosong.");
+    }
+
+    // PRD 14 amendment 2026-11-28 item 7: total media bytes per plan.
+    const quota = await checkMediaQuota(tenantId, bytes.length);
+    if (!quota.allowed) {
+      return respondError(
+        res,
+        "PERMISSION_DENIED",
+        "Kuota penyimpanan media paket habis. Hapus media lama atau upgrade paket."
+      );
     }
 
     const asset = await prisma.mediaAsset.create({

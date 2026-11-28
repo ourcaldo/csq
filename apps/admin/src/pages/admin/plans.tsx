@@ -19,6 +19,8 @@ type Plan = {
   mauLimit: number | null;
   staffLimit: number | null;
   channelLimit: number | null;
+  agentLimit: number | null;
+  mediaBytesLimit: number | null;
   features: string[];
 };
 type UsageItem = {
@@ -97,7 +99,7 @@ export default function PlansPage() {
                 <th className="px-3 py-3 text-right">Monthly Price</th>
                 <th className="px-3 py-3 text-right">AI Credits</th>
                 <th className="px-3 py-3 text-right">MAU</th>
-                <th className="px-3 py-3 text-right">Staff / Channels</th>
+                <th className="px-3 py-3 text-right">Staff / Channels / Agents / Storage</th>
                 <th className="px-3 py-3">Included Modules</th>
                 <th className="py-3 pl-3 text-right">Action</th>
               </tr>
@@ -116,7 +118,9 @@ export default function PlansPage() {
                     {limitLabel(p.mauLimit)}
                   </td>
                   <td className="px-3 py-3.5 text-right font-mono text-slate-700 tabular-nums">
-                    {limitLabel(p.staffLimit)} / {limitLabel(p.channelLimit)}
+                    {limitLabel(p.staffLimit)} / {limitLabel(p.channelLimit)} /{" "}
+                    {limitLabel(p.agentLimit)} /{" "}
+                    {p.mediaBytesLimit === null ? "∞" : bytes(p.mediaBytesLimit)}
                   </td>
                   <td className="px-3 py-3.5 text-slate-500">{p.features.join(", ")}</td>
                   <td className="py-3.5 pl-3 text-right">
