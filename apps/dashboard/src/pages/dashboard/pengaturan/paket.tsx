@@ -25,10 +25,10 @@ type BillingData = {
     features: string[];
   };
   usage: {
-    aiCreditsUsed: number;
-    mauCount: number;
-    staffCount: number;
-    channelCount: number;
+    creditsUsed: number;
+    mau: number;
+    staff: number;
+    channels: number;
   };
   agentCount: number;
   mediaBytes: number;
@@ -166,16 +166,16 @@ export default function PengaturanPaketPage() {
       key: "credits",
       name: "Kredit AI",
       desc: "Inferensi model & automasi",
-      used: data?.usage.aiCreditsUsed ?? 0,
+      used: data?.usage.creditsUsed ?? 0,
       limit: data?.entitlements.aiCreditsPerMonth ?? null,
-      detail: <>Balasan AI: <strong className="text-slate-900">{data?.usage.aiCreditsUsed ?? 0}</strong></>,
+      detail: <>Balasan AI: <strong className="text-slate-900">{data?.usage.creditsUsed ?? 0}</strong></>,
       unit: "kredit",
     },
     {
       key: "mau",
       name: "Monthly Active Users",
       desc: "Pengirim unik bulan ini",
-      used: data?.usage.mauCount ?? 0,
+      used: data?.usage.mau ?? 0,
       limit: data?.entitlements.mauLimit ?? null,
       detail: <>Nomor kontak unik</>,
       unit: "kontak",
@@ -184,7 +184,7 @@ export default function PengaturanPaketPage() {
       key: "staff",
       name: "Kursi Anggota Tim",
       desc: "Operator dashboard aktif",
-      used: data?.usage.staffCount ?? 0,
+      used: data?.usage.staff ?? 0,
       limit: data?.entitlements.staffLimit ?? null,
       detail: null,
       unit: "slot",
@@ -193,7 +193,7 @@ export default function PengaturanPaketPage() {
       key: "channels",
       name: "Saluran Terhubung",
       desc: "WhatsApp Cloud API / Baileys",
-      used: data?.usage.channelCount ?? 0,
+      used: data?.usage.channels ?? 0,
       limit: data?.entitlements.channelLimit ?? null,
       detail: null,
       unit: "saluran",
