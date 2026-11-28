@@ -403,7 +403,9 @@ async function backfillContactAvatars(): Promise<number> {
 // more than 7 days past due, restore the stashed plan (Tenant.overduePlanId)
 // once no invoice is overdue. Fail-soft per tenant: one bad tenant never
 // blocks the rest, and the lock (billing-overdue-tick) serializes instances.
-async function runBillingOverdueTick(): Promise<{
+// Exported for the billing self-check: the tick must be runnable against a
+// test invoice without booting the whole worker.
+export async function runBillingOverdueTick(): Promise<{
   downgraded: number;
   restored: number;
 }> {
