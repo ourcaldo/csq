@@ -2,11 +2,14 @@ import { Prisma } from "@prisma/client";
 import prisma from "@csq/core/lib/db";
 import { withSystemContext } from "@csq/core/lib/tenant-context";
 import {
+  FREE_ENTITLEMENTS,
   getTenantEntitlements,
   getTenantUsage,
   monthStartUtc,
 } from "@csq/core/lib/entitlements";
 import { chargeCredits, getCreditStatus } from "@csq/core/lib/credits";
+import { checkMediaQuota, getMediaBytesUsed } from "@csq/core/lib/media-quota";
+import { isInvoiceOverdue } from "@csq/core/lib/billing-overdue";
 import { createTenantWithOwner } from "@csq/core/lib/provision-tenant";
 
 // Billing + quota self-check (PRD 16 BIL-4; also proves COR-5, COR-7 and
@@ -41,16 +44,18 @@ async function main(): Promise<void> {
   }
 
   await withSystemContext(async () => {
-    // COR-7: the Basic catalog row is reproducible.
+    // COR-7: the Basic catalog row is reproducible. Staff/channel limits are
+    // operator-editable on /admin/plans (the clone's Basic is a live example),
+    // so only the seed identity (name, price, credits) is asserted here.
     const basic = await prisma.plan.findUnique({ where: { name: "Basic" } });
     check(
       "Basic plan seeded",
       !!basic &&
         basic.priceIdr === 500000 &&
-        basic.aiCreditsPerMonth === 15000 &&
-        basic.staffLimit === 1 &&
-        basic.channelLimit === 1,
-      basic ? `price ${basic.priceIdr}, credits ${basic.aiCreditsPerMonth}` : "missing"
+        basic.aiCreditsPerMonth === 15000,
+      basic
+        ? `price ${basic.priceIdr}, credits ${basic.aiCreditsPerMonth}`
+        : "missing"
     );
 
     // ADM-8: shared provisioning produces the documented defaults.
@@ -67,19 +72,28 @@ async function main(): Promise<void> {
     check(
       "createTenantWithOwner defaults",
       tenant.status === "ACTIVE" &&
-        owner.role === "OWNER" &&
+        owner.isOwner &&
         owner.tenantId === tenantId &&
         typeof tenant.settings === "object" &&
         tenant.settings !== null &&
         "sourcePriority" in tenant.settings,
-      `status ${tenant.status}, role ${owner.role}`
+      `status ${tenant.status}, owner ${owner.isOwner}`
     );
 
-    // Entitlements: a tenant with no plan is legacy (unlimited, all features).
-    const legacy = await getTenantEntitlements(tenantId);
+    // PRD 14 amendment 2026-11-28: a tenant with no plan gets exactly the Free
+    // entitlements, never the old unlimited legacy state.
+    const free = await getTenantEntitlements(tenantId);
     check(
-      "legacy tenant is unlimited",
-      legacy.planName === null && legacy.aiCreditsPerMonth === null
+      "no-plan tenant gets the Free tier",
+      free.planName === FREE_ENTITLEMENTS.planName &&
+        free.aiCreditsPerMonth === 250 &&
+        free.mauLimit === 100 &&
+        free.staffLimit === 0 &&
+        free.channelLimit === 1 &&
+        free.agentLimit === 1 &&
+        free.mediaBytesLimit === 524288000 &&
+        free.features.length === 0,
+      `plan ${free.planName}, credits ${free.aiCreditsPerMonth}, agents ${free.agentLimit}`
     );
 
     // Assign a tiny scratch plan to make limits observable.
@@ -90,6 +104,7 @@ async function main(): Promise<void> {
         aiCreditsPerMonth: 2,
         staffLimit: 1,
         channelLimit: 1,
+        mediaBytesLimit: 1000,
         features: [],
       },
     });
@@ -97,7 +112,41 @@ async function main(): Promise<void> {
     const entitled = await getTenantEntitlements(tenantId);
     check(
       "plan entitlements apply",
-      entitled.planName === stamp && entitled.aiCreditsPerMonth === 2
+      entitled.planName === stamp &&
+        entitled.aiCreditsPerMonth === 2 &&
+        entitled.agentLimit === null
+    );
+
+    // PRD 14 amendment 2026-11-28: media quota math (used + extra vs limit).
+    await prisma.mediaAsset.create({
+      data: {
+        tenantId,
+        mimeType: "text/plain",
+        byteSize: 10,
+        data: Buffer.from("0123456789"),
+      },
+    });
+    const usedBytes = await getMediaBytesUsed(tenantId);
+    const fits = await checkMediaQuota(tenantId, 990);
+    const over = await checkMediaQuota(tenantId, 991);
+    check(
+      "media quota math",
+      usedBytes === 10 &&
+        fits.used === 10 &&
+        fits.limit === 1000 &&
+        fits.allowed &&
+        !over.allowed,
+      `used ${usedBytes}, fits ${fits.allowed}, over ${over.allowed}`
+    );
+
+    // PRD 14 amendment 2026-11-28: the overdue downgrade threshold is exactly
+    // 7 days past due (boundary is not overdue).
+    const now = new Date();
+    check(
+      "overdue threshold is 7 days past due",
+      isInvoiceOverdue(new Date(now.getTime() - 8 * 24 * 60 * 60 * 1000), now) &&
+        !isInvoiceOverdue(new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000), now) &&
+        !isInvoiceOverdue(new Date(now.getTime() - 6 * 24 * 60 * 60 * 1000), now)
     );
 
     // Ledger idempotency: the same ref charges once.

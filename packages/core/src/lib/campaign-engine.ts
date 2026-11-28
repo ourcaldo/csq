@@ -97,7 +97,8 @@ async function fireCampaign(campaign: Campaign): Promise<void> {
 
   // Plan gate (PRD 13): downgraded tenants must not keep firing. Pausing is
   // deliberate - the campaign stays visible and can be reactivated after an
-  // upgrade. In-flight CampaignMessage rows still drain (bounded work).
+  // upgrade. Queued rows from earlier fires are SKIPPED at deliver time so
+  // the run closes (PRD 14 amendment 2026-11-28).
   const entitlements = await getTenantEntitlements(campaign.tenantId);
   if (!entitlements.features.includes("campaigns")) {
     await prisma.campaign.update({
@@ -274,10 +275,14 @@ async function deliverOne(
   });
   if (claimed.count !== 1) return;
 
-  // SEC-4 (PRD 16): suspended tenants send nothing. The row stays SENDING
-  // for this tick and is reset to PENDING by the next tick's stale sweep -
-  // delivery resumes on activation, nothing is dropped.
-  if (!(await tenantActive(row.tenantId))) return;
+  // SEC-4 (PRD 16) + PRD 14 amendment 2026-11-28: a suspended tenant sends
+  // nothing AND the row reaches a terminal state (SKIPPED), so the run closes
+  // instead of ping-ponging PENDING forever. Re-activation resumes the
+  // campaign, not these rows.
+  if (!(await tenantActive(row.tenantId))) {
+    await mark(row.id, "SKIPPED", "tenant_suspended");
+    return;
+  }
 
   const run = await prisma.campaignRun.findUniqueOrThrow({
     where: { id: row.runId },
@@ -285,9 +290,14 @@ async function deliverOne(
   });
   const campaign = run.campaign;
 
-  // Pause semantics: PAUSED stops future fires AND holds in-flight PENDING
-  // rows (they resume on activate) - nothing is deleted.
-  if (campaign.status === "PAUSED") return;
+  // PRD 14 amendment 2026-11-28 (supersedes the old hold-forever rule): a
+  // PAUSED campaign (plan feature lost or suspension) ends its queued rows as
+  // SKIPPED with a reason, so closeFinishedRuns closes the run. The pause
+  // itself is audited once at fire time (campaign.paused_*), not per row.
+  if (campaign.status === "PAUSED") {
+    await mark(row.id, "SKIPPED", "campaign_paused");
+    return;
+  }
 
   // Resolve the channel fresh - a disconnected or deleted channel fails this
   // recipient with a reason, never the whole tick.

@@ -86,7 +86,14 @@ export async function drainOutbox(): Promise<void> {
   await withSystemLock("outbox-drain", 60, async () => {
     const rows: OutboundMessage[] = await withSystemContext(async () =>
       prisma.outboundMessage.findMany({
-        where: { status: "QUEUED" },
+        where: {
+          status: "QUEUED",
+          // SEC-4 (PRD 16) amendment 2026-11-28: a suspended tenant's rows are
+          // held, not failed - they deliver after reactivation. Filtering at
+          // the query keeps them QUEUED and keeps the drain from spinning on
+          // rows it would skip.
+          tenant: { status: { not: "SUSPENDED" } },
+        },
         orderBy: { createdAt: "asc" },
         take: 20,
       })

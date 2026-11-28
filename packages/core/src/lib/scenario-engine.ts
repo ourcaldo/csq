@@ -14,7 +14,7 @@ import { generateText, isTextLlmConfigured } from "@csq/core/services/llm";
 import { sendEmailWithProvider } from "@csq/core/services/email";
 import { resolveEmailProvider } from "@csq/core/lib/email-config";
 import { getTenantEntitlements } from "@csq/core/lib/entitlements";
-import { chargeCredits } from "@csq/core/lib/credits";
+import { chargeCredits, getCreditStatus } from "@csq/core/lib/credits";
 import { events } from "@csq/core/lib/events";
 import type {
   ConversationNewEvent,
@@ -295,6 +295,23 @@ async function advanceRunInner(run: ScenarioRunWithScenario): Promise<void> {
   const entitlements = await getTenantEntitlements(run.tenantId);
   if (!entitlements.features.includes("scenarios")) {
     await failRun(run.id, run.tenantId, "Skenario tidak aktif di paket tenant.");
+    return;
+  }
+
+  // PRD 14 amendment 2026-11-28: credits exhausted stop scenario runs too -
+  // the same hard stop agent replies use, checked BEFORE any node executes or
+  // is charged. Scheduled scenarios fire fresh runs on their next trigger
+  // after credits reset. A failed check fails open (agent-loop pattern): a
+  // billing read must not strand the run, and only WAITING runs are resumed
+  // by the tick.
+  let credits: Awaited<ReturnType<typeof getCreditStatus>> | null = null;
+  try {
+    credits = await getCreditStatus(run.tenantId);
+  } catch (err) {
+    console.error(`[scenario] credit check failed for tenant ${run.tenantId}:`, err);
+  }
+  if (credits?.exhausted) {
+    await failRun(run.id, run.tenantId, "Kredit AI bulan ini habis di paket tenant.");
     return;
   }
 

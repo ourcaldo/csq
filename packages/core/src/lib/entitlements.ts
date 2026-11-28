@@ -1,17 +1,25 @@
 import prisma from "@csq/core/lib/db";
 import { tenantRaw } from "@csq/core/lib/tenant-context";
 import {
-  PLAN_FEATURE_KEYS,
   isPlanFeature,
-  type PlanFeature,
   type TenantEntitlements,
   type TenantUsage,
 } from "@csq/core/types/entitlements";
 
-// A tenant with no plan is a legacy tenant: unlimited and every feature, so
-// existing tenants keep working until a plan is assigned. Once a plan is
-// assigned, NULL limits mean unlimited and features are opt-in.
-const ALL_FEATURES: PlanFeature[] = [...PLAN_FEATURE_KEYS];
+// PRD 14 amendment 2026-11-28: there is no unlimited legacy tier. A tenant
+// with NO plan gets exactly the Free entitlements (1 channel, 0 staff, 250
+// credits, 100 MAU, 1 agent, 500 MB media, no premium features, Rp 0). Once a
+// plan is assigned, NULL limits mean unlimited and features are opt-in.
+export const FREE_ENTITLEMENTS: TenantEntitlements = {
+  planName: "Free",
+  aiCreditsPerMonth: 250,
+  mauLimit: 100,
+  staffLimit: 0,
+  channelLimit: 1,
+  agentLimit: 1,
+  mediaBytesLimit: 524288000,
+  features: [],
+};
 
 export async function getTenantEntitlements(
   tenantId: string
@@ -26,6 +34,8 @@ export async function getTenantEntitlements(
           mauLimit: true,
           staffLimit: true,
           channelLimit: true,
+          agentLimit: true,
+          mediaBytesLimit: true,
           features: true,
         },
       },
@@ -33,14 +43,7 @@ export async function getTenantEntitlements(
   });
 
   if (!tenant?.plan) {
-    return {
-      planName: null,
-      aiCreditsPerMonth: null,
-      mauLimit: null,
-      staffLimit: null,
-      channelLimit: null,
-      features: ALL_FEATURES,
-    };
+    return FREE_ENTITLEMENTS;
   }
 
   return {
@@ -49,6 +52,8 @@ export async function getTenantEntitlements(
     mauLimit: tenant.plan.mauLimit,
     staffLimit: tenant.plan.staffLimit,
     channelLimit: tenant.plan.channelLimit,
+    agentLimit: tenant.plan.agentLimit,
+    mediaBytesLimit: tenant.plan.mediaBytesLimit,
     features: tenant.plan.features.filter(isPlanFeature),
   };
 }

@@ -22,6 +22,8 @@ export type TenantEntitlements = {
   mauLimit: number | null;
   staffLimit: number | null;
   channelLimit: number | null;
+  agentLimit: number | null;
+  mediaBytesLimit: number | null;
   features: PlanFeature[];
 };
 

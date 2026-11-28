@@ -16,6 +16,7 @@ import {
 import { sendAgentMessage } from "@csq/core/lib/agent-outbox";
 import { acquireTurnLease, releaseTurnLease, renewTurnLease } from "@csq/core/lib/turn-lock";
 import { withTenantContext } from "@csq/core/lib/tenant-context";
+import { tenantActive } from "@csq/core/lib/tenant-status";
 import { chargeCredits, getCreditStatus } from "@csq/core/lib/credits";
 import { getTemplateBody } from "@csq/core/lib/message-templates";
 import { logAction } from "@csq/core/lib/audit";
@@ -155,6 +156,12 @@ export async function runAgentReply(args: {
   // Putuskan while the inbound was in-flight). Standing down here prevents a
   // reply from going out after disconnect.
   if (!channel || channel.status !== "CONNECTED") {
+    return { reply: "", toolCalls: [], stoodDown: true };
+  }
+  // SEC-4 (PRD 16) amendment 2026-11-28: the suspended check further down came
+  // too late - the stand-down fallback paths below must not fire for a
+  // suspended tenant either, so the guard runs before them.
+  if (!(await tenantActive(tenantId))) {
     return { reply: "", toolCalls: [], stoodDown: true };
   }
   const resolvedAgentId = conversation.assignedAgentId ?? channel?.agentId;

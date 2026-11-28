@@ -6,6 +6,7 @@ import { getProvider } from "@csq/core/lib/whatsapp-provider";
 import { hasBaileysSocket } from "@csq/core/services/baileys";
 import { enqueueOutbound, awaitOutbound } from "@csq/core/lib/outbox";
 import { logAction } from "@csq/core/lib/audit";
+import { tenantActive } from "@csq/core/lib/tenant-status";
 import { CLOUD_API_WINDOW_MS } from "@csq/core/lib/inbox";
 import {
   withSystemContext,
@@ -69,6 +70,14 @@ async function sendAgentMessageInner(
 ): Promise<SendAgentMessageResult> {
   const { channel, conversationId, customerPhone, agentId, action } = input;
   const tenantId = channel.tenantId;
+
+  // SEC-4 (PRD 16) amendment 2026-11-28: the shared sink every agent-originated
+  // send flows through, so a suspended tenant sends nothing (reply, fallback,
+  // courtesy, approval follow-up, session close). Not an error: "not sent".
+  if (!(await tenantActive(tenantId))) {
+    return { sent: false, skippedWindow: false };
+  }
+
   const provider = getProvider(channel);
 
   // WhatsApp renders bold as *text* (single asterisks) - the LLM replies in
@@ -246,6 +255,9 @@ async function replyToNonTextInner(args: {
   conversationId: string;
 }): Promise<void> {
   const { channel, conversationId } = args;
+  // SEC-4 (PRD 16) amendment 2026-11-28: a suspended tenant gets no courtesy
+  // reply (and no debounce write) - return before any enqueue/send.
+  if (!(await tenantActive(channel.tenantId))) return;
   const conversation = await prisma.conversation.findFirst({
     where: { id: conversationId, tenantId: channel.tenantId },
   });
@@ -306,6 +318,9 @@ async function sendApprovalFollowUpInner(args: {
     where: { id: args.approvalId },
   });
   if (!approval) return;
+  // SEC-4 (PRD 16) amendment 2026-11-28: no approval follow-up for a suspended
+  // tenant. Checked before the channel lookup so nothing is even resolved.
+  if (!(await tenantActive(approval.tenantId))) return;
   if (!approval.conversationId || !approval.customerPhone) {
     console.warn(
       `[approval-followup] approval ${approval.id} has no conversation routing - skipping customer reply`

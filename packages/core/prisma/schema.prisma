@@ -43,6 +43,10 @@ model Plan {
   mauLimit          Int?
   staffLimit        Int?
   channelLimit      Int?
+  // PRD 14 amendment 2026-11-28: max agents and total media bytes; NULL =
+  // unlimited. Free tier: 1 agent, 500 MB (524288000 bytes) media.
+  agentLimit        Int?
+  mediaBytesLimit   Int?
   features          String[] @default([])
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -412,6 +416,10 @@ model Tenant {
   slug            String       @unique
   status          TenantStatus @default(ACTIVE)
   planId          String?
+  // PRD 14 amendment 2026-11-28: the plan stashed when the overdue downgrade
+  // tick cleared planId; NULL = not downgraded. Restored when no ISSUED
+  // invoice is more than 7 days past due.
+  overduePlanId   String?
   settings        Json?
   // PRD 15 amendment (owner 2026-11-24, tenant-own-WABA): the Meta webhook
   // verify token belongs to the TENANT (one Meta app per tenant), minted at

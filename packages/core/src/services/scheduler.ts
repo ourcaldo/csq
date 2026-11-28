@@ -26,6 +26,8 @@ import { withSystemLock } from "@csq/core/lib/system-lock";
 import { processCampaigns } from "@csq/core/lib/campaign-engine";
 import { closeDueSnapshots } from "@csq/core/lib/kpi";
 import { parseAutoCloseConfig } from "@csq/core/lib/auto-close";
+import { logAction, toJsonValue } from "@csq/core/lib/audit";
+import { overdueCutoff } from "@csq/core/lib/billing-overdue";
 
 // In-process periodic sync for Google Sheets sources (PRD §23A - no Redis/queue,
 // node-cron runs inside the Next.js server). Server-only: callers must invoke
@@ -140,6 +142,26 @@ export function startScheduler(): void {
         console.error("[scheduler] avatar backfill threw:", err);
       });
   });
+  // PRD 14 amendment 2026-11-28: overdue downgrade tick. Daily at 01:00 UTC
+  // plus a boot catch-up, under the billing-overdue-tick lock. A tenant whose
+  // invoice is ISSUED and unpaid more than 7 days past due is downgraded to
+  // the Free entitlements (planId stashed in overduePlanId, restored when no
+  // invoice is overdue). Fail-soft per tenant.
+  const billingTick = (): void => {
+    void withSystemLock("billing-overdue-tick", 600, runBillingOverdueTick)
+      .then((r) => {
+        if (r && (r.downgraded > 0 || r.restored > 0)) {
+          console.log(
+            `[scheduler] billing overdue: ${r.downgraded} downgraded, ${r.restored} restored`
+          );
+        }
+      })
+      .catch((err: unknown) => {
+        console.error("[scheduler] billing overdue tick threw:", err);
+      });
+  };
+  cron.schedule("0 1 * * *", billingTick);
+  billingTick();
 }
 
 const AVATAR_BACKFILL_BATCH = 50;
@@ -375,6 +397,117 @@ async function backfillContactAvatars(): Promise<number> {
     if (result) stored += 1;
   }
   return stored;
+}
+
+// PRD 14 amendment 2026-11-28: downgrade tenants whose ISSUED invoices are
+// more than 7 days past due, restore the stashed plan (Tenant.overduePlanId)
+// once no invoice is overdue. Fail-soft per tenant: one bad tenant never
+// blocks the rest, and the lock (billing-overdue-tick) serializes instances.
+async function runBillingOverdueTick(): Promise<{
+  downgraded: number;
+  restored: number;
+}> {
+  const cutoff = overdueCutoff();
+
+  const overdue = await withSystemContext(async () =>
+    prisma.tenant.findMany({
+      where: {
+        planId: { not: null },
+        overduePlanId: null,
+        invoices: { some: { status: "ISSUED", dueAt: { lt: cutoff } } },
+      },
+      select: { id: true, planId: true },
+    })
+  );
+  let downgraded = 0;
+  for (const tenant of overdue) {
+    const planId = tenant.planId;
+    if (!planId) continue;
+    try {
+      const changed = await withTenantContext(tenant.id, async () => {
+        const invoices = await prisma.invoice.findMany({
+          where: { tenantId: tenant.id, status: "ISSUED", dueAt: { lt: cutoff } },
+          select: { id: true },
+        });
+        const res = await prisma.tenant.updateMany({
+          where: { id: tenant.id, planId, overduePlanId: null },
+          data: { overduePlanId: planId, planId: null },
+        });
+        if (res.count !== 1) return false;
+        await logAction({
+          tenantId: tenant.id,
+          agentId: null,
+          action: "billing.overdue_downgrade",
+          entityType: "Tenant",
+          entityId: tenant.id,
+          approvalStatus: "NONE",
+          afterValue: toJsonValue({
+            fromPlanId: planId,
+            invoiceIds: invoices.map((i) => i.id),
+          }),
+        });
+        return true;
+      });
+      if (changed) downgraded += 1;
+    } catch (err: unknown) {
+      console.error(
+        `[scheduler] overdue downgrade failed for tenant ${tenant.id}:`,
+        err
+      );
+    }
+  }
+
+  const restorable = await withSystemContext(async () =>
+    prisma.tenant.findMany({
+      where: {
+        overduePlanId: { not: null },
+        invoices: { none: { status: "ISSUED", dueAt: { lt: cutoff } } },
+      },
+      select: { id: true, overduePlanId: true },
+    })
+  );
+  let restored = 0;
+  for (const tenant of restorable) {
+    const planId = tenant.overduePlanId;
+    if (!planId) continue;
+    try {
+      const changed = await withTenantContext(tenant.id, async () => {
+        const res = await prisma.tenant.updateMany({
+          where: { id: tenant.id, overduePlanId: planId, planId: null },
+          data: { planId, overduePlanId: null },
+        });
+        if (res.count !== 1) {
+          // A plan was assigned manually during the downgrade: keep it, just
+          // clear the stash so the tick stops considering this tenant.
+          await prisma.tenant
+            .updateMany({
+              where: { id: tenant.id, overduePlanId: planId },
+              data: { overduePlanId: null },
+            })
+            .catch(() => undefined);
+          return false;
+        }
+        await logAction({
+          tenantId: tenant.id,
+          agentId: null,
+          action: "billing.overdue_restored",
+          entityType: "Tenant",
+          entityId: tenant.id,
+          approvalStatus: "NONE",
+          afterValue: toJsonValue({ toPlanId: planId }),
+        });
+        return true;
+      });
+      if (changed) restored += 1;
+    } catch (err: unknown) {
+      console.error(
+        `[scheduler] overdue restore failed for tenant ${tenant.id}:`,
+        err
+      );
+    }
+  }
+
+  return { downgraded, restored };
 }
 
 // The once-a-minute scenario work, extracted so the system lock can wrap the
