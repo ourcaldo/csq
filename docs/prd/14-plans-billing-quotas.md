@@ -289,6 +289,55 @@ Feature routes to guard in Phase 2:
   so usage does not reset at deploy. Unique constraints make it
   idempotent.
 
+## Amendment 2026-11-28 (owner decisions, supersedes parts of this file)
+
+The 2026-11-28 billing deep dive (docs/report/2026-11-28-billing-enforcement-deep-dive.md)
+surfaced eight open decisions; the owner resolved them as follows. Where
+these conflict with text above, THIS section wins.
+
+1. **No unlimited legacy (supersedes "no plan is legacy" above).** There
+   is no unlimited tier. Catalog direction: Free, Starter, Pro,
+   Enterprise (custom) - Starter/Pro/Enterprise defined by the operator
+   later. **Free tier**: max 1 channel, 0 staff, 250 AI credits/month,
+   100 MAU, 1 agent, 500 MB media, no premium features, Rp 0. A tenant
+   with NO plan gets exactly the Free entitlements (fallback in
+   `getTenantEntitlements`), not unlimited.
+2. **Credits exhausted = the AI service stops, the channel stays.** The
+   hard stop now covers scenario runs as well as agent replies: a run
+   that hits 0 credits fails with "Kredit AI bulan ini habis di paket
+   tenant" (existing failRun machinery, audited). Sockets stay connected,
+   inbound still ingests, staff can still reply manually. No AI overusage
+   past the limit anywhere.
+3. **Billing visibility**: invoice amounts and bank details are
+   OWNER-only. `GET /api/dashboard/billing` and the Paket page gate on
+   `billing.lihat`. (Supersedes the "all settings readable by every
+   member" rule of PRD 29 for THIS section only.)
+4. **Suspension outbound guards**: non-text courtesy replies, outbox
+   drain, stand-down fallback, and approval follow-ups all suppress for
+   SUSPENDED tenants (PRD 16 SEC-4 as originally intended). Pre-queued
+   outbox rows are held, not lost - they deliver after reactivation.
+5. **Campaign downgrade rows**: when a campaign is PAUSED (plan feature
+   or suspension), queued recipient rows are marked failed/skipped so the
+   run closes. This supersedes the "queued messages still drain" sentence
+   above - rows do NOT drain past a downgrade; they are skipped, audited,
+   and the run ends in a documented state.
+6. **No overusage**: the credit limit is a hard stop on every AI path
+   (agent replies + scenario runs). Guard calls and in-turn embeddings
+   ride inside turns that already passed the credit check; knowledge-edit
+   embeddings remain free but bounded by the knowledge volume.
+7. **New plan fields**: `agentLimit` (max agents, NULL = unlimited) and
+   `mediaBytesLimit` (total media bytes, NULL = unlimited), enforced at
+   agent creation and every media upload route. Free tier: 1 agent,
+   500 MB.
+8. **Overdue = downgrade after 7 days**: a tenant whose invoice is
+   ISSUED and unpaid more than 7 days past its due date is downgraded to
+   the Free entitlements automatically (plan stashed, restored when all
+   invoices are paid or voided). A daily worker tick does this; both
+   transitions are audited in the tenant AuditLog. No auto-suspend on
+   top of this; suspension stays a manual operator action.
+
+
+
 ## Resolved decisions (2026-11-08)
 
 1. **Credit exhaustion**: hard stop at 100%. No grace, no overage billing
@@ -311,7 +360,9 @@ accounts, self-serve plan changes, tax handling.
 
 - A Basic tenant sees plan, price, four usage meters, features, invoices,
   and the catalog; STAFF cannot open the page or call the endpoint.
-- A tenant with no plan sees the legacy state, not zeros or an error.
+- A tenant with no plan gets the Free entitlements (1 channel, 0 staff,
+  250 credits, 1 agent, 500 MB), not the old unlimited legacy state
+  (amended 2026-11-28).
 - Credits: at the limit, the agent stops before the LLM call, inbound
   still lands, one audit row per conversation per month, banner shows.
 - Ledger: each AI reply and each scenario module has exactly one row;
