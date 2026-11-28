@@ -170,7 +170,32 @@ shell banner for owners (cheap, matches PRD intent), or block specific
 actions on overdue (reconnect channel? create campaigns?) - the latter
 needs a policy decision.
 
-## 8. Verification plan (when fixes are approved)
+## 9. Implementation status (2026-11-28, same day)
+
+All eight decisions were implemented and verified on the clone against
+commit `712481b` (deployed manually - auto-deploy is off):
+
+| Decision | Status | Verification |
+|---|---|---|
+| Free tier replaces legacy | live | ATTCOS (no plan) resolves to Free via `getTenantEntitlements`; a temp Free tenant showed 250 credits, 100 MAU, 0 staff, 1 channel, 1 agent, 500 MB, no premium features on the Paket page |
+| Channel cap | live | second connect rejected 403 "Paket Free hanya mendukung 1 saluran aktif" |
+| Staff cap | live | invite rejected 403 "Paket Free hanya mendukung 0 staf" |
+| Agent cap | live | second agent rejected 403 "Paket Free hanya mendukung 1 agen" |
+| Billing owner-only | live | staff GET billing 403, Paket nav hidden, deep link redirected; owner GET 200 |
+| Scenario credit stop | code + self-check | `advanceRunInner` fails the run before any node when exhausted; run-level live test needs a real scenario trigger |
+| Suspension outbound guards | code | guards added to non-text courtesy, approval follow-ups, shared sink, outbox drain, stand-down fallback |
+| Campaign rows on downgrade | code | queued rows marked SKIPPED so runs close |
+| Overdue downgrade | live | real tick downgraded the fixture (plan stashed, audit row), paid invoice restored the plan, audit row |
+| Media quota | code + self-check | `checkMediaQuota` gated at all four upload routes; math asserted |
+| Meter display fix | live | Paket meters were reading `staffCount/channelCount/...` instead of the API's `staff/channels/...` - staff/channel usage always showed 0; fixed and redeployed |
+
+Not runtime-verified: an actual scenario run hitting 0 credits, a
+suspended tenant receiving a non-text message, and a campaign downgrade
+mid-run - each needs a live trigger; the code paths are guarded and the
+pure helpers are asserted. Temp verification tenant, users, channel,
+invoice, role, and scripts were deleted; clone left clean.
+
+## 8. Original verification plan (retained for the not-yet-runtime-tested paths)
 
 - 7.1: on the clone, as no-plan ATTCOS: connect a channel (expect block),
   invite staff (expect block), open campaigns (expect redirect), confirm

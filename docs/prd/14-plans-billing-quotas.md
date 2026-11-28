@@ -7,6 +7,13 @@ Remaining verification is tracked in
 `docs/plans/2026-11-08-plans-billing-quotas-plan.md`. Decisions are resolved
 at the end of this file.
 
+Amendment 2026-11-28 (owner decisions): no unlimited legacy (Free tier
+replaces it), credit hard stop covers scenarios, billing data is
+owner-only, suspension outbound guards, campaign downgrade rows are
+skipped, `agentLimit` + `mediaBytesLimit` plan fields, and overdue
+invoices downgrade the tenant to Free after 7 days past due. Implemented
+and verified on the clone; see the amendment section below.
+
 ## Commercial model
 
 - One plan per tenant, billed monthly in IDR. A tenant is the billing unit:
